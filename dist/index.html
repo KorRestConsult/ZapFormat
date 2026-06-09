@@ -1,0 +1,160 @@
+<!doctype html>
+<html lang="ru">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>ЗапФормат</title>
+    <meta name="description" content="Подбор и заказ автозапчастей в ЗапФормат" />
+    <style>
+      :root{--g:#10151d;--gs:#202936;--a:#d7a84d;--ad:#9a6a1c;--l:#dfe4ea;--m:#657080;--w:#fff;--bg:#f3f5f7;--ok:#067647}*{box-sizing:border-box}body{margin:0;background:var(--bg);color:#18202a;font-family:Inter,system-ui,-apple-system,"Segoe UI",sans-serif}a{text-decoration:none;color:inherit}input,textarea,select,button{font:inherit}input,textarea,select{width:100%;border:1px solid var(--l);border-radius:8px;padding:14px 16px;background:#fff}textarea{min-height:100px;resize:vertical}.top{position:sticky;top:0;z-index:10;display:flex;align-items:center;gap:18px;padding:16px clamp(18px,4vw,56px);background:rgba(16,21,29,.96);color:#fff}.brand{font-size:22px;font-weight:900;margin-right:auto}.nav{display:flex;gap:14px;flex-wrap:wrap}.nav a{color:#dce3ec;font-size:14px}.btn{min-height:44px;border:0;border-radius:8px;padding:11px 16px;display:inline-flex;align-items:center;justify-content:center;gap:8px;cursor:pointer;font-weight:800}.primary{background:var(--a);color:#1d1608}.secondary{background:#eef2f6;color:#111827}.ghost{background:transparent;color:#fff}.hero{min-height:calc(100vh - 72px);display:grid;grid-template-columns:minmax(0,1fr)360px;gap:clamp(24px,5vw,64px);align-items:center;padding:clamp(48px,8vw,104px) clamp(18px,5vw,72px);background:linear-gradient(115deg,rgba(16,21,29,.94),rgba(16,21,29,.70)),radial-gradient(circle at 80% 20%,#485569,transparent 28%),linear-gradient(145deg,#2b3441,#10151d);color:#fff}.hero h1{font-size:clamp(42px,8vw,92px);line-height:.94;margin:0 0 22px}.hero p{max-width:680px;color:#dce3ec;font-size:18px}.ey{color:var(--a);font-weight:900;text-transform:uppercase;font-size:12px}.hero-actions,.row,.meta,.footer{display:flex;gap:12px;align-items:center;flex-wrap:wrap}.panel,.card,.part,.order,.empty{border:1px solid var(--l);border-radius:8px;background:#fff;color:#18202a;box-shadow:0 20px 50px rgba(16,21,29,.08)}.panel{padding:26px}.panel strong{display:block;font-size:28px;margin:8px 0}.section,.page{padding:48px clamp(18px,5vw,72px)}.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(235px,1fr));gap:18px}.card,.part,.order{padding:22px}.card svg{color:var(--ad)}.work{background:var(--g);color:#fff}.steps{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px;margin:24px 0}.step{border:1px solid rgba(255,255,255,.16);border-radius:8px;padding:18px}.step span{display:block;color:var(--a);font-weight:900;margin-bottom:8px}.head{max-width:760px;margin-bottom:28px}.head h2{font-size:clamp(34px,5vw,58px);line-height:1.02;margin:0}.form{display:grid;gap:14px}.search{display:grid;grid-template-columns:repeat(4,minmax(130px,1fr)) auto;gap:12px;margin-bottom:28px}.results{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:18px}.part{display:grid;gap:14px}.muted,.note,.small{color:var(--m)}.note{font-size:13px}.price{display:flex;justify-content:space-between;gap:12px;align-items:end}.price strong{font-size:24px}.layout{display:grid;grid-template-columns:minmax(0,1fr)380px;gap:24px;align-items:start}.list{display:grid;gap:12px}.cart-item,.order{display:grid;grid-template-columns:minmax(0,1fr)90px auto auto;align-items:center;gap:14px;padding:18px}.total{display:flex;justify-content:space-between;background:#f6f8fa;border-radius:8px;padding:16px}.status{justify-self:start;background:#eef2f6;border-radius:999px;padding:7px 12px;color:#344054;font-size:13px}.admin{display:grid;grid-template-columns:360px minmax(0,1fr);gap:24px}.footer{justify-content:space-between;padding:28px clamp(18px,5vw,72px);border-top:1px solid var(--l);background:#fff}.ok{color:var(--ok);font-weight:800}.hide{display:none}@media(max-width:980px){.hero,.layout,.admin,.cart-item,.order{grid-template-columns:1fr}.search{grid-template-columns:1fr 1fr}}@media(max-width:720px){.top{flex-wrap:wrap}.nav{width:100%}.hero{min-height:auto}.hero-actions,.footer{align-items:stretch;flex-direction:column}.search{grid-template-columns:1fr}}
+    </style>
+  </head>
+  <body>
+    <header class="top">
+      <a class="brand" href="#home">ЗапФормат</a>
+      <nav class="nav">
+        <a href="#search">Поиск</a>
+        <a href="#vin">VIN-подбор</a>
+        <a href="#cart">Корзина <span id="cartCount">0</span></a>
+        <a href="#account">Кабинет</a>
+        <a href="#admin">Админ</a>
+      </nav>
+    </header>
+
+    <main>
+      <section class="hero" id="home">
+        <div>
+          <p class="ey">Подберем, проверим, привезем</p>
+          <h1>ЗапФормат</h1>
+          <p>Запчасти под заказ в Рязани. Ищите по артикулу или отправьте VIN-заявку: менеджер сверит цену, наличие и срок перед подтверждением заказа.</p>
+          <div class="hero-actions">
+            <a class="btn primary" href="#search">Найти деталь</a>
+            <a class="btn secondary" href="#vin">Подбор по VIN</a>
+          </div>
+        </div>
+        <div class="panel">
+          <span>Цена поставщика</span>
+          <strong>через Supplier Layer</strong>
+          <p>Публичные и авторизованные цены разделены. Логин и пароль поставщика не хранятся во frontend.</p>
+        </div>
+      </section>
+
+      <section class="section grid">
+        <article class="card"><h3>Поиск по артикулу</h3><p>Быстро находим варианты и считаем клиентскую цену от закупки поставщика.</p></article>
+        <article class="card"><h3>Проверка менеджером</h3><p>Цена и срок подтверждаются перед заказом, без ложных обещаний наличия.</p></article>
+        <article class="card"><h3>Личный кабинет</h3><p>История заказов, автомобили, избранное и повтор заказа.</p></article>
+        <article class="card"><h3>Админ-панель</h3><p>Статусы, цены, оплата, наценка и настройки бизнеса.</p></article>
+      </section>
+
+      <section class="section work">
+        <h2>Схема работы</h2>
+        <div class="steps">
+          <div class="step"><span>1</span><strong>Заявка</strong></div>
+          <div class="step"><span>2</span><strong>Проверка цены</strong></div>
+          <div class="step"><span>3</span><strong>Подтверждение</strong></div>
+          <div class="step"><span>4</span><strong>Заказ у поставщика</strong></div>
+          <div class="step"><span>5</span><strong>Выдача</strong></div>
+        </div>
+      </section>
+
+      <section class="page" id="search">
+        <div class="head"><p class="ey">Поиск по артикулу</p><h2>Найдите деталь и добавьте в заказ</h2></div>
+        <form class="search" id="searchForm">
+          <input id="q" required placeholder="Артикул" />
+          <input id="brand" placeholder="Бренд" />
+          <input id="comment" placeholder="Комментарий" />
+          <input id="phone" placeholder="Телефон" />
+          <button class="btn primary" type="submit">Найти</button>
+        </form>
+        <div class="results" id="results"></div>
+      </section>
+
+      <section class="page" id="vin">
+        <div class="head"><p class="ey">VIN-подбор</p><h2>Сохраните автомобиль и заказывайте быстрее</h2></div>
+        <form class="panel form" id="vinForm">
+          <input name="vin" required placeholder="VIN" />
+          <div class="row"><input name="carBrand" placeholder="Марка" /><input name="carModel" placeholder="Модель" /><input name="year" placeholder="Год" /></div>
+          <input name="requestedPart" required placeholder="Какая деталь нужна" />
+          <input name="phone" required placeholder="Телефон" />
+          <textarea name="comment" placeholder="Комментарий"></textarea>
+          <button class="btn primary" type="submit">Отправить заявку</button>
+          <p class="ok hide" id="vinOk">Заявка создана со статусом "new".</p>
+        </form>
+      </section>
+
+      <section class="page" id="cart">
+        <div class="head"><p class="ey">Корзина</p><h2>Оформление заказа</h2></div>
+        <div class="layout">
+          <div class="list" id="cartList"><div class="empty">Корзина пока пустая.</div></div>
+          <form class="panel form" id="orderForm">
+            <input name="customerName" required placeholder="Имя" />
+            <input name="phone" required placeholder="Телефон" />
+            <select name="deliveryMethod"><option>Самовывоз</option><option>Доставка</option></select>
+            <textarea name="clientComment" placeholder="Комментарий к заказу"></textarea>
+            <div class="total"><span>Итого</span><strong id="total">0 ₽</strong></div>
+            <p class="note">Цена и срок являются предварительными и подтверждаются менеджером.</p>
+            <button class="btn primary" type="submit">Оформить заказ</button>
+            <p class="ok hide" id="orderOk">Заказ отправлен менеджеру.</p>
+          </form>
+        </div>
+      </section>
+
+      <section class="page" id="account">
+        <div class="head"><p class="ey">Кабинет</p><h2>Заказы, автомобили и избранное</h2></div>
+        <div class="grid">
+          <article class="card"><h3>Мои автомобили</h3><p id="carsText">Добавьте первый автомобиль.</p></article>
+          <article class="card"><h3>Избранное</h3><p>Сохраненные позиции для повторного заказа.</p></article>
+          <article class="card"><h3>Профиль</h3><p>Регистрация подключается через Firebase Auth.</p></article>
+        </div>
+        <form class="panel form" id="carForm" style="margin-top:18px">
+          <h3>Добавить автомобиль</h3>
+          <div class="row"><input name="brand" required placeholder="Марка" /><input name="model" required placeholder="Модель" /><input name="year" placeholder="Год" /></div>
+          <input name="vin" placeholder="VIN" />
+          <button class="btn secondary" type="submit">Сохранить автомобиль</button>
+        </form>
+        <h3>Мои заказы</h3>
+        <div class="list" id="ordersList"><div class="empty">Заказов пока нет.</div></div>
+      </section>
+
+      <section class="page" id="admin">
+        <div class="head"><p class="ey">Админ-панель</p><h2>Заказы, наценка и настройки</h2></div>
+        <div class="admin">
+          <form class="panel form" id="settingsForm">
+            <label>Наценка, %<input id="markup" type="number" value="22" /></label>
+            <label>Название<input id="company" value="ЗапФормат" /></label>
+            <label>Телефон<input id="companyPhone" value="+7 900 000-00-00" /></label>
+            <button class="btn primary" type="submit">Сохранить настройки</button>
+          </form>
+          <div class="list" id="adminOrders"><div class="empty">Заказов пока нет.</div></div>
+        </div>
+      </section>
+    </main>
+
+    <footer class="footer">
+      <strong>ЗапФормат</strong>
+      <span>Рязань, пункт выдачи · Пн-Сб 10:00-19:00</span>
+      <a href="tel:+79000000000">+7 900 000-00-00</a>
+    </footer>
+
+    <script>
+      const parts=[{id:'p1',article:'04465-0D050',brand:'Toyota',name:'Колодки тормозные передние',publicBasePrice:4900,authorizedBasePrice:4100,availability:8,deliveryTerm:'1-2 дня'},{id:'p2',article:'OC90',brand:'Mahle',name:'Фильтр масляный',publicBasePrice:980,authorizedBasePrice:760,availability:24,deliveryTerm:'сегодня'},{id:'p3',article:'C25012',brand:'Mann',name:'Фильтр воздушный',publicBasePrice:1850,authorizedBasePrice:1520,availability:11,deliveryTerm:'2-3 дня'},{id:'p4',article:'234-9009',brand:'Denso',name:'Датчик кислородный',publicBasePrice:7200,authorizedBasePrice:6100,availability:3,deliveryTerm:'3-5 дней'}];
+      let markup=22,cart=[],orders=JSON.parse(localStorage.orders||'[]'),cars=JSON.parse(localStorage.cars||'[]');
+      const rub=n=>new Intl.NumberFormat('ru-RU',{style:'currency',currency:'RUB',maximumFractionDigits:0}).format(n);
+      const client=base=>Math.round(base*(1+markup/100));
+      const note='Цена и срок являются предварительными и подтверждаются менеджером.';
+      function renderResults(list=parts){results.innerHTML=list.map(p=>`<article class="part"><div><p class="ey">${p.brand}</p><h3>${p.name}</h3><p class="muted">Артикул: ${p.article}</p></div><div class="meta"><span>Наличие: ${p.availability}</span><span>Срок: ${p.deliveryTerm}</span></div><div class="price"><strong>${rub(client(p.authorizedBasePrice))}</strong><small class="small">закупка: ${rub(p.authorizedBasePrice)} (поставщик)</small></div><p class="note">${note}</p><button class="btn primary" onclick="addCart('${p.id}')">В корзину</button></article>`).join('')}
+      function addCart(id){const p=parts.find(x=>x.id===id),e=cart.find(x=>x.id===id);e?e.qty++:cart.push({...p,qty:1});renderCart();location.hash='cart'}
+      function renderCart(){cartCount.textContent=cart.length;const totalSum=cart.reduce((s,p)=>s+client(p.authorizedBasePrice)*p.qty,0);total.textContent=rub(totalSum);cartList.innerHTML=cart.length?cart.map(p=>`<div class="cart-item"><div><strong>${p.name}</strong><p>${p.brand} · ${p.article}</p></div><input type="number" min="1" value="${p.qty}" onchange="qty('${p.id}',this.value)"><strong>${rub(client(p.authorizedBasePrice)*p.qty)}</strong><button class="btn secondary" onclick="removeCart('${p.id}')">Удалить</button></div>`).join(''):'<div class="empty">Корзина пока пустая.</div>'}
+      function qty(id,v){cart=cart.map(p=>p.id===id?{...p,qty:Math.max(1,+v)}:p);renderCart()}function removeCart(id){cart=cart.filter(p=>p.id!==id);renderCart()}
+      function renderOrders(){ordersList.innerHTML=orders.length?orders.map(o=>`<article class="order"><div><strong>${o.name}</strong><p>${o.items}</p></div><span class="status">${o.status}</span><strong>${rub(o.total)}</strong><a class="btn secondary" href="#search">Повторить</a></article>`).join(''):'<div class="empty">Заказов пока нет.</div>';adminOrders.innerHTML=orders.length?orders.map((o,i)=>`<article class="order"><div><strong>${o.name} · ${o.phone}</strong><p>${o.items}</p></div><select onchange="adminStatus(${i},this.value)"><option>новая заявка</option><option>проверяется</option><option>цена подтверждена</option><option>ожидает оплаты</option><option>заказано у поставщика</option><option>в пути</option><option>готово к выдаче</option><option>выдано</option><option>отменено</option></select><input type="number" value="${o.total}" onchange="adminPrice(${i},this.value)"><span>${rub(o.total)}</span></article>`).join(''):'<div class="empty">Заказов пока нет.</div>'}
+      function adminStatus(i,v){orders[i].status=v;localStorage.orders=JSON.stringify(orders);renderOrders()}function adminPrice(i,v){orders[i].total=+v;localStorage.orders=JSON.stringify(orders);renderOrders()}
+      function renderCars(){carsText.textContent=cars.length?cars.map(c=>`${c.brand} ${c.model}`).join(', '):'Добавьте первый автомобиль.'}
+      searchForm.onsubmit=e=>{e.preventDefault();const q=(document.getElementById('q').value+' '+brand.value).toLowerCase();renderResults(parts.filter(p=>(p.article+p.brand+p.name).toLowerCase().includes(q))||parts)}
+      orderForm.onsubmit=e=>{e.preventDefault();if(!cart.length)return;const fd=new FormData(e.target),totalSum=cart.reduce((s,p)=>s+client(p.authorizedBasePrice)*p.qty,0);orders.unshift({name:fd.get('customerName'),phone:fd.get('phone'),items:cart.map(p=>p.name).join(', '),total:totalSum,status:'новая заявка'});localStorage.orders=JSON.stringify(orders);cart=[];orderOk.classList.remove('hide');renderCart();renderOrders()}
+      vinForm.onsubmit=e=>{e.preventDefault();vinOk.classList.remove('hide');e.target.reset()}
+      carForm.onsubmit=e=>{e.preventDefault();const fd=new FormData(e.target);cars.push({brand:fd.get('brand'),model:fd.get('model')});localStorage.cars=JSON.stringify(cars);renderCars();e.target.reset()}
+      settingsForm.onsubmit=e=>{e.preventDefault();markup=+document.getElementById('markup').value||22;document.querySelectorAll('.brand,footer strong').forEach(x=>x.textContent=document.getElementById('company').value);renderResults();renderCart();renderOrders()}
+      renderResults();renderCart();renderOrders();renderCars();
+    </script>
+  </body>
+</html>

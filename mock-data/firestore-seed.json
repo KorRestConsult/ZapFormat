@@ -1,0 +1,49 @@
+{
+  "settings/business": {
+    "markupPercent": 22,
+    "companyName": "ЗапФормат",
+    "phone": "+7 900 000-00-00",
+    "telegram": "https://t.me/example",
+    "whatsapp": "https://wa.me/79000000000",
+    "city": "Рязань",
+    "pickupAddress": "Рязань, адрес пункта выдачи",
+    "workingHours": "Пн-Сб 10:00-19:00",
+    "legalNote": "Цена и срок являются предварительными и подтверждаются менеджером."
+  },
+  "users/demo-admin": {
+    "uid": "demo-admin",
+    "name": "Администратор",
+    "phone": "+7 900 000-00-01",
+    "email": "admin@example.com",
+    "role": "admin",
+    "createdAt": "2026-06-09T00:00:00.000Z"
+  },
+  "orders/demo-order": {
+    "userId": null,
+    "customerName": "Иван",
+    "phone": "+7 900 000-00-02",
+    "items": [
+      {
+        "article": "04465-0D050",
+        "brand": "Toyota",
+        "name": "Колодки тормозные передние",
+        "basePrice": 4100,
+        "clientPrice": 5002,
+        "quantity": 1,
+        "availability": 8,
+        "deliveryTerm": "1-2 дня",
+        "supplier": "PartGrade-ready mock"
+      }
+    ],
+    "totalClientPrice": 5002,
+    "totalBasePrice": 4100,
+    "markupPercent": 22,
+    "status": "new",
+    "paymentStatus": "unpaid",
+    "deliveryMethod": "pickup",
+    "clientComment": "Нужны передние колодки",
+    "adminComment": "",
+    "createdAt": "2026-06-09T00:00:00.000Z",
+    "updatedAt": "2026-06-09T00:00:00.000Z"
+  }
+}
