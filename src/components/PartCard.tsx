@@ -27,7 +27,7 @@ export function PartCard({ part, onAdd }: PartCardProps) {
       </div>
       <div className="price-row">
         <strong>{formatRub(clientPrice)}</strong>
-        <small>закупка: {formatRub(part.basePrice)} ({part.priceLevel === 'authorized' ? 'поставщик' : 'публичная'})</small>
+        <small>Цена ЗапФормат</small>
       </div>
       <LegalNote />
       <Button onClick={() => onAdd(part)}>

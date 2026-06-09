@@ -27,7 +27,7 @@ export function SearchPage() {
     <section className="page">
       <div className="page-heading">
         <p className="eyebrow">Поиск по артикулу</p>
-        <h1>Найдите деталь и добавьте в заказ</h1>
+        <h1>Электронный поиск по каталогу</h1>
       </div>
       <form className="search-form" onSubmit={onSubmit}>
         <input required placeholder="Артикул" value={query} onChange={(event) => setQuery(event.target.value)} />

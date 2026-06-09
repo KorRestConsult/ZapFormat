@@ -24,41 +24,55 @@
     <main>
       <section class="hero" id="home">
         <div>
-          <p class="ey">Рязань · поставка автозапчастей</p>
+          <p class="ey">Электронный каталог автозапчастей</p>
           <h1>ЗапФормат</h1>
-          <p>Своя клиентская витрина поверх моего закрытого поставщика. Клиент сразу видит цену ЗапФормат с честной маржой, а закупка и наличие проверяются через защищённый backend-доступ к кабинету Partgrade.</p>
+          <p>Подбор деталей по артикулу и VIN, каталоги для автомобиля, гараж клиента, корзина и история заказов в одном сервисе.</p>
           <div class="hero-actions">
             <a class="btn primary" href="#search">Найти деталь</a>
             <a class="btn secondary" href="#vin">Подбор по VIN</a>
           </div>
         </div>
         <div class="panel">
-          <span>Бизнес-модель</span>
-          <strong>закупка + 18%</strong>
-          <p>Маржа меняется в админке. Для дорогих и редких позиций можно подтверждать цену вручную перед заказом.</p>
+          <span>Для клиентов ЗапФормат</span>
+          <strong>цены сразу на сайте</strong>
+          <p>Показываем итоговую цену, срок и наличие. Заказ подтверждает менеджер ЗапФормат.</p>
         </div>
       </section>
 
       <section class="section grid">
-        <article class="card"><h3>Цена сразу</h3><p>Клиент видит не закупку, а финальную цену ЗапФормат с наценкой.</p></article>
-        <article class="card"><h3>Закрытый источник</h3><p>Partgrade работает внутри как оптовый кабинет, без логотипов и чужой витрины.</p></article>
-        <article class="card"><h3>Рязань как преимущество</h3><p>Локальная выдача, связь с менеджером и понятный срок поставки.</p></article>
-        <article class="card"><h3>Управление доходом</h3><p>Наценка 15-20% по умолчанию, с ручной корректировкой в админке.</p></article>
+        <article class="card"><h3>Каталоги</h3><p>ТО, масла, аккумуляторы, лампы, шины, диски и популярные группы запчастей.</p></article>
+        <article class="card"><h3>Гараж</h3><p>Клиент сохраняет автомобили и быстрее подбирает детали по своим машинам.</p></article>
+        <article class="card"><h3>Кабинет</h3><p>Корзина, заказы, статусы, история покупок и повтор заказа.</p></article>
+        <article class="card"><h3>Рязань</h3><p>Локальная выдача, связь с менеджером и понятный срок поставки.</p></article>
+      </section>
+
+      <section class="page" id="catalogs">
+        <div class="head"><p class="ey">Каталоги</p><h2>Популярные разделы</h2></div>
+        <div class="grid">
+          <a class="card" href="#vin"><h3>Поиск по VIN</h3><p>Подбор детали по автомобилю и нужному узлу.</p></a>
+          <a class="card" href="#search"><h3>Каталог ТО</h3><p>Фильтры, масла, свечи, ремни и расходники.</p></a>
+          <a class="card" href="#search"><h3>Шины и диски</h3><p>Сезонные позиции, диски, крепёж и аксессуары.</p></a>
+          <a class="card" href="#search"><h3>Масла и жидкости</h3><p>Моторные, трансмиссионные, тормозные и охлаждающие.</p></a>
+          <a class="card" href="#search"><h3>Аккумуляторы</h3><p>АКБ, зарядные устройства и провода запуска.</p></a>
+          <a class="card" href="#search"><h3>Лампы</h3><p>Автолампы, свет, параметры и замены.</p></a>
+          <a class="card" href="#search"><h3>Аксессуары</h3><p>Коврики, щётки, компрессоры, наборы автомобилиста.</p></a>
+          <a class="card" href="#search"><h3>Инструменты</h3><p>Ключи, наборы, домкраты и гаражное оснащение.</p></a>
+        </div>
       </section>
 
       <section class="section work">
         <h2>Схема работы</h2>
         <div class="steps">
-          <div class="step"><span>1</span><strong>Заявка</strong></div>
-          <div class="step"><span>2</span><strong>Цена из кабинета</strong></div>
-          <div class="step"><span>3</span><strong>Наценка ЗапФормат</strong></div>
-          <div class="step"><span>4</span><strong>Заказ у оптовика</strong></div>
-          <div class="step"><span>5</span><strong>Выдача</strong></div>
+          <div class="step"><span>1</span><strong>Поиск детали</strong></div>
+          <div class="step"><span>2</span><strong>Выбор позиции</strong></div>
+          <div class="step"><span>3</span><strong>Корзина</strong></div>
+          <div class="step"><span>4</span><strong>Заказ</strong></div>
+          <div class="step"><span>5</span><strong>Получение</strong></div>
         </div>
       </section>
 
       <section class="page" id="search">
-        <div class="head"><p class="ey">Поиск по артикулу</p><h2>Найдите деталь и добавьте в заказ</h2></div>
+        <div class="head"><p class="ey">Поиск по артикулу</p><h2>Электронный поиск по каталогу</h2></div>
         <form class="search" id="searchForm">
           <input id="q" required placeholder="Артикул" />
           <input id="brand" placeholder="Бренд" />
@@ -142,7 +156,7 @@
       const rub=n=>new Intl.NumberFormat('ru-RU',{style:'currency',currency:'RUB',maximumFractionDigits:0}).format(n);
       const client=base=>Math.round(base*(1+markup/100));
       const note='Цена и срок являются предварительными и подтверждаются менеджером.';
-      function renderResults(list=parts){results.innerHTML=list.map(p=>`<article class="part"><div><p class="ey">${p.brand}</p><h3>${p.name}</h3><p class="muted">Артикул: ${p.article}</p></div><div class="meta"><span>Наличие: ${p.availability}</span><span>Срок: ${p.deliveryTerm}</span></div><div class="price"><strong>${rub(client(p.authorizedBasePrice))}</strong><small class="small">закупка: ${rub(p.authorizedBasePrice)} (поставщик)</small></div><p class="note">${note}</p><button class="btn primary" onclick="addCart('${p.id}')">В корзину</button></article>`).join('')}
+      function renderResults(list=parts){results.innerHTML=list.map(p=>`<article class="part"><div><p class="ey">${p.brand}</p><h3>${p.name}</h3><p class="muted">Артикул: ${p.article}</p></div><div class="meta"><span>Наличие: ${p.availability}</span><span>Срок: ${p.deliveryTerm}</span></div><div class="price"><strong>${rub(client(p.authorizedBasePrice))}</strong><small class="small">Цена ЗапФормат</small></div><p class="note">${note}</p><button class="btn primary" onclick="addCart('${p.id}')">В корзину</button></article>`).join('')}
       function addCart(id){const p=parts.find(x=>x.id===id),e=cart.find(x=>x.id===id);e?e.qty++:cart.push({...p,qty:1});renderCart();location.hash='cart'}
       function renderCart(){cartCount.textContent=cart.length;const totalSum=cart.reduce((s,p)=>s+client(p.authorizedBasePrice)*p.qty,0);total.textContent=rub(totalSum);cartList.innerHTML=cart.length?cart.map(p=>`<div class="cart-item"><div><strong>${p.name}</strong><p>${p.brand} · ${p.article}</p></div><input type="number" min="1" value="${p.qty}" onchange="qty('${p.id}',this.value)"><strong>${rub(client(p.authorizedBasePrice)*p.qty)}</strong><button class="btn secondary" onclick="removeCart('${p.id}')">Удалить</button></div>`).join(''):'<div class="empty">Корзина пока пустая.</div>'}
       function qty(id,v){cart=cart.map(p=>p.id===id?{...p,qty:Math.max(1,+v)}:p);renderCart()}function removeCart(id){cart=cart.filter(p=>p.id!==id);renderCart()}
