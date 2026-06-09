@@ -9,8 +9,10 @@ import { SettingsProvider } from './contexts/SettingsContext';
 import { AccountPage } from './pages/AccountPage';
 import { AuthPage } from './pages/AuthPage';
 import { CartPage } from './pages/CartPage';
+import { CatalogsPage } from './pages/CatalogsPage';
 import { HomePage } from './pages/HomePage';
 import { NotFoundPage } from './pages/NotFoundPage';
+import { ReturnsPage } from './pages/ReturnsPage';
 import { SearchPage } from './pages/SearchPage';
 import { VinRequestPage } from './pages/VinRequestPage';
 import './styles/global.css';
@@ -23,9 +25,11 @@ const router = createBrowserRouter([
     children: [
       { index: true, element: <HomePage /> },
       { path: 'search', element: <SearchPage /> },
+      { path: 'catalogs', element: <CatalogsPage /> },
       { path: 'vin', element: <VinRequestPage /> },
       { path: 'cart', element: <CartPage /> },
       { path: 'account', element: <AccountPage /> },
+      { path: 'returns', element: <ReturnsPage /> },
       { path: 'auth', element: <AuthPage /> },
       { path: 'admin', element: <AdminPage /> },
     ],

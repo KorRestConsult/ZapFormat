@@ -13,10 +13,12 @@
     <header class="top">
       <a class="brand" href="#home">ЗапФормат</a>
       <nav class="nav">
+        <a href="#garage">Гараж</a>
+        <a href="#catalogs">Каталоги</a>
         <a href="#search">Поиск</a>
-        <a href="#vin">VIN-подбор</a>
         <a href="#cart">Корзина <span id="cartCount">0</span></a>
         <a href="#account">Кабинет</a>
+        <a href="#returns">Возвраты</a>
         <a href="#admin">Админ</a>
       </nav>
     </header>
@@ -58,6 +60,29 @@
           <a class="card" href="#search"><h3>Аксессуары</h3><p>Коврики, щётки, компрессоры, наборы автомобилиста.</p></a>
           <a class="card" href="#search"><h3>Инструменты</h3><p>Ключи, наборы, домкраты и гаражное оснащение.</p></a>
         </div>
+      </section>
+
+      <section class="page" id="garage">
+        <div class="head"><p class="ey">Гараж</p><h2>Автомобили клиента</h2></div>
+        <div class="layout">
+          <form class="panel form" id="garageForm">
+            <input name="brand" required placeholder="Марка" />
+            <input name="model" required placeholder="Модель" />
+            <input name="year" placeholder="Год" />
+            <input name="vin" placeholder="VIN" />
+            <button class="btn primary" type="submit">Добавить в гараж</button>
+          </form>
+          <div class="panel">
+            <h3>Быстрый подбор</h3>
+            <p class="muted">Сохраните автомобиль, чтобы быстрее открывать каталог ТО, масла, лампы и расходники именно для него.</p>
+            <div id="garageList" class="list"></div>
+          </div>
+        </div>
+      </section>
+
+      <section class="page">
+        <div class="head"><p class="ey">Марки</p><h2>Каталог легковых автомобилей</h2></div>
+        <div class="grid" id="brandGrid"></div>
       </section>
 
       <section class="section work">
@@ -130,6 +155,16 @@
         <div class="list" id="ordersList"><div class="empty">Заказов пока нет.</div></div>
       </section>
 
+      <section class="page" id="returns">
+        <div class="head"><p class="ey">Возвраты</p><h2>Заявка на возврат</h2></div>
+        <form class="panel form">
+          <input placeholder="Номер заказа" />
+          <input placeholder="Артикул" />
+          <textarea placeholder="Причина возврата"></textarea>
+          <button class="btn secondary" type="button">Отправить менеджеру</button>
+        </form>
+      </section>
+
       <section class="page" id="admin">
         <div class="head"><p class="ey">Админ-панель</p><h2>Заказы, наценка и настройки</h2></div>
         <div class="admin">
@@ -153,6 +188,7 @@
     <script>
       const parts=[{id:'p1',article:'04465-0D050',brand:'Toyota',name:'Колодки тормозные передние',publicBasePrice:4900,authorizedBasePrice:4100,availability:8,deliveryTerm:'1-2 дня'},{id:'p2',article:'OC90',brand:'Mahle',name:'Фильтр масляный',publicBasePrice:980,authorizedBasePrice:760,availability:24,deliveryTerm:'сегодня'},{id:'p3',article:'C25012',brand:'Mann',name:'Фильтр воздушный',publicBasePrice:1850,authorizedBasePrice:1520,availability:11,deliveryTerm:'2-3 дня'},{id:'p4',article:'234-9009',brand:'Denso',name:'Датчик кислородный',publicBasePrice:7200,authorizedBasePrice:6100,availability:3,deliveryTerm:'3-5 дней'}];
       let markup=18,cart=[],orders=JSON.parse(localStorage.orders||'[]'),cars=JSON.parse(localStorage.cars||'[]');
+      const autoBrands=['Audi','BMW','Chevrolet','Citroen','Daewoo','Ford','Hyundai','Kia','Lexus','Mazda','Mercedes Benz','Mitsubishi','Nissan','Opel','Renault','Skoda','Toyota','Volkswagen','Volvo','Все бренды'];
       const rub=n=>new Intl.NumberFormat('ru-RU',{style:'currency',currency:'RUB',maximumFractionDigits:0}).format(n);
       const client=base=>Math.round(base*(1+markup/100));
       const note='Цена и срок являются предварительными и подтверждаются менеджером.';
@@ -162,13 +198,15 @@
       function qty(id,v){cart=cart.map(p=>p.id===id?{...p,qty:Math.max(1,+v)}:p);renderCart()}function removeCart(id){cart=cart.filter(p=>p.id!==id);renderCart()}
       function renderOrders(){ordersList.innerHTML=orders.length?orders.map(o=>`<article class="order"><div><strong>${o.name}</strong><p>${o.items}</p></div><span class="status">${o.status}</span><strong>${rub(o.total)}</strong><a class="btn secondary" href="#search">Повторить</a></article>`).join(''):'<div class="empty">Заказов пока нет.</div>';adminOrders.innerHTML=orders.length?orders.map((o,i)=>`<article class="order"><div><strong>${o.name} · ${o.phone}</strong><p>${o.items}</p></div><select onchange="adminStatus(${i},this.value)"><option>новая заявка</option><option>проверяется</option><option>цена подтверждена</option><option>ожидает оплаты</option><option>заказано у поставщика</option><option>в пути</option><option>готово к выдаче</option><option>выдано</option><option>отменено</option></select><input type="number" value="${o.total}" onchange="adminPrice(${i},this.value)"><span>${rub(o.total)}</span></article>`).join(''):'<div class="empty">Заказов пока нет.</div>'}
       function adminStatus(i,v){orders[i].status=v;localStorage.orders=JSON.stringify(orders);renderOrders()}function adminPrice(i,v){orders[i].total=+v;localStorage.orders=JSON.stringify(orders);renderOrders()}
-      function renderCars(){carsText.textContent=cars.length?cars.map(c=>`${c.brand} ${c.model}`).join(', '):'Добавьте первый автомобиль.'}
+      function renderCars(){carsText.textContent=cars.length?cars.map(c=>`${c.brand} ${c.model}`).join(', '):'Добавьте первый автомобиль.';garageList.innerHTML=cars.length?cars.map(c=>`<article class="card"><strong>${c.brand} ${c.model}</strong><p class="muted">${c.year||''} ${c.vin||''}</p><a class="btn secondary" href="#search">Открыть каталог</a></article>`).join(''):'<p class="muted">Гараж пока пустой.</p>'}
+      function renderBrands(){brandGrid.innerHTML=autoBrands.map(b=>`<a class="card" href="#search"><h3>${b}</h3><p>Запчасти и расходники ${b==='Все бренды'?'для всех марок':'для '+b}.</p></a>`).join('')}
       searchForm.onsubmit=e=>{e.preventDefault();const q=(document.getElementById('q').value+' '+brand.value).toLowerCase();renderResults(parts.filter(p=>(p.article+p.brand+p.name).toLowerCase().includes(q))||parts)}
       orderForm.onsubmit=e=>{e.preventDefault();if(!cart.length)return;const fd=new FormData(e.target),totalSum=cart.reduce((s,p)=>s+client(p.authorizedBasePrice)*p.qty,0);orders.unshift({name:fd.get('customerName'),phone:fd.get('phone'),items:cart.map(p=>p.name).join(', '),total:totalSum,status:'новая заявка'});localStorage.orders=JSON.stringify(orders);cart=[];orderOk.classList.remove('hide');renderCart();renderOrders()}
       vinForm.onsubmit=e=>{e.preventDefault();vinOk.classList.remove('hide');e.target.reset()}
       carForm.onsubmit=e=>{e.preventDefault();const fd=new FormData(e.target);cars.push({brand:fd.get('brand'),model:fd.get('model')});localStorage.cars=JSON.stringify(cars);renderCars();e.target.reset()}
+      garageForm.onsubmit=e=>{e.preventDefault();const fd=new FormData(e.target);cars.push({brand:fd.get('brand'),model:fd.get('model'),year:fd.get('year'),vin:fd.get('vin')});localStorage.cars=JSON.stringify(cars);renderCars();e.target.reset()}
       settingsForm.onsubmit=e=>{e.preventDefault();markup=+document.getElementById('markup').value||18;document.querySelectorAll('.brand,footer strong').forEach(x=>x.textContent=document.getElementById('company').value);renderResults();renderCart();renderOrders()}
-      renderResults();renderCart();renderOrders();renderCars();
+      renderResults();renderCart();renderOrders();renderCars();renderBrands();
     </script>
   </body>
 </html>

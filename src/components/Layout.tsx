@@ -20,10 +20,12 @@ export function Layout() {
           <Menu size={22} />
         </button>
         <nav className={`site-nav ${open ? 'open' : ''}`}>
+          <NavLink to="/account">Гараж</NavLink>
+          <NavLink to="/catalogs">Каталоги</NavLink>
           <NavLink to="/search">Поиск</NavLink>
-          <NavLink to="/vin">VIN-подбор</NavLink>
           <NavLink to="/cart">Корзина <span className="pill">{items.length}</span></NavLink>
           <NavLink to="/account">Кабинет</NavLink>
+          <NavLink to="/returns">Возвраты</NavLink>
           {isAdmin && <NavLink to="/admin">Админ</NavLink>}
         </nav>
         <div className="header-actions">
