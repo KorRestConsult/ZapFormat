@@ -1,13 +1,196 @@
 <!doctype html>
 <html lang="ru">
   <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="description" content="Подбор и заказ автозапчастей с проверкой цены и срока менеджером." />
-    <title>Запчасти под заказ</title>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#123b2b" />
+    <title>ЗапФормат</title>
+    <style>
+      :root{--ink:#17231b;--green:#123b2b;--green2:#1f5a40;--navy:#12233c;--soft:#edf1e9;--cream:#f7f3ea;--card:#fffdf8;--line:#ded7c8;--muted:#687367;--gold:#bfa66b;--red:#9f2f28}*{box-sizing:border-box}body{margin:0;background:var(--cream);color:var(--ink);font-family:"Inter","Manrope",system-ui,-apple-system,"Segoe UI",sans-serif;font-size:14px}button,input,select,textarea{font:inherit}button{cursor:pointer}input,select,textarea{width:100%;min-width:0;border:1px solid var(--line);border-radius:6px;background:#fff;padding:10px 12px;color:var(--ink)}textarea{min-height:86px;resize:vertical}a{text-decoration:none;color:inherit}.app{min-height:100vh;display:grid;grid-template-rows:auto 1fr}.topline{background:var(--green);color:#fff;padding:7px 24px;font-size:12px;display:flex;gap:18px;justify-content:space-between}.contact-links{display:flex;gap:14px;align-items:center;flex-wrap:wrap}.header{background:var(--card);border-bottom:1px solid var(--line);padding:14px 24px;display:grid;grid-template-columns:275px minmax(300px,1fr)390px;gap:18px;align-items:center}.header>*{min-width:0}.logo{display:flex;align-items:center;gap:10px;font-weight:900;color:var(--green);font-size:22px;min-width:0}.logo-mark{height:42px;min-width:172px;border-radius:12px;background:var(--navy);display:grid;place-items:center;color:#fff;font-weight:1000;font-size:25px;letter-spacing:.6px;padding:0 18px;text-transform:uppercase;box-shadow:0 8px 22px rgba(18,35,60,.18)}.searchbar{min-width:0;width:100%;display:grid;grid-template-columns:minmax(0,1fr)54px;border:2px solid var(--green);border-radius:8px;overflow:hidden;background:#fff}.searchbar input{border:0;border-radius:0;padding:13px 15px;min-width:0}.searchbar button{border:0;background:var(--green);color:#fff;font-size:18px}.userbox{display:flex;justify-content:flex-end;align-items:center;gap:9px;flex-wrap:wrap}.badge{border:1px solid var(--line);background:var(--soft);border-radius:999px;padding:7px 10px;color:var(--green);font-weight:800}.pay-badge{background:var(--green);color:#fff;border-color:var(--green)}.nav{background:#fffdf8;border-bottom:1px solid var(--line);padding:0 24px;display:flex;gap:4px}.nav a{padding:12px 14px;color:var(--green);font-weight:800}.nav a:hover,.nav a.active{background:var(--soft)}.layout{display:grid;grid-template-columns:270px minmax(0,1fr);gap:18px;padding:18px 24px}.side{display:grid;gap:12px;align-content:start}.panel,.card,.view{min-width:0;max-width:100%}.panel,.card{background:var(--card);border:1px solid var(--line);border-radius:8px;box-shadow:0 10px 28px rgba(29,50,34,.06)}.panel h3,.card h3{margin:0;padding:13px 15px;border-bottom:1px solid var(--line);color:var(--green);font-size:15px}.catalog-list{display:grid;padding:8px}.catalog-list a{display:flex;justify-content:space-between;align-items:center;padding:9px 10px;border-radius:6px;color:#24382c}.catalog-list a:hover{background:var(--soft);color:var(--green)}.main{display:grid;gap:16px;min-width:0}.quick{display:grid;grid-template-columns:repeat(4,minmax(150px,1fr));gap:12px}.quick .card{padding:14px}.quick strong{display:block;color:var(--green);font-size:15px;margin-bottom:5px}.muted{color:var(--muted)}.tabs{display:flex;gap:8px;padding:10px;border-bottom:1px solid var(--line);background:#fbf8f1;overflow:auto}.tabs button{border:1px solid var(--line);background:#fff;border-radius:6px;padding:8px 12px;font-weight:800;color:var(--green);white-space:nowrap}.tabs button.active{background:var(--green);color:#fff}.table-wrap,#searchBody{overflow:auto;-webkit-overflow-scrolling:touch}.table{width:100%;border-collapse:collapse;background:var(--card)}.table th{background:var(--soft);color:var(--green);text-align:left;font-size:12px;text-transform:uppercase}.table th,.table td{border-bottom:1px solid var(--line);padding:10px 11px;vertical-align:middle;white-space:nowrap}.table td.desc{white-space:normal;min-width:260px}.price{font-weight:900;color:var(--green);font-size:16px}.btn{border:0;border-radius:6px;padding:9px 12px;font-weight:900;background:var(--green);color:#fff}.btn.secondary{background:#fff;color:var(--green);border:1px solid var(--line)}.btn.danger{background:var(--red)}.filters{display:grid;grid-template-columns:repeat(5,minmax(120px,1fr));gap:10px;padding:12px}.section-title{display:flex;align-items:center;justify-content:space-between;gap:12px}.section-title h2{font-size:22px;color:var(--green);margin:0}.garage-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:12px;padding:12px}.garage-card{border:1px solid var(--line);border-radius:8px;padding:13px;background:#fff}.form-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;padding:12px}.hidden{display:none!important}.cart-total{display:flex;justify-content:space-between;align-items:center;padding:14px 15px;background:var(--soft);font-size:18px;color:var(--green);font-weight:900}.cart-actions{display:flex;gap:10px;justify-content:flex-end;flex-wrap:wrap;padding:12px 15px;border-top:1px solid var(--line)}.status{display:inline-flex;border-radius:999px;background:#e8f1e8;color:var(--green);padding:5px 9px;font-weight:800;font-size:12px}.admin-strip{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}.metric{padding:14px}.metric span{display:block;color:var(--muted);font-size:12px}.metric strong{font-size:24px;color:var(--green)}@media(max-width:1100px){.header{grid-template-columns:1fr}.userbox{justify-content:flex-start}.layout{grid-template-columns:230px minmax(0,1fr)}.quick{grid-template-columns:repeat(2,1fr)}.filters,.form-grid,.admin-strip{grid-template-columns:repeat(2,1fr)}}@media(max-width:760px){body{font-size:13px;padding-bottom:58px;overflow-x:hidden}.app{overflow-x:hidden}.topline{display:block;padding:8px 12px}.topline .contact-links{margin-top:5px;gap:10px}.header{padding:12px;gap:11px;grid-template-columns:minmax(0,1fr)}.logo-mark{height:38px;width:min(100%,190px);min-width:0;font-size:21px}.searchbar{grid-template-columns:minmax(0,1fr)48px}.searchbar input{padding:12px 10px;font-size:14px}.userbox{display:grid;grid-template-columns:1fr 1fr;gap:7px}.badge{text-align:center;border-radius:8px;padding:9px 8px}.nav{position:fixed;left:0;right:0;bottom:0;z-index:30;padding:0;background:#fff;border-top:1px solid var(--line);border-bottom:0;display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:0;box-shadow:0 -8px 22px rgba(0,0,0,.08)}.nav a{font-size:10.5px;text-align:center;padding:10px 2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.layout{grid-template-columns:minmax(0,1fr);padding:12px;gap:12px}.side{display:none}.quick,.filters,.form-grid,.admin-strip{grid-template-columns:minmax(0,1fr)}.section-title{align-items:stretch;flex-direction:column}.section-title h2{font-size:19px}.garage-grid{grid-template-columns:minmax(0,1fr);padding:10px}.panel h3,.card h3{padding:11px 12px}.table th,.table td{padding:9px 8px}.table td.desc{min-width:210px}.cart-actions{justify-content:stretch}.cart-actions .btn{width:100%}}@media(min-width:761px) and (max-width:1100px){.header{grid-template-columns:230px minmax(0,1fr)}.userbox{grid-column:1/-1}.layout{padding:16px}.nav{overflow:auto}.side{position:sticky;top:0}.garage-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+    </style>
   </head>
   <body>
-    <div id="root"></div>
-    <script type="module" src="/src/main.tsx"></script>
+    <div class="app">
+      <div class="topline">
+        <span>Рязань · автозапчасти под заказ</span>
+        <span class="contact-links"><a href="tel:+79611304777">+7 961 130 4777</a><a href="https://t.me/zap_format" target="_blank" rel="noreferrer">@zap_format</a><span>Пн-Сб 10:00-19:00</span></span>
+      </div>
+      <header class="header">
+        <a class="logo" href="#" onclick="show('home')"><span class="logo-mark">ЗАПФОРМАТ</span></a>
+        <form class="searchbar" onsubmit="event.preventDefault();runSearch(pcode.value)">
+          <input id="pcode" placeholder="Введите код запчасти или VIN номер автомобиля" value="OC90" />
+          <button title="Найти">⌕</button>
+        </form>
+        <div class="userbox">
+          <a class="badge" href="tel:+79611304777">Позвонить</a>
+          <a class="badge" href="https://t.me/zap_format" target="_blank" rel="noreferrer">Telegram</a>
+          <a class="badge pay-badge" href="#" onclick="openSbp()">Оплата СБП</a>
+          <a class="badge" href="#" onclick="show('cart')">Корзина: <b id="cartBadge">0 ₽</b></a>
+        </div>
+      </header>
+      <nav class="nav">
+        <a href="#" onclick="show('home')">Главная</a>
+        <a href="#" onclick="show('catalogs')">Каталоги</a>
+        <a href="#" onclick="show('garage')">Гараж</a>
+        <a href="#" onclick="show('orders')">История заказов</a>
+        <a href="#" onclick="show('returns')">Возвраты</a>
+        <a href="#" onclick="show('admin')">Админ</a>
+      </nav>
+      <div class="layout">
+        <aside class="side">
+          <section class="panel">
+            <h3>Каталоги</h3>
+            <div class="catalog-list" id="catalogList"></div>
+          </section>
+          <section class="panel">
+            <h3>Мой автомобиль</h3>
+            <div class="catalog-list">
+              <a href="#" onclick="show('garage')"><span>BMW X3 (F25)</span><b>VIN</b></a>
+              <a href="#" onclick="show('catalogs')"><span>Каталог ТО</span><b>›</b></a>
+              <a href="#" onclick="show('search')"><span>Поиск деталей</span><b>›</b></a>
+            </div>
+          </section>
+        </aside>
+        <main class="main">
+          <section id="home" class="view">
+            <div class="section-title"><h2>Рабочий каталог ЗапФормат</h2><button class="btn" onclick="runSearch('OC90')">Показать пример поиска</button></div>
+            <div class="quick">
+              <div class="card"><strong>Поиск по коду</strong><span class="muted">Бренд, артикул, аналоги, цены</span></div>
+              <div class="card"><strong>Гараж клиента</strong><span class="muted">VIN, марка, модель, пробег</span></div>
+              <div class="card"><strong>История заказов</strong><span class="muted">Статусы, оплата, повтор заказа</span></div>
+              <div class="card"><strong>Админ-панель</strong><span class="muted">Твоя маржа, статусы, заявки</span></div>
+            </div>
+            <section class="panel">
+              <h3>Популярные разделы</h3>
+              <div class="garage-grid" id="popularGrid"></div>
+            </section>
+          </section>
+
+          <section id="search" class="view hidden">
+            <div class="section-title"><h2 id="searchTitle">Поиск</h2><button class="btn secondary" onclick="runSearch(pcode.value)">Обновить</button></div>
+            <section class="panel">
+              <div class="tabs"><button class="active">Результаты</button><button>Аналоги</button><button>Избранные</button></div>
+              <div id="searchBody"></div>
+            </section>
+          </section>
+
+          <section id="offers" class="view hidden">
+            <div class="section-title"><h2 id="offerTitle">Цены и аналоги</h2><button class="btn secondary" onclick="show('search')">Назад к кодам</button></div>
+            <section class="panel">
+              <div class="filters">
+                <select><option>Все бренды</option><option>Популярные</option><option>Избранные</option></select>
+                <select><option>Любой срок</option><option>На складе</option><option>Сегодня</option><option>1 день</option></select>
+                <input placeholder="Наличие от, шт" />
+                <input placeholder="Цена от" />
+                <input placeholder="Цена до" />
+              </div>
+              <div id="offerBody" class="table-wrap"></div>
+            </section>
+          </section>
+
+          <section id="catalogs" class="view hidden">
+            <div class="section-title"><h2>Каталоги</h2></div>
+            <section class="panel"><h3>Разделы</h3><div class="garage-grid" id="catalogGrid"></div></section>
+            <section class="panel"><h3>Марки автомобилей</h3><div class="garage-grid" id="brandGrid"></div></section>
+          </section>
+
+          <section id="garage" class="view hidden">
+            <div class="section-title"><h2>Гараж клиента</h2><button class="btn" onclick="saveGarage()">Сохранить</button></div>
+            <section class="panel">
+              <h3>Добавить автомобиль</h3>
+              <div class="form-grid">
+                <input id="gName" placeholder="Название" value="BMW X3 (F25)" />
+                <input id="gVin" placeholder="VIN-код" value="WBAWY31000L527390" />
+                <input id="gBrand" placeholder="Марка" value="BMW" />
+                <input id="gYear" placeholder="Год" />
+                <input id="gModel" placeholder="Модель" value="X3" />
+                <input id="gMod" placeholder="Модификация" />
+                <input id="gPlate" placeholder="Госномер" />
+                <input id="gMileage" placeholder="Пробег" />
+                <input id="gComment" placeholder="Описание" />
+              </div>
+            </section>
+            <section class="panel"><h3>Сохраненные автомобили</h3><div class="garage-grid" id="garageList"></div></section>
+          </section>
+
+          <section id="orders" class="view hidden">
+            <div class="section-title"><h2>История заказов</h2></div>
+            <section class="panel">
+              <div class="filters">
+                <input placeholder="09.05.2026 - 09.06.2026" />
+                <select><option>Все статусы</option><option>Получен</option><option>В работе</option><option>Пришло на склад</option><option>Выдано</option><option>Отказ</option></select>
+                <select><option>Любая оплата</option><option>Безналичный расчет</option><option>Наличный расчет</option></select>
+                <input placeholder="Артикул" />
+                <input placeholder="Номер заказа" />
+              </div>
+              <div id="ordersTable" class="table-wrap"></div>
+            </section>
+          </section>
+
+          <section id="cart" class="view hidden">
+            <div class="section-title"><h2>Корзина</h2><button class="btn" onclick="createOrder()">Оформить заказ</button></div>
+            <section class="panel"><div id="cartTable" class="table-wrap"></div><div class="cart-total"><span>Итого</span><strong id="cartTotal">0 ₽</strong></div><div class="cart-actions"><a class="btn secondary" href="tel:+79611304777">Позвонить</a><a class="btn secondary" href="https://t.me/zap_format" target="_blank" rel="noreferrer">Написать в Telegram</a><button class="btn" onclick="openSbp()">Оплатить по СБП</button></div></section>
+          </section>
+
+          <section id="returns" class="view hidden">
+            <div class="section-title"><h2>Возвраты</h2></div>
+            <section class="panel"><h3>Новая заявка</h3><div class="form-grid"><input placeholder="Номер заказа"/><input placeholder="Артикул"/><select><option>Причина возврата</option><option>Не подошло</option><option>Брак</option><option>Другая причина</option></select></div></section>
+          </section>
+
+          <section id="admin" class="view hidden">
+            <div class="section-title"><h2>Панель владельца</h2><button class="btn" onclick="saveAdmin()">Сохранить настройки</button></div>
+            <div class="admin-strip">
+              <div class="card metric"><span>Маржа</span><strong><input id="markupInput" value="18" type="number" min="0" max="60" oninput="setMarkup(this.value)" style="font-size:22px;font-weight:900;color:var(--green);width:74px">%</strong></div>
+              <div class="card metric"><span>Заказы</span><strong id="metricOrders">0</strong></div>
+              <div class="card metric"><span>Корзина</span><strong id="metricCart">0</strong></div>
+              <div class="card metric"><span>Режим</span><strong>Proxy</strong></div>
+            </div>
+            <section class="panel">
+              <h3>Регулятор наценки</h3>
+              <div class="form-grid">
+                <input id="markupRange" type="range" min="0" max="60" value="18" oninput="setMarkup(this.value)" />
+                <button class="btn secondary" onclick="setMarkup(15)">15%</button>
+                <button class="btn secondary" onclick="setMarkup(18)">18%</button>
+                <button class="btn secondary" onclick="setMarkup(20)">20%</button>
+                <button class="btn secondary" onclick="setMarkup(25)">25%</button>
+                <button class="btn" onclick="saveAdmin()">Применить</button>
+              </div>
+              <p class="muted" style="padding:0 12px 12px;margin:0">Клиент видит только итоговую цену ЗапФормат. Закупка и наценка остаются в панели владельца.</p>
+            </section>
+            <section class="panel">
+              <h3>Источник цен</h3>
+              <div class="garage-card" style="margin:12px">
+                <b>Режим сейчас: демо по структуре PartGrade</b>
+                <p class="muted">Для живых цен нужен задеплоенный серверный proxy с авторизацией в кабинете PartGrade. Логин и пароль не сохраняются на сайте.</p>
+              </div>
+            </section>
+            <section class="panel"><h3>Все заказы</h3><div id="adminOrders" class="table-wrap"></div></section>
+          </section>
+        </main>
+      </div>
+    </div>
+    <script>
+      const catalogs=['Поиск по VIN','Каталог ТО','Шины и диски','Колпаки на колёса','Манометры','Крепеж','Грузовые шины','Аккумуляторы','Провода пусковые','Пуско-зарядные устройства','Предпусковые подогреватели','Аксессуары','Канистры','Компрессоры','Домкраты','Оплетки на руль','Щетки стеклоочистителя','Лампы','Лампы по параметрам','Моторные масла','Трансмиссионные масла','Охлаждающие жидкости','Тормозные жидкости','Автохимия','Инструменты','Наборы автомобилиста'];
+      const brands=['Audi','BMW','Chevrolet','Citroen','Daewoo','Ford','Hyundai','Kia','Lexus','Mazda','Mercedes Benz','Mitsubishi','Nissan','Opel','Renault','Skoda','Toyota','Volkswagen','Volvo','Все бренды'];
+      const candidates=[['ABSEL','OC90','Фильтр масляный ан. Mahle OC90 (OC71275)'],['AM POINT','OC90','Масляные фильтры'],['Mahle/Knecht','OC90','Фильтр масляный']];
+      const offers=[['Mahle/Knecht','OC 90','Фильтр масляный Chevrolet Aveo, Captiva, Lacetti',100,'09.06.26','9259','1 день','94%',283],['Mahle/Knecht','OC 90','OC90, фильтр масляный Mahle Original',101,'09.06.26','5196','1 день','86%',295],['Mahle/Knecht','OC 90','Фильтр масляный Chevrolet Aveo, Captiva, Lacetti',100,'09.06.26','5882','1 день','94%',296],['Mahle/Knecht','OC 90','Фильтр масляный',100,'09.06.26','7435','1 день','93%',298],['Mahle/Knecht','OC 90','Фильтр масляный OC90',159,'09.06.26','9988','0 дней','94%',302],['Mahle/Knecht','OC 90','Фильтр масляный OC90',138,'09.06.26','4815','0 дней','95%',303],['Mann','C25012','Фильтр воздушный',11,'09.06.26','1208','2-3 дня','91%',1520],['Toyota','04465-0D050','Колодки тормозные передние',8,'09.06.26','6147','1-2 дня','92%',4100]];
+      let markup=18,cart=JSON.parse(localStorage.zfCart||'[]'),orders=JSON.parse(localStorage.zfOrders||'[]'),garage=JSON.parse(localStorage.zfGarage||'[{"name":"BMW X3 (F25)","vin":"WBAWY31000L527390","brand":"BMW","model":"X3"}]');
+      const sbpUrl='https://t.me/zap_format';
+      const rub=n=>new Intl.NumberFormat('ru-RU',{style:'currency',currency:'RUB',maximumFractionDigits:0}).format(Math.round(n));
+      const price=n=>Math.round(n*(1+markup/100));
+      function show(id){document.querySelectorAll('.view').forEach(v=>v.classList.add('hidden'));document.getElementById(id).classList.remove('hidden');document.querySelectorAll('.nav a').forEach(a=>a.classList.remove('active'));renderAll()}
+      function table(headers,rows){return `<table class="table"><thead><tr>${headers.map(h=>`<th>${h}</th>`).join('')}</tr></thead><tbody>${rows.join('')}</tbody></table>`}
+      function runSearch(q){pcode.value=q||pcode.value;searchTitle.textContent=`Поиск: ${pcode.value}`;searchBody.innerHTML=table(['Бренд','Код детали','Описание','Поиск'],candidates.map(c=>`<tr><td><b>${c[0]}</b></td><td>${c[1]}</td><td class="desc">${c[2]}</td><td><button class="btn secondary" onclick="openOffers('${c[0]}','${c[1]}')">Цены и аналоги</button></td></tr>`));show('search')}
+      function openOffers(brand,article){offerTitle.textContent=`${brand} ${article}: цены и аналоги`;offerBody.innerHTML=table(['Бренд','Код детали','Описание','Нал.','Обновл.','Склад','Ожид. срок','Вероятность','Цена','Заказ'],offers.map((o,i)=>`<tr><td><b>${o[0]}</b></td><td>${o[1]}</td><td class="desc">${o[2]}</td><td>${o[3]}</td><td>${o[4]}</td><td>${o[5]}</td><td>${o[6]}</td><td>${o[7]}</td><td class="price">${rub(price(o[8]))}</td><td><button class="btn" onclick="addCart(${i})">Заказать</button></td></tr>`));show('offers')}
+      function addCart(i){const o=offers[i];cart.push({brand:o[0],article:o[1],name:o[2],qty:1,term:o[6],base:o[8],client:price(o[8])});localStorage.zfCart=JSON.stringify(cart);renderAll();show('cart')}
+      function removeCart(i){cart.splice(i,1);localStorage.zfCart=JSON.stringify(cart);renderAll()}
+      function createOrder(){if(!cart.length)return;orders.unshift({id:Math.floor(Math.random()*900000000),date:new Date().toLocaleString('ru-RU'),items:cart.length,total:cart.reduce((s,x)=>s+x.client*x.qty,0),status:'Получен',comment:'Заказ с сайта'});cart=[];localStorage.zfCart='[]';localStorage.zfOrders=JSON.stringify(orders);renderAll();show('orders')}
+      function saveGarage(){garage.unshift({name:gName.value,vin:gVin.value,brand:gBrand.value,model:gModel.value,year:gYear.value});localStorage.zfGarage=JSON.stringify(garage);renderAll()}
+      function setMarkup(value){markup=+value||0;markupInput.value=markup;markupRange.value=markup;localStorage.zfMarkup=String(markup);renderAll()}
+      function saveAdmin(){setMarkup(markupInput.value)}
+      function openSbp(){window.open(sbpUrl,'_blank')}
+      function renderAll(){catalogList.innerHTML=catalogs.map(x=>`<a href="#" onclick="show('catalogs')"><span>${x}</span><b>›</b></a>`).join('');popularGrid.innerHTML=catalogs.slice(0,8).map(x=>`<div class="garage-card"><b>${x}</b><p class="muted">Открыть раздел каталога</p></div>`).join('');catalogGrid.innerHTML=catalogs.map(x=>`<div class="garage-card"><b>${x}</b><p class="muted">Каталог ЗапФормат</p></div>`).join('');brandGrid.innerHTML=brands.map(x=>`<div class="garage-card"><b>${x}</b><p class="muted">Запчасти и расходники</p></div>`).join('');garageList.innerHTML=garage.map(g=>`<div class="garage-card"><b>${g.name||g.brand+' '+g.model}</b><p class="muted">VIN: ${g.vin||'-'}</p><button class="btn secondary" onclick="runSearch('OC90')">Открыть каталог</button></div>`).join('');cartBadge.textContent=rub(cart.reduce((s,x)=>s+x.client*x.qty,0));cartTotal.textContent=cartBadge.textContent;cartTable.innerHTML=cart.length?table(['Бренд','Артикул','Описание','Кол.','Срок','Цена',''],cart.map((x,i)=>`<tr><td>${x.brand}</td><td>${x.article}</td><td class="desc">${x.name}</td><td>${x.qty}</td><td>${x.term}</td><td class="price">${rub(x.client*x.qty)}</td><td><button class="btn danger" onclick="removeCart(${i})">Удалить</button></td></tr>`)):'<div style="padding:18px">Корзина пустая</div>';ordersTable.innerHTML=orders.length?table(['№ заказа','Дата','Позиций','Сумма','Статус','Комментарий'],orders.map(o=>`<tr><td>${o.id}</td><td>${o.date}</td><td>${o.items}</td><td class="price">${rub(o.total)}</td><td><span class="status">${o.status}</span></td><td>${o.comment}</td></tr>`)):'<div style="padding:18px">Заказов пока нет</div>';adminOrders.innerHTML=ordersTable.innerHTML;metricOrders.textContent=orders.length;metricCart.textContent=cart.length}
+      markup=+(localStorage.zfMarkup||markup);renderAll();runSearch('OC90');
+    </script>
   </body>
 </html>
