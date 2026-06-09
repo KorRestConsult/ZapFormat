@@ -362,6 +362,40 @@ p {
   margin-bottom: 28px;
 }
 
+.order-filter {
+  margin-bottom: 18px;
+}
+
+.result-table {
+  display: grid;
+  gap: 0;
+}
+
+.result-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr minmax(0, 3fr) auto;
+  gap: 14px;
+  align-items: center;
+  padding: 14px 0;
+  border-top: 1px solid var(--line);
+}
+
+.result-head {
+  border-top: 0;
+  color: var(--graphite);
+  font-weight: 800;
+}
+
+.filters-card {
+  grid-column: 1 / -1;
+}
+
+@media (max-width: 760px) {
+  .result-row {
+    grid-template-columns: 1fr;
+  }
+}
+
 .cart-item,
 .order-card {
   display: grid;

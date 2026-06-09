@@ -33,9 +33,15 @@ async function searchPartgradeCabinet(query: string): Promise<Omit<SupplierPart,
 
   /*
    * Production integration point.
-   * Keep the supplier session, cookies, CSRF tokens and parsing/API calls here,
-   * never in the browser. After studying the authorized cabinet, replace this
-   * mock response with real Partgrade cabinet requests normalized to this shape.
+   * Observed Partgrade flow:
+   * 1. GET /search?pcode={articleOrVin} returns candidate brand/code rows.
+   * 2. GET /search/{brand}/{article} returns offer rows with:
+   *    brand, article, description, availability, updated date, warehouse,
+   *    delivery term, supply probability, price, quantity and buy button.
+   *
+   * Keep the supplier session, cookies, CSRF/captcha handling and parsing/API
+   * calls here, never in the browser. Replace this mock response with real
+   * authenticated cabinet requests normalized to this shape.
    */
   void credentials;
 

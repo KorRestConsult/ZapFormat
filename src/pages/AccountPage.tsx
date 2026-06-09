@@ -74,6 +74,30 @@ export function AccountPage() {
         <button className="button button-secondary" type="submit">Сохранить автомобиль</button>
       </form>
       <h2>Мои заказы</h2>
+      <form className="panel-form order-filter">
+        <div className="form-row">
+          <input placeholder="Период: 09.05.2026 - 09.06.2026" />
+          <select defaultValue="">
+            <option value="">Все статусы</option>
+            <option>Получен</option>
+            <option>В работе</option>
+            <option>Пришло на склад</option>
+            <option>Выдано</option>
+            <option>Отказ</option>
+          </select>
+          <select defaultValue="">
+            <option value="">Любая оплата</option>
+            <option>Безналичный расчет</option>
+            <option>Наличный расчет</option>
+          </select>
+        </div>
+        <div className="form-row">
+          <input placeholder="Артикул" />
+          <input placeholder="Комментарий" />
+          <input placeholder="Номер заказа" />
+          <button className="button button-secondary" type="button">Фильтровать</button>
+        </div>
+      </form>
       <div className="orders-list">
         {orders.map((order) => (
           <article className="order-card" key={order.id}>
