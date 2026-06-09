@@ -86,7 +86,7 @@ export function AdminPage() {
   }
 
   const visibleOrders = orders.filter((order) =>
-    [order.customerName, order.phone, order.telegram, order.status, order.vin, order.carLabel, ...order.items.map((item) => `${item.brand} ${item.article}`)]
+    [order.customerName, order.phone, order.status, order.vin, order.carLabel, ...order.items.map((item) => `${item.brand} ${item.article}`)]
       .join(' ')
       .toLowerCase()
       .includes(filter.toLowerCase()),
@@ -139,8 +139,8 @@ export function AdminPage() {
           <h2>Контакты</h2>
           <label>Название<input value={draftSettings.companyName} onChange={(event) => setDraftSettings({ ...draftSettings, companyName: event.target.value })} /></label>
           <label>Телефон<input value={draftSettings.phone} onChange={(event) => setDraftSettings({ ...draftSettings, phone: event.target.value })} /></label>
-          <label>Telegram<input value={draftSettings.telegram} onChange={(event) => setDraftSettings({ ...draftSettings, telegram: event.target.value })} /></label>
-          <label>Город<input value={draftSettings.city} onChange={(event) => setDraftSettings({ ...draftSettings, city: event.target.value })} /></label>
+          <label>WhatsApp<input value={draftSettings.whatsapp} onChange={(event) => setDraftSettings({ ...draftSettings, whatsapp: event.target.value })} /></label>
+          <label>Город<input value={draftSettings.city} readOnly /></label>
           <label>Юридический текст<textarea value={draftSettings.legalNote} onChange={(event) => setDraftSettings({ ...draftSettings, legalNote: event.target.value })} /></label>
           <Button type="submit">Сохранить настройки</Button>
         </form>
@@ -153,7 +153,7 @@ export function AdminPage() {
             </div>
             {visibleOrders.map((order) => (
               <article className="orders-table-row" key={order.id}>
-                <div><strong>{order.customerName}</strong><p>{order.phone}</p><p>{order.telegram}</p></div>
+                <div><strong>{order.customerName}</strong><p>{order.phone}</p></div>
                 <div><strong>{order.carLabel || 'без авто'}</strong><p>{order.vin}</p><p>{order.comment || order.clientComment}</p></div>
                 <div>{order.items.map((item) => <p key={`${item.brand}-${item.article}`}>{item.brand} {item.article} · закупка {formatRub(item.purchasePrice ?? item.basePrice ?? 0)} · клиент {formatRub(item.clientPrice)} · {item.deliveryText ?? item.deliveryTerm ?? 'срок уточняется'}</p>)}</div>
                 <div>

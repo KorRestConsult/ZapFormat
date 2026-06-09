@@ -8,7 +8,7 @@ export function AuthPage() {
   const navigate = useNavigate();
   const [step, setStep] = useState<'phone' | 'code'>('phone');
   const [phone, setPhone] = useState('+7');
-  const [profileDraft, setProfileDraft] = useState({ name: '', telegram: '', city: '', comment: '' });
+  const [profileDraft, setProfileDraft] = useState({ name: '', comment: '' });
   const [error, setError] = useState('');
 
   async function requestCode(event: FormEvent<HTMLFormElement>) {
@@ -27,7 +27,7 @@ export function AuthPage() {
     setError('');
     const form = new FormData(event.currentTarget);
     try {
-      await confirmPhoneLogin(String(form.get('code') ?? ''), { ...profileDraft, phone });
+      await confirmPhoneLogin(String(form.get('code') ?? ''), { ...profileDraft, phone, city: 'Рязань' });
       navigate('/account');
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : 'Не удалось выполнить вход');
@@ -48,18 +48,8 @@ export function AuthPage() {
             value={profileDraft.name}
             onChange={(event) => setProfileDraft({ ...profileDraft, name: event.target.value })}
           />
-          <input
-            placeholder="Telegram"
-            value={profileDraft.telegram}
-            onChange={(event) => setProfileDraft({ ...profileDraft, telegram: event.target.value })}
-          />
-          <input
-            placeholder="Город"
-            value={profileDraft.city}
-            onChange={(event) => setProfileDraft({ ...profileDraft, city: event.target.value })}
-          />
           <textarea
-            placeholder="Комментарий к профилю"
+            placeholder="Комментарий: адрес, удобное время звонка, что искать"
             value={profileDraft.comment}
             onChange={(event) => setProfileDraft({ ...profileDraft, comment: event.target.value })}
           />

@@ -72,7 +72,7 @@ export function AccountPage() {
       </div>
       <div className="account-tabs">
         <article className="feature-card"><Wrench size={22} /><h3>Мои автомобили</h3><p>{cars.length ? `${cars.length} авто в гараже` : 'Добавьте первый автомобиль ниже.'}</p></article>
-        <article className="feature-card"><UserRound size={22} /><h3>Профиль</h3><p>{profile?.phone} · {profile?.telegram || 'Telegram не указан'} · {profile?.city || 'город не указан'}</p></article>
+        <article className="feature-card"><UserRound size={22} /><h3>Профиль</h3><p>{profile?.phone} · Рязань</p></article>
         <article className="feature-card"><Repeat size={22} /><h3>История</h3><p>{orders.length} заказов, фильтр по каждому автомобилю.</p></article>
       </div>
 

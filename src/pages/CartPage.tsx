@@ -48,7 +48,7 @@ export function CartPage() {
       garageCarId: garageCarId || undefined,
       customerName: String(form.get('customerName') ?? ''),
       phone: String(form.get('phone') ?? ''),
-      telegram: String(form.get('telegram') ?? ''),
+      telegram: '',
       vin: String(form.get('vin') ?? selectedCar?.vin ?? ''),
       carLabel: selectedCar ? `${selectedCar.brand} ${selectedCar.model} ${selectedCar.year}` : '',
       items: orderItems,
@@ -100,7 +100,6 @@ export function CartPage() {
           <form className="panel-form" onSubmit={onSubmit}>
             <input name="customerName" required placeholder="Имя" defaultValue={profile?.name ?? ''} />
             <input name="phone" required placeholder="Телефон" defaultValue={profile?.phone ?? ''} />
-            <input name="telegram" placeholder="Telegram" defaultValue={profile?.telegram ?? ''} />
             <select name="garageCarId" defaultValue="">
               <option value="">Без привязки к авто</option>
               {cars.map((car) => <option key={car.id} value={car.id}>{car.brand} {car.model} · {car.vin || car.plate}</option>)}
@@ -109,7 +108,6 @@ export function CartPage() {
             <div className="form-row">
               <select name="contactMethod" defaultValue="phone">
                 <option value="phone">Связь: телефон</option>
-                <option value="telegram">Связь: Telegram</option>
                 <option value="whatsapp">Связь: WhatsApp</option>
               </select>
               <select name="paymentMethod" defaultValue="cash">

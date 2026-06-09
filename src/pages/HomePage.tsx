@@ -74,7 +74,7 @@ export function HomePage() {
         <Button onClick={() => window.location.assign(`tel:${settings.phone}`)}>
           Связаться с менеджером <ArrowRight size={18} />
         </Button>
-        <a className="button button-secondary" href={settings.telegram} target="_blank" rel="noreferrer"><MessageCircle size={18} />Telegram</a>
+        <a className="button button-secondary" href={settings.whatsapp} target="_blank" rel="noreferrer"><MessageCircle size={18} />WhatsApp</a>
       </section>
     </>
   );

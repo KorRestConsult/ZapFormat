@@ -67,10 +67,11 @@ export function SearchPage() {
   }, [filter, results, sort]);
 
   return (
-    <section className="page">
-      <div className="page-heading">
+    <section className="page search-page">
+      <div className="page-heading compact-heading">
         <p className="eyebrow">Поиск ZapFormat</p>
-        <h1>VIN, артикул, бренд, название или категория</h1>
+        <h1>Поиск запчастей</h1>
+        <p className="muted">Введите VIN, артикул или название. Клиент видит только финальную цену.</p>
       </div>
       <form className="search-form advanced-search" onSubmit={onSubmit}>
         <select value={kind} onChange={(event) => setKind(event.target.value as SearchKind)}>
@@ -92,8 +93,8 @@ export function SearchPage() {
         </select>
         <button className="button button-primary" type="submit"><Search size={18} />{loading ? 'Ищем...' : 'Найти'}</button>
       </form>
-      <div className="part-card filters-card">
-        <p className="eyebrow"><SlidersHorizontal size={14} /> Фильтры и сортировка</p>
+      <div className="filters-card catalog-toolbar">
+        <p className="eyebrow"><SlidersHorizontal size={14} /> Фильтры</p>
         <div className="form-row">
           <select value={filter} onChange={(event) => setFilter(event.target.value as typeof filter)}>
             <option value="all">Все предложения</option>
@@ -112,8 +113,9 @@ export function SearchPage() {
             <option value="brand">По бренду</option>
           </select>
         </div>
+        <span className="muted">{visibleResults.length ? `Найдено: ${visibleResults.length}` : 'Результатов пока нет'}</span>
       </div>
-      <div className="results-grid">
+      <div className="catalog-results">
         {visibleResults.map((part) => <PartCard key={part.id} part={part} onAdd={addPart} />)}
         {!loading && visibleResults.length === 0 && <div className="empty-state">Введите запрос, чтобы увидеть оригиналы и аналоги.</div>}
       </div>
