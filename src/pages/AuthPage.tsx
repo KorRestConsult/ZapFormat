@@ -4,23 +4,30 @@ import { Button } from '../components/Button';
 import { useAuth } from '../contexts/AuthContext';
 
 export function AuthPage() {
-  const { login, register } = useAuth();
+  const { startPhoneLogin, confirmPhoneLogin } = useAuth();
   const navigate = useNavigate();
-  const [mode, setMode] = useState<'login' | 'register'>('login');
+  const [step, setStep] = useState<'phone' | 'code'>('phone');
+  const [phone, setPhone] = useState('+7');
+  const [profileDraft, setProfileDraft] = useState({ name: '', telegram: '', city: '', comment: '' });
   const [error, setError] = useState('');
 
-  async function onSubmit(event: FormEvent<HTMLFormElement>) {
+  async function requestCode(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setError('');
+    try {
+      await startPhoneLogin(phone);
+      setStep('code');
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : 'Не удалось отправить SMS-код');
+    }
+  }
+
+  async function confirmCode(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setError('');
     const form = new FormData(event.currentTarget);
-    const email = String(form.get('email') ?? '');
-    const password = String(form.get('password') ?? '');
     try {
-      if (mode === 'login') {
-        await login(email, password);
-      } else {
-        await register(email, password, String(form.get('name') ?? ''), String(form.get('phone') ?? ''));
-      }
+      await confirmPhoneLogin(String(form.get('code') ?? ''), { ...profileDraft, phone });
       navigate('/account');
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : 'Не удалось выполнить вход');
@@ -31,19 +38,45 @@ export function AuthPage() {
     <section className="page narrow">
       <div className="page-heading">
         <p className="eyebrow">Личный кабинет</p>
-        <h1>{mode === 'login' ? 'Вход' : 'Регистрация'}</h1>
+        <h1>Вход по номеру телефона</h1>
       </div>
-      <form className="panel-form" onSubmit={onSubmit}>
-        {mode === 'register' && <input name="name" required placeholder="Имя" />}
-        {mode === 'register' && <input name="phone" required placeholder="Телефон" />}
-        <input name="email" required type="email" placeholder="Email" />
-        <input name="password" required type="password" placeholder="Пароль" minLength={6} />
-        {error && <p className="error">{error}</p>}
-        <Button type="submit">{mode === 'login' ? 'Войти' : 'Создать аккаунт'}</Button>
-        <button className="text-button" type="button" onClick={() => setMode(mode === 'login' ? 'register' : 'login')}>
-          {mode === 'login' ? 'Зарегистрироваться' : 'У меня уже есть аккаунт'}
-        </button>
-      </form>
+      {step === 'phone' ? (
+        <form className="panel-form" onSubmit={requestCode}>
+          <input name="phone" required placeholder="+7 900 000-00-00" value={phone} onChange={(event) => setPhone(event.target.value)} />
+          <input
+            placeholder="Имя"
+            value={profileDraft.name}
+            onChange={(event) => setProfileDraft({ ...profileDraft, name: event.target.value })}
+          />
+          <input
+            placeholder="Telegram"
+            value={profileDraft.telegram}
+            onChange={(event) => setProfileDraft({ ...profileDraft, telegram: event.target.value })}
+          />
+          <input
+            placeholder="Город"
+            value={profileDraft.city}
+            onChange={(event) => setProfileDraft({ ...profileDraft, city: event.target.value })}
+          />
+          <textarea
+            placeholder="Комментарий к профилю"
+            value={profileDraft.comment}
+            onChange={(event) => setProfileDraft({ ...profileDraft, comment: event.target.value })}
+          />
+          {error && <p className="error">{error}</p>}
+          <div id="recaptcha-container" />
+          <Button type="submit">Получить SMS-код</Button>
+        </form>
+      ) : (
+        <form className="panel-form" onSubmit={confirmCode}>
+          <input name="code" required inputMode="numeric" placeholder="Код из SMS" />
+          {error && <p className="error">{error}</p>}
+          <Button type="submit">Войти</Button>
+          <button className="text-button" type="button" onClick={() => setStep('phone')}>
+            Изменить номер
+          </button>
+        </form>
+      )}
     </section>
   );
 }

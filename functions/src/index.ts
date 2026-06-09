@@ -16,6 +16,30 @@ interface SupplierPart {
   probability?: string;
 }
 
+interface TelegramOrderItem {
+  brand: string;
+  article: string;
+  name: string;
+  purchasePrice: number;
+  clientPrice: number;
+  marginRub: number;
+  deliveryText: string;
+}
+
+interface TelegramOrder {
+  id?: string;
+  customerName: string;
+  phone: string;
+  telegram: string;
+  carLabel: string;
+  vin: string;
+  items: TelegramOrderItem[];
+  totalPurchasePrice: number;
+  totalClientPrice: number;
+  totalMargin: number;
+  comment: string;
+}
+
 function calculateClientPrice(basePrice: number, markupPercent: number) {
   return Math.round(basePrice * (1 + markupPercent / 100));
 }
@@ -178,5 +202,60 @@ export const searchParts = onRequest({ cors: true }, async (request, response) =
     response.status(500).json({
       error: error instanceof Error ? error.message : 'Supplier proxy error',
     });
+  }
+});
+
+function orderTelegramText(order: TelegramOrder) {
+  const items = order.items
+    .map((item) => `• ${item.brand} ${item.article} ${item.name}\n  закупка: ${item.purchasePrice} ₽, клиент: ${item.clientPrice} ₽, маржа: ${item.marginRub} ₽, срок: ${item.deliveryText}`)
+    .join('\n');
+  return [
+    'Новый заказ ZapFormat',
+    `Клиент: ${order.customerName}`,
+    `Телефон: ${order.phone}`,
+    `Telegram: ${order.telegram || 'не указан'}`,
+    `Авто: ${order.carLabel || 'не указано'}`,
+    `VIN: ${order.vin || 'не указан'}`,
+    `Товары:\n${items}`,
+    `Закупка: ${order.totalPurchasePrice} ₽`,
+    `Цена клиента: ${order.totalClientPrice} ₽`,
+    `Маржа: ${order.totalMargin} ₽`,
+    `Комментарий: ${order.comment || 'нет'}`,
+  ].join('\n');
+}
+
+export const notifyOrderTelegram = onRequest({ cors: true }, async (request, response) => {
+  try {
+    const token = process.env.TELEGRAM_BOT_TOKEN;
+    const chatId = process.env.TELEGRAM_OWNER_CHAT_ID;
+    const order = request.body as TelegramOrder;
+
+    if (!token || !chatId) {
+      response.status(200).json({ ok: false, fallback: 'Telegram env vars are not configured', text: orderTelegramText(order) });
+      return;
+    }
+
+    const telegramResponse = await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        chat_id: chatId,
+        text: orderTelegramText(order),
+        reply_markup: {
+          inline_keyboard: [
+            [
+              { text: 'Принять', callback_data: `accept:${order.id ?? ''}` },
+              { text: 'Уточнить', callback_data: `clarify:${order.id ?? ''}` },
+              { text: 'Отменить', callback_data: `cancel:${order.id ?? ''}` },
+            ],
+            [{ text: 'Изменить статус', callback_data: `status:${order.id ?? ''}` }],
+          ],
+        },
+      }),
+    });
+
+    response.status(telegramResponse.ok ? 200 : 502).json(await telegramResponse.json());
+  } catch (error) {
+    response.status(500).json({ error: error instanceof Error ? error.message : 'Telegram notification error' });
   }
 });

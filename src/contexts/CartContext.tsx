@@ -1,4 +1,4 @@
-import { ReactNode, createContext, useContext, useMemo, useState } from 'react';
+import { ReactNode, createContext, useContext, useEffect, useMemo, useState } from 'react';
 import type { CartItem, SupplierPart } from '../types';
 import { calculateClientPrice } from '../utils/pricing';
 import { useSettings } from './SettingsContext';
@@ -17,7 +17,17 @@ const CartContext = createContext<CartContextValue | null>(null);
 
 export function CartProvider({ children }: { children: ReactNode }) {
   const { settings } = useSettings();
-  const [items, setItems] = useState<CartItem[]>([]);
+  const [items, setItems] = useState<CartItem[]>(() => {
+    try {
+      return JSON.parse(localStorage.getItem('zapformat-cart') ?? '[]') as CartItem[];
+    } catch {
+      return [];
+    }
+  });
+
+  useEffect(() => {
+    localStorage.setItem('zapformat-cart', JSON.stringify(items));
+  }, [items]);
 
   const value = useMemo<CartContextValue>(
     () => ({
@@ -32,7 +42,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
             ...current,
             {
               ...part,
-              clientPrice: calculateClientPrice(part.basePrice, settings.markupPercent),
+              clientPrice: calculateClientPrice(part.purchasePrice, settings.markupPercent, settings.minMarginRub, settings.roundingStep),
               quantity: 1,
             },
           ];
@@ -48,9 +58,9 @@ export function CartProvider({ children }: { children: ReactNode }) {
         setItems([]);
       },
       totalClientPrice: items.reduce((sum, item) => sum + item.clientPrice * item.quantity, 0),
-      totalBasePrice: items.reduce((sum, item) => sum + item.basePrice * item.quantity, 0),
+      totalBasePrice: items.reduce((sum, item) => sum + item.purchasePrice * item.quantity, 0),
     }),
-    [items, settings.markupPercent],
+    [items, settings.markupPercent, settings.minMarginRub, settings.roundingStep],
   );
 
   return <CartContext.Provider value={value}>{children}</CartContext.Provider>;

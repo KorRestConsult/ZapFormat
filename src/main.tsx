@@ -17,24 +17,27 @@ import { SearchPage } from './pages/SearchPage';
 import { VinRequestPage } from './pages/VinRequestPage';
 import './styles/global.css';
 
-const router = createBrowserRouter([
-  {
-    path: '/',
-    element: <Layout />,
-    errorElement: <NotFoundPage />,
-    children: [
-      { index: true, element: <HomePage /> },
-      { path: 'search', element: <SearchPage /> },
-      { path: 'catalogs', element: <CatalogsPage /> },
-      { path: 'vin', element: <VinRequestPage /> },
-      { path: 'cart', element: <CartPage /> },
-      { path: 'account', element: <AccountPage /> },
-      { path: 'returns', element: <ReturnsPage /> },
-      { path: 'auth', element: <AuthPage /> },
-      { path: 'admin', element: <AdminPage /> },
-    ],
-  },
-]);
+const router = createBrowserRouter(
+  [
+    {
+      path: '/',
+      element: <Layout />,
+      errorElement: <NotFoundPage />,
+      children: [
+        { index: true, element: <HomePage /> },
+        { path: 'search', element: <SearchPage /> },
+        { path: 'catalogs', element: <CatalogsPage /> },
+        { path: 'vin', element: <VinRequestPage /> },
+        { path: 'cart', element: <CartPage /> },
+        { path: 'account', element: <AccountPage /> },
+        { path: 'returns', element: <ReturnsPage /> },
+        { path: 'auth', element: <AuthPage /> },
+        { path: 'admin', element: <AdminPage /> },
+      ],
+    },
+  ],
+  { basename: '/ZapFormat' },
+);
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>

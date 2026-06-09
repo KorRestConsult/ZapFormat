@@ -1,13 +1,26 @@
-import type { OrderStatus } from '../types';
+import type { OrderStatus, PaymentMethod, ReturnReason } from '../types';
 
 export const orderStatusLabels: Record<OrderStatus, string> = {
-  new: 'новая заявка',
-  checking: 'проверяется',
-  price_confirmed: 'цена подтверждена',
+  new: 'новый',
+  checking: 'проверяю',
   awaiting_payment: 'ожидает оплаты',
-  ordered_from_supplier: 'заказано у поставщика',
+  ordered: 'заказан',
   in_transit: 'в пути',
-  ready_for_pickup: 'готово к выдаче',
-  issued: 'выдано',
-  cancelled: 'отменено',
+  arrived: 'пришел',
+  ready_for_pickup: 'готов к выдаче',
+  issued: 'выдан',
+  cancelled: 'отменен',
+  return: 'возврат',
+};
+
+export const paymentMethodLabels: Record<PaymentMethod, string> = {
+  cash: 'наличные',
+  transfer: 'перевод',
+  sbp: 'СБП',
+};
+
+export const returnReasonLabels: Record<ReturnReason, string> = {
+  not_fit: 'не подошло',
+  defect: 'брак',
+  other: 'другое',
 };
