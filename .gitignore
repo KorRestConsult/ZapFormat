@@ -1,0 +1,9 @@
+node_modules/
+dist/*.map
+.env
+.env.*
+!.env.example
+functions/.env
+functions/.env.*
+firebase-debug.log
+.firebase/

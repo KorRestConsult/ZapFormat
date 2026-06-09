@@ -1,6 +1,6 @@
 # ЗапФормат
 
-Готовый MVP веб-сервиса для подбора, продажи и заказа автозапчастей. Проект реализован на React, Vite, TypeScript и Firebase. Архитектура уже отделяет клиентскую витрину от поставщика через `Supplier Service Layer`, чтобы позже подключить PartGrade API, Cloud Functions, backend, CSV-импорт или другой источник без переписывания frontend.
+Готовый MVP веб-сервиса для подбора, продажи и заказа автозапчастей. Проект реализован на React, Vite, TypeScript и Firebase. Архитектура отделяет клиентскую витрину ЗапФормат от закрытого поставщика через `Supplier Service Layer`, чтобы закупочные цены из авторизованного кабинета Partgrade подключались через backend/proxy, а клиент видел уже цену ЗапФормат с наценкой.
 
 Важно: проект не использует логотип PartGrade, не выдает себя за официальный ресурс PartGrade и не хранит логин/пароль поставщика во frontend.
 
@@ -17,6 +17,7 @@
 - Админ-панель: список заказов, фильтр, статусы, цена, отметка оплаты, наценка, контакты и тексты.
 - Firestore rules, indexes, Storage rules, Firebase Hosting config.
 - Mock-данные и mock supplier с публичной и авторизованной закупочной ценой.
+- Маржа по умолчанию: 18%, с возможностью изменить в админ-панели.
 - Адаптивная мобильная верстка.
 
 ## Запуск
@@ -78,6 +79,25 @@ checkAvailability(article, brand)
 - `authorizedBasePrice`
 
 Клиентская цена считается от авторизованной закупочной цены поставщика. Реальные учетные данные PartGrade должны подключаться только через backend, Cloud Functions, Secret Manager или другой защищенный серверный слой.
+
+## Partgrade Proxy
+
+В проект добавлен серверный слой `functions/src/index.ts`. Секреты поставщика должны храниться только в переменных окружения Cloud Functions:
+
+```bash
+PARTGRADE_LOGIN=...
+PARTGRADE_PASSWORD=...
+PARTGRADE_BASE_URL=https://partgrade.com
+DEFAULT_MARKUP_PERCENT=18
+```
+
+Frontend подключается к proxy через:
+
+```bash
+VITE_SUPPLIER_PROXY_URL=https://europe-west1-your-project.cloudfunctions.net/searchParts
+```
+
+После изучения авторизованного кабинета Partgrade в функции нужно заменить mock-нормализацию на реальные запросы кабинета/API. Парсинг и авторизация не должны выполняться в браузере.
 
 ## Структура
 

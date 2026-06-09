@@ -3,7 +3,7 @@ import { db } from '../firebase/config';
 import type { BusinessSettings } from '../types';
 
 export const defaultSettings: BusinessSettings = {
-  markupPercent: 22,
+  markupPercent: 18,
   companyName: 'ЗапФормат',
   phone: '+7 900 000-00-00',
   telegram: 'https://t.me/example',

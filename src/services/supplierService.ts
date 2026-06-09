@@ -7,6 +7,12 @@ export interface SupplierService {
   checkAvailability(article: string, brand: string): Promise<{ availability: number; deliveryTerm: string }>;
 }
 
+/*
+ * Partgrade must be connected behind this boundary only.
+ * Real credentials belong in a backend, Cloud Functions, or secret manager.
+ * The storefront receives normalized purchase prices and never logs into
+ * the supplier cabinet directly from the browser.
+ */
 const mockParts: Omit<SupplierPart, 'basePrice' | 'priceLevel'>[] = [
   {
     id: 'pg-brk-001',
@@ -17,7 +23,7 @@ const mockParts: Omit<SupplierPart, 'basePrice' | 'priceLevel'>[] = [
     authorizedBasePrice: 4100,
     availability: 8,
     deliveryTerm: '1-2 дня',
-    supplier: 'PartGrade-ready mock',
+    supplier: 'private-supplier-proxy',
   },
   {
     id: 'pg-oil-002',
@@ -28,7 +34,7 @@ const mockParts: Omit<SupplierPart, 'basePrice' | 'priceLevel'>[] = [
     authorizedBasePrice: 760,
     availability: 24,
     deliveryTerm: 'сегодня',
-    supplier: 'PartGrade-ready mock',
+    supplier: 'private-supplier-proxy',
   },
   {
     id: 'pg-air-003',
@@ -39,7 +45,7 @@ const mockParts: Omit<SupplierPart, 'basePrice' | 'priceLevel'>[] = [
     authorizedBasePrice: 1520,
     availability: 11,
     deliveryTerm: '2-3 дня',
-    supplier: 'PartGrade-ready mock',
+    supplier: 'private-supplier-proxy',
   },
   {
     id: 'pg-sns-004',
@@ -50,7 +56,7 @@ const mockParts: Omit<SupplierPart, 'basePrice' | 'priceLevel'>[] = [
     authorizedBasePrice: 6100,
     availability: 3,
     deliveryTerm: '3-5 дней',
-    supplier: 'PartGrade-ready mock',
+    supplier: 'private-supplier-proxy',
   },
 ];
 
@@ -94,4 +100,47 @@ export const mockSupplierService: SupplierService = {
   },
 };
 
-export const supplierService: SupplierService = mockSupplierService;
+const proxyUrl = import.meta.env.VITE_SUPPLIER_PROXY_URL;
+
+export const partgradeProxySupplierService: SupplierService = {
+  async searchParts(query) {
+    if (!proxyUrl) return mockSupplierService.searchParts(query);
+    const response = await fetch(`${proxyUrl}?q=${encodeURIComponent(query)}`);
+    if (!response.ok) throw new Error('Не удалось получить цены поставщика');
+    const payload = (await response.json()) as {
+      parts: Array<{
+        id: string;
+        article: string;
+        brand: string;
+        name: string;
+        purchasePrice: number;
+        availability: number;
+        deliveryTerm: string;
+      }>;
+    };
+    return payload.parts.map((part) => ({
+      id: part.id,
+      article: part.article,
+      brand: part.brand,
+      name: part.name,
+      publicBasePrice: part.purchasePrice,
+      authorizedBasePrice: part.purchasePrice,
+      basePrice: part.purchasePrice,
+      availability: part.availability,
+      deliveryTerm: part.deliveryTerm,
+      supplier: 'private-supplier-proxy',
+      priceLevel: 'authorized',
+    }));
+  },
+  async getPartDetails(partId) {
+    return mockSupplierService.getPartDetails(partId);
+  },
+  async createSupplierOrder(order) {
+    return mockSupplierService.createSupplierOrder(order);
+  },
+  async checkAvailability(article, brand) {
+    return mockSupplierService.checkAvailability(article, brand);
+  },
+};
+
+export const supplierService: SupplierService = partgradeProxySupplierService;

@@ -1,6 +1,6 @@
 {
   "settings/business": {
-    "markupPercent": 22,
+    "markupPercent": 18,
     "companyName": "ЗапФормат",
     "phone": "+7 900 000-00-00",
     "telegram": "https://t.me/example",
@@ -32,12 +32,12 @@
         "quantity": 1,
         "availability": 8,
         "deliveryTerm": "1-2 дня",
-        "supplier": "PartGrade-ready mock"
+        "supplier": "private-supplier-proxy"
       }
     ],
     "totalClientPrice": 5002,
     "totalBasePrice": 4100,
-    "markupPercent": 22,
+    "markupPercent": 18,
     "status": "new",
     "paymentStatus": "unpaid",
     "deliveryMethod": "pickup",
