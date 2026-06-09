@@ -4,224 +4,168 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>ЗапФормат</title>
-    <meta name="description" content="Подбор и заказ автозапчастей в ЗапФормат" />
     <style>
-      :root{--ink:#19231d;--forest:#163829;--forest2:#254b39;--sage:#607767;--cream:#f4efe4;--beige:#dfd2ba;--sand:#c8b894;--line:#e4dccd;--muted:#6f766d;--white:#fffdf8;--ok:#1f6b45}*{box-sizing:border-box}html{scroll-behavior:smooth}body{margin:0;background:var(--cream);color:var(--ink);font-family:"Manrope","Inter",system-ui,-apple-system,"Segoe UI",sans-serif;letter-spacing:0}a{text-decoration:none;color:inherit}input,textarea,select,button{font:inherit}input,textarea,select{width:100%;border:1px solid var(--line);border-radius:8px;padding:15px 16px;background:#fffdf8;color:var(--ink)}textarea{min-height:100px;resize:vertical}.top{position:sticky;top:0;z-index:10;display:flex;align-items:center;gap:18px;padding:16px clamp(18px,4vw,56px);background:rgba(244,239,228,.92);color:var(--ink);border-bottom:1px solid rgba(22,56,41,.12);backdrop-filter:blur(18px)}.brand{font-size:23px;font-weight:900;margin-right:auto;color:var(--forest)}.nav{display:flex;gap:14px;flex-wrap:wrap}.nav a{color:var(--forest);font-size:14px;font-weight:700}.btn{min-height:46px;border:0;border-radius:8px;padding:12px 18px;display:inline-flex;align-items:center;justify-content:center;gap:8px;cursor:pointer;font-weight:900}.primary{background:var(--forest);color:#fffdf8}.secondary{background:#fffdf8;color:var(--forest);border:1px solid var(--line)}.ghost{background:transparent;color:var(--forest)}.hero{min-height:calc(100vh - 72px);display:grid;grid-template-columns:minmax(0,1fr)390px;gap:clamp(24px,5vw,72px);align-items:center;padding:clamp(48px,8vw,104px) clamp(18px,5vw,72px);background:radial-gradient(circle at 80% 18%,rgba(200,184,148,.36),transparent 30%),linear-gradient(128deg,#f7f2e8 0%,#efe5d3 46%,#d8cab0 100%);color:var(--ink)}.hero h1{font-size:clamp(46px,8vw,96px);line-height:.94;margin:0 0 22px;color:var(--forest);max-width:880px}.hero p{max-width:720px;color:#405146;font-size:19px}.ey{color:var(--sage);font-weight:900;text-transform:uppercase;font-size:12px}.hero-actions,.row,.meta,.footer{display:flex;gap:12px;align-items:center;flex-wrap:wrap}.panel,.card,.part,.order,.empty{border:1px solid var(--line);border-radius:8px;background:rgba(255,253,248,.9);color:var(--ink);box-shadow:0 24px 70px rgba(52,68,55,.10)}.panel{padding:28px}.panel strong{display:block;font-size:30px;margin:8px 0;color:var(--forest)}.section,.page{padding:52px clamp(18px,5vw,72px)}.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(235px,1fr));gap:18px}.card,.part,.order{padding:22px}.work{background:var(--forest);color:#fffdf8}.steps{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px;margin:24px 0}.step{border:1px solid rgba(255,253,248,.18);border-radius:8px;padding:18px}.step span{display:block;color:var(--beige);font-weight:900;margin-bottom:8px}.head{max-width:820px;margin-bottom:28px}.head h2{font-size:clamp(34px,5vw,60px);line-height:1.02;margin:0;color:var(--forest)}.form{display:grid;gap:14px}.search{display:grid;grid-template-columns:repeat(4,minmax(130px,1fr)) auto;gap:12px;margin-bottom:28px}.results{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:18px}.part{display:grid;gap:14px}.muted,.note,.small{color:var(--muted)}.note{font-size:13px}.price{display:flex;justify-content:space-between;gap:12px;align-items:end}.price strong{font-size:25px;color:var(--forest)}.layout{display:grid;grid-template-columns:minmax(0,1fr)380px;gap:24px;align-items:start}.list{display:grid;gap:12px}.cart-item,.order{display:grid;grid-template-columns:minmax(0,1fr)90px auto auto;align-items:center;gap:14px;padding:18px}.total{display:flex;justify-content:space-between;background:#f5ead8;border-radius:8px;padding:16px}.status{justify-self:start;background:#edf4ee;border-radius:999px;padding:7px 12px;color:var(--forest);font-size:13px;font-weight:800}.admin{display:grid;grid-template-columns:360px minmax(0,1fr);gap:24px}.footer{justify-content:space-between;padding:28px clamp(18px,5vw,72px);border-top:1px solid var(--line);background:#fffdf8}.ok{color:var(--ok);font-weight:800}.hide{display:none}@media(max-width:980px){.hero,.layout,.admin,.cart-item,.order{grid-template-columns:1fr}.search{grid-template-columns:1fr 1fr}}@media(max-width:720px){.top{flex-wrap:wrap}.nav{width:100%}.hero{min-height:auto}.hero-actions,.footer{align-items:stretch;flex-direction:column}.search{grid-template-columns:1fr}}
+      :root{--ink:#17231b;--green:#123b2b;--green2:#1f5a40;--soft:#edf1e9;--cream:#f7f3ea;--card:#fffdf8;--line:#ded7c8;--muted:#687367;--gold:#bfa66b;--red:#9f2f28}*{box-sizing:border-box}body{margin:0;background:var(--cream);color:var(--ink);font-family:"Inter","Manrope",system-ui,-apple-system,"Segoe UI",sans-serif;font-size:14px}button,input,select,textarea{font:inherit}button{cursor:pointer}input,select,textarea{width:100%;border:1px solid var(--line);border-radius:6px;background:#fff;padding:10px 12px;color:var(--ink)}textarea{min-height:86px;resize:vertical}a{text-decoration:none;color:inherit}.app{min-height:100vh;display:grid;grid-template-rows:auto 1fr}.topline{background:var(--green);color:#fff;padding:7px 24px;font-size:12px;display:flex;gap:18px;justify-content:space-between}.header{background:var(--card);border-bottom:1px solid var(--line);padding:14px 24px;display:grid;grid-template-columns:250px minmax(300px,1fr)310px;gap:18px;align-items:center}.logo{display:flex;align-items:center;gap:10px;font-weight:900;color:var(--green);font-size:22px}.logo-mark{width:38px;height:38px;border-radius:8px;background:linear-gradient(135deg,var(--green),var(--green2));display:grid;place-items:center;color:#fff;font-weight:1000;letter-spacing:.5px}.searchbar{display:grid;grid-template-columns:1fr 54px;border:2px solid var(--green);border-radius:8px;overflow:hidden;background:#fff}.searchbar input{border:0;border-radius:0;padding:13px 15px}.searchbar button{border:0;background:var(--green);color:#fff;font-size:18px}.userbox{display:flex;justify-content:flex-end;align-items:center;gap:12px}.badge{border:1px solid var(--line);background:var(--soft);border-radius:999px;padding:7px 10px;color:var(--green);font-weight:800}.nav{background:#fffdf8;border-bottom:1px solid var(--line);padding:0 24px;display:flex;gap:4px}.nav a{padding:12px 14px;color:var(--green);font-weight:800}.nav a:hover,.nav a.active{background:var(--soft)}.layout{display:grid;grid-template-columns:270px minmax(0,1fr);gap:18px;padding:18px 24px}.side{display:grid;gap:12px;align-content:start}.panel,.card{background:var(--card);border:1px solid var(--line);border-radius:8px;box-shadow:0 10px 28px rgba(29,50,34,.06)}.panel h3,.card h3{margin:0;padding:13px 15px;border-bottom:1px solid var(--line);color:var(--green);font-size:15px}.catalog-list{display:grid;padding:8px}.catalog-list a{display:flex;justify-content:space-between;align-items:center;padding:9px 10px;border-radius:6px;color:#24382c}.catalog-list a:hover{background:var(--soft);color:var(--green)}.main{display:grid;gap:16px}.quick{display:grid;grid-template-columns:repeat(4,minmax(150px,1fr));gap:12px}.quick .card{padding:14px}.quick strong{display:block;color:var(--green);font-size:15px;margin-bottom:5px}.muted{color:var(--muted)}.tabs{display:flex;gap:8px;padding:10px;border-bottom:1px solid var(--line);background:#fbf8f1}.tabs button{border:1px solid var(--line);background:#fff;border-radius:6px;padding:8px 12px;font-weight:800;color:var(--green)}.tabs button.active{background:var(--green);color:#fff}.table-wrap{overflow:auto}.table{width:100%;border-collapse:collapse;background:var(--card)}.table th{background:var(--soft);color:var(--green);text-align:left;font-size:12px;text-transform:uppercase}.table th,.table td{border-bottom:1px solid var(--line);padding:10px 11px;vertical-align:middle;white-space:nowrap}.table td.desc{white-space:normal;min-width:260px}.price{font-weight:900;color:var(--green);font-size:16px}.btn{border:0;border-radius:6px;padding:9px 12px;font-weight:900;background:var(--green);color:#fff}.btn.secondary{background:#fff;color:var(--green);border:1px solid var(--line)}.btn.danger{background:var(--red)}.filters{display:grid;grid-template-columns:repeat(5,minmax(120px,1fr));gap:10px;padding:12px}.section-title{display:flex;align-items:center;justify-content:space-between;gap:12px}.section-title h2{font-size:22px;color:var(--green);margin:0}.garage-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:12px;padding:12px}.garage-card{border:1px solid var(--line);border-radius:8px;padding:13px;background:#fff}.form-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;padding:12px}.hidden{display:none!important}.cart-total{display:flex;justify-content:space-between;align-items:center;padding:14px 15px;background:var(--soft);font-size:18px;color:var(--green);font-weight:900}.status{display:inline-flex;border-radius:999px;background:#e8f1e8;color:var(--green);padding:5px 9px;font-weight:800;font-size:12px}.admin-strip{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}.metric{padding:14px}.metric span{display:block;color:var(--muted);font-size:12px}.metric strong{font-size:24px;color:var(--green)}@media(max-width:980px){.header{grid-template-columns:1fr}.layout{grid-template-columns:1fr}.quick,.filters,.form-grid,.admin-strip{grid-template-columns:1fr}.userbox{justify-content:flex-start}.nav{overflow:auto}.topline{display:none}} 
     </style>
   </head>
   <body>
-    <header class="top">
-      <a class="brand" href="#home">ЗапФормат</a>
+    <div class="app">
+      <div class="topline">
+        <span>Рязань · автозапчасти под заказ</span>
+        <span>+7 900 000-00-00 · Пн-Сб 10:00-19:00</span>
+      </div>
+      <header class="header">
+        <a class="logo" href="#" onclick="show('home')"><span class="logo-mark">ZF</span><span>ЗапФормат</span></a>
+        <form class="searchbar" onsubmit="event.preventDefault();runSearch(pcode.value)">
+          <input id="pcode" placeholder="Введите код запчасти или VIN номер автомобиля" value="OC90" />
+          <button title="Найти">⌕</button>
+        </form>
+        <div class="userbox">
+          <span class="badge">Кабинет клиента</span>
+          <a class="badge" href="#" onclick="show('cart')">Корзина: <b id="cartBadge">0 ₽</b></a>
+        </div>
+      </header>
       <nav class="nav">
-        <a href="#garage">Гараж</a>
-        <a href="#catalogs">Каталоги</a>
-        <a href="#search">Поиск</a>
-        <a href="#cart">Корзина <span id="cartCount">0</span></a>
-        <a href="#account">Кабинет</a>
-        <a href="#returns">Возвраты</a>
-        <a href="#admin">Админ</a>
+        <a href="#" onclick="show('home')">Главная</a>
+        <a href="#" onclick="show('catalogs')">Каталоги</a>
+        <a href="#" onclick="show('garage')">Гараж</a>
+        <a href="#" onclick="show('orders')">История заказов</a>
+        <a href="#" onclick="show('returns')">Возвраты</a>
+        <a href="#" onclick="show('admin')">Админ</a>
       </nav>
-    </header>
+      <div class="layout">
+        <aside class="side">
+          <section class="panel">
+            <h3>Каталоги</h3>
+            <div class="catalog-list" id="catalogList"></div>
+          </section>
+          <section class="panel">
+            <h3>Мой автомобиль</h3>
+            <div class="catalog-list">
+              <a href="#" onclick="show('garage')"><span>BMW X3 (F25)</span><b>VIN</b></a>
+              <a href="#" onclick="show('catalogs')"><span>Каталог ТО</span><b>›</b></a>
+              <a href="#" onclick="show('search')"><span>Поиск деталей</span><b>›</b></a>
+            </div>
+          </section>
+        </aside>
+        <main class="main">
+          <section id="home" class="view">
+            <div class="section-title"><h2>Рабочий каталог ЗапФормат</h2><button class="btn" onclick="runSearch('OC90')">Показать пример поиска</button></div>
+            <div class="quick">
+              <div class="card"><strong>Поиск по коду</strong><span class="muted">Бренд, артикул, аналоги, цены</span></div>
+              <div class="card"><strong>Гараж клиента</strong><span class="muted">VIN, марка, модель, пробег</span></div>
+              <div class="card"><strong>История заказов</strong><span class="muted">Статусы, оплата, повтор заказа</span></div>
+              <div class="card"><strong>Админ-панель</strong><span class="muted">Твоя маржа, статусы, заявки</span></div>
+            </div>
+            <section class="panel">
+              <h3>Популярные разделы</h3>
+              <div class="garage-grid" id="popularGrid"></div>
+            </section>
+          </section>
 
-    <main>
-      <section class="hero" id="home">
-        <div>
-          <p class="ey">Электронный каталог автозапчастей</p>
-          <h1>ЗапФормат</h1>
-          <p>Подбор деталей по артикулу и VIN, каталоги для автомобиля, гараж клиента, корзина и история заказов в одном сервисе.</p>
-          <div class="hero-actions">
-            <a class="btn primary" href="#search">Найти деталь</a>
-            <a class="btn secondary" href="#vin">Подбор по VIN</a>
-          </div>
-        </div>
-        <div class="panel">
-          <span>Для клиентов ЗапФормат</span>
-          <strong>цены сразу на сайте</strong>
-          <p>Показываем итоговую цену, срок и наличие. Заказ подтверждает менеджер ЗапФормат.</p>
-        </div>
-      </section>
+          <section id="search" class="view hidden">
+            <div class="section-title"><h2 id="searchTitle">Поиск</h2><button class="btn secondary" onclick="runSearch(pcode.value)">Обновить</button></div>
+            <section class="panel">
+              <div class="tabs"><button class="active">Результаты</button><button>Аналоги</button><button>Избранные</button></div>
+              <div id="searchBody"></div>
+            </section>
+          </section>
 
-      <section class="section grid">
-        <article class="card"><h3>Каталоги</h3><p>ТО, масла, аккумуляторы, лампы, шины, диски и популярные группы запчастей.</p></article>
-        <article class="card"><h3>Гараж</h3><p>Клиент сохраняет автомобили и быстрее подбирает детали по своим машинам.</p></article>
-        <article class="card"><h3>Кабинет</h3><p>Корзина, заказы, статусы, история покупок и повтор заказа.</p></article>
-        <article class="card"><h3>Рязань</h3><p>Локальная выдача, связь с менеджером и понятный срок поставки.</p></article>
-      </section>
+          <section id="offers" class="view hidden">
+            <div class="section-title"><h2 id="offerTitle">Цены и аналоги</h2><button class="btn secondary" onclick="show('search')">Назад к кодам</button></div>
+            <section class="panel">
+              <div class="filters">
+                <select><option>Все бренды</option><option>Популярные</option><option>Избранные</option></select>
+                <select><option>Любой срок</option><option>На складе</option><option>Сегодня</option><option>1 день</option></select>
+                <input placeholder="Наличие от, шт" />
+                <input placeholder="Цена от" />
+                <input placeholder="Цена до" />
+              </div>
+              <div id="offerBody" class="table-wrap"></div>
+            </section>
+          </section>
 
-      <section class="page" id="catalogs">
-        <div class="head"><p class="ey">Каталоги</p><h2>Популярные разделы</h2></div>
-        <div class="grid">
-          <a class="card" href="#vin"><h3>Поиск по VIN</h3><p>Подбор детали по автомобилю и нужному узлу.</p></a>
-          <a class="card" href="#search"><h3>Каталог ТО</h3><p>Фильтры, масла, свечи, ремни и расходники.</p></a>
-          <a class="card" href="#search"><h3>Шины и диски</h3><p>Сезонные позиции, диски, крепёж и аксессуары.</p></a>
-          <a class="card" href="#search"><h3>Масла и жидкости</h3><p>Моторные, трансмиссионные, тормозные и охлаждающие.</p></a>
-          <a class="card" href="#search"><h3>Аккумуляторы</h3><p>АКБ, зарядные устройства и провода запуска.</p></a>
-          <a class="card" href="#search"><h3>Лампы</h3><p>Автолампы, свет, параметры и замены.</p></a>
-          <a class="card" href="#search"><h3>Аксессуары</h3><p>Коврики, щётки, компрессоры, наборы автомобилиста.</p></a>
-          <a class="card" href="#search"><h3>Инструменты</h3><p>Ключи, наборы, домкраты и гаражное оснащение.</p></a>
-        </div>
-      </section>
+          <section id="catalogs" class="view hidden">
+            <div class="section-title"><h2>Каталоги</h2></div>
+            <section class="panel"><h3>Разделы</h3><div class="garage-grid" id="catalogGrid"></div></section>
+            <section class="panel"><h3>Марки автомобилей</h3><div class="garage-grid" id="brandGrid"></div></section>
+          </section>
 
-      <section class="page" id="garage">
-        <div class="head"><p class="ey">Гараж</p><h2>Автомобили клиента</h2></div>
-        <div class="layout">
-          <form class="panel form" id="garageForm">
-            <input name="brand" required placeholder="Марка" />
-            <input name="model" required placeholder="Модель" />
-            <input name="year" placeholder="Год" />
-            <input name="vin" placeholder="VIN" />
-            <button class="btn primary" type="submit">Добавить в гараж</button>
-          </form>
-          <div class="panel">
-            <h3>Быстрый подбор</h3>
-            <p class="muted">Сохраните автомобиль, чтобы быстрее открывать каталог ТО, масла, лампы и расходники именно для него.</p>
-            <div id="garageList" class="list"></div>
-          </div>
-        </div>
-      </section>
+          <section id="garage" class="view hidden">
+            <div class="section-title"><h2>Гараж клиента</h2><button class="btn" onclick="saveGarage()">Сохранить</button></div>
+            <section class="panel">
+              <h3>Добавить автомобиль</h3>
+              <div class="form-grid">
+                <input id="gName" placeholder="Название" value="BMW X3 (F25)" />
+                <input id="gVin" placeholder="VIN-код" value="WBAWY31000L527390" />
+                <input id="gBrand" placeholder="Марка" value="BMW" />
+                <input id="gYear" placeholder="Год" />
+                <input id="gModel" placeholder="Модель" value="X3" />
+                <input id="gMod" placeholder="Модификация" />
+                <input id="gPlate" placeholder="Госномер" />
+                <input id="gMileage" placeholder="Пробег" />
+                <input id="gComment" placeholder="Описание" />
+              </div>
+            </section>
+            <section class="panel"><h3>Сохраненные автомобили</h3><div class="garage-grid" id="garageList"></div></section>
+          </section>
 
-      <section class="page">
-        <div class="head"><p class="ey">Марки</p><h2>Каталог легковых автомобилей</h2></div>
-        <div class="grid" id="brandGrid"></div>
-      </section>
+          <section id="orders" class="view hidden">
+            <div class="section-title"><h2>История заказов</h2></div>
+            <section class="panel">
+              <div class="filters">
+                <input placeholder="09.05.2026 - 09.06.2026" />
+                <select><option>Все статусы</option><option>Получен</option><option>В работе</option><option>Пришло на склад</option><option>Выдано</option><option>Отказ</option></select>
+                <select><option>Любая оплата</option><option>Безналичный расчет</option><option>Наличный расчет</option></select>
+                <input placeholder="Артикул" />
+                <input placeholder="Номер заказа" />
+              </div>
+              <div id="ordersTable" class="table-wrap"></div>
+            </section>
+          </section>
 
-      <section class="section work">
-        <h2>Схема работы</h2>
-        <div class="steps">
-          <div class="step"><span>1</span><strong>Поиск детали</strong></div>
-          <div class="step"><span>2</span><strong>Выбор позиции</strong></div>
-          <div class="step"><span>3</span><strong>Корзина</strong></div>
-          <div class="step"><span>4</span><strong>Заказ</strong></div>
-          <div class="step"><span>5</span><strong>Получение</strong></div>
-        </div>
-      </section>
+          <section id="cart" class="view hidden">
+            <div class="section-title"><h2>Корзина</h2><button class="btn" onclick="createOrder()">Оформить заказ</button></div>
+            <section class="panel"><div id="cartTable" class="table-wrap"></div><div class="cart-total"><span>Итого</span><strong id="cartTotal">0 ₽</strong></div></section>
+          </section>
 
-      <section class="page" id="search">
-        <div class="head"><p class="ey">Поиск по артикулу</p><h2>Электронный поиск по каталогу</h2></div>
-        <form class="search" id="searchForm">
-          <input id="q" required placeholder="Артикул" />
-          <input id="brand" placeholder="Бренд" />
-          <input id="comment" placeholder="Комментарий" />
-          <input id="phone" placeholder="Телефон" />
-          <button class="btn primary" type="submit">Найти</button>
-        </form>
-        <div class="results" id="results"></div>
-      </section>
+          <section id="returns" class="view hidden">
+            <div class="section-title"><h2>Возвраты</h2></div>
+            <section class="panel"><h3>Новая заявка</h3><div class="form-grid"><input placeholder="Номер заказа"/><input placeholder="Артикул"/><select><option>Причина возврата</option><option>Не подошло</option><option>Брак</option><option>Другая причина</option></select></div></section>
+          </section>
 
-      <section class="page" id="vin">
-        <div class="head"><p class="ey">VIN-подбор</p><h2>Сохраните автомобиль и заказывайте быстрее</h2></div>
-        <form class="panel form" id="vinForm">
-          <input name="vin" required placeholder="VIN" />
-          <div class="row"><input name="carBrand" placeholder="Марка" /><input name="carModel" placeholder="Модель" /><input name="year" placeholder="Год" /></div>
-          <input name="requestedPart" required placeholder="Какая деталь нужна" />
-          <input name="phone" required placeholder="Телефон" />
-          <textarea name="comment" placeholder="Комментарий"></textarea>
-          <button class="btn primary" type="submit">Отправить заявку</button>
-          <p class="ok hide" id="vinOk">Заявка создана со статусом "new".</p>
-        </form>
-      </section>
-
-      <section class="page" id="cart">
-        <div class="head"><p class="ey">Корзина</p><h2>Оформление заказа</h2></div>
-        <div class="layout">
-          <div class="list" id="cartList"><div class="empty">Корзина пока пустая.</div></div>
-          <form class="panel form" id="orderForm">
-            <input name="customerName" required placeholder="Имя" />
-            <input name="phone" required placeholder="Телефон" />
-            <select name="deliveryMethod"><option>Самовывоз</option><option>Доставка</option></select>
-            <textarea name="clientComment" placeholder="Комментарий к заказу"></textarea>
-            <div class="total"><span>Итого</span><strong id="total">0 ₽</strong></div>
-            <p class="note">Цена и срок являются предварительными и подтверждаются менеджером.</p>
-            <button class="btn primary" type="submit">Оформить заказ</button>
-            <p class="ok hide" id="orderOk">Заказ отправлен менеджеру.</p>
-          </form>
-        </div>
-      </section>
-
-      <section class="page" id="account">
-        <div class="head"><p class="ey">Кабинет</p><h2>Заказы, автомобили и избранное</h2></div>
-        <div class="grid">
-          <article class="card"><h3>Мои автомобили</h3><p id="carsText">Добавьте первый автомобиль.</p></article>
-          <article class="card"><h3>Избранное</h3><p>Сохраненные позиции для повторного заказа.</p></article>
-          <article class="card"><h3>Профиль</h3><p>Регистрация подключается через Firebase Auth.</p></article>
-        </div>
-        <form class="panel form" id="carForm" style="margin-top:18px">
-          <h3>Добавить автомобиль</h3>
-          <div class="row"><input name="brand" required placeholder="Марка" /><input name="model" required placeholder="Модель" /><input name="year" placeholder="Год" /></div>
-          <input name="vin" placeholder="VIN" />
-          <button class="btn secondary" type="submit">Сохранить автомобиль</button>
-        </form>
-        <h3>Мои заказы</h3>
-        <div class="panel form" style="margin-bottom:18px">
-          <div class="row">
-            <input placeholder="Период: 09.05.2026 - 09.06.2026" />
-            <select><option>Все статусы</option><option>Получен</option><option>В работе</option><option>Пришло на склад</option><option>Выдано</option><option>Отказ</option></select>
-            <select><option>Любая оплата</option><option>Безналичный расчет</option><option>Наличный расчет</option></select>
-          </div>
-          <div class="row">
-            <input placeholder="Артикул" />
-            <input placeholder="Комментарий" />
-            <input placeholder="Номер заказа" />
-            <button class="btn secondary" type="button">Фильтровать</button>
-          </div>
-        </div>
-        <div class="list" id="ordersList"><div class="empty">Заказов пока нет.</div></div>
-      </section>
-
-      <section class="page" id="returns">
-        <div class="head"><p class="ey">Возвраты</p><h2>Заявка на возврат</h2></div>
-        <form class="panel form">
-          <input placeholder="Номер заказа" />
-          <input placeholder="Артикул" />
-          <textarea placeholder="Причина возврата"></textarea>
-          <button class="btn secondary" type="button">Отправить менеджеру</button>
-        </form>
-      </section>
-
-      <section class="page" id="admin">
-        <div class="head"><p class="ey">Админ-панель</p><h2>Заказы, наценка и настройки</h2></div>
-        <div class="admin">
-          <form class="panel form" id="settingsForm">
-            <label>Наценка, %<input id="markup" type="number" value="18" /></label>
-            <label>Название<input id="company" value="ЗапФормат" /></label>
-            <label>Телефон<input id="companyPhone" value="+7 900 000-00-00" /></label>
-            <button class="btn primary" type="submit">Сохранить настройки</button>
-          </form>
-          <div class="list" id="adminOrders"><div class="empty">Заказов пока нет.</div></div>
-        </div>
-      </section>
-    </main>
-
-    <footer class="footer">
-      <strong>ЗапФормат</strong>
-      <span>Рязань, пункт выдачи · Пн-Сб 10:00-19:00</span>
-      <a href="tel:+79000000000">+7 900 000-00-00</a>
-    </footer>
-
+          <section id="admin" class="view hidden">
+            <div class="section-title"><h2>Панель владельца</h2><button class="btn" onclick="saveAdmin()">Сохранить настройки</button></div>
+            <div class="admin-strip">
+              <div class="card metric"><span>Маржа</span><strong><input id="markupInput" value="18" style="font-size:22px;font-weight:900;color:var(--green);width:74px">%</strong></div>
+              <div class="card metric"><span>Заказы</span><strong id="metricOrders">0</strong></div>
+              <div class="card metric"><span>Корзина</span><strong id="metricCart">0</strong></div>
+              <div class="card metric"><span>Режим</span><strong>Proxy</strong></div>
+            </div>
+            <section class="panel"><h3>Все заказы</h3><div id="adminOrders" class="table-wrap"></div></section>
+          </section>
+        </main>
+      </div>
+    </div>
     <script>
-      const searchCandidates=[{brand:'ABSEL',article:'OC90',name:'Фильтр масляный ан. Mahle OC90 (OC71275)'},{brand:'AM POINT',article:'OC90',name:'Масляные фильтры'},{brand:'Mahle/Knecht',article:'OC90',name:'Фильтр масляный'}];
-      const parts=[{id:'p1',article:'OC 90',brand:'Mahle/Knecht',name:'Фильтр масляный Chevrolet Aveo, Captiva, Lacetti',authorizedBasePrice:283,availability:100,deliveryTerm:'1 день',warehouse:'9259',probability:'94%'},{id:'p2',article:'OC 90',brand:'Mahle/Knecht',name:'OC90, фильтр масляный Mahle Original',authorizedBasePrice:295,availability:101,deliveryTerm:'1 день',warehouse:'5196',probability:'86%'},{id:'p3',article:'OC 90',brand:'Mahle/Knecht',name:'Фильтр масляный Chevrolet Aveo, Captiva, Lacetti',authorizedBasePrice:296,availability:100,deliveryTerm:'1 день',warehouse:'5882',probability:'94%'},{id:'p4',article:'OC 90',brand:'Mahle/Knecht',name:'Фильтр масляный',authorizedBasePrice:298,availability:100,deliveryTerm:'1 день',warehouse:'7435',probability:'93%'},{id:'p5',article:'OC 90',brand:'Mahle/Knecht',name:'Фильтр масляный OC90',authorizedBasePrice:302,availability:159,deliveryTerm:'0 дней',warehouse:'9988',probability:'94%'},{id:'p6',article:'OC 90',brand:'Mahle/Knecht',name:'Фильтр масляный OC90',authorizedBasePrice:303,availability:138,deliveryTerm:'0 дней',warehouse:'4815',probability:'95%'},{id:'p7',article:'C25012',brand:'Mann',name:'Фильтр воздушный',authorizedBasePrice:1520,availability:11,deliveryTerm:'2-3 дня',warehouse:'1208',probability:'91%'},{id:'p8',article:'04465-0D050',brand:'Toyota',name:'Колодки тормозные передние',authorizedBasePrice:4100,availability:8,deliveryTerm:'1-2 дня',warehouse:'6147',probability:'92%'}];
-      let markup=18,cart=[],orders=JSON.parse(localStorage.orders||'[]'),cars=JSON.parse(localStorage.cars||'[]');
-      const autoBrands=['Audi','BMW','Chevrolet','Citroen','Daewoo','Ford','Hyundai','Kia','Lexus','Mazda','Mercedes Benz','Mitsubishi','Nissan','Opel','Renault','Skoda','Toyota','Volkswagen','Volvo','Все бренды'];
-      const rub=n=>new Intl.NumberFormat('ru-RU',{style:'currency',currency:'RUB',maximumFractionDigits:0}).format(n);
-      const client=base=>Math.round(base*(1+markup/100));
-      const note='Цена и срок являются предварительными и подтверждаются менеджером.';
-      function renderResults(list=searchCandidates){results.innerHTML=`<article class="part" style="grid-column:1/-1"><div class="row" style="font-weight:900;color:var(--forest)"><span style="flex:1">Бренд</span><span style="flex:1">Код детали</span><span style="flex:3">Описание</span><span>Поиск</span></div>${list.map(p=>`<div class="row" style="border-top:1px solid var(--line);padding-top:14px"><strong style="flex:1">${p.brand}</strong><span style="flex:1">${p.article}</span><span style="flex:3">${p.name}</span><button class="btn secondary" onclick="renderOffers('${p.brand}','${p.article}')">Цены и аналоги</button></div>`).join('')}</article>`}
-      function renderOffers(brand,article){const list=parts.filter(p=>p.article.replace(/\\s/g,'').toLowerCase()===article.replace(/\\s/g,'').toLowerCase()||p.brand===brand);results.innerHTML=`<article class="part" style="grid-column:1/-1"><div class="head" style="margin-bottom:0"><p class="ey">${brand} ${article}</p><h2>Цены и аналоги</h2></div><div class="row"><select><option>Все бренды</option><option>Популярные</option><option>Избранные</option></select><select><option>Любой срок</option><option>На складе</option><option>Сегодня</option><option>1 день</option><option>2-3 дня</option></select><input placeholder="Любая цена" /><input placeholder="Наличие от, шт" /></div></article>`+list.map(p=>`<article class="part"><div><p class="ey">${p.brand}</p><h3>${p.name}</h3><p class="muted">Код детали: ${p.article}</p></div><div class="meta"><span>Нал.: ${p.availability}</span><span>Склад: ${p.warehouse}</span><span>Срок: ${p.deliveryTerm}</span><span>${p.probability}</span></div><div class="price"><strong>${rub(client(p.authorizedBasePrice))}</strong><small class="small">Цена ЗапФормат</small></div><p class="note">${note}</p><button class="btn primary" onclick="addCart('${p.id}')">Заказать</button></article>`).join('')}
-      function addCart(id){const p=parts.find(x=>x.id===id),e=cart.find(x=>x.id===id);e?e.qty++:cart.push({...p,qty:1});renderCart();location.hash='cart'}
-      function renderCart(){cartCount.textContent=cart.length;const totalSum=cart.reduce((s,p)=>s+client(p.authorizedBasePrice)*p.qty,0);total.textContent=rub(totalSum);cartList.innerHTML=cart.length?cart.map(p=>`<div class="cart-item"><div><strong>${p.name}</strong><p>${p.brand} · ${p.article}</p></div><input type="number" min="1" value="${p.qty}" onchange="qty('${p.id}',this.value)"><strong>${rub(client(p.authorizedBasePrice)*p.qty)}</strong><button class="btn secondary" onclick="removeCart('${p.id}')">Удалить</button></div>`).join(''):'<div class="empty">Корзина пока пустая.</div>'}
-      function qty(id,v){cart=cart.map(p=>p.id===id?{...p,qty:Math.max(1,+v)}:p);renderCart()}function removeCart(id){cart=cart.filter(p=>p.id!==id);renderCart()}
-      function renderOrders(){ordersList.innerHTML=orders.length?orders.map(o=>`<article class="order"><div><strong>${o.name}</strong><p>${o.items}</p></div><span class="status">${o.status}</span><strong>${rub(o.total)}</strong><a class="btn secondary" href="#search">Повторить</a></article>`).join(''):'<div class="empty">Заказов пока нет.</div>';adminOrders.innerHTML=orders.length?orders.map((o,i)=>`<article class="order"><div><strong>${o.name} · ${o.phone}</strong><p>${o.items}</p></div><select onchange="adminStatus(${i},this.value)"><option>новая заявка</option><option>проверяется</option><option>цена подтверждена</option><option>ожидает оплаты</option><option>заказано у поставщика</option><option>в пути</option><option>готово к выдаче</option><option>выдано</option><option>отменено</option></select><input type="number" value="${o.total}" onchange="adminPrice(${i},this.value)"><span>${rub(o.total)}</span></article>`).join(''):'<div class="empty">Заказов пока нет.</div>'}
-      function adminStatus(i,v){orders[i].status=v;localStorage.orders=JSON.stringify(orders);renderOrders()}function adminPrice(i,v){orders[i].total=+v;localStorage.orders=JSON.stringify(orders);renderOrders()}
-      function renderCars(){carsText.textContent=cars.length?cars.map(c=>`${c.brand} ${c.model}`).join(', '):'Добавьте первый автомобиль.';garageList.innerHTML=cars.length?cars.map(c=>`<article class="card"><strong>${c.brand} ${c.model}</strong><p class="muted">${c.year||''} ${c.vin||''}</p><a class="btn secondary" href="#search">Открыть каталог</a></article>`).join(''):'<p class="muted">Гараж пока пустой.</p>'}
-      function renderBrands(){brandGrid.innerHTML=autoBrands.map(b=>`<a class="card" href="#search"><h3>${b}</h3><p>Запчасти и расходники ${b==='Все бренды'?'для всех марок':'для '+b}.</p></a>`).join('')}
-      searchForm.onsubmit=e=>{e.preventDefault();const q=(document.getElementById('q').value+' '+brand.value).toLowerCase();const found=searchCandidates.filter(p=>(p.article+p.brand+p.name).toLowerCase().includes(q));renderResults(found.length?found:searchCandidates)}
-      orderForm.onsubmit=e=>{e.preventDefault();if(!cart.length)return;const fd=new FormData(e.target),totalSum=cart.reduce((s,p)=>s+client(p.authorizedBasePrice)*p.qty,0);orders.unshift({name:fd.get('customerName'),phone:fd.get('phone'),items:cart.map(p=>p.name).join(', '),total:totalSum,status:'новая заявка'});localStorage.orders=JSON.stringify(orders);cart=[];orderOk.classList.remove('hide');renderCart();renderOrders()}
-      vinForm.onsubmit=e=>{e.preventDefault();vinOk.classList.remove('hide');e.target.reset()}
-      carForm.onsubmit=e=>{e.preventDefault();const fd=new FormData(e.target);cars.push({brand:fd.get('brand'),model:fd.get('model')});localStorage.cars=JSON.stringify(cars);renderCars();e.target.reset()}
-      garageForm.onsubmit=e=>{e.preventDefault();const fd=new FormData(e.target);cars.push({brand:fd.get('brand'),model:fd.get('model'),year:fd.get('year'),vin:fd.get('vin')});localStorage.cars=JSON.stringify(cars);renderCars();e.target.reset()}
-      settingsForm.onsubmit=e=>{e.preventDefault();markup=+document.getElementById('markup').value||18;document.querySelectorAll('.brand,footer strong').forEach(x=>x.textContent=document.getElementById('company').value);renderResults();renderCart();renderOrders()}
-      renderResults();renderCart();renderOrders();renderCars();renderBrands();
+      const catalogs=['Поиск по VIN','Каталог ТО','Шины и диски','Колпаки на колёса','Манометры','Крепеж','Грузовые шины','Аккумуляторы','Провода пусковые','Пуско-зарядные устройства','Предпусковые подогреватели','Аксессуары','Канистры','Компрессоры','Домкраты','Оплетки на руль','Щетки стеклоочистителя','Лампы','Лампы по параметрам','Моторные масла','Трансмиссионные масла','Охлаждающие жидкости','Тормозные жидкости','Автохимия','Инструменты','Наборы автомобилиста'];
+      const brands=['Audi','BMW','Chevrolet','Citroen','Daewoo','Ford','Hyundai','Kia','Lexus','Mazda','Mercedes Benz','Mitsubishi','Nissan','Opel','Renault','Skoda','Toyota','Volkswagen','Volvo','Все бренды'];
+      const candidates=[['ABSEL','OC90','Фильтр масляный ан. Mahle OC90 (OC71275)'],['AM POINT','OC90','Масляные фильтры'],['Mahle/Knecht','OC90','Фильтр масляный']];
+      const offers=[['Mahle/Knecht','OC 90','Фильтр масляный Chevrolet Aveo, Captiva, Lacetti',100,'09.06.26','9259','1 день','94%',283],['Mahle/Knecht','OC 90','OC90, фильтр масляный Mahle Original',101,'09.06.26','5196','1 день','86%',295],['Mahle/Knecht','OC 90','Фильтр масляный Chevrolet Aveo, Captiva, Lacetti',100,'09.06.26','5882','1 день','94%',296],['Mahle/Knecht','OC 90','Фильтр масляный',100,'09.06.26','7435','1 день','93%',298],['Mahle/Knecht','OC 90','Фильтр масляный OC90',159,'09.06.26','9988','0 дней','94%',302],['Mahle/Knecht','OC 90','Фильтр масляный OC90',138,'09.06.26','4815','0 дней','95%',303],['Mann','C25012','Фильтр воздушный',11,'09.06.26','1208','2-3 дня','91%',1520],['Toyota','04465-0D050','Колодки тормозные передние',8,'09.06.26','6147','1-2 дня','92%',4100]];
+      let markup=18,cart=JSON.parse(localStorage.zfCart||'[]'),orders=JSON.parse(localStorage.zfOrders||'[]'),garage=JSON.parse(localStorage.zfGarage||'[{"name":"BMW X3 (F25)","vin":"WBAWY31000L527390","brand":"BMW","model":"X3"}]');
+      const rub=n=>new Intl.NumberFormat('ru-RU',{style:'currency',currency:'RUB',maximumFractionDigits:0}).format(Math.round(n));
+      const price=n=>Math.round(n*(1+markup/100));
+      function show(id){document.querySelectorAll('.view').forEach(v=>v.classList.add('hidden'));document.getElementById(id).classList.remove('hidden');document.querySelectorAll('.nav a').forEach(a=>a.classList.remove('active'));renderAll()}
+      function table(headers,rows){return `<table class="table"><thead><tr>${headers.map(h=>`<th>${h}</th>`).join('')}</tr></thead><tbody>${rows.join('')}</tbody></table>`}
+      function runSearch(q){pcode.value=q||pcode.value;searchTitle.textContent=`Поиск: ${pcode.value}`;searchBody.innerHTML=table(['Бренд','Код детали','Описание','Поиск'],candidates.map(c=>`<tr><td><b>${c[0]}</b></td><td>${c[1]}</td><td class="desc">${c[2]}</td><td><button class="btn secondary" onclick="openOffers('${c[0]}','${c[1]}')">Цены и аналоги</button></td></tr>`));show('search')}
+      function openOffers(brand,article){offerTitle.textContent=`${brand} ${article}: цены и аналоги`;offerBody.innerHTML=table(['Бренд','Код детали','Описание','Нал.','Обновл.','Склад','Ожид. срок','Вероятность','Цена','Заказ'],offers.map((o,i)=>`<tr><td><b>${o[0]}</b></td><td>${o[1]}</td><td class="desc">${o[2]}</td><td>${o[3]}</td><td>${o[4]}</td><td>${o[5]}</td><td>${o[6]}</td><td>${o[7]}</td><td class="price">${rub(price(o[8]))}</td><td><button class="btn" onclick="addCart(${i})">Заказать</button></td></tr>`));show('offers')}
+      function addCart(i){const o=offers[i];cart.push({brand:o[0],article:o[1],name:o[2],qty:1,term:o[6],base:o[8],client:price(o[8])});localStorage.zfCart=JSON.stringify(cart);renderAll();show('cart')}
+      function removeCart(i){cart.splice(i,1);localStorage.zfCart=JSON.stringify(cart);renderAll()}
+      function createOrder(){if(!cart.length)return;orders.unshift({id:Math.floor(Math.random()*900000000),date:new Date().toLocaleString('ru-RU'),items:cart.length,total:cart.reduce((s,x)=>s+x.client*x.qty,0),status:'Получен',comment:'Заказ с сайта'});cart=[];localStorage.zfCart='[]';localStorage.zfOrders=JSON.stringify(orders);renderAll();show('orders')}
+      function saveGarage(){garage.unshift({name:gName.value,vin:gVin.value,brand:gBrand.value,model:gModel.value,year:gYear.value});localStorage.zfGarage=JSON.stringify(garage);renderAll()}
+      function saveAdmin(){markup=+markupInput.value||18;renderAll()}
+      function renderAll(){catalogList.innerHTML=catalogs.map(x=>`<a href="#" onclick="show('catalogs')"><span>${x}</span><b>›</b></a>`).join('');popularGrid.innerHTML=catalogs.slice(0,8).map(x=>`<div class="garage-card"><b>${x}</b><p class="muted">Открыть раздел каталога</p></div>`).join('');catalogGrid.innerHTML=catalogs.map(x=>`<div class="garage-card"><b>${x}</b><p class="muted">Каталог ЗапФормат</p></div>`).join('');brandGrid.innerHTML=brands.map(x=>`<div class="garage-card"><b>${x}</b><p class="muted">Запчасти и расходники</p></div>`).join('');garageList.innerHTML=garage.map(g=>`<div class="garage-card"><b>${g.name||g.brand+' '+g.model}</b><p class="muted">VIN: ${g.vin||'-'}</p><button class="btn secondary" onclick="runSearch('OC90')">Открыть каталог</button></div>`).join('');cartBadge.textContent=rub(cart.reduce((s,x)=>s+x.client*x.qty,0));cartTotal.textContent=cartBadge.textContent;cartTable.innerHTML=cart.length?table(['Бренд','Артикул','Описание','Кол.','Срок','Цена',''],cart.map((x,i)=>`<tr><td>${x.brand}</td><td>${x.article}</td><td class="desc">${x.name}</td><td>${x.qty}</td><td>${x.term}</td><td class="price">${rub(x.client*x.qty)}</td><td><button class="btn danger" onclick="removeCart(${i})">Удалить</button></td></tr>`)):'<div style="padding:18px">Корзина пустая</div>';ordersTable.innerHTML=orders.length?table(['№ заказа','Дата','Позиций','Сумма','Статус','Комментарий'],orders.map(o=>`<tr><td>${o.id}</td><td>${o.date}</td><td>${o.items}</td><td class="price">${rub(o.total)}</td><td><span class="status">${o.status}</span></td><td>${o.comment}</td></tr>`)):'<div style="padding:18px">Заказов пока нет</div>';adminOrders.innerHTML=ordersTable.innerHTML;metricOrders.textContent=orders.length;metricCart.textContent=cart.length}
+      renderAll();runSearch('OC90');
     </script>
   </body>
 </html>
