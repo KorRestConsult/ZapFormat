@@ -3,44 +3,46 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
-  <meta name="theme-color" content="#0a0b0e" />
-  <title>Parts AI — автозапчасти без лишнего</title>
-  <meta name="description" content="Поиск, подбор и заказ автозапчастей" />
+  <meta name="theme-color" content="#17324a" />
+  <title>Parts AI — автозапчасти</title>
+  <meta name="description" content="Поиск и заказ автозапчастей" />
   <link rel="stylesheet" href="./styles.css" />
 </head>
 <body>
   <div class="app">
     <header class="topbar">
-      <a class="logo" href="#home" aria-label="Parts AI">
-        <span>PARTS</span><b>AI</b>
-      </a>
+      <div class="topbar-inner">
+        <a class="logo" href="#home" data-route="home">
+          <span class="logo-main">PARTS</span><span class="logo-ai">AI</span>
+        </a>
 
-      <nav class="nav desktop">
-        <button data-route="home">Поиск</button>
-        <button data-route="garage">Гараж</button>
-        <button data-route="orders">Заказы</button>
-        <button data-route="profile">Профиль</button>
-      </nav>
+        <form class="header-search" id="headerSearchForm">
+          <input id="headerSearchInput" placeholder="Артикул, VIN, название детали" />
+          <button type="submit">Найти</button>
+        </form>
 
-      <button class="cart-button" id="openCart">
-        <span>Корзина</span>
-        <b id="cartCount">0</b>
-      </button>
+        <div class="header-actions">
+          <button data-route="garage">Гараж</button>
+          <button data-route="orders">Заказы</button>
+          <button class="cart-pill" id="openCart">
+            Корзина <b id="cartCount">0</b>
+          </button>
+        </div>
+      </div>
     </header>
 
     <main>
       <section class="view active" id="view-home">
-        <div class="hero">
+        <div class="home-shell">
           <div class="hero-copy">
             <div class="eyebrow">АВТОЗАПЧАСТИ · РЯЗАНЬ</div>
-            <h1>Нужная деталь.<br><span>Без каталожной боли.</span></h1>
-            <p>Артикул, VIN или обычное описание. Мы покажем нормальный выбор, срок и конечную цену.</p>
+            <h1>Ищите по артикулу.<br><span>Получайте нормальный список.</span></h1>
+            <p>Точные совпадения, аналоги, наличие, сроки и конечная цена — в одном рабочем каталоге.</p>
           </div>
 
-          <form class="searchbar" id="searchForm">
-            <span class="search-icon">⌕</span>
-            <input id="searchInput" autocomplete="off" placeholder="Например: 0250603006, VIN или «колодки BMW X3»" />
-            <button type="submit">Найти</button>
+          <form class="hero-search" id="searchForm">
+            <input id="searchInput" autocomplete="off" placeholder="Например: 0250603006" />
+            <button type="submit">Найти запчасть</button>
           </form>
 
           <div class="quick">
@@ -48,109 +50,157 @@
             <button data-query="11277810456">BMW 11277810456</button>
             <button data-query="MIP-E475">MASUMA MIP-E475</button>
           </div>
-        </div>
 
-        <div class="section-title">
-          <div>
-            <span class="eyebrow">БЫСТРЫЙ ВХОД</span>
-            <h2>Что ищем?</h2>
+          <div class="home-grid">
+            <button class="home-card" data-route="garage">
+              <span class="card-kicker">ГАРАЖ</span>
+              <strong>Мои автомобили</strong>
+              <small>VIN, модель, двигатель</small>
+            </button>
+            <button class="home-card" data-query="тормозные колодки">
+              <span class="card-kicker">КАТАЛОГ</span>
+              <strong>Тормоза</strong>
+              <small>Колодки, диски, датчики</small>
+            </button>
+            <button class="home-card" data-query="фильтр">
+              <span class="card-kicker">КАТАЛОГ</span>
+              <strong>ТО</strong>
+              <small>Фильтры, свечи, ремни</small>
+            </button>
+            <button class="home-card" data-route="orders">
+              <span class="card-kicker">КАБИНЕТ</span>
+              <strong>Заказы</strong>
+              <small>Статусы и история</small>
+            </button>
           </div>
-          <button class="text-button" data-route="garage">Выбрать по машине →</button>
         </div>
-
-        <div class="category-grid">
-          <button class="category" data-query="ТО">
-            <span class="dot"></span><div><b>ТО</b><small>Фильтры, свечи, ремни</small></div><i>→</i>
-          </button>
-          <button class="category" data-query="Тормоза">
-            <span class="dot"></span><div><b>Тормоза</b><small>Колодки, диски, датчики</small></div><i>→</i>
-          </button>
-          <button class="category" data-query="Подвеска">
-            <span class="dot"></span><div><b>Подвеска</b><small>Рычаги, стойки, сайлентблоки</small></div><i>→</i>
-          </button>
-          <button class="category" data-query="Двигатель">
-            <span class="dot"></span><div><b>Двигатель</b><small>Ремни, ролики, прокладки</small></div><i>→</i>
-          </button>
-          <button class="category" data-query="Электрика">
-            <span class="dot"></span><div><b>Электрика</b><small>Свечи, датчики, генераторы</small></div><i>→</i>
-          </button>
-          <button class="category" data-query="Масла">
-            <span class="dot"></span><div><b>Жидкости</b><small>Масла, антифриз, химия</small></div><i>→</i>
-          </button>
-        </div>
-
-        <section class="ai-block">
-          <div>
-            <span class="eyebrow">AI-ПОДБОР</span>
-            <h3>«BMW X3 F25. Нужны хорошие передние колодки, не самые дорогие»</h3>
-          </div>
-          <p>ИИ уточнит машину, проверит совместимость по каталожным данным и сведёт десятки предложений к нескольким понятным вариантам.</p>
-        </section>
       </section>
 
       <section class="view" id="view-search">
-        <div class="page-head">
+        <div class="breadcrumbs">Главная <span>→</span> Поиск <span>→</span> <b id="crumbQuery">—</b></div>
+
+        <div class="product-head">
           <div>
-            <span class="eyebrow">РЕЗУЛЬТАТЫ</span>
-            <h2 id="resultTitle">Поиск</h2>
+            <span class="eyebrow">ПОИСК ПО АРТИКУЛУ</span>
+            <h2 id="resultTitle">—</h2>
+            <p id="resultSubtitle">Точное совпадение и совместимые аналоги</p>
           </div>
-          <span class="demo-badge">Пока тестовые данные</span>
+          <div class="product-stat">
+            <b id="offerCount">0</b>
+            <span>предложений</span>
+          </div>
         </div>
 
-        <form class="searchbar compact" id="searchForm2">
-          <span class="search-icon">⌕</span>
-          <input id="searchInput2" placeholder="Артикул, VIN или что нужно машине" />
-          <button type="submit">Найти</button>
-        </form>
+        <div class="catalog-toolbar">
+          <form class="catalog-search" id="searchForm2">
+            <input id="searchInput2" placeholder="Артикул, VIN или название" />
+            <button type="submit">Найти</button>
+          </form>
 
-        <div class="filters">
-          <button class="active" data-filter="all">Все</button>
-          <button data-filter="fast">Быстрее</button>
-          <button data-filter="cheap">Дешевле</button>
-          <button data-filter="stock">В наличии</button>
+          <div class="toolbar-row">
+            <div class="filters">
+              <button class="active" data-filter="all">Все</button>
+              <button data-filter="exact">Точное совпадение</button>
+              <button data-filter="analog">Аналоги</button>
+              <button data-filter="fast">До 2 дней</button>
+              <button data-filter="stock">В наличии</button>
+            </div>
+
+            <select id="sortSelect" class="sort-select">
+              <option value="recommended">Сначала рекомендованные</option>
+              <option value="price">Сначала дешевле</option>
+              <option value="speed">Сначала быстрее</option>
+              <option value="stock">Больше в наличии</option>
+            </select>
+          </div>
         </div>
 
-        <div id="results" class="results"></div>
+        <section class="catalog-group">
+          <div class="group-head">
+            <div>
+              <span class="group-label exact">ТОЧНОЕ СОВПАДЕНИЕ</span>
+              <h3 id="exactHeading">Оригинальная позиция</h3>
+            </div>
+            <span class="group-note">Цена и наличие будут обновляться через API PartGrade</span>
+          </div>
+          <div class="offer-table">
+            <div class="offer-table-head">
+              <span>Деталь</span>
+              <span>Склад</span>
+              <span>Срок</span>
+              <span>Наличие</span>
+              <span>Цена</span>
+              <span></span>
+            </div>
+            <div id="exactResults"></div>
+          </div>
+        </section>
+
+        <section class="catalog-group" id="analogSection">
+          <div class="group-head">
+            <div>
+              <span class="group-label analog">АНАЛОГИ</span>
+              <h3>Совместимые варианты</h3>
+            </div>
+            <span class="group-note">Проверка применимости будет привязана к каталогу/VIN</span>
+          </div>
+          <div class="offer-table">
+            <div class="offer-table-head">
+              <span>Деталь</span>
+              <span>Склад</span>
+              <span>Срок</span>
+              <span>Наличие</span>
+              <span>Цена</span>
+              <span></span>
+            </div>
+            <div id="analogResults"></div>
+          </div>
+        </section>
       </section>
 
       <section class="view" id="view-garage">
-        <div class="page-head">
-          <div><span class="eyebrow">АВТОМОБИЛИ</span><h2>Мой гараж</h2></div>
+        <div class="page-simple-head">
+          <span class="eyebrow">АВТОМОБИЛИ</span>
+          <h2>Мой гараж</h2>
+          <p>Сохраняем машину один раз — дальше поиск и применимость строятся вокруг неё.</p>
         </div>
+
         <div class="garage-grid">
           <article class="garage-card">
-            <span class="eyebrow">ПРИМЕР</span>
+            <span class="garage-chip">ПРИМЕР</span>
             <h3>BMW X3 F25</h3>
-            <p>2.0 Diesel · 2010</p>
-            <button class="primary" data-query="BMW X3 F25">Искать для этой машины</button>
+            <p>2010 · 2.0 Diesel</p>
+            <dl>
+              <div><dt>VIN</dt><dd>Будет сохранён</dd></div>
+              <div><dt>Двигатель</dt><dd>N47</dd></div>
+            </dl>
+            <button class="primary" data-query="BMW X3 F25">Искать запчасти</button>
           </article>
+
           <button class="garage-card add-card">
             <span class="plus">+</span>
             <h3>Добавить автомобиль</h3>
-            <p>VIN, марка, модель, поколение, двигатель.</p>
+            <p>VIN, марка, модель, поколение и двигатель.</p>
           </button>
         </div>
       </section>
 
       <section class="view" id="view-orders">
-        <div class="page-head">
-          <div><span class="eyebrow">ЛИЧНЫЙ КАБИНЕТ</span><h2>Заказы</h2></div>
+        <div class="page-simple-head">
+          <span class="eyebrow">ЛИЧНЫЙ КАБИНЕТ</span>
+          <h2>Заказы</h2>
+          <p>Здесь будет история и синхронизированные статусы PartGrade.</p>
         </div>
-        <article class="order-card">
-          <div><small>Как будет выглядеть</small><h3>Заказ #1042</h3><p>3 позиции · 12 480 ₽</p></div>
-          <span class="status">В пути</span>
-        </article>
-        <div class="empty">После подключения PartGrade сюда будут приходить реальные статусы заказов.</div>
-      </section>
 
-      <section class="view" id="view-profile">
-        <div class="page-head">
-          <div><span class="eyebrow">АККАУНТ</span><h2>Профиль</h2></div>
-        </div>
-        <div class="profile-grid">
-          <article><small>Контакты</small><b>Телефон и email</b><span>Для заказов и уведомлений</span></article>
-          <article><small>Получение</small><b>Рязань</b><span>Точка выдачи / адрес</span></article>
-          <article><small>Уведомления</small><b>Статусы заказов</b><span>Push / Telegram / SMS позже</span></article>
+        <div class="orders-list">
+          <article class="order-row">
+            <div><small>Заказ #1042</small><b>3 позиции · 12 480 ₽</b></div>
+            <div><span>24 сентября</span><strong class="status">В пути</strong></div>
+          </article>
+          <article class="order-row muted-row">
+            <div><small>Пример интерфейса</small><b>После API здесь появятся реальные заказы</b></div>
+            <div><span>—</span><strong class="status gray">Черновик</strong></div>
+          </article>
         </div>
       </section>
     </main>
@@ -165,15 +215,20 @@
     <div class="drawer-backdrop" id="drawerBackdrop"></div>
     <aside class="cart-drawer" id="cartDrawer">
       <div class="drawer-head">
-        <div><span class="eyebrow">КОРЗИНА</span><h2>Ваш заказ</h2></div>
+        <div>
+          <span class="eyebrow">КОРЗИНА</span>
+          <h2>Ваш заказ</h2>
+        </div>
         <button class="close" id="closeCart">×</button>
       </div>
+
       <div id="cartItems" class="cart-items"></div>
+
       <div class="cart-summary">
-        <span>Итого</span>
-        <strong id="cartTotal">0 ₽</strong>
-        <p>Перед заказом цена и наличие будут перепроверены у PartGrade.</p>
-        <button class="primary wide" id="checkoutButton">Оформить</button>
+        <div class="summary-line"><span>Товары</span><b id="cartSubtotal">0 ₽</b></div>
+        <div class="summary-line total"><span>Итого</span><strong id="cartTotal">0 ₽</strong></div>
+        <p>Перед оформлением цена и наличие будут повторно проверены у PartGrade.</p>
+        <button class="primary wide" id="checkoutButton">Перейти к оформлению</button>
       </div>
     </aside>
   </div>

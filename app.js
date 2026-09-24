@@ -1,24 +1,78 @@
 const MARKUP = 15;
 
-const inventory = [
-  {id:"bosch-0250603006",article:"0250603006",brand:"BOSCH",name:"Свеча накаливания",purchase:1803,quantity:10,days:2},
-  {id:"bmw-11277810456",article:"11277810456",brand:"BMW",name:"Элемент привода / ролик",purchase:2713,quantity:5,days:2},
-  {id:"masuma-mip-e475",article:"MIP-E475",brand:"MASUMA",name:"Ролик натяжителя",purchase:3147,quantity:1,days:2},
-  {id:"gates-t39198",article:"T39198",brand:"GATES",name:"Натяжитель приводного ремня",purchase:6810,quantity:7,days:1},
-  {id:"trw-gdb1956",article:"GDB1956",brand:"TRW",name:"Колодки тормозные передние",purchase:6240,quantity:6,days:1},
-  {id:"mann-hu816x",article:"HU816X",brand:"MANN-FILTER",name:"Фильтр масляный",purchase:1280,quantity:18,days:1}
-].map(x => ({...x, price: Math.round(x.purchase * (1 + MARKUP/100))}));
+const datasets = {
+  "0250603006": {
+    title: "BOSCH 0 250 603 006",
+    subtitle: "Свеча накаливания",
+    exact: [
+      {id:"b1",type:"exact",brand:"BOSCH",article:"0250603006",name:"Свеча накаливания",warehouse:"03",source:"Поставка 1",purchase:1803,qty:10,days:2},
+      {id:"b2",type:"exact",brand:"BOSCH",article:"0250603006",name:"Свеча накаливания",warehouse:"07",source:"Поставка 2",purchase:1865,qty:22,days:1},
+      {id:"b3",type:"exact",brand:"BOSCH",article:"0250603006",name:"Свеча накаливания",warehouse:"11",source:"Поставка 3",purchase:1940,qty:5,days:1},
+      {id:"b4",type:"exact",brand:"BOSCH",article:"0250603006",name:"Свеча накаливания",warehouse:"18",source:"Поставка 4",purchase:1725,qty:40,days:5}
+    ],
+    analogs: [
+      {id:"ba1",type:"analog",brand:"BERU",article:"GE102",name:"Свеча накаливания",warehouse:"02",source:"Аналог",purchase:1510,qty:12,days:1},
+      {id:"ba2",type:"analog",brand:"NGK",article:"97256",name:"Свеча накаливания",warehouse:"05",source:"Аналог",purchase:1640,qty:7,days:2},
+      {id:"ba3",type:"analog",brand:"DENSO",article:"DG-193",name:"Свеча накаливания",warehouse:"09",source:"Аналог",purchase:1435,qty:3,days:2},
+      {id:"ba4",type:"analog",brand:"FEBI",article:"176214",name:"Свеча накаливания",warehouse:"13",source:"Аналог",purchase:1190,qty:16,days:3},
+      {id:"ba5",type:"analog",brand:"SWAG",article:"20 94 6721",name:"Свеча накаливания",warehouse:"21",source:"Аналог",purchase:1280,qty:9,days:4},
+      {id:"ba6",type:"analog",brand:"MEYLE",article:"314 860 0004",name:"Свеча накаливания",warehouse:"25",source:"Аналог",purchase:1345,qty:6,days:2},
+      {id:"ba7",type:"analog",brand:"STELLOX",article:"202 084-SX",name:"Свеча накаливания",warehouse:"31",source:"Аналог",purchase:790,qty:28,days:3},
+      {id:"ba8",type:"analog",brand:"PATRON",article:"PGP002",name:"Свеча накаливания",warehouse:"44",source:"Аналог",purchase:860,qty:34,days:5}
+    ]
+  },
+  "11277810456": {
+    title: "BMW 11 27 7 810 456",
+    subtitle: "Элемент привода / ролик",
+    exact: [
+      {id:"bm1",type:"exact",brand:"BMW",article:"11277810456",name:"Ролик / элемент привода",warehouse:"03",source:"Оригинал",purchase:2713,qty:5,days:2},
+      {id:"bm2",type:"exact",brand:"BMW",article:"11277810456",name:"Ролик / элемент привода",warehouse:"15",source:"Оригинал",purchase:2950,qty:2,days:1},
+      {id:"bm3",type:"exact",brand:"BMW",article:"11277810456",name:"Ролик / элемент привода",warehouse:"28",source:"Оригинал",purchase:2480,qty:12,days:6}
+    ],
+    analogs: [
+      {id:"bma1",type:"analog",brand:"INA",article:"532 0792 10",name:"Ролик приводного ремня",warehouse:"01",source:"Аналог",purchase:2420,qty:17,days:1},
+      {id:"bma2",type:"analog",brand:"GATES",article:"T39198",name:"Натяжитель приводного ремня",warehouse:"07",source:"Аналог",purchase:6810,qty:7,days:1},
+      {id:"bma3",type:"analog",brand:"SNR",article:"GA350.89",name:"Ролик натяжной",warehouse:"09",source:"Аналог",purchase:2260,qty:9,days:2},
+      {id:"bma4",type:"analog",brand:"DAYCO",article:"APV3126",name:"Ролик приводного ремня",warehouse:"17",source:"Аналог",purchase:1970,qty:4,days:2},
+      {id:"bma5",type:"analog",brand:"FEBI",article:"106256",name:"Ролик",warehouse:"22",source:"Аналог",purchase:1835,qty:11,days:3},
+      {id:"bma6",type:"analog",brand:"MEYLE",article:"314 009 0008",name:"Ролик",warehouse:"30",source:"Аналог",purchase:1740,qty:20,days:4}
+    ]
+  },
+  "MIP-E475": {
+    title: "MASUMA MIP-E475",
+    subtitle: "Натяжитель приводного ремня",
+    exact: [
+      {id:"m1",type:"exact",brand:"MASUMA",article:"MIP-E475",name:"Натяжитель приводного ремня",warehouse:"03",source:"Точная позиция",purchase:3147,qty:1,days:2},
+      {id:"m2",type:"exact",brand:"MASUMA",article:"MIP-E475",name:"Натяжитель приводного ремня",warehouse:"19",source:"Точная позиция",purchase:3290,qty:3,days:1}
+    ],
+    analogs: [
+      {id:"ma1",type:"analog",brand:"GATES",article:"T39198",name:"Натяжитель приводного ремня",warehouse:"03",source:"Аналог",purchase:6810,qty:2,days:1},
+      {id:"ma2",type:"analog",brand:"INA",article:"534 0533 10",name:"Натяжитель ремня",warehouse:"08",source:"Аналог",purchase:5980,qty:5,days:2},
+      {id:"ma3",type:"analog",brand:"DAYCO",article:"APV3165",name:"Натяжитель ремня",warehouse:"12",source:"Аналог",purchase:5140,qty:4,days:3},
+      {id:"ma4",type:"analog",brand:"FEBI",article:"102981",name:"Натяжитель ремня",warehouse:"24",source:"Аналог",purchase:4490,qty:7,days:4}
+    ]
+  }
+};
 
-let currentResults = [...inventory];
+let currentKey = "0250603006";
 let currentFilter = "all";
+let currentSort = "recommended";
+let quantities = {};
 let cart = loadCart();
 
-function rub(n){return new Intl.NumberFormat("ru-RU").format(n)+" ₽"}
+function retail(p){ return Math.round(p * (1 + MARKUP/100)); }
+function rub(n){ return new Intl.NumberFormat("ru-RU").format(n) + " ₽"; }
+function loadCart(){ try { return JSON.parse(localStorage.getItem("parts-ai-cart") || "[]"); } catch { return []; } }
+function saveCart(){ localStorage.setItem("parts-ai-cart", JSON.stringify(cart)); renderCart(); }
 
-function loadCart(){
-  try{return JSON.parse(localStorage.getItem("parts-ai-cart")||"[]")}catch{return []}
+function resolveDataset(query){
+  const q=(query||"").trim().toUpperCase().replace(/\s+/g,"");
+  if(datasets[q]) return q;
+  if(q.includes("0250603006") || q.includes("СВЕЧ")) return "0250603006";
+  if(q.includes("11277810456") || q.includes("BMW")) return "11277810456";
+  if(q.includes("MIPE475") || q.includes("MIP-E475") || q.includes("НАТЯЖ")) return "MIP-E475";
+  return "0250603006";
 }
-function saveCart(){localStorage.setItem("parts-ai-cart",JSON.stringify(cart));renderCart()}
 
 function navigate(route){
   document.querySelectorAll(".view").forEach(v=>v.classList.remove("active"));
@@ -28,109 +82,155 @@ function navigate(route){
 }
 
 function search(query){
-  const q=(query||"").trim().toLowerCase();
-  currentResults = inventory.filter(x =>
-    !q ||
-    x.article.toLowerCase().includes(q) ||
-    x.brand.toLowerCase().includes(q) ||
-    x.name.toLowerCase().includes(q) ||
-    q.includes("bmw") ||
-    q.includes("торм") ||
-    q.includes("двиг") ||
-    q.includes("то")
-  );
-  if(!currentResults.length) currentResults=[...inventory];
-  document.getElementById("resultTitle").textContent = query ? "«"+query+"»" : "Поиск";
-  document.getElementById("searchInput2").value=query||"";
+  currentKey=resolveDataset(query);
+  const data=datasets[currentKey];
+  document.getElementById("resultTitle").textContent=data.title;
+  document.getElementById("resultSubtitle").textContent=data.subtitle+" · точные предложения и аналоги";
+  document.getElementById("crumbQuery").textContent=currentKey;
+  document.getElementById("exactHeading").textContent=data.subtitle;
+  document.getElementById("searchInput2").value=currentKey;
+  document.getElementById("headerSearchInput").value=currentKey;
   navigate("search");
-  renderResults();
+  renderCatalog();
 }
 
-function filtered(){
-  const arr=[...currentResults];
-  if(currentFilter==="cheap") return arr.sort((a,b)=>a.price-b.price);
-  if(currentFilter==="fast") return arr.sort((a,b)=>a.days-b.days);
-  if(currentFilter==="stock") return arr.filter(x=>x.quantity>0);
-  return arr;
+function baseList(type){
+  const data=datasets[currentKey];
+  let list=type==="exact" ? [...data.exact] : [...data.analogs];
+  if(currentFilter==="exact" && type!=="exact") return [];
+  if(currentFilter==="analog" && type!=="analog") return [];
+  if(currentFilter==="fast") list=list.filter(x=>x.days<=2);
+  if(currentFilter==="stock") list=list.filter(x=>x.qty>0);
+  if(currentSort==="price") list.sort((a,b)=>retail(a.purchase)-retail(b.purchase));
+  if(currentSort==="speed") list.sort((a,b)=>a.days-b.days || retail(a.purchase)-retail(b.purchase));
+  if(currentSort==="stock") list.sort((a,b)=>b.qty-a.qty);
+  return list;
 }
 
-function renderResults(){
-  const root=document.getElementById("results");
-  const data=filtered();
-  root.innerHTML=data.map(x=>`
-    <article class="offer">
-      <div>
-        <div class="offer-brand">${x.brand}</div>
-        <h3>${x.name}</h3>
-        <div class="article">${x.article}</div>
+function rowHtml(x){
+  const q=quantities[x.id]||1;
+  return `
+    <div class="offer-row">
+      <div class="part-main">
+        <div class="brand-box">${x.brand.slice(0,5)}</div>
+        <div>
+          <b>${x.brand} · ${x.name}</b>
+          <small class="article">${x.article}</small>
+        </div>
       </div>
-      <div class="offer-meta">
-        <div><small>Наличие</small><b>${x.quantity} шт.</b></div>
-        <div><small>Срок</small><b>${x.days===0?"Сегодня":x.days+" дн."}</b></div>
+      <div class="warehouse"><b>${x.warehouse}</b><small>${x.source}</small></div>
+      <div class="term ${x.days<=2?"fast":""}">${x.days===0?"Сегодня":x.days+" дн."}</div>
+      <div class="stock ${x.qty<=3?"low":""}">${x.qty} шт.</div>
+      <div class="price">${rub(retail(x.purchase))}</div>
+      <div class="buy-cell">
+        <div class="qty">
+          <button data-qty-minus="${x.id}">−</button>
+          <span id="qty-${x.id}">${q}</span>
+          <button data-qty-plus="${x.id}">+</button>
+        </div>
+        <button class="add-btn" data-add="${x.id}">В корзину</button>
       </div>
-      <div class="offer-buy">
-        <strong>${rub(x.price)}</strong>
-        <button data-add="${x.id}">В корзину</button>
-      </div>
-    </article>
-  `).join("") || '<div class="empty">Ничего не найдено.</div>';
+    </div>`;
+}
+
+function renderCatalog(){
+  const exact=baseList("exact");
+  const analog=baseList("analog");
+  document.getElementById("exactResults").innerHTML=exact.map(rowHtml).join("") || '<div class="offer-row"><div>Нет предложений по выбранному фильтру.</div></div>';
+  document.getElementById("analogResults").innerHTML=analog.map(rowHtml).join("") || '<div class="offer-row"><div>Нет аналогов по выбранному фильтру.</div></div>';
+  document.getElementById("analogSection").style.display=(currentFilter==="exact")?"none":"block";
+  const count=exact.length+analog.length;
+  document.getElementById("offerCount").textContent=count;
+}
+
+function findItem(id){
+  for(const data of Object.values(datasets)){
+    const found=[...data.exact,...data.analogs].find(x=>x.id===id);
+    if(found) return found;
+  }
+}
+
+function changeQty(id,delta){
+  quantities[id]=Math.max(1,(quantities[id]||1)+delta);
+  const el=document.getElementById("qty-"+id);
+  if(el) el.textContent=quantities[id];
 }
 
 function addToCart(id,btn){
-  const item=inventory.find(x=>x.id===id);
-  if(!item)return;
+  const item=findItem(id); if(!item) return;
+  const qty=quantities[id]||1;
   const existing=cart.find(x=>x.id===id);
-  if(existing) existing.qty+=1;
-  else cart.push({...item,qty:1});
+  if(existing) existing.qty+=qty;
+  else cart.push({...item,price:retail(item.purchase),qty});
   saveCart();
-  if(btn){btn.classList.add("added");btn.textContent="Добавлено";setTimeout(()=>{btn.classList.remove("added");btn.textContent="В корзину"},900)}
+  if(btn){
+    btn.classList.add("added");btn.textContent="Добавлено";
+    setTimeout(()=>{btn.classList.remove("added");btn.textContent="В корзину"},850);
+  }
 }
 
-function removeFromCart(id){cart=cart.filter(x=>x.id!==id);saveCart()}
+function changeCartQty(id,delta){
+  const item=cart.find(x=>x.id===id); if(!item) return;
+  item.qty=Math.max(1,item.qty+delta);
+  saveCart();
+}
+function removeFromCart(id){ cart=cart.filter(x=>x.id!==id); saveCart(); }
 
 function renderCart(){
   const count=cart.reduce((s,x)=>s+x.qty,0);
   const total=cart.reduce((s,x)=>s+x.price*x.qty,0);
   document.getElementById("cartCount").textContent=count;
   document.getElementById("mobileCartCount").textContent=count;
+  document.getElementById("cartSubtotal").textContent=rub(total);
   document.getElementById("cartTotal").textContent=rub(total);
+
   const root=document.getElementById("cartItems");
-  root.innerHTML=cart.length?cart.map(x=>`
+  root.innerHTML=cart.length ? cart.map(x=>`
     <div class="cart-row">
-      <div><small>${x.brand}</small><h4>${x.name}</h4><span>${x.article} · ${x.days} дн.</span><button data-remove="${x.id}">Удалить</button></div>
-      <b>${x.qty} × ${rub(x.price)}</b>
+      <div class="cart-row-top">
+        <div><small>${x.brand}</small><h4>${x.name}</h4><span class="cart-row-meta">${x.article} · ${x.days} дн.</span></div>
+        <b>${rub(x.price*x.qty)}</b>
+      </div>
+      <div class="cart-row-bottom">
+        <button class="remove-btn" data-remove="${x.id}">Удалить</button>
+        <div class="qty">
+          <button data-cart-minus="${x.id}">−</button>
+          <span>${x.qty}</span>
+          <button data-cart-plus="${x.id}">+</button>
+        </div>
+      </div>
     </div>
-  `).join(""):'<div class="cart-empty">Корзина пока пустая.</div>';
+  `).join("") : '<div class="cart-row"><span class="cart-row-meta">Корзина пока пустая.</span></div>';
 }
 
-function openCart(){
-  document.getElementById("cartDrawer").classList.add("open");
-  document.getElementById("drawerBackdrop").classList.add("show");
-}
-function closeCart(){
-  document.getElementById("cartDrawer").classList.remove("open");
-  document.getElementById("drawerBackdrop").classList.remove("show");
-}
+function openCart(){ document.getElementById("cartDrawer").classList.add("open"); document.getElementById("drawerBackdrop").classList.add("show"); }
+function closeCart(){ document.getElementById("cartDrawer").classList.remove("open"); document.getElementById("drawerBackdrop").classList.remove("show"); }
 
 document.addEventListener("click",e=>{
-  const route=e.target.closest("[data-route]"); if(route){navigate(route.dataset.route);return}
-  const query=e.target.closest("[data-query]"); if(query){search(query.dataset.query);return}
-  const add=e.target.closest("[data-add]"); if(add){addToCart(add.dataset.add,add);return}
-  const remove=e.target.closest("[data-remove]"); if(remove){removeFromCart(remove.dataset.remove);return}
+  const route=e.target.closest("[data-route]"); if(route){ navigate(route.dataset.route); return; }
+  const query=e.target.closest("[data-query]"); if(query){ search(query.dataset.query); return; }
   const filter=e.target.closest("[data-filter]");
   if(filter){
     document.querySelectorAll("[data-filter]").forEach(x=>x.classList.remove("active"));
-    filter.classList.add("active");currentFilter=filter.dataset.filter;renderResults();return
+    filter.classList.add("active"); currentFilter=filter.dataset.filter; renderCatalog(); return;
   }
+  const plus=e.target.closest("[data-qty-plus]"); if(plus){ changeQty(plus.dataset.qtyPlus,1); return; }
+  const minus=e.target.closest("[data-qty-minus]"); if(minus){ changeQty(minus.dataset.qtyMinus,-1); return; }
+  const add=e.target.closest("[data-add]"); if(add){ addToCart(add.dataset.add,add); return; }
+  const cplus=e.target.closest("[data-cart-plus]"); if(cplus){ changeCartQty(cplus.dataset.cartPlus,1); return; }
+  const cminus=e.target.closest("[data-cart-minus]"); if(cminus){ changeCartQty(cminus.dataset.cartMinus,-1); return; }
+  const remove=e.target.closest("[data-remove]"); if(remove){ removeFromCart(remove.dataset.remove); return; }
 });
 
 document.getElementById("searchForm").addEventListener("submit",e=>{e.preventDefault();search(document.getElementById("searchInput").value)});
 document.getElementById("searchForm2").addEventListener("submit",e=>{e.preventDefault();search(document.getElementById("searchInput2").value)});
+document.getElementById("headerSearchForm").addEventListener("submit",e=>{e.preventDefault();search(document.getElementById("headerSearchInput").value)});
+document.getElementById("sortSelect").addEventListener("change",e=>{currentSort=e.target.value;renderCatalog()});
 document.getElementById("openCart").addEventListener("click",openCart);
 document.getElementById("mobileCart").addEventListener("click",openCart);
 document.getElementById("closeCart").addEventListener("click",closeCart);
 document.getElementById("drawerBackdrop").addEventListener("click",closeCart);
-document.getElementById("checkoutButton").addEventListener("click",()=>alert("Оформление подключим после API PartGrade."));
+document.getElementById("checkoutButton").addEventListener("click",()=>alert("Оформление заказа подключим после получения API PartGrade."));
 
 renderCart();
-renderResults();
+renderCatalog();
