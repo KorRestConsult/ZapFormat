@@ -1,23 +1,40 @@
-const demo = [
-  { brand: "BOSCH", article: "0250603006", name: "Свеча накаливания", price: 2073, qty: 10, days: 2 },
-  { brand: "BMW", article: "11277810456", name: "Деталь привода", price: 3120, qty: 5, days: 2 },
-  { brand: "MASUMA", article: "MIP-E475", name: "Ролик натяжителя", price: 3619, qty: 1, days: 2 }
-];
+import { SearchBox } from "@/components/SearchBox";
+import { OfferCard } from "@/components/OfferCard";
+import { partGrade } from "@/lib/partgrade";
+import { toPublicOffer } from "@/lib/partgrade/public-offer";
 
-export default async function SearchPage({ searchParams }: { searchParams: Promise<{ q?: string }> }) {
-  const { q = "" } = await searchParams;
+export default async function SearchPage({
+  searchParams
+}: {
+  searchParams: Promise<{ q?: string }>;
+}) {
+  const params = await searchParams;
+  const query = params.q ?? "";
+  const rawOffers = query ? await partGrade.search(query) : [];
+  const offers = rawOffers.map(toPublicOffer);
+
   return (
     <section>
-      <div className="eyebrow">Поиск</div>
-      <h1>Результаты: {q || "—"}</h1>
+      <div className="pageHead">
+        <div>
+          <div className="eyebrow">Поиск</div>
+          <h1>{query ? `Результаты для «${query}»` : "Найдите запчасть"}</h1>
+        </div>
+        <div className="resultCount">{offers.length} предлож.</div>
+      </div>
+
+      <SearchBox compact />
+
+      <div className="filterBar">
+        <button className="active">Все</button>
+        <button>Быстрее</button>
+        <button>Дешевле</button>
+        <button>В наличии</button>
+      </div>
+
       <div className="results">
-        {demo.map((x) => (
-          <article key={x.article} className="offer">
-            <div><small>{x.brand}</small><h2>{x.name}</h2><span>{x.article}</span></div>
-            <div>{x.qty} шт. · {x.days} дн.</div>
-            <div className="buy"><strong>{x.price.toLocaleString("ru-RU")} ₽</strong><button>В корзину</button></div>
-          </article>
-        ))}
+        {offers.map((offer) => <OfferCard key={offer.id} offer={offer} />)}
+        {query && !offers.length ? <div className="empty">Ничего не найдено.</div> : null}
       </div>
     </section>
   );

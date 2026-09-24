@@ -1,24 +1,24 @@
+import type { Metadata } from "next";
 import "./globals.css";
-import Link from "next/link";
+import { Header } from "@/components/Header";
+import { BottomNav } from "@/components/BottomNav";
+import { CartProvider } from "@/components/CartProvider";
 
-export const metadata = {
-  title: "Parts AI",
-  description: "Подбор и заказ автозапчастей"
+export const metadata: Metadata = {
+  title: "Parts AI — автозапчасти без лишнего",
+  description: "Поиск, подбор и заказ автозапчастей",
+  manifest: "/manifest.webmanifest"
 };
 
-export default function RootLayout({ children }: { children: React.ReactNode }) {
+export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
     <html lang="ru">
       <body>
-        <header className="header">
-          <Link className="brand" href="/">PARTS<span>AI</span></Link>
-          <nav>
-            <Link href="/garage">Гараж</Link>
-            <Link href="/orders">Заказы</Link>
-            <Link href="/cart">Корзина</Link>
-          </nav>
-        </header>
-        <main className="shell">{children}</main>
+        <CartProvider>
+          <Header />
+          <main className="shell">{children}</main>
+          <BottomNav />
+        </CartProvider>
       </body>
     </html>
   );
