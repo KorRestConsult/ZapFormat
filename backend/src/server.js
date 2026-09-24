@@ -442,6 +442,49 @@ app.get("/api/garage/vehicles/:vehicleId", requireUser, async (req, res, next) =
   }
 });
 
+app.patch("/api/garage/vehicles/:vehicleId", requireUser, async (req, res, next) => {
+  try {
+    const current = await pool.query(
+      "SELECT * FROM vehicles WHERE id = $1 AND user_id = $2 LIMIT 1",
+      [req.params.vehicleId, req.user.id]
+    );
+    const vehicle = current.rows[0];
+    if (!vehicle) return res.status(404).json({ error: "vehicle_not_found" });
+
+    const brand = req.body?.brand === undefined ? vehicle.brand : String(req.body.brand || "").trim();
+    const model = req.body?.model === undefined ? vehicle.model : String(req.body.model || "").trim();
+    const generation = req.body?.generation === undefined ? vehicle.generation : String(req.body.generation || "").trim() || null;
+    const engine = req.body?.engine === undefined ? vehicle.engine : String(req.body.engine || "").trim() || null;
+    const plate = req.body?.plate_number === undefined ? vehicle.plate_number : String(req.body.plate_number || "").trim().toUpperCase() || null;
+    const vin = req.body?.vin === undefined ? vehicle.vin : String(req.body.vin || "").trim().toUpperCase() || null;
+    const year = req.body?.year === undefined ? vehicle.year : (req.body.year ? Number(req.body.year) : null);
+
+    if (!brand || !model) return res.status(400).json({ error: "brand_and_model_required" });
+    if (vin && !/^[A-HJ-NPR-Z0-9]{17}$/.test(vin)) {
+      return res.status(400).json({ error: "invalid_vin" });
+    }
+
+    const result = await pool.query(
+      `UPDATE vehicles
+          SET brand = $3,
+              model = $4,
+              generation = $5,
+              year = $6,
+              engine = $7,
+              vin = $8,
+              plate_number = $9,
+              updated_at = now()
+        WHERE id = $1 AND user_id = $2
+        RETURNING *`,
+      [req.params.vehicleId, req.user.id, brand, model, generation, year, engine, vin, plate]
+    );
+
+    res.json({ vehicle: result.rows[0] });
+  } catch (error) {
+    next(error);
+  }
+});
+
 app.patch("/api/garage/vehicles/:vehicleId/mileage", requireUser, async (req, res, next) => {
   const client = await pool.connect();
   try {
