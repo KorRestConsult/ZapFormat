@@ -154,6 +154,64 @@
         </div>
       </section>
 
+      <section class="view" id="view-auth">
+        <div class="auth-shell">
+          <div class="auth-brand">
+            <span class="eyebrow">ZAPFORMAT</span>
+            <h2>Личный кабинет</h2>
+            <p>Заказы, возвраты, автомобили и получение — в одном аккаунте.</p>
+          </div>
+
+          <div class="auth-card">
+            <div class="auth-tabs" role="tablist" aria-label="Авторизация">
+              <button class="active" type="button" data-auth-tab="login">Войти</button>
+              <button type="button" data-auth-tab="register">Регистрация</button>
+            </div>
+
+            <form class="auth-form active" id="loginForm" data-auth-pane="login">
+              <label>
+                <span>Телефон или email</span>
+                <input name="login" autocomplete="username" placeholder="+7 900 000-00-00 или email" required>
+              </label>
+              <label>
+                <span>Пароль</span>
+                <input name="password" type="password" autocomplete="current-password" minlength="8" placeholder="Пароль" required>
+              </label>
+              <button class="account-primary auth-submit" type="submit">Войти</button>
+            </form>
+
+            <form class="auth-form" id="registerForm" data-auth-pane="register">
+              <div class="auth-form-grid">
+                <label>
+                  <span>Имя</span>
+                  <input name="name" autocomplete="given-name" required>
+                </label>
+                <label>
+                  <span>Фамилия</span>
+                  <input name="surname" autocomplete="family-name">
+                </label>
+              </div>
+              <label>
+                <span>Телефон</span>
+                <input name="phone" type="tel" autocomplete="tel" placeholder="+7 900 000-00-00">
+              </label>
+              <label>
+                <span>Email</span>
+                <input name="email" type="email" autocomplete="email" placeholder="name@example.ru">
+              </label>
+              <label>
+                <span>Пароль</span>
+                <input name="password" type="password" autocomplete="new-password" minlength="8" placeholder="Минимум 8 символов" required>
+              </label>
+              <small class="auth-hint">Нужен телефон или email. Данные аккаунта хранятся на backend, пароль — только в виде хэша.</small>
+              <button class="account-primary auth-submit" type="submit">Создать аккаунт</button>
+            </form>
+
+            <div class="auth-status" id="authStatus" aria-live="polite"></div>
+          </div>
+        </div>
+      </section>
+
       <section class="view" id="view-profile">
         <div class="account-shell">
           <aside class="account-sidebar">
@@ -175,6 +233,7 @@
               <button data-account-tab="delivery">Получение</button>
               <button data-account-tab="notifications">Уведомления</button>
             </nav>
+            <button class="account-logout" id="logoutButton" type="button">Выйти</button>
           </aside>
 
           <div class="account-content">
@@ -325,6 +384,7 @@
     </nav>
 </div>
 
+  <script src="./config.js"></script>
   <script src="./app.js"></script>
 </body>
 </html>
