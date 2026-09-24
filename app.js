@@ -201,6 +201,51 @@ let currentSort = "recommended";
 let quantities = {};
 let expandedGroups = new Set();
 let cart = loadCart();
+const defaultGarageState = {
+  vehicle:{
+    id:"demo-bmw-x3",
+    brand:"BMW",
+    model:"X3 F25",
+    year:2010,
+    engine:"2.0 Diesel · N47",
+    vin:"",
+    plate:"",
+    mileage:186420
+  },
+  maintenance:[
+    {id:"oil",title:"Масло двигателя + фильтр",intervalKm:10000,lastKm:180000,nextKm:190000,status:"soon",query:"BMW X3 F25 N47 масло двигателя масляный фильтр комплект ТО"},
+    {id:"air",title:"Воздушный фильтр",intervalKm:20000,lastKm:180000,nextKm:200000,status:"ok",query:"BMW X3 F25 N47 воздушный фильтр"},
+    {id:"cabin",title:"Салонный фильтр",intervalKm:15000,lastKm:180000,nextKm:195000,status:"ok",query:"BMW X3 F25 салонный фильтр"},
+    {id:"fuel",title:"Топливный фильтр",intervalKm:30000,lastKm:180000,nextKm:210000,status:"ok",query:"BMW X3 F25 N47 топливный фильтр"},
+    {id:"brakes",title:"Тормоза",intervalKm:null,lastKm:null,nextKm:null,status:"measure",query:"BMW X3 F25 тормозные колодки диски по VIN"}
+  ],
+  measurements:[
+    {id:"m1",type:"Передние колодки",value:"6",unit:"мм",date:"24.09.2026",note:"пример замера"},
+    {id:"m2",type:"Протектор перед",value:"5.2",unit:"мм",date:"24.09.2026",note:"пример замера"},
+    {id:"m3",type:"Протектор зад",value:"4.8",unit:"мм",date:"24.09.2026",note:"пример замера"},
+    {id:"m4",type:"АКБ без нагрузки",value:"12.6",unit:"В",date:"24.09.2026",note:"пример замера"}
+  ],
+  history:[
+    {id:"h1",date:"12.07.2026",mileage:180000,title:"ТО",note:"Масло двигателя, масляный фильтр, салонный фильтр"},
+    {id:"h2",date:"20.03.2026",mileage:174600,title:"Замена",note:"Передние тормозные колодки"}
+  ]
+};
+let garageTab="overview";
+let garageMeasurementOpen=false;
+let garageState=loadGarageState();
+
+function loadGarageState(){
+  try{
+    const saved=JSON.parse(localStorage.getItem("zapformat-garage")||"null");
+    return saved ? {...structuredClone(defaultGarageState),...saved,vehicle:{...defaultGarageState.vehicle,...saved.vehicle}} : structuredClone(defaultGarageState);
+  }catch{
+    return structuredClone(defaultGarageState);
+  }
+}
+function saveGarageState(){
+  try{localStorage.setItem("zapformat-garage",JSON.stringify(garageState))}catch{}
+}
+
 
 function retail(p){ return Math.round(p * (1 + MARKUP/100)); }
 function rub(n){ return new Intl.NumberFormat("ru-RU").format(n) + " ₽"; }
@@ -1001,17 +1046,251 @@ function cancelReturn(){
   renderOrderDetail(orderId);
 }
 
+
+function maintenanceStateLabel(item){
+  if(item.status==="soon") return '<span class="garage-state soon">Скоро</span>';
+  if(item.status==="measure") return '<span class="garage-state measure">По замерам</span>';
+  return '<span class="garage-state ok">В порядке</span>';
+}
+
+function maintenanceRemaining(item){
+  if(!item.nextKm) return "Контроль по состоянию";
+  const left=item.nextKm-garageState.vehicle.mileage;
+  if(left<=0) return "Пора сделать";
+  return "через "+new Intl.NumberFormat("ru-RU").format(left)+" км";
+}
+
+function renderGarageOverview(){
+  const v=garageState.vehicle;
+  const next=garageState.maintenance
+    .filter(x=>x.nextKm)
+    .sort((a,b)=>a.nextKm-b.nextKm)[0];
+
+  return `
+    <div class="garage-owner-grid">
+      <section class="garage-owner-main">
+        <div class="garage-car-hero">
+          <div class="garage-car-badge">${v.brand}</div>
+          <div class="garage-car-title">
+            <span class="eyebrow">МОЙ АВТОМОБИЛЬ</span>
+            <h2>${v.brand} ${v.model}</h2>
+            <p>${v.year} · ${v.engine}</p>
+          </div>
+          <button class="garage-outline" data-garage-search="${v.brand} ${v.model} ${v.engine}">Найти запчасть</button>
+        </div>
+
+        <div class="garage-mileage-card">
+          <div>
+            <small>Текущий пробег</small>
+            <strong>${new Intl.NumberFormat("ru-RU").format(v.mileage)} км</strong>
+            <span>Обновляйте пробег — от него считаются ближайшие работы.</span>
+          </div>
+          <div class="garage-mileage-edit">
+            <input id="garageMileageInput" inputmode="numeric" value="${v.mileage}" aria-label="Пробег">
+            <button data-garage-save-mileage>Сохранить</button>
+          </div>
+        </div>
+
+        <section class="garage-panel">
+          <div class="garage-panel-head">
+            <div><span class="eyebrow">БЛИЖАЙШЕЕ ТО</span><h3>${next?.title||"План обслуживания"}</h3></div>
+            <button data-garage-tab="maintenance">Все работы →</button>
+          </div>
+          <div class="garage-next-service">
+            <div><small>Следующий рубеж</small><b>${next?.nextKm ? new Intl.NumberFormat("ru-RU").format(next.nextKm)+" км" : "по состоянию"}</b></div>
+            <div><small>Осталось</small><b>${next ? maintenanceRemaining(next) : "—"}</b></div>
+            <button class="garage-primary" data-garage-prefill="${next?.query||v.brand+" "+v.model+" ТО"}">Подобрать комплект ТО</button>
+          </div>
+        </section>
+      </section>
+
+      <aside class="garage-owner-side">
+        <section class="garage-panel">
+          <div class="garage-panel-head"><div><span class="eyebrow">ЗАМЕРЫ</span><h3>Состояние</h3></div><button data-garage-tab="measurements">Все →</button></div>
+          <div class="garage-measure-mini">
+            ${garageState.measurements.slice(0,4).map(x=>`
+              <div><span>${x.type}</span><b>${x.value} ${x.unit}</b></div>
+            `).join("")}
+          </div>
+        </section>
+
+        <section class="garage-panel">
+          <div class="garage-panel-head"><div><span class="eyebrow">ИСТОРИЯ</span><h3>Последние работы</h3></div><button data-garage-tab="history">Вся история →</button></div>
+          <div class="garage-history-mini">
+            ${garageState.history.slice(0,2).map(x=>`
+              <article><small>${x.date} · ${new Intl.NumberFormat("ru-RU").format(x.mileage)} км</small><b>${x.title}</b><span>${x.note}</span></article>
+            `).join("")}
+          </div>
+        </section>
+      </aside>
+    </div>
+  `;
+}
+
+function renderGarageMaintenance(){
+  return `
+    <section class="garage-panel garage-full-panel">
+      <div class="garage-panel-head">
+        <div><span class="eyebrow">ТЕХОБСЛУЖИВАНИЕ</span><h3>План ТО</h3><p>Пробег, состояние и быстрый переход к подбору нужных деталей.</p></div>
+      </div>
+      <div class="garage-maintenance-list">
+        ${garageState.maintenance.map(item=>`
+          <article class="garage-maintenance-row">
+            <div class="garage-maintenance-main">
+              ${maintenanceStateLabel(item)}
+              <b>${item.title}</b>
+              <small>${item.nextKm ? "Следующее: "+new Intl.NumberFormat("ru-RU").format(item.nextKm)+" км · "+maintenanceRemaining(item) : "Интервал определяется по состоянию и замерам"}</small>
+            </div>
+            <button data-garage-prefill="${item.query}">Подобрать</button>
+          </article>
+        `).join("")}
+      </div>
+    </section>
+  `;
+}
+
+function renderGarageMeasurements(){
+  return `
+    <section class="garage-panel garage-full-panel">
+      <div class="garage-panel-head">
+        <div><span class="eyebrow">ЗАМЕРЫ</span><h3>Контроль состояния</h3><p>Колодки, диски, протектор, давление, АКБ, жидкости — любые фактические значения по машине.</p></div>
+        <button class="garage-primary" data-garage-toggle-measurement>+ Добавить замер</button>
+      </div>
+
+      ${garageMeasurementOpen ? `
+        <form class="garage-measure-form" id="garageMeasurementForm">
+          <label><span>Что измерили</span><input name="type" placeholder="Например: Передние колодки" required></label>
+          <label><span>Значение</span><input name="value" inputmode="decimal" placeholder="6" required></label>
+          <label><span>Единица</span><input name="unit" placeholder="мм / В / бар / °C" required></label>
+          <label class="garage-measure-note"><span>Комментарий</span><input name="note" placeholder="Необязательно"></label>
+          <div class="garage-measure-actions"><button type="button" data-garage-toggle-measurement>Отмена</button><button class="garage-primary" type="submit">Сохранить</button></div>
+        </form>
+      ` : ""}
+
+      <div class="garage-measure-list">
+        ${garageState.measurements.map(x=>`
+          <article>
+            <div><b>${x.type}</b><small>${x.date}${x.note?" · "+x.note:""}</small></div>
+            <strong>${x.value} <span>${x.unit}</span></strong>
+          </article>
+        `).join("")}
+      </div>
+    </section>
+  `;
+}
+
+function renderGarageHistory(){
+  return `
+    <section class="garage-panel garage-full-panel">
+      <div class="garage-panel-head">
+        <div><span class="eyebrow">ИСТОРИЯ АВТОМОБИЛЯ</span><h3>Работы и обслуживание</h3><p>Сервисная история остаётся у владельца и привязана к автомобилю.</p></div>
+      </div>
+      <div class="garage-history-list">
+        ${garageState.history.map(x=>`
+          <article>
+            <div class="garage-history-date"><b>${x.date}</b><span>${new Intl.NumberFormat("ru-RU").format(x.mileage)} км</span></div>
+            <div><b>${x.title}</b><p>${x.note}</p></div>
+          </article>
+        `).join("")}
+      </div>
+    </section>
+  `;
+}
+
+function renderGarageApp(){
+  const root=document.getElementById("garageApp");
+  if(!root) return;
+  const v=garageState.vehicle;
+  root.innerHTML=`
+    <div class="garage-owner-head">
+      <div>
+        <span class="eyebrow">ГАРАЖ</span>
+        <h2>Мой автомобиль</h2>
+        <p>Мини-приложение владельца: ТО, замеры, история и заказ деталей из одного места.</p>
+      </div>
+      <button class="account-primary" id="addCarButton">+ Добавить автомобиль</button>
+    </div>
+
+    <div class="garage-vehicle-strip">
+      <button class="active"><span class="car-mark">${v.brand}</span><span><b>${v.brand} ${v.model}</b><small>${v.year} · ${v.engine}</small></span></button>
+      <button class="garage-add-small" id="addCarButtonCompact">+</button>
+    </div>
+
+    <nav class="garage-tabs" aria-label="Разделы автомобиля">
+      <button class="${garageTab==="overview"?"active":""}" data-garage-tab="overview">Обзор</button>
+      <button class="${garageTab==="maintenance"?"active":""}" data-garage-tab="maintenance">ТО</button>
+      <button class="${garageTab==="measurements"?"active":""}" data-garage-tab="measurements">Замеры</button>
+      <button class="${garageTab==="history"?"active":""}" data-garage-tab="history">История</button>
+    </nav>
+
+    <div class="garage-tab-body">
+      ${garageTab==="overview" ? renderGarageOverview() :
+        garageTab==="maintenance" ? renderGarageMaintenance() :
+        garageTab==="measurements" ? renderGarageMeasurements() :
+        renderGarageHistory()}
+    </div>
+  `;
+}
+
+function prefillGarageSearch(query){
+  navigate("home");
+  const input=document.getElementById("searchInput");
+  if(input){
+    input.value=query;
+    input.dispatchEvent(new Event("input"));
+    input.focus();
+  }
+}
+
 function showAccountTab(tab){
   document.querySelectorAll(".account-pane").forEach(x=>x.classList.remove("active"));
   document.querySelectorAll("[data-account-tab]").forEach(x=>x.classList.remove("active"));
   document.getElementById("account-"+tab)?.classList.add("active");
   document.querySelectorAll('[data-account-tab="'+tab+'"]').forEach(x=>x.classList.add("active"));
+  if(tab==="garage") renderGarageApp();
   try{ localStorage.setItem("zapformat-account-tab",tab); }catch{}
 }
 
 document.addEventListener("click",e=>{
   const authTab=e.target.closest("[data-auth-tab]");
   if(authTab){ showAuthTab(authTab.dataset.authTab); return; }
+
+  const garageTabButton=e.target.closest("[data-garage-tab]");
+  if(garageTabButton){
+    garageTab=garageTabButton.dataset.garageTab;
+    garageMeasurementOpen=false;
+    renderGarageApp();
+    return;
+  }
+
+  if(e.target.closest("[data-garage-toggle-measurement]")){
+    garageMeasurementOpen=!garageMeasurementOpen;
+    renderGarageApp();
+    return;
+  }
+
+  const garagePrefill=e.target.closest("[data-garage-prefill]");
+  if(garagePrefill){
+    prefillGarageSearch(garagePrefill.dataset.garagePrefill);
+    return;
+  }
+
+  const garageSearch=e.target.closest("[data-garage-search]");
+  if(garageSearch){
+    prefillGarageSearch(garageSearch.dataset.garageSearch);
+    return;
+  }
+
+  if(e.target.closest("[data-garage-save-mileage]")){
+    const input=document.getElementById("garageMileageInput");
+    const value=Math.max(0,parseInt(String(input?.value||"").replace(/\D/g,""),10)||0);
+    if(value){
+      garageState.vehicle.mileage=value;
+      saveGarageState();
+      renderGarageApp();
+    }
+    return;
+  }
 
   const tab=e.target.closest("[data-account-tab]");
   if(tab){ showAccountTab(tab.dataset.accountTab); return; }
@@ -1110,6 +1389,25 @@ document.getElementById("logoutButton")?.addEventListener("click",async()=>{
 });
 
 document.addEventListener("submit",e=>{
+  const garageMeasureForm=e.target.closest("#garageMeasurementForm");
+  if(garageMeasureForm){
+    e.preventDefault();
+    const data=Object.fromEntries(new FormData(garageMeasureForm).entries());
+    const now=new Date();
+    garageState.measurements.unshift({
+      id:"m"+Date.now(),
+      type:String(data.type||"").trim(),
+      value:String(data.value||"").trim(),
+      unit:String(data.unit||"").trim(),
+      note:String(data.note||"").trim(),
+      date:now.toLocaleDateString("ru-RU")
+    });
+    garageMeasurementOpen=false;
+    saveGarageState();
+    renderGarageApp();
+    return;
+  }
+
   const form=e.target.closest("[data-return-form]");
   if(!form) return;
   e.preventDefault();
@@ -1183,8 +1481,10 @@ document.getElementById("deliveryForm")?.addEventListener("submit",e=>{
   const old=btn.textContent; btn.textContent="Сохранено"; setTimeout(()=>btn.textContent=old,900);
 });
 
-document.getElementById("addCarButton")?.addEventListener("click",()=>{
-  alert("Добавление автомобиля подключим через форму VIN / марка / модель / двигатель.");
+document.addEventListener("click",e=>{
+  if(e.target.closest("#addCarButton, #addCarButtonCompact")){
+    alert("Следующий шаг: добавление автомобиля по VIN / марке / модели / двигателю с сохранением в аккаунт.");
+  }
 });
 
 try{
@@ -1207,4 +1507,5 @@ try{
   }else if(savedTab){
     showAccountTab(savedTab);
   }
+  renderGarageApp();
 }catch{}
