@@ -21,7 +21,8 @@ const datasets = {
       {id:"ba5",type:"analog",brand:"SWAG",article:"20 94 6721",name:"Свеча накаливания",warehouse:"21",source:"Аналог",purchase:1280,qty:9,days:4},
       {id:"ba6",type:"analog",brand:"MEYLE",article:"314 860 0004",name:"Свеча накаливания",warehouse:"25",source:"Аналог",purchase:1345,qty:6,days:2},
       {id:"ba7",type:"analog",brand:"STELLOX",article:"202 084-SX",name:"Свеча накаливания",warehouse:"31",source:"Аналог",purchase:790,qty:28,days:3},
-      {id:"ba8",type:"analog",brand:"PATRON",article:"PGP002",name:"Свеча накаливания",warehouse:"44",source:"Аналог",purchase:860,qty:34,days:5}
+      {id:"ba8",type:"analog",brand:"PATRON",article:"PGP002",name:"Свеча накаливания",warehouse:"44",source:"Аналог",purchase:860,qty:34,days:5},
+      {id:"ba9",type:"analog",brand:"STELLOX",article:"201095-SX",name:"Свеча накаливания",warehouse:"31",source:"Аналог",purchase:930,qty:0,days:4}
     ]
   },
   "11277810456": {
@@ -66,8 +67,27 @@ let cart = loadCart();
 
 function retail(p){ return Math.round(p * (1 + MARKUP/100)); }
 function rub(n){ return new Intl.NumberFormat("ru-RU").format(n) + " ₽"; }
-function loadCart(){ try { return JSON.parse(localStorage.getItem("zapformat-cart") || "[]"); } catch { return []; } }
-function saveCart(){ localStorage.setItem("zapformat-cart", JSON.stringify(cart)); renderCart(); }
+function loadCart(){
+  try{
+    const raw=JSON.parse(localStorage.getItem("zapformat-cart") || "[]");
+    return raw.map(x=>({
+      ...x,
+      orderQty: x.orderQty ?? x.qty ?? 1,
+      availableQty: x.availableQty ?? x.available ?? x.qty ?? 0,
+      selected: x.selected ?? true,
+      comment: x.comment ?? "",
+      priceAtAdd: x.priceAtAdd ?? x.price ?? 0,
+      previousPrice: x.previousPrice ?? null,
+      priceChanged: x.priceChanged ?? false,
+      availabilityChanged: x.availabilityChanged ?? false
+    }));
+  }catch{return []}
+}
+function saveCart(){
+  localStorage.setItem("zapformat-cart", JSON.stringify(cart));
+  renderCart();
+  renderCartPage();
+}
 
 function resolveDataset(query){
   const raw=(query||"").trim();
@@ -225,10 +245,26 @@ function changeQty(id,delta){
 
 function addToCart(id,btn){
   const item=findItem(id); if(!item) return;
-  const qty=quantities[id]||1;
+  const orderQty=quantities[id]||1;
+  const price=retail(item.purchase);
   const existing=cart.find(x=>x.id===id);
-  if(existing) existing.qty+=qty;
-  else cart.push({...item,price:retail(item.purchase),qty});
+  if(existing){
+    existing.orderQty+=orderQty;
+    existing.selected=true;
+  } else {
+    cart.push({
+      ...item,
+      price,
+      priceAtAdd:price,
+      previousPrice:null,
+      orderQty,
+      availableQty:item.qty,
+      selected:true,
+      comment:"",
+      priceChanged:false,
+      availabilityChanged:false
+    });
+  }
   saveCart();
   if(btn){
     btn.classList.add("added");
@@ -238,40 +274,145 @@ function addToCart(id,btn){
 
 function changeCartQty(id,delta){
   const item=cart.find(x=>x.id===id); if(!item) return;
-  item.qty=Math.max(1,item.qty+delta);
+  item.orderQty=Math.max(1,item.orderQty+delta);
   saveCart();
 }
 function removeFromCart(id){ cart=cart.filter(x=>x.id!==id); saveCart(); }
 
 function renderCart(){
-  const count=cart.reduce((s,x)=>s+x.qty,0);
-  const total=cart.reduce((s,x)=>s+x.price*x.qty,0);
-  document.getElementById("cartCount").textContent=count;
-  document.getElementById("mobileCartCount") && (document.getElementById("mobileCartCount").textContent=count);
-  document.getElementById("cartSubtotal").textContent=rub(total);
-  document.getElementById("cartTotal").textContent=rub(total);
-
-  const root=document.getElementById("cartItems");
-  root.innerHTML=cart.length ? cart.map(x=>`
-    <div class="cart-row">
-      <div class="cart-row-top">
-        <div><small>${x.brand}</small><h4>${x.name}</h4><span class="cart-row-meta">${x.article} · ${x.days} дн.</span></div>
-        <b>${rub(x.price*x.qty)}</b>
-      </div>
-      <div class="cart-row-bottom">
-        <button class="remove-btn" data-remove="${x.id}">Удалить</button>
-        <div class="qty">
-          <button data-cart-minus="${x.id}">−</button>
-          <span>${x.qty}</span>
-          <button data-cart-plus="${x.id}">+</button>
-        </div>
-      </div>
-    </div>
-  `).join("") : '<div class="cart-row"><span class="cart-row-meta">Корзина пока пустая.</span></div>';
+  const count=cart.reduce((s,x)=>s+(x.orderQty||0),0);
+  const top=document.getElementById("cartCount");
+  const mobile=document.getElementById("mobileCartCount");
+  if(top) top.textContent=count;
+  if(mobile) mobile.textContent=count;
 }
 
-function openCart(){ document.getElementById("cartDrawer").classList.add("open"); document.getElementById("drawerBackdrop").classList.add("show"); }
-function closeCart(){ document.getElementById("cartDrawer").classList.remove("open"); document.getElementById("drawerBackdrop").classList.remove("show"); }
+function refreshCartOffers(){
+  let changed=0;
+  cart.forEach(item=>{
+    const live=findItem(item.id);
+    if(!live) return;
+
+    const nextPrice=retail(live.purchase);
+    const nextAvailable=live.qty;
+
+    item.previousPrice=item.price;
+    item.priceChanged=item.price!==nextPrice;
+    item.availabilityChanged=item.availableQty!==nextAvailable;
+    if(item.priceChanged || item.availabilityChanged) changed++;
+
+    item.price=nextPrice;
+    item.availableQty=nextAvailable;
+    if(item.availableQty===0) item.selected=false;
+  });
+
+  localStorage.setItem("zapformat-cart",JSON.stringify(cart));
+
+  const status=document.getElementById("cartRefreshStatus");
+  const time=document.getElementById("cartRefreshTime");
+  const notice=document.getElementById("cartChangeNotice");
+  if(status) status.textContent="Цены и наличие обновлены";
+  if(time) time.textContent=new Date().toLocaleTimeString("ru-RU",{hour:"2-digit",minute:"2-digit"});
+  if(notice){
+    if(changed){
+      notice.hidden=false;
+      notice.textContent="Изменились цена или наличие у "+changed+" позиц.";
+    } else {
+      notice.hidden=true;
+      notice.textContent="";
+    }
+  }
+  renderCartPage();
+}
+
+function selectedCartItems(){
+  return cart.filter(x=>x.selected && x.availableQty>0);
+}
+
+function renderCartPage(){
+  const root=document.getElementById("orderCartRows");
+  if(!root) return;
+
+  if(!cart.length){
+    root.innerHTML='<div style="padding:24px;background:#fff;color:#7b8892">Корзина пока пустая.</div>';
+    const total=document.getElementById("orderCartTotal");
+    if(total) total.textContent=rub(0);
+    return;
+  }
+
+  root.innerHTML=cart.map((x,index)=>{
+    const subtotal=x.price*x.orderQty;
+    const unavailable=x.availableQty===0;
+    const classes=["order-cart-row"];
+    if(unavailable) classes.push("unavailable");
+    if(x.priceChanged) classes.push("price-changed");
+
+    const priceHtml=x.priceChanged && x.previousPrice && x.previousPrice!==x.price
+      ? '<span class="cart-price-stack"><span class="old-price">'+rub(x.previousPrice)+'</span><span class="new-price">'+rub(x.price)+'</span><span class="changed-label">цена изменилась</span></span>'
+      : '<span class="cart-price-stack"><span class="new-price">'+rub(x.price)+'</span></span>';
+
+    return `
+      <div class="${classes.join(" ")}">
+        <div class="row-number">${index+1}</div>
+        <div class="row-select"><input class="cart-check" type="checkbox" data-cart-select="${x.id}" ${x.selected?"checked":""} ${unavailable?"disabled":""}></div>
+        <div class="brand-cell">${x.brand}</div>
+        <div class="article-cell"><span class="cart-article">${x.article}</span></div>
+        <div class="description-cell cart-description">${x.name}</div>
+        <div class="warehouse-cell">${x.warehouse}</div>
+        <div class="term-cell">${x.days===1?"1 день":x.days+" дня"}</div>
+        <div class="qty-cell">
+          <div class="cart-stepper">
+            <button data-cart-minus="${x.id}">−</button>
+            <span>${x.orderQty}</span>
+            <button data-cart-plus="${x.id}">+</button>
+          </div>
+        </div>
+        <div class="availability-cell cart-availability ${unavailable?"zero":""}">${x.availableQty}</div>
+        <div class="price-cell cart-price-cell">${priceHtml}</div>
+        <div class="sum-cell cart-sum-cell">${rub(subtotal)}</div>
+        <div class="comment-cell cart-comment"><input data-cart-comment="${x.id}" value="${String(x.comment||"").replace(/"/g,"&quot;")}" placeholder="Комментарий"></div>
+        <div class="remove-cell"><button class="cart-remove-icon" data-remove="${x.id}" aria-label="Удалить">×</button></div>
+      </div>
+    `;
+  }).join("");
+
+  const total=selectedCartItems().reduce((s,x)=>s+x.price*x.orderQty,0);
+  const totalEl=document.getElementById("orderCartTotal");
+  if(totalEl) totalEl.textContent=rub(total);
+}
+
+function toggleCartSelection(id,checked){
+  const item=cart.find(x=>x.id===id); if(!item) return;
+  item.selected=checked;
+  saveCart();
+}
+
+function setCartComment(id,value){
+  const item=cart.find(x=>x.id===id); if(!item) return;
+  item.comment=value;
+  localStorage.setItem("zapformat-cart",JSON.stringify(cart));
+}
+
+function clearCart(){
+  cart=[];
+  saveCart();
+}
+
+function deleteSelected(){
+  cart=cart.filter(x=>!x.selected);
+  saveCart();
+}
+
+function saveCartManual(){
+  localStorage.setItem("zapformat-cart",JSON.stringify(cart));
+  const btn=document.getElementById("saveCartButton");
+  if(btn){
+    const old=btn.textContent;
+    btn.textContent="✓ Сохранено";
+    setTimeout(()=>btn.textContent=old,900);
+  }
+}
+
 
 document.addEventListener("click",e=>{
   const route=e.target.closest("[data-route]"); if(route){ navigate(route.dataset.route); return; }
@@ -306,11 +447,6 @@ document.addEventListener("click",e=>{
 
 document.getElementById("searchForm").addEventListener("submit",e=>{e.preventDefault();search(document.getElementById("searchInput").value)});
 document.getElementById("searchForm2").addEventListener("submit",e=>{e.preventDefault();search(document.getElementById("searchInput2").value)});
-document.getElementById("openCart")?.addEventListener("click",openCart);
-document.getElementById("mobileCart")?.addEventListener("click",openCart);
-document.getElementById("closeCart")?.addEventListener("click",closeCart);
-document.getElementById("drawerBackdrop")?.addEventListener("click",closeCart);
-document.getElementById("checkoutButton").addEventListener("click",()=>alert("Оформление заказа подключается к серверной части."));
 
 renderCart();
 renderCatalog();
@@ -344,3 +480,59 @@ function restoreFromUrl(){
 window.addEventListener("popstate",restoreFromUrl);
 document.getElementById("backButton")?.addEventListener("click",()=>history.back());
 restoreFromUrl();
+
+document.addEventListener("change",e=>{
+  const select=e.target.closest("[data-cart-select]");
+  if(select){ toggleCartSelection(select.dataset.cartSelect,select.checked); return; }
+  const comment=e.target.closest("[data-cart-comment]");
+  if(comment){ setCartComment(comment.dataset.cartComment,comment.value); }
+});
+document.addEventListener("input",e=>{
+  const comment=e.target.closest("[data-cart-comment]");
+  if(comment){ setCartComment(comment.dataset.cartComment,comment.value); }
+});
+
+document.getElementById("refreshCartButton")?.addEventListener("click",refreshCartOffers);
+document.getElementById("clearCartButton")?.addEventListener("click",clearCart);
+document.getElementById("deleteSelectedButton")?.addEventListener("click",deleteSelected);
+document.getElementById("saveCartButton")?.addEventListener("click",saveCartManual);
+document.getElementById("checkoutOrderButton")?.addEventListener("click",()=>{
+  const selected=selectedCartItems();
+  if(!selected.length){ alert("Отметьте хотя бы одну доступную позицию."); return; }
+  alert("Заказ готов к отправке. Реальную отправку подключим к серверной части.");
+});
+document.getElementById("cartBackButton")?.addEventListener("click",()=>history.back());
+
+document.getElementById("cartFileInput")?.addEventListener("change",async e=>{
+  const file=e.target.files?.[0]; if(!file) return;
+  const text=await file.text();
+  const lines=text.split(/\r?\n/).map(x=>x.trim()).filter(Boolean);
+  let added=0;
+  for(const line of lines){
+    const [articleRaw,qtyRaw]=line.split(/[;,\t]/);
+    const article=(articleRaw||"").trim();
+    const orderQty=Math.max(1,parseInt(qtyRaw||"1",10)||1);
+    let found=null;
+    for(const data of Object.values(datasets)){
+      found=[...data.exact,...data.analogs].find(x=>x.article.toLowerCase()===article.toLowerCase());
+      if(found) break;
+    }
+    if(found){
+      quantities[found.id]=orderQty;
+      addToCart(found.id);
+      added++;
+    }
+  }
+  alert("Добавлено позиций: "+added);
+  e.target.value="";
+});
+
+const originalNavigate=navigate;
+navigate=function(route,push=true){
+  originalNavigate(route,push);
+  if(route==="cart"){
+    refreshCartOffers();
+    renderCartPage();
+  }
+};
+renderCartPage();

@@ -464,3 +464,251 @@ html,body,.app{max-width:100%;overflow-x:hidden}
   .supply-stock{font-size:11px}
   .cart-icon-btn{width:36px;height:36px}
 }
+
+/* Full cart / checkout */
+.checkout-title{
+  width:100%;
+  background:#263843;
+  color:#fff;
+  text-align:center;
+  font-size:24px;
+  font-weight:900;
+  padding:14px 18px;
+  margin:4px 0 16px
+}
+.cart-livebar{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:16px;
+  padding:12px 14px;
+  background:#f5f8fa;
+  border:1px solid #dfe6eb;
+  margin-bottom:10px
+}
+.cart-livebar b,.cart-livebar span{display:block}
+.cart-livebar b{font-size:13px;color:#344b5b}
+.cart-livebar span{font-size:11px;color:#84919b;margin-top:3px}
+.cart-livebar button{
+  border:1px solid #cfd8df;
+  background:#fff;
+  color:#405564;
+  padding:8px 10px;
+  font-weight:800
+}
+.cart-change-notice{
+  margin:0 0 10px;
+  padding:11px 13px;
+  background:#fff3d8;
+  border:1px solid #ead6a4;
+  color:#8c6b2d;
+  font-size:12px
+}
+.order-table-wrap{
+  width:100%;
+  overflow-x:auto;
+  background:#fff;
+  border:1px solid #d9e0e4
+}
+.order-table-head,.order-cart-row{
+  min-width:1220px;
+  display:grid;
+  grid-template-columns:40px 48px 92px 140px minmax(210px,1.3fr) 72px 70px 112px 78px 100px 110px 150px 42px;
+  align-items:stretch
+}
+.order-table-head{
+  background:#e7eaed;
+  color:#4b4f52;
+  font-weight:900
+}
+.order-table-head span,.order-cart-row>div{
+  border-right:1px solid #d3d8dc;
+  border-bottom:1px solid #d3d8dc;
+  padding:10px 8px;
+  display:flex;
+  align-items:center
+}
+.order-table-head span:last-child,.order-cart-row>div:last-child{border-right:0}
+.order-cart-row{
+  background:#fff;
+  color:#454b4f
+}
+.order-cart-row.unavailable{background:#f5dddd}
+.order-cart-row.price-changed{box-shadow:inset 4px 0 0 #d99a35}
+.order-cart-row .row-number{justify-content:center}
+.order-cart-row .row-select{justify-content:center}
+.cart-check{
+  width:22px;height:22px;accent-color:#1596e8
+}
+.cart-article{color:#314b5b;text-decoration:underline}
+.cart-description{line-height:1.42}
+.cart-stepper{
+  display:grid;
+  grid-template-columns:28px 40px 28px;
+  border:1px solid #cfd5d9;
+  border-radius:5px;
+  overflow:hidden;
+  margin:auto
+}
+.cart-stepper button{
+  border:0;background:#e9ecef;color:#666;font-size:18px
+}
+.cart-stepper span{display:grid;place-items:center;background:#fff}
+.cart-availability{
+  justify-content:center;
+  font-weight:800
+}
+.cart-availability.zero{color:red}
+.cart-price-cell,.cart-sum-cell{
+  justify-content:flex-end;
+  white-space:nowrap
+}
+.cart-price-stack{display:block;width:100%;text-align:right}
+.cart-price-stack .old-price{
+  display:block;
+  color:#9b6b52;
+  text-decoration:line-through;
+  font-size:11px
+}
+.cart-price-stack .new-price{display:block}
+.cart-price-stack .changed-label{
+  display:block;
+  color:#b36b28;
+  font-size:9px;
+  margin-top:2px
+}
+.cart-comment input{
+  width:100%;
+  min-height:38px;
+  border:1px solid #d4dadd;
+  background:#fff;
+  padding:6px
+}
+.cart-remove-icon{
+  width:28px;height:28px;
+  border:0;border-radius:4px;
+  background:#8b8e91;color:white;
+  font-weight:900;
+  margin:auto
+}
+.cart-total-row{
+  display:flex;
+  justify-content:flex-end;
+  gap:14px;
+  align-items:center;
+  padding:12px 16px;
+  background:#fff;
+  border:1px solid #d9e0e4;
+  border-top:0;
+  font-size:20px
+}
+.cart-bulk-actions{
+  display:grid;
+  grid-template-columns:repeat(3,1fr);
+  gap:8px;
+  margin-top:14px
+}
+.cart-bulk-actions button{
+  border:0;
+  background:#dedede;
+  color:#3e4144;
+  font-weight:900;
+  padding:12px
+}
+.checkout-order-button{
+  width:100%;
+  border:0;
+  background:#263843;
+  color:white;
+  font-size:20px;
+  font-weight:900;
+  padding:14px;
+  margin-top:10px
+}
+.cart-import{
+  margin-top:18px;
+  background:#fff;
+  border-top:1px solid #dfe4e8
+}
+.cart-import summary{
+  padding:14px 4px;
+  color:#344954;
+  text-decoration:underline;
+  cursor:pointer
+}
+.cart-import-body{
+  padding:0 4px 14px;
+  display:grid;
+  gap:8px
+}
+.cart-import-body small{color:#7c8992}
+.order-warning{
+  margin-top:18px;
+  padding:17px 20px;
+  background:#fff7dc;
+  border:1px solid #efdfaa;
+  color:#8b6b32;
+  line-height:1.55
+}
+@media(max-width:680px){
+  .checkout-title{font-size:18px;padding:12px;margin-bottom:10px}
+  .cart-livebar{align-items:flex-start}
+  .cart-livebar button{font-size:11px}
+  .order-table-wrap{
+    border:0;
+    background:transparent;
+    overflow:visible
+  }
+  .order-table-head{display:none}
+  .order-cart-row{
+    min-width:0;
+    display:grid;
+    grid-template-columns:34px 1fr auto;
+    grid-template-areas:
+      "check main price"
+      "check meta qty"
+      "check availability comment"
+      "check remove remove";
+    gap:0;
+    margin-bottom:8px;
+    border:1px solid #d9e0e4;
+    background:#fff
+  }
+  .order-cart-row>div{
+    border-right:0;
+    border-bottom:0;
+    padding:8px 9px
+  }
+  .order-cart-row .row-number{display:none}
+  .order-cart-row .row-select{grid-area:check;align-items:flex-start;padding-top:12px}
+  .order-cart-row .brand-cell{display:none}
+  .order-cart-row .article-cell{
+    grid-area:main;
+    padding-bottom:2px;
+    font-weight:800
+  }
+  .order-cart-row .description-cell{
+    grid-area:main;
+    padding-top:30px;
+    color:#66747e;
+    font-size:12px;
+    pointer-events:none
+  }
+  .order-cart-row .warehouse-cell,
+  .order-cart-row .term-cell{
+    grid-area:meta;
+    font-size:11px;
+    color:#596975
+  }
+  .order-cart-row .warehouse-cell{padding-right:70px}
+  .order-cart-row .term-cell{padding-left:78px}
+  .order-cart-row .qty-cell{grid-area:qty}
+  .order-cart-row .availability-cell{grid-area:availability;font-size:12px}
+  .order-cart-row .price-cell{grid-area:price;justify-content:flex-end;font-weight:900}
+  .order-cart-row .sum-cell{display:none}
+  .order-cart-row .comment-cell{grid-area:comment}
+  .order-cart-row .remove-cell{grid-area:remove;justify-content:flex-end;border-top:1px solid #edf1f3}
+  .cart-comment input{min-height:32px;font-size:12px}
+  .cart-bulk-actions{grid-template-columns:1fr}
+  .cart-total-row{font-size:17px}
+}
