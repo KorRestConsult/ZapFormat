@@ -62,8 +62,8 @@ let cart = loadCart();
 
 function retail(p){ return Math.round(p * (1 + MARKUP/100)); }
 function rub(n){ return new Intl.NumberFormat("ru-RU").format(n) + " ₽"; }
-function loadCart(){ try { return JSON.parse(localStorage.getItem("parts-ai-cart") || "[]"); } catch { return []; } }
-function saveCart(){ localStorage.setItem("parts-ai-cart", JSON.stringify(cart)); renderCart(); }
+function loadCart(){ try { return JSON.parse(localStorage.getItem("zapformat-cart") || "[]"); } catch { return []; } }
+function saveCart(){ localStorage.setItem("zapformat-cart", JSON.stringify(cart)); renderCart(); }
 
 function resolveDataset(query){
   const raw=(query||"").trim();

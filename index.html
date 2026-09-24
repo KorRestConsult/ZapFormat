@@ -4,8 +4,8 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
   <meta name="theme-color" content="#17324a" />
-  <title>Parts AI — автозапчасти</title>
-  <meta name="description" content="Поиск и заказ автозапчастей" />
+  <title>ZapFormat — автозапчасти</title>
+  <meta name="description" content="Умный поиск автозапчастей по артикулу, VIN и обычному запросу" />
   <link rel="stylesheet" href="./styles.css" />
 </head>
 <body>
@@ -28,62 +28,25 @@
 
     <main>
       <section class="view active" id="view-home">
-        <div class="ai-home">
-          <div class="ai-hero">
-            <span class="ai-badge">AI-подбор запчастей</span>
-            <h1>Просто скажите,<br>что нужно машине.</h1>
-            <p>
-              Можно написать артикул, VIN или обычным языком:
-              «BMW X3 F25, нужен ролик натяжителя» —
-              система поймёт запрос и сведёт его к нужным деталям и аналогам.
-            </p>
+        <div class="minimal-home">
+          <div class="minimal-hero">
+            <span class="minimal-kicker">ZAPFORMAT</span>
+            <h1>Найдём нужную<br>запчасть.</h1>
+            <p>Артикул, VIN или обычный запрос — в одной строке.</p>
 
-            <form class="ai-search" id="searchForm">
-              <div class="ai-input-wrap">
-                <span class="ai-spark">✦</span>
-                <textarea id="searchInput" rows="1" autocomplete="off" placeholder="Например: BMW X3 F25 2.0 дизель, нужен ролик натяжителя — нормальный, не самый дорогой"></textarea>
-              </div>
-              <button type="submit">Подобрать</button>
+            <form class="minimal-search" id="searchForm">
+              <textarea
+                id="searchInput"
+                rows="1"
+                autocomplete="off"
+                placeholder="Например: BMW X3 F25, задние колодки"
+              ></textarea>
+              <button type="submit">Найти</button>
             </form>
 
-            <div class="ai-examples">
-              <span>Попробуйте:</span>
-              <button data-query="0250603006">0250603006</button>
-              <button data-query="BMW X3 F25 2.0 дизель нужен ролик натяжителя">BMW X3 F25 · ролик натяжителя</button>
-              <button data-query="VIN WBAXXXXX нужны передние колодки">VIN + передние колодки</button>
+            <div class="minimal-note">
+              Ищем точные позиции и аналоги, затем показываем цену, наличие и срок.
             </div>
-          </div>
-
-          <div class="ai-capabilities">
-            <article>
-              <span>01</span>
-              <div>
-                <b>Понимает обычный язык</b>
-                <p>Не обязательно знать артикул или точное название детали.</p>
-              </div>
-            </article>
-            <article>
-              <span>02</span>
-              <div>
-                <b>Уточняет автомобиль</b>
-                <p>VIN, кузов, двигатель и другие данные, если без них нельзя подобрать точно.</p>
-              </div>
-            </article>
-            <article>
-              <span>03</span>
-              <div>
-                <b>Сводит каталог к выбору</b>
-                <p>Оригинал, достойные аналоги, цена, срок и наличие — без мусора.</p>
-              </div>
-            </article>
-          </div>
-
-          <div class="ai-footer-note">
-            <div>
-              <span class="eyebrow">ВАЖНО</span>
-              <strong>Каталог остаётся внутри системы, но клиенту не нужно в нём разбираться.</strong>
-            </div>
-            <button data-route="garage">Мой гараж →</button>
           </div>
         </div>
       </section>
