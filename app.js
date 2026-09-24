@@ -475,7 +475,7 @@ function resolveDataset(query){
 }
 
 function showRoute(route){
-  const protectedAccountRoute=route==="profile" || route==="orders";
+  const protectedAccountRoute=route==="profile" || route==="orders" || route==="garage";
   if(protectedAccountRoute && backendConfigured() && !sessionUser){
     pendingAccountRoute=route;
     document.querySelectorAll(".view").forEach(v=>v.classList.remove("active"));
@@ -485,10 +485,12 @@ function showRoute(route){
   }
 
   document.querySelectorAll(".view").forEach(v=>v.classList.remove("active"));
-  const resolvedRoute=route==="orders" ? "profile" : route;
+  const accountRoute=route==="orders" || route==="garage";
+  const resolvedRoute=accountRoute ? "profile" : route;
   const target=document.getElementById("view-"+resolvedRoute);
   if(target) target.classList.add("active");
   if(route==="orders") showAccountTab("orders");
+  if(route==="garage") showAccountTab("garage");
   window.scrollTo({top:0,behavior:"auto"});
 }
 
@@ -1436,7 +1438,7 @@ function addGarageServiceToCart(serviceId){
   navigate("cart");
 }
 
-function saveGarageVin(){
+async function saveGarageVin(){
   const input=document.getElementById("garageVinInput");
   const vin=String(input?.value||"").trim().toUpperCase().replace(/[^A-HJ-NPR-Z0-9]/g,"");
   if(vin.length!==17){
@@ -1444,9 +1446,21 @@ function saveGarageVin(){
     input?.focus();
     return;
   }
+
   garageState.vehicle.vin=vin;
   saveGarageState();
   renderGarageApp();
+
+  if(backendConfigured() && sessionUser && garageState.vehicle.id && !String(garageState.vehicle.id).startsWith("demo-")){
+    try{
+      await apiRequest("/api/garage/vehicles/"+encodeURIComponent(garageState.vehicle.id),{
+        method:"PATCH",
+        body:JSON.stringify({vin})
+      });
+    }catch(error){
+      console.warn("ZapFormat VIN sync failed",error);
+    }
+  }
 }
 
 function prefillGarageSearch(query){
@@ -1522,6 +1536,13 @@ document.addEventListener("click",e=>{
       garageState.vehicle.mileage=value;
       saveGarageState();
       renderGarageApp();
+
+      if(backendConfigured() && sessionUser && garageState.vehicle.id && !String(garageState.vehicle.id).startsWith("demo-")){
+        apiRequest("/api/garage/vehicles/"+encodeURIComponent(garageState.vehicle.id)+"/mileage",{
+          method:"PATCH",
+          body:JSON.stringify({mileage:value})
+        }).catch(error=>console.warn("ZapFormat mileage sync failed",error));
+      }
     }
     return;
   }
