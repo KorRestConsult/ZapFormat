@@ -1144,12 +1144,36 @@ document.addEventListener("keydown",e=>{
   }
 });
 
-document.getElementById("profileForm")?.addEventListener("submit",e=>{
+document.getElementById("profileForm")?.addEventListener("submit",async e=>{
   e.preventDefault();
-  const data=Object.fromEntries(new FormData(e.currentTarget).entries());
-  localStorage.setItem("zapformat-profile",JSON.stringify(data));
-  const btn=e.currentTarget.querySelector("button[type=submit]");
-  const old=btn.textContent; btn.textContent="Сохранено"; setTimeout(()=>btn.textContent=old,900);
+  const form=e.currentTarget;
+  const data=Object.fromEntries(new FormData(form).entries());
+  const btn=form.querySelector("button[type=submit]");
+  const oldText=btn.textContent;
+  btn.disabled=true;
+
+  try{
+    if(backendConfigured() && sessionUser){
+      const result=await apiRequest("/api/account/profile",{
+        method:"PATCH",
+        body:JSON.stringify(data)
+      });
+      sessionUser=result.user;
+      applySessionUser();
+    }else{
+      // Demo-only fallback while the public API endpoint is not configured.
+      localStorage.setItem("zapformat-profile",JSON.stringify(data));
+    }
+    btn.textContent="Сохранено";
+  }catch(error){
+    btn.textContent="Ошибка";
+    setTimeout(()=>alert(authErrorText(error)),0);
+  }finally{
+    setTimeout(()=>{
+      btn.textContent=oldText;
+      btn.disabled=false;
+    },900);
+  }
 });
 
 document.getElementById("deliveryForm")?.addEventListener("submit",e=>{
