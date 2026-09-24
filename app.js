@@ -230,6 +230,69 @@ const defaultGarageState = {
     {id:"h2",date:"20.03.2026",mileage:174600,title:"Замена",note:"Передние тормозные колодки"}
   ]
 };
+const garageServicePackages = {
+  oil:{
+    id:"oil",
+    title:"ТО · масло двигателя",
+    dueKm:190000,
+    description:"Базовый комплект для замены масла. Точные артикулы будут подтверждаться по VIN и реальному каталогу.",
+    items:[
+      {id:"svc-oil-fluid",required:true,work:"Замена масла двигателя",brand:"BMW LL-04",article:"подбор по VIN",name:"Моторное масло 5W-30 · 5 л",price:6990,warehouse:"Подбор",days:2,availableQty:12,query:"BMW X3 F25 N47 моторное масло LL-04 5W-30"},
+      {id:"svc-oil-filter",required:true,work:"Масляный фильтр",brand:"MANN-FILTER",article:"подбор по VIN",name:"Масляный фильтр двигателя",price:1390,warehouse:"Подбор",days:2,availableQty:18,query:"BMW X3 F25 N47 масляный фильтр"},
+      {id:"svc-oil-seal",required:true,work:"Сливная пробка / уплотнение",brand:"OE / аналог",article:"подбор по VIN",name:"Уплотнение сливной пробки",price:240,warehouse:"Подбор",days:2,availableQty:30,query:"BMW X3 F25 N47 уплотнение сливной пробки"},
+      {id:"svc-oil-air",required:false,work:"Воздушный фильтр",brand:"MANN-FILTER",article:"подбор по VIN",name:"Воздушный фильтр",price:1690,warehouse:"Подбор",days:2,availableQty:14,query:"BMW X3 F25 N47 воздушный фильтр"},
+      {id:"svc-oil-cabin",required:false,work:"Салонный фильтр",brand:"MANN-FILTER",article:"подбор по VIN",name:"Салонный фильтр угольный",price:2890,warehouse:"Подбор",days:2,availableQty:9,query:"BMW X3 F25 салонный фильтр угольный"}
+    ]
+  },
+  air:{
+    id:"air",
+    title:"ТО · воздушный фильтр",
+    dueKm:200000,
+    description:"Замена воздушного фильтра двигателя.",
+    items:[
+      {id:"svc-air-filter",required:true,work:"Воздушный фильтр",brand:"MANN-FILTER",article:"подбор по VIN",name:"Воздушный фильтр двигателя",price:1690,warehouse:"Подбор",days:2,availableQty:14,query:"BMW X3 F25 N47 воздушный фильтр"}
+    ]
+  },
+  cabin:{
+    id:"cabin",
+    title:"ТО · салонный фильтр",
+    dueKm:195000,
+    description:"Замена фильтра салона с быстрым подбором подходящего исполнения.",
+    items:[
+      {id:"svc-cabin-filter",required:true,work:"Салонный фильтр",brand:"MANN-FILTER",article:"подбор по VIN",name:"Салонный фильтр угольный",price:2890,warehouse:"Подбор",days:2,availableQty:9,query:"BMW X3 F25 салонный фильтр угольный"}
+    ]
+  },
+  fuel:{
+    id:"fuel",
+    title:"ТО · топливный фильтр",
+    dueKm:210000,
+    description:"Плановая замена топливного фильтра.",
+    items:[
+      {id:"svc-fuel-filter",required:true,work:"Топливный фильтр",brand:"MANN-FILTER",article:"подбор по VIN",name:"Топливный фильтр дизель",price:3490,warehouse:"Подбор",days:3,availableQty:7,query:"BMW X3 F25 N47 топливный фильтр"}
+    ]
+  },
+  brakes:{
+    id:"brakes",
+    title:"Тормоза · по замерам",
+    dueKm:null,
+    description:"Комплект формируется по фактическому состоянию колодок и дисков.",
+    items:[
+      {id:"svc-brake-pads",required:false,work:"Передние колодки",brand:"ATE / аналог",article:"подбор по VIN",name:"Комплект передних тормозных колодок",price:6290,warehouse:"Подбор",days:2,availableQty:8,query:"BMW X3 F25 передние тормозные колодки"},
+      {id:"svc-brake-discs",required:false,work:"Передние диски",brand:"ATE / аналог",article:"подбор по VIN",name:"Комплект передних тормозных дисков",price:13980,warehouse:"Подбор",days:3,availableQty:5,query:"BMW X3 F25 передние тормозные диски"}
+    ]
+  }
+};
+let garageServiceId=null;
+let garageServiceSelection={};
+
+function ensureGarageServiceSelection(serviceId){
+  const pkg=garageServicePackages[serviceId];
+  if(!pkg) return;
+  if(!garageServiceSelection[serviceId]){
+    garageServiceSelection[serviceId]=Object.fromEntries(pkg.items.map(item=>[item.id,Boolean(item.required)]));
+  }
+}
+
 let garageTab="overview";
 let garageMeasurementOpen=false;
 let garageState=loadGarageState();
@@ -797,6 +860,14 @@ restoreFromUrl();
 hydrateSession();
 
 document.addEventListener("change",e=>{
+  const garageServiceToggle=e.target.closest("[data-garage-service-toggle]");
+  if(garageServiceToggle && garageServiceId){
+    ensureGarageServiceSelection(garageServiceId);
+    garageServiceSelection[garageServiceId][garageServiceToggle.dataset.garageServiceToggle]=garageServiceToggle.checked;
+    renderGarageApp();
+    return;
+  }
+
   const select=e.target.closest("[data-cart-select]");
   if(select){ toggleCartSelection(select.dataset.cartSelect,select.checked); return; }
   const comment=e.target.closest("[data-cart-comment]");
@@ -1099,7 +1170,7 @@ function renderGarageOverview(){
           <div class="garage-next-service">
             <div><small>Следующий рубеж</small><b>${next?.nextKm ? new Intl.NumberFormat("ru-RU").format(next.nextKm)+" км" : "по состоянию"}</b></div>
             <div><small>Осталось</small><b>${next ? maintenanceRemaining(next) : "—"}</b></div>
-            <button class="garage-primary" data-garage-prefill="${next?.query||v.brand+" "+v.model+" ТО"}">Подобрать комплект ТО</button>
+            <button class="garage-primary" data-garage-service="${next?.id||"oil"}">Открыть комплект ТО</button>
           </div>
         </section>
       </section>
@@ -1141,11 +1212,94 @@ function renderGarageMaintenance(){
               <b>${item.title}</b>
               <small>${item.nextKm ? "Следующее: "+new Intl.NumberFormat("ru-RU").format(item.nextKm)+" км · "+maintenanceRemaining(item) : "Интервал определяется по состоянию и замерам"}</small>
             </div>
-            <button data-garage-prefill="${item.query}">Подобрать</button>
+            <button data-garage-service="${item.id}">Открыть</button>
           </article>
         `).join("")}
       </div>
     </section>
+  `;
+}
+
+function renderGarageService(){
+  const pkg=garageServicePackages[garageServiceId]||garageServicePackages.oil;
+  ensureGarageServiceSelection(pkg.id);
+  const selected=garageServiceSelection[pkg.id];
+  const items=pkg.items.filter(item=>selected[item.id]);
+  const total=items.reduce((sum,item)=>sum+item.price,0);
+  const v=garageState.vehicle;
+  const remaining=pkg.dueKm ? pkg.dueKm-v.mileage : null;
+
+  return `
+    <div class="garage-service-layout">
+      <section class="garage-service-main">
+        <div class="garage-service-head">
+          <button class="garage-service-back" data-garage-tab="maintenance">← План ТО</button>
+          <div class="garage-service-heading">
+            <div>
+              <span class="eyebrow">КОМПЛЕКТ ТО</span>
+              <h3>${pkg.title}</h3>
+              <p>${pkg.description}</p>
+            </div>
+            <div class="garage-service-due">
+              <small>${pkg.dueKm ? "Рубеж" : "Основание"}</small>
+              <b>${pkg.dueKm ? new Intl.NumberFormat("ru-RU").format(pkg.dueKm)+" км" : "Замеры"}</b>
+              <span>${remaining===null ? "по состоянию" : remaining<=0 ? "пора делать" : "через "+new Intl.NumberFormat("ru-RU").format(remaining)+" км"}</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="garage-fitment ${v.vin?"verified":"pending"}">
+          <div>
+            <small>Применимость</small>
+            <b>${v.vin ? "VIN сохранён" : "Предварительный подбор по автомобилю"}</b>
+            <span>${v.vin ? v.vin : v.brand+" "+v.model+" · "+v.engine+". Для точных артикулов нужен VIN."}</span>
+          </div>
+          ${v.vin ? "" : `
+            <div class="garage-vin-entry">
+              <input id="garageVinInput" maxlength="17" autocomplete="off" placeholder="VIN · 17 символов">
+              <button data-garage-save-vin>Сохранить VIN</button>
+            </div>
+          `}
+        </div>
+
+        <div class="garage-service-list">
+          ${pkg.items.map((item,index)=>`
+            <article class="garage-service-item ${selected[item.id]?"selected":""}">
+              <label class="garage-service-check">
+                <input type="checkbox" data-garage-service-toggle="${item.id}" ${selected[item.id]?"checked":""}>
+                <span></span>
+              </label>
+              <div class="garage-service-number">${index+1}</div>
+              <div class="garage-service-copy">
+                <div class="garage-service-work">
+                  <span class="garage-service-kind ${item.required?"required":"optional"}">${item.required?"Нужно":"Дополнительно"}</span>
+                  <b>${item.work}</b>
+                </div>
+                <div class="garage-service-product">
+                  <strong>${item.brand}</strong>
+                  <span>${item.article}</span>
+                  <small>${item.name}</small>
+                </div>
+                <div class="garage-service-meta">
+                  <span>${item.days} дн.</span>
+                  <span>${item.availableQty} шт.</span>
+                  <button data-garage-prefill="${item.query}">Другой вариант</button>
+                </div>
+              </div>
+              <div class="garage-service-price">${rub(item.price)}</div>
+            </article>
+          `).join("")}
+        </div>
+      </section>
+
+      <aside class="garage-service-summary">
+        <span class="eyebrow">ИТОГО</span>
+        <div class="garage-service-summary-line"><span>Выбрано</span><b>${items.length} поз.</b></div>
+        <div class="garage-service-summary-total"><span>Комплект</span><strong>${rub(total)}</strong></div>
+        <button class="garage-primary" data-garage-add-service="${pkg.id}" ${items.length?"":"disabled"}>В корзину комплектом</button>
+        <small>Цена и наличие будут перепроверены перед оформлением заказа.</small>
+      </aside>
+    </div>
   `;
 }
 
@@ -1218,7 +1372,7 @@ function renderGarageApp(){
 
     <nav class="garage-tabs" aria-label="Разделы автомобиля">
       <button class="${garageTab==="overview"?"active":""}" data-garage-tab="overview">Обзор</button>
-      <button class="${garageTab==="maintenance"?"active":""}" data-garage-tab="maintenance">ТО</button>
+      <button class="${garageTab==="maintenance"||garageTab==="service"?"active":""}" data-garage-tab="maintenance">ТО</button>
       <button class="${garageTab==="measurements"?"active":""}" data-garage-tab="measurements">Замеры</button>
       <button class="${garageTab==="history"?"active":""}" data-garage-tab="history">История</button>
     </nav>
@@ -1227,9 +1381,72 @@ function renderGarageApp(){
       ${garageTab==="overview" ? renderGarageOverview() :
         garageTab==="maintenance" ? renderGarageMaintenance() :
         garageTab==="measurements" ? renderGarageMeasurements() :
+        garageTab==="service" ? renderGarageService() :
         renderGarageHistory()}
     </div>
   `;
+}
+
+function openGarageService(serviceId){
+  if(!garageServicePackages[serviceId]) return;
+  garageServiceId=serviceId;
+  ensureGarageServiceSelection(serviceId);
+  garageTab="service";
+  renderGarageApp();
+  window.scrollTo({top:0,behavior:"auto"});
+}
+
+function addGarageServiceToCart(serviceId){
+  const pkg=garageServicePackages[serviceId];
+  if(!pkg) return;
+  ensureGarageServiceSelection(serviceId);
+  const selected=garageServiceSelection[serviceId];
+
+  for(const item of pkg.items.filter(x=>selected[x.id])){
+    const existing=cart.find(x=>x.id===item.id);
+    if(existing){
+      existing.orderQty+=1;
+      existing.selected=true;
+      existing.price=item.price;
+      existing.availableQty=item.availableQty;
+    }else{
+      cart.push({
+        id:item.id,
+        type:"garage-service",
+        brand:item.brand,
+        article:item.article,
+        name:item.name,
+        warehouse:item.warehouse,
+        source:"Гараж · "+pkg.title,
+        days:item.days,
+        qty:item.availableQty,
+        price:item.price,
+        priceAtAdd:item.price,
+        previousPrice:null,
+        orderQty:1,
+        availableQty:item.availableQty,
+        selected:true,
+        comment:pkg.title+" · "+garageState.vehicle.brand+" "+garageState.vehicle.model,
+        priceChanged:false,
+        availabilityChanged:false
+      });
+    }
+  }
+  saveCart();
+  navigate("cart");
+}
+
+function saveGarageVin(){
+  const input=document.getElementById("garageVinInput");
+  const vin=String(input?.value||"").trim().toUpperCase().replace(/[^A-HJ-NPR-Z0-9]/g,"");
+  if(vin.length!==17){
+    alert("VIN должен содержать 17 символов.");
+    input?.focus();
+    return;
+  }
+  garageState.vehicle.vin=vin;
+  saveGarageState();
+  renderGarageApp();
 }
 
 function prefillGarageSearch(query){
@@ -1254,6 +1471,23 @@ function showAccountTab(tab){
 document.addEventListener("click",e=>{
   const authTab=e.target.closest("[data-auth-tab]");
   if(authTab){ showAuthTab(authTab.dataset.authTab); return; }
+
+  const garageServiceButton=e.target.closest("[data-garage-service]");
+  if(garageServiceButton){
+    openGarageService(garageServiceButton.dataset.garageService);
+    return;
+  }
+
+  const garageAddService=e.target.closest("[data-garage-add-service]");
+  if(garageAddService){
+    addGarageServiceToCart(garageAddService.dataset.garageAddService);
+    return;
+  }
+
+  if(e.target.closest("[data-garage-save-vin]")){
+    saveGarageVin();
+    return;
+  }
 
   const garageTabButton=e.target.closest("[data-garage-tab]");
   if(garageTabButton){
