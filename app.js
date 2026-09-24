@@ -226,6 +226,126 @@ function saveCart(){
   renderCartPage();
 }
 
+const API_BASE = (() => {
+  const configured=String(window.ZAPFORMAT_CONFIG?.apiBase || "").trim().replace(/\/$/,"");
+  if(configured) return configured;
+  return location.hostname.endsWith("github.io") ? "" : location.origin;
+})();
+let sessionUser=null;
+let pendingAccountRoute="profile";
+
+function backendConfigured(){ return Boolean(API_BASE); }
+
+async function apiRequest(path,options={}){
+  if(!backendConfigured()){
+    const error=new Error("backend_not_configured");
+    error.code="backend_not_configured";
+    throw error;
+  }
+  const response=await fetch(API_BASE+path,{
+    ...options,
+    credentials:"include",
+    headers:{
+      "Accept":"application/json",
+      ...(options.body ? {"Content-Type":"application/json"} : {}),
+      ...(options.headers||{})
+    }
+  });
+  if(response.status===204) return null;
+  const data=await response.json().catch(()=>({}));
+  if(!response.ok){
+    const error=new Error(data.error||("http_"+response.status));
+    error.code=data.error||("http_"+response.status);
+    error.status=response.status;
+    throw error;
+  }
+  return data;
+}
+
+function authErrorText(error){
+  const code=error?.code||error?.message;
+  const map={
+    backend_not_configured:"Backend авторизации подготовлен, но публичный HTTPS-адрес API ещё не указан.",
+    invalid_credentials:"Неверный телефон/email или пароль.",
+    password_too_short:"Пароль должен быть не короче 8 символов.",
+    user_already_exists:"Аккаунт с таким телефоном или email уже существует.",
+    name_and_identity_required:"Укажите имя и телефон или email.",
+    login_and_password_required:"Введите телефон/email и пароль.",
+    unauthorized:"Нужно войти в аккаунт.",
+    conflict:"Такие данные уже используются другим аккаунтом."
+  };
+  return map[code]||"Не удалось выполнить запрос. Проверьте соединение и попробуйте ещё раз.";
+}
+
+function setAuthStatus(message,type=""){
+  const root=document.getElementById("authStatus");
+  if(!root) return;
+  root.textContent=message||"";
+  root.className="auth-status"+(type?" "+type:"");
+}
+
+function showAuthTab(tab){
+  document.querySelectorAll("[data-auth-tab]").forEach(x=>x.classList.toggle("active",x.dataset.authTab===tab));
+  document.querySelectorAll("[data-auth-pane]").forEach(x=>x.classList.toggle("active",x.dataset.authPane===tab));
+  setAuthStatus("");
+}
+
+function applySessionUser(){
+  const headerProfile=document.querySelector('.header-actions [data-route="profile"]');
+  if(headerProfile){
+    headerProfile.textContent=sessionUser?.name || (backendConfigured() ? "Войти" : "Кабинет");
+  }
+
+  const userBox=document.querySelector(".account-user");
+  if(userBox && sessionUser){
+    const avatar=userBox.querySelector(".account-avatar");
+    const title=userBox.querySelector("b");
+    const sub=userBox.querySelector("span");
+    const initials=((sessionUser.name||"").slice(0,1)+(sessionUser.surname||"").slice(0,1)).toUpperCase()||"ZF";
+    if(avatar) avatar.textContent=initials;
+    if(title) title.textContent=[sessionUser.name,sessionUser.surname].filter(Boolean).join(" ");
+    if(sub) sub.textContent=sessionUser.phone||sessionUser.email||"ZapFormat";
+  }
+
+  const logout=document.getElementById("logoutButton");
+  if(logout) logout.hidden=!sessionUser;
+
+  const form=document.getElementById("profileForm");
+  if(form && sessionUser){
+    const values={
+      name:sessionUser.name||"",
+      surname:sessionUser.surname||"",
+      phone:sessionUser.phone||"",
+      email:sessionUser.email||""
+    };
+    for(const [name,value] of Object.entries(values)){
+      const input=form.querySelector('[name="'+name+'"]');
+      if(input) input.value=value;
+    }
+  }
+}
+
+async function hydrateSession(){
+  if(!backendConfigured()){
+    applySessionUser();
+    return null;
+  }
+  try{
+    const data=await apiRequest("/api/auth/me");
+    sessionUser=data.user;
+    applySessionUser();
+    if(document.getElementById("view-auth")?.classList.contains("active")){
+      showRoute(pendingAccountRoute||"profile");
+    }
+    return sessionUser;
+  }catch(error){
+    if(error.status!==401) console.warn("ZapFormat session check failed",error);
+    sessionUser=null;
+    applySessionUser();
+    return null;
+  }
+}
+
 function resolveDataset(query){
   const raw=(query||"").trim();
   const q=raw.toUpperCase().replace(/\s+/g,"");
@@ -246,6 +366,15 @@ function resolveDataset(query){
 }
 
 function showRoute(route){
+  const protectedAccountRoute=route==="profile" || route==="orders";
+  if(protectedAccountRoute && backendConfigured() && !sessionUser){
+    pendingAccountRoute=route;
+    document.querySelectorAll(".view").forEach(v=>v.classList.remove("active"));
+    document.getElementById("view-auth")?.classList.add("active");
+    window.scrollTo({top:0,behavior:"auto"});
+    return;
+  }
+
   document.querySelectorAll(".view").forEach(v=>v.classList.remove("active"));
   const resolvedRoute=route==="orders" ? "profile" : route;
   const target=document.getElementById("view-"+resolvedRoute);
@@ -619,6 +748,7 @@ function restoreFromUrl(){
 window.addEventListener("popstate",restoreFromUrl);
 document.getElementById("backButton")?.addEventListener("click",()=>history.back());
 restoreFromUrl();
+hydrateSession();
 
 document.addEventListener("change",e=>{
   const select=e.target.closest("[data-cart-select]");
@@ -879,6 +1009,9 @@ function showAccountTab(tab){
 }
 
 document.addEventListener("click",e=>{
+  const authTab=e.target.closest("[data-auth-tab]");
+  if(authTab){ showAuthTab(authTab.dataset.authTab); return; }
+
   const tab=e.target.closest("[data-account-tab]");
   if(tab){ showAccountTab(tab.dataset.accountTab); return; }
 
@@ -903,6 +1036,75 @@ document.addEventListener("click",e=>{
   if(e.target.closest("[data-cancel-return]")){
     cancelReturn();
     return;
+  }
+});
+
+document.getElementById("loginForm")?.addEventListener("submit",async e=>{
+  e.preventDefault();
+  const form=e.currentTarget;
+  const button=form.querySelector('button[type="submit"]');
+  const data=Object.fromEntries(new FormData(form).entries());
+  button.disabled=true;
+  setAuthStatus("Входим…");
+  try{
+    const result=await apiRequest("/api/auth/login",{
+      method:"POST",
+      body:JSON.stringify({login:data.login,password:data.password})
+    });
+    sessionUser=result.user;
+    applySessionUser();
+    setAuthStatus("Готово.","success");
+    navigate(pendingAccountRoute||"profile");
+  }catch(error){
+    setAuthStatus(authErrorText(error),"error");
+  }finally{
+    button.disabled=false;
+  }
+});
+
+document.getElementById("registerForm")?.addEventListener("submit",async e=>{
+  e.preventDefault();
+  const form=e.currentTarget;
+  const button=form.querySelector('button[type="submit"]');
+  const data=Object.fromEntries(new FormData(form).entries());
+  if(!String(data.phone||"").trim() && !String(data.email||"").trim()){
+    setAuthStatus("Укажите телефон или email.","error");
+    return;
+  }
+  button.disabled=true;
+  setAuthStatus("Создаём аккаунт…");
+  try{
+    const result=await apiRequest("/api/auth/register",{
+      method:"POST",
+      body:JSON.stringify({
+        name:data.name,
+        surname:data.surname,
+        phone:data.phone,
+        email:data.email,
+        password:data.password
+      })
+    });
+    sessionUser=result.user;
+    applySessionUser();
+    setAuthStatus("Аккаунт создан.","success");
+    navigate(pendingAccountRoute||"profile");
+  }catch(error){
+    setAuthStatus(authErrorText(error),"error");
+  }finally{
+    button.disabled=false;
+  }
+});
+
+document.getElementById("logoutButton")?.addEventListener("click",async()=>{
+  try{
+    if(backendConfigured()) await apiRequest("/api/auth/logout",{method:"POST"});
+  }catch(error){
+    console.warn("ZapFormat logout failed",error);
+  }finally{
+    sessionUser=null;
+    applySessionUser();
+    pendingAccountRoute="profile";
+    navigate("auth");
   }
 });
 
