@@ -58,6 +58,143 @@ const datasets = {
   }
 };
 
+const demoOrders = {
+  "1042": {
+    id:"1042",
+    date:"24 сентября 2026",
+    time:"10:14",
+    total:4218,
+    status:"В пути",
+    statusClass:"",
+    comment:"Позвонить за 30 минут до выдачи.",
+    receive:{
+      city:"Рязань",
+      method:"Самовывоз",
+      point:"Точка выдачи ZapFormat · Рязань",
+      recipient:"Получатель из профиля",
+      note:"Сообщим, когда все позиции будут готовы к выдаче."
+    },
+    timeline:[
+      {date:"24.09 · 10:14",title:"Заказ оформлен",state:"done"},
+      {date:"24.09 · 10:28",title:"Подтверждён",state:"done"},
+      {date:"24.09 · 13:05",title:"Передан в доставку",state:"done"},
+      {date:"Сейчас",title:"В пути к точке выдачи",state:"current"},
+      {date:"—",title:"Готов к выдаче",state:""}
+    ],
+    items:[
+      {
+        id:"1042-1",sourceId:"b1",brand:"BOSCH",article:"0250603006",name:"Свеча накаливания",
+        qty:1,price:1812,warehouse:"5196",term:"2 дня",status:"В пути",statusClass:"",
+        returnAllowed:false,
+        timeline:[
+          {title:"Подтверждена",state:"done"},
+          {title:"Склад",state:"done"},
+          {title:"В пути",state:"current"},
+          {title:"Выдача",state:""}
+        ]
+      },
+      {
+        id:"1042-2",sourceId:"m1",brand:"MASUMA",article:"MIP-E475",name:"Натяжитель приводного ремня",
+        qty:1,price:2406,warehouse:"1893",term:"2 дня",status:"Подтверждён",statusClass:"processing",
+        returnAllowed:false,
+        timeline:[
+          {title:"Подтверждена",state:"done"},
+          {title:"Склад",state:"current"},
+          {title:"В пути",state:""},
+          {title:"Выдача",state:""}
+        ]
+      }
+    ]
+  },
+  "1041": {
+    id:"1041",
+    date:"23 сентября 2026",
+    time:"17:42",
+    total:3120,
+    status:"Готов к выдаче",
+    statusClass:"ready",
+    comment:"Без комментария.",
+    receive:{
+      city:"Рязань",
+      method:"Самовывоз",
+      point:"Точка выдачи ZapFormat · Рязань",
+      recipient:"Получатель из профиля",
+      note:"Заказ можно получить после уведомления."
+    },
+    timeline:[
+      {date:"23.09 · 17:42",title:"Заказ оформлен",state:"done"},
+      {date:"23.09 · 18:01",title:"Подтверждён",state:"done"},
+      {date:"24.09 · 09:20",title:"Прибыл в точку выдачи",state:"done"},
+      {date:"Сейчас",title:"Готов к выдаче",state:"current"}
+    ],
+    items:[
+      {
+        id:"1041-1",sourceId:"bm1",brand:"BMW",article:"11277810456",name:"Ролик / элемент привода",
+        qty:1,price:3120,warehouse:"03",term:"1 день",status:"Готов к выдаче",statusClass:"ready",
+        returnAllowed:false,
+        timeline:[
+          {title:"Подтверждена",state:"done"},
+          {title:"В пути",state:"done"},
+          {title:"Прибыла",state:"done"},
+          {title:"Выдача",state:"current"}
+        ]
+      }
+    ]
+  },
+  "1038": {
+    id:"1038",
+    date:"18 сентября 2026",
+    time:"12:06",
+    total:11490,
+    status:"Завершён",
+    statusClass:"gray",
+    comment:"Заказ получен полностью.",
+    receive:{
+      city:"Рязань",
+      method:"Самовывоз",
+      point:"Точка выдачи ZapFormat · Рязань",
+      recipient:"Получатель из профиля",
+      note:"Получено 20 сентября 2026."
+    },
+    timeline:[
+      {date:"18.09 · 12:06",title:"Заказ оформлен",state:"done"},
+      {date:"18.09 · 12:31",title:"Подтверждён",state:"done"},
+      {date:"19.09 · 15:10",title:"Готов к выдаче",state:"done"},
+      {date:"20.09 · 11:18",title:"Получен",state:"done"}
+    ],
+    items:[
+      {
+        id:"1038-1",sourceId:"ba1",brand:"BERU",article:"GE102",name:"Свеча накаливания",
+        qty:2,price:1735,warehouse:"02",term:"1 день",status:"Получено",statusClass:"gray",returnAllowed:true,
+        timeline:[
+          {title:"Подтверждена",state:"done"},{title:"В пути",state:"done"},{title:"Выдана",state:"done"}
+        ]
+      },
+      {
+        id:"1038-2",sourceId:"ba2",brand:"NGK",article:"97256",name:"Свеча накаливания",
+        qty:1,price:1886,warehouse:"05",term:"2 дня",status:"Получено",statusClass:"gray",returnAllowed:true,
+        timeline:[
+          {title:"Подтверждена",state:"done"},{title:"В пути",state:"done"},{title:"Выдана",state:"done"}
+        ]
+      },
+      {
+        id:"1038-3",sourceId:"bm1",brand:"BMW",article:"11277810456",name:"Ролик / элемент привода",
+        qty:1,price:3120,warehouse:"03",term:"2 дня",status:"Получено",statusClass:"gray",returnAllowed:true,
+        timeline:[
+          {title:"Подтверждена",state:"done"},{title:"В пути",state:"done"},{title:"Выдана",state:"done"}
+        ]
+      },
+      {
+        id:"1038-4",sourceId:"ma4",brand:"FEBI",article:"102981",name:"Натяжитель ремня",
+        qty:1,price:3014,warehouse:"24",term:"4 дня",status:"Получено",statusClass:"gray",returnAllowed:true,
+        timeline:[
+          {title:"Подтверждена",state:"done"},{title:"В пути",state:"done"},{title:"Выдана",state:"done"}
+        ]
+      }
+    ]
+  }
+};
+
 let currentKey = "0250603006";
 let currentFilter = "all";
 let currentSort = "recommended";
@@ -537,6 +674,200 @@ navigate=function(route,push=true){
 };
 renderCartPage();
 
+let activeReturnKey=null;
+let demoReturnRequests=(()=>{
+  try{return JSON.parse(localStorage.getItem("zapformat-demo-returns")||"[]")}catch{return []}
+})();
+
+function findCatalogItemById(id){
+  for(const data of Object.values(datasets)){
+    const found=[...data.exact,...data.analogs].find(x=>x.id===id);
+    if(found) return found;
+  }
+  return null;
+}
+
+function orderTimelineHtml(steps,compact=false){
+  return '<div class="'+(compact?'position-timeline':'order-timeline')+'">'+steps.map((step,index)=>{
+    const state=step.state||"";
+    return '<div class="timeline-step '+state+'">'+
+      '<span class="timeline-dot"></span>'+
+      '<div class="timeline-copy">'+
+        (!compact?'<small>'+step.date+'</small>':'')+
+        '<b>'+step.title+'</b>'+
+      '</div>'+
+    '</div>';
+  }).join("")+'</div>';
+}
+
+function returnRequestFor(orderId,itemId){
+  return demoReturnRequests.find(x=>x.orderId===orderId && x.itemId===itemId);
+}
+
+function renderOrderDetail(id){
+  const mount=document.getElementById("orderDetailMount");
+  const order=demoOrders[id];
+  if(!mount || !order) return;
+
+  const itemsHtml=order.items.map((item,index)=>{
+    const key=order.id+":"+item.id;
+    const request=returnRequestFor(order.id,item.id);
+    const returnPanel=activeReturnKey===key ? `
+      <form class="return-form" data-return-form="${key}">
+        <div class="return-form-head"><b>Возврат позиции</b><button type="button" data-cancel-return>×</button></div>
+        <div class="return-form-grid">
+          <label><span>Причина</span><select name="reason" required><option value="">Выберите причину</option><option>Не подошла деталь</option><option>Повреждение</option><option>Не соответствует заказу</option><option>Другая причина</option></select></label>
+          <label><span>Количество</span><input name="qty" type="number" min="1" max="${item.qty}" value="1" required></label>
+          <label class="return-comment"><span>Комментарий</span><textarea name="comment" rows="2" placeholder="Коротко опишите причину"></textarea></label>
+        </div>
+        <div class="return-form-actions"><button type="button" data-cancel-return>Отмена</button><button class="account-primary" type="submit">Создать заявку</button></div>
+      </form>` : "";
+
+    const returnAction=request
+      ? '<span class="return-created">Возврат #'+request.requestId+' создан</span>'
+      : item.returnAllowed
+        ? '<button class="position-return" data-start-return="'+key+'">Оформить возврат</button>'
+        : '<button class="position-return" disabled>Возврат после получения</button>';
+
+    return `
+      <article class="order-position">
+        <div class="position-top">
+          <div class="position-index">${index+1}</div>
+          <div class="position-title">
+            <div class="position-brand-row"><b>${item.brand}</b><span>${item.article}</span></div>
+            <h3>${item.name}</h3>
+          </div>
+          <strong class="status ${item.statusClass||""}">${item.status}</strong>
+        </div>
+
+        <div class="position-meta">
+          <div><small>Количество</small><b>${item.qty} шт.</b></div>
+          <div><small>Цена</small><b>${rub(item.price)}</b></div>
+          <div><small>Сумма</small><b>${rub(item.price*item.qty)}</b></div>
+          <div><small>Склад</small><b>${item.warehouse}</b></div>
+          <div><small>Срок</small><b>${item.term}</b></div>
+        </div>
+
+        ${orderTimelineHtml(item.timeline,true)}
+
+        <div class="position-actions">
+          ${returnAction}
+        </div>
+        ${returnPanel}
+      </article>
+    `;
+  }).join("");
+
+  mount.innerHTML=`
+    <div class="order-detail-head">
+      <button class="order-detail-back" data-account-tab="orders">← Все заказы</button>
+      <div class="order-detail-title">
+        <div>
+          <span class="eyebrow">ЗАКАЗ</span>
+          <h2>#${order.id}</h2>
+          <p>${order.date} · ${order.time}</p>
+        </div>
+        <div class="order-detail-state">
+          <strong class="status ${order.statusClass||""}">${order.status}</strong>
+          <b>${rub(order.total)}</b>
+        </div>
+      </div>
+      <div class="order-detail-actions">
+        <button data-repeat-order="${order.id}">Повторить заказ</button>
+      </div>
+    </div>
+
+    <div class="order-summary-grid">
+      <article><span>Дата</span><b>${order.date}</b><small>${order.time}</small></article>
+      <article><span>Сумма</span><b>${rub(order.total)}</b><small>итого по заказу</small></article>
+      <article><span>Позиций</span><b>${order.items.length}</b><small>${order.items.reduce((s,x)=>s+x.qty,0)} шт.</small></article>
+      <article><span>Статус</span><b>${order.status}</b><small>обновляется по позициям</small></article>
+    </div>
+
+    <section class="order-detail-block">
+      <div class="order-detail-block-head"><span class="eyebrow">ДВИЖЕНИЕ ЗАКАЗА</span><h3>Временная шкала</h3></div>
+      ${orderTimelineHtml(order.timeline)}
+    </section>
+
+    <section class="order-detail-block positions-block">
+      <div class="order-detail-block-head"><span class="eyebrow">ПОЗИЦИИ</span><h3>Состав заказа</h3></div>
+      <div class="order-positions">${itemsHtml}</div>
+    </section>
+
+    <div class="order-detail-grid">
+      <section class="order-detail-block">
+        <div class="order-detail-block-head"><span class="eyebrow">КОММЕНТАРИЙ</span><h3>К заказу</h3></div>
+        <p class="order-comment">${order.comment}</p>
+      </section>
+
+      <section class="order-detail-block">
+        <div class="order-detail-block-head"><span class="eyebrow">ПОЛУЧЕНИЕ</span><h3>${order.receive.method}</h3></div>
+        <dl class="receive-info">
+          <div><dt>Город</dt><dd>${order.receive.city}</dd></div>
+          <div><dt>Точка</dt><dd>${order.receive.point}</dd></div>
+          <div><dt>Получатель</dt><dd>${order.receive.recipient}</dd></div>
+        </dl>
+        <p class="receive-note">${order.receive.note}</p>
+      </section>
+    </div>
+  `;
+}
+
+function openOrderDetail(id){
+  if(!demoOrders[id]) return;
+  activeReturnKey=null;
+  localStorage.setItem("zapformat-order-detail",id);
+  renderOrderDetail(id);
+  showAccountTab("order-detail");
+  window.scrollTo({top:0,behavior:"auto"});
+}
+
+function repeatOrder(id){
+  const order=demoOrders[id];
+  if(!order) return;
+  for(const position of order.items){
+    const item=findCatalogItemById(position.sourceId);
+    if(!item) continue;
+    const existing=cart.find(x=>x.id===item.id);
+    const price=retail(item.purchase);
+    if(existing){
+      existing.orderQty+=position.qty;
+      existing.selected=true;
+      existing.price=price;
+      existing.availableQty=item.qty;
+    }else{
+      cart.push({
+        ...item,
+        price,
+        priceAtAdd:price,
+        previousPrice:null,
+        orderQty:position.qty,
+        availableQty:item.qty,
+        selected:true,
+        comment:"",
+        priceChanged:false,
+        availabilityChanged:false
+      });
+    }
+  }
+  saveCart();
+  navigate("cart");
+}
+
+function startReturn(key){
+  activeReturnKey=key;
+  const [orderId]=key.split(":");
+  renderOrderDetail(orderId);
+  requestAnimationFrame(()=>document.querySelector('[data-return-form="'+key+'"]')?.scrollIntoView({block:"center",behavior:"smooth"}));
+}
+
+function cancelReturn(){
+  if(!activeReturnKey) return;
+  const [orderId]=activeReturnKey.split(":");
+  activeReturnKey=null;
+  renderOrderDetail(orderId);
+}
+
 function showAccountTab(tab){
   document.querySelectorAll(".account-pane").forEach(x=>x.classList.remove("active"));
   document.querySelectorAll("[data-account-tab]").forEach(x=>x.classList.remove("active"));
@@ -551,10 +882,54 @@ document.addEventListener("click",e=>{
 
   const detail=e.target.closest("[data-order-detail]");
   if(detail){
-    const id=detail.dataset.orderDetail;
-    alert("Детали заказа #"+id+" подключим к реальным данным backend. Здесь будут позиции, статусы по каждой строке и оформление возврата.");
+    openOrderDetail(detail.dataset.orderDetail);
     return;
   }
+
+  const repeat=e.target.closest("[data-repeat-order]");
+  if(repeat){
+    repeatOrder(repeat.dataset.repeatOrder);
+    return;
+  }
+
+  const startReturnButton=e.target.closest("[data-start-return]");
+  if(startReturnButton){
+    startReturn(startReturnButton.dataset.startReturn);
+    return;
+  }
+
+  if(e.target.closest("[data-cancel-return]")){
+    cancelReturn();
+    return;
+  }
+});
+
+document.addEventListener("submit",e=>{
+  const form=e.target.closest("[data-return-form]");
+  if(!form) return;
+  e.preventDefault();
+
+  const [orderId,itemId]=form.dataset.returnForm.split(":");
+  const order=demoOrders[orderId];
+  const item=order?.items.find(x=>x.id===itemId);
+  if(!order || !item) return;
+
+  const data=Object.fromEntries(new FormData(form).entries());
+  const requestId="R"+String(Date.now()).slice(-6);
+  demoReturnRequests.push({
+    requestId,
+    orderId,
+    itemId,
+    article:item.article,
+    brand:item.brand,
+    qty:Number(data.qty)||1,
+    reason:data.reason||"",
+    comment:data.comment||"",
+    createdAt:new Date().toISOString()
+  });
+  localStorage.setItem("zapformat-demo-returns",JSON.stringify(demoReturnRequests));
+  activeReturnKey=null;
+  renderOrderDetail(orderId);
 });
 
 document.getElementById("profileForm")?.addEventListener("submit",e=>{
@@ -584,5 +959,15 @@ try{
     }
   }
   const savedTab=localStorage.getItem("zapformat-account-tab");
-  if(savedTab) showAccountTab(savedTab);
+  if(savedTab==="order-detail"){
+    const savedOrder=localStorage.getItem("zapformat-order-detail");
+    if(savedOrder && demoOrders[savedOrder]){
+      renderOrderDetail(savedOrder);
+      showAccountTab("order-detail");
+    }else{
+      showAccountTab("orders");
+    }
+  }else if(savedTab){
+    showAccountTab(savedTab);
+  }
 }catch{}
