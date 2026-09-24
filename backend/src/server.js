@@ -277,6 +277,47 @@ app.get("/api/auth/me", async (req, res, next) => {
   }
 });
 
+app.patch("/api/account/profile", requireUser, async (req, res, next) => {
+  try {
+    const name = String(req.body?.name ?? req.user.name ?? "").trim();
+    const surname = String(req.body?.surname ?? req.user.surname ?? "").trim() || null;
+    const email = req.body?.email === undefined ? req.user.email : normalizeEmail(req.body.email);
+    const phone = req.body?.phone === undefined ? req.user.phone : normalizePhone(req.body.phone);
+
+    if (!name || (!email && !phone)) {
+      return res.status(400).json({ error: "name_and_identity_required" });
+    }
+
+    const duplicate = await pool.query(
+      `SELECT id FROM users
+       WHERE id <> $1
+         AND (($2::text IS NOT NULL AND lower(email) = $2)
+           OR ($3::text IS NOT NULL AND phone = $3))
+       LIMIT 1`,
+      [req.user.id, email, phone]
+    );
+    if (duplicate.rowCount) {
+      return res.status(409).json({ error: "user_already_exists" });
+    }
+
+    const result = await pool.query(
+      `UPDATE users
+          SET name = $2,
+              surname = $3,
+              email = $4,
+              phone = $5,
+              updated_at = now()
+        WHERE id = $1
+        RETURNING *`,
+      [req.user.id, name, surname, email, phone]
+    );
+
+    res.json({ user: publicUser(result.rows[0]) });
+  } catch (error) {
+    next(error);
+  }
+});
+
 app.get("/api/account/overview", requireUser, async (req, res, next) => {
   try {
     const [orders, vehicles, returns] = await Promise.all([
