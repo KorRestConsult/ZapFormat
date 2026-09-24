@@ -24,6 +24,7 @@
         <div class="header-actions">
           <button data-route="garage">Гараж</button>
           <button data-route="orders">Заказы</button>
+          <button data-route="profile">Кабинет</button>
           <button class="cart-pill" id="openCart">
             Корзина <b id="cartCount">0</b>
           </button>
@@ -33,22 +34,65 @@
 
     <main>
       <section class="view active" id="view-home">
-        <div class="home-shell">
-          <div class="hero-copy">
-            <div class="eyebrow">АВТОЗАПЧАСТИ · РЯЗАНЬ</div>
-            <h1>Ищите по артикулу.<br><span>Получайте нормальный список.</span></h1>
-            <p>Точные совпадения, аналоги, наличие, сроки и конечная цена — в одном рабочем каталоге.</p>
+        <div class="welcome">
+          <div class="welcome-main">
+            <div class="welcome-copy">
+              <span class="welcome-kicker">PARTS AI · РЯЗАНЬ</span>
+              <h1>Запчасти без лишнего поиска.</h1>
+              <p>
+                Введите артикул, VIN или просто опишите, что нужно машине.
+                Получите точные позиции, аналоги, сроки и конечную цену в одном месте.
+              </p>
+
+              <form class="hero-search" id="searchForm">
+                <input id="searchInput" autocomplete="off" placeholder="Например: 0250603006" />
+                <button type="submit">Найти запчасть</button>
+              </form>
+
+              <div class="welcome-actions">
+                <button class="secondary-action" data-route="garage">Добавить автомобиль</button>
+                <button class="ghost-action" data-route="orders">Мои заказы</button>
+              </div>
+            </div>
+
+            <div class="welcome-panel">
+              <div class="welcome-panel-top">
+                <span>Как будет работать</span>
+                <b>3 шага</b>
+              </div>
+              <div class="step-row">
+                <span>01</span>
+                <div><b>Ищете</b><small>Артикул, VIN или обычный запрос</small></div>
+              </div>
+              <div class="step-row">
+                <span>02</span>
+                <div><b>Выбираете</b><small>Оригинал, аналоги, цена и срок</small></div>
+              </div>
+              <div class="step-row">
+                <span>03</span>
+                <div><b>Заказываете</b><small>Заказ и статус — в личном кабинете</small></div>
+              </div>
+            </div>
           </div>
 
-          <form class="hero-search" id="searchForm">
-            <input id="searchInput" autocomplete="off" placeholder="Например: 0250603006" />
-            <button type="submit">Найти запчасть</button>
-          </form>
+          <div class="welcome-strip">
+            <div><b>Реальные остатки</b><span>из PartGrade после подключения API</span></div>
+            <div><b>Понятные аналоги</b><span>без сотен бессмысленных строк</span></div>
+            <div><b>Ваши автомобили</b><span>VIN и история поиска в гараже</span></div>
+            <div><b>Один кабинет</b><span>корзина, заказы и статусы</span></div>
+          </div>
 
           <div class="quick">
             <button data-query="0250603006">BOSCH 0250603006</button>
             <button data-query="11277810456">BMW 11277810456</button>
             <button data-query="MIP-E475">MASUMA MIP-E475</button>
+          </div>
+
+          <div class="section-title welcome-section-title">
+            <div>
+              <span class="eyebrow">БЫСТРЫЙ ВХОД</span>
+              <h2>Куда перейти?</h2>
+            </div>
           </div>
 
           <div class="home-grid">
@@ -67,10 +111,10 @@
               <strong>ТО</strong>
               <small>Фильтры, свечи, ремни</small>
             </button>
-            <button class="home-card" data-route="orders">
+            <button class="home-card" data-route="profile">
               <span class="card-kicker">КАБИНЕТ</span>
-              <strong>Заказы</strong>
-              <small>Статусы и история</small>
+              <strong>Профиль</strong>
+              <small>Контакты, гараж, настройки</small>
             </button>
           </div>
         </div>
@@ -200,6 +244,41 @@
           <article class="order-row muted-row">
             <div><small>Пример интерфейса</small><b>После API здесь появятся реальные заказы</b></div>
             <div><span>—</span><strong class="status gray">Черновик</strong></div>
+          </article>
+        </div>
+      </section>
+
+      <section class="view" id="view-profile">
+        <div class="page-simple-head">
+          <span class="eyebrow">ЛИЧНЫЙ КАБИНЕТ</span>
+          <h2>Кабинет клиента</h2>
+          <p>Здесь будут профиль, автомобили, адрес получения, история заказов и уведомления.</p>
+        </div>
+
+        <div class="cabinet-grid">
+          <article class="cabinet-card">
+            <small>ПРОФИЛЬ</small>
+            <h3>Контакты</h3>
+            <p>Телефон, email и данные получателя.</p>
+            <button>Редактировать</button>
+          </article>
+          <article class="cabinet-card">
+            <small>ГАРАЖ</small>
+            <h3>Автомобили</h3>
+            <p>VIN, модель, двигатель и сохранённые машины.</p>
+            <button data-route="garage">Открыть гараж</button>
+          </article>
+          <article class="cabinet-card">
+            <small>ЗАКАЗЫ</small>
+            <h3>История</h3>
+            <p>Оплаченные заказы, статусы и повтор заказа.</p>
+            <button data-route="orders">Открыть заказы</button>
+          </article>
+          <article class="cabinet-card">
+            <small>ПОЛУЧЕНИЕ</small>
+            <h3>Рязань</h3>
+            <p>Точка выдачи, адрес и способ получения.</p>
+            <button>Настроить</button>
           </article>
         </div>
       </section>
