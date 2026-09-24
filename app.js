@@ -247,8 +247,10 @@ function resolveDataset(query){
 
 function showRoute(route){
   document.querySelectorAll(".view").forEach(v=>v.classList.remove("active"));
-  const target=document.getElementById("view-"+route);
+  const resolvedRoute=route==="orders" ? "profile" : route;
+  const target=document.getElementById("view-"+resolvedRoute);
   if(target) target.classList.add("active");
+  if(route==="orders") showAccountTab("orders");
   window.scrollTo({top:0,behavior:"auto"});
 }
 
@@ -930,6 +932,14 @@ document.addEventListener("submit",e=>{
   localStorage.setItem("zapformat-demo-returns",JSON.stringify(demoReturnRequests));
   activeReturnKey=null;
   renderOrderDetail(orderId);
+});
+
+document.addEventListener("keydown",e=>{
+  const order=e.target.closest?.("[data-order-detail][tabindex]");
+  if(order && (e.key==="Enter" || e.key===" ")){
+    e.preventDefault();
+    openOrderDetail(order.dataset.orderDetail);
+  }
 });
 
 document.getElementById("profileForm")?.addEventListener("submit",e=>{
