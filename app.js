@@ -100,17 +100,25 @@ function navigate(route, push=true){
 }
 
 function search(query){
-  currentKey=resolveDataset(query);
+  const raw=(query||"").trim();
+  if(!raw) return;
+
+  currentKey=resolveDataset(raw);
   const data=datasets[currentKey];
-  document.getElementById("resultTitle").textContent=data.title;
-  document.getElementById("resultSubtitle").textContent=data.subtitle+" · точные предложения и аналоги";
-  document.getElementById("crumbQuery").textContent=currentKey;
-  document.getElementById("exactHeading").textContent=data.subtitle;
-  document.getElementById("searchInput2").value=currentKey;
-  document.getElementById("headerSearchInput").value=currentKey;
+
+  const title=document.getElementById("resultTitle");
+  const subtitle=document.getElementById("resultSubtitle");
+  const heading=document.getElementById("exactHeading");
+  const secondary=document.getElementById("searchInput2");
+
+  if(title) title.textContent=data.title;
+  if(subtitle) subtitle.textContent=data.subtitle+" · точные предложения и аналоги";
+  if(heading) heading.textContent=data.subtitle;
+  if(secondary) secondary.value=raw;
+
   showRoute("search");
   renderCatalog();
-  history.pushState({route:"search",query}, "", location.pathname+"?q="+encodeURIComponent(query));
+  history.pushState({route:"search",query:raw}, "", location.pathname+"?q="+encodeURIComponent(raw));
 }
 
 function baseList(type){
@@ -216,7 +224,6 @@ function renderCart(){
   const count=cart.reduce((s,x)=>s+x.qty,0);
   const total=cart.reduce((s,x)=>s+x.price*x.qty,0);
   document.getElementById("cartCount").textContent=count;
-  document.getElementById("mobileCartCount").textContent=count;
   document.getElementById("cartSubtotal").textContent=rub(total);
   document.getElementById("cartTotal").textContent=rub(total);
 
@@ -260,13 +267,11 @@ document.addEventListener("click",e=>{
 
 document.getElementById("searchForm").addEventListener("submit",e=>{e.preventDefault();search(document.getElementById("searchInput").value)});
 document.getElementById("searchForm2").addEventListener("submit",e=>{e.preventDefault();search(document.getElementById("searchInput2").value)});
-document.getElementById("headerSearchForm").addEventListener("submit",e=>{e.preventDefault();search(document.getElementById("headerSearchInput").value)});
 document.getElementById("sortSelect").addEventListener("change",e=>{currentSort=e.target.value;renderCatalog()});
-document.getElementById("openCart").addEventListener("click",openCart);
-document.getElementById("mobileCart").addEventListener("click",openCart);
-document.getElementById("closeCart").addEventListener("click",closeCart);
-document.getElementById("drawerBackdrop").addEventListener("click",closeCart);
-document.getElementById("checkoutButton").addEventListener("click",()=>alert("Оформление заказа подключим после получения API PartGrade."));
+document.getElementById("openCart")?.addEventListener("click",openCart);
+document.getElementById("closeCart")?.addEventListener("click",closeCart);
+document.getElementById("drawerBackdrop")?.addEventListener("click",closeCart);
+document.getElementById("checkoutButton").addEventListener("click",()=>alert("Оформление заказа подключается к серверной части."));
 
 renderCart();
 renderCatalog();
@@ -285,11 +290,10 @@ function restoreFromUrl(){
   if(q){
     currentKey=resolveDataset(q);
     const data=datasets[currentKey];
-    document.getElementById("resultTitle").textContent=data.title;
-    document.getElementById("resultSubtitle").textContent=data.subtitle+" · точные предложения и аналоги";
-    document.getElementById("exactHeading").textContent=data.subtitle;
-    document.getElementById("searchInput2").value=currentKey;
-    document.getElementById("headerSearchInput").value=currentKey;
+    document.getElementById("resultTitle") && (document.getElementById("resultTitle").textContent=data.title);
+    document.getElementById("resultSubtitle") && (document.getElementById("resultSubtitle").textContent=data.subtitle+" · точные предложения и аналоги");
+    document.getElementById("exactHeading") && (document.getElementById("exactHeading").textContent=data.subtitle);
+    document.getElementById("searchInput2") && (document.getElementById("searchInput2").value=q);
     showRoute("search");
     renderCatalog();
   } else if(view){
@@ -299,5 +303,5 @@ function restoreFromUrl(){
   }
 }
 window.addEventListener("popstate",restoreFromUrl);
-document.getElementById("backButton").addEventListener("click",()=>history.back());
+document.getElementById("backButton")?.addEventListener("click",()=>history.back());
 restoreFromUrl();
