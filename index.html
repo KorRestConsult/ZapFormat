@@ -13,7 +13,7 @@
     <header class="topbar">
       <div class="topbar-inner">
         <a class="logo" href="#home" data-route="home">
-          <span class="logo-main">PARTS</span><span class="logo-ai">AI</span>
+          <span class="logo-main">ZAP</span><span class="logo-ai">FORMAT</span>
         </a>
 <div class="header-actions">
           <button data-route="garage">Гараж</button>
@@ -54,16 +54,13 @@
       <section class="view" id="view-search">
         <button class="back-link" id="backButton">← Назад</button>
 
-        <div class="pg-product-card">
-          <div class="pg-product-copy">
+        <div class="catalog-query-head">
+          <div>
             <span class="eyebrow">РЕЗУЛЬТАТ ПОИСКА</span>
             <h2 id="resultTitle">—</h2>
-            <p id="resultSubtitle">Точное совпадение и аналоги</p>
+            <p id="resultSubtitle">Точные позиции и аналоги</p>
           </div>
-          <div class="pg-product-count">
-            <b id="offerCount">0</b>
-            <span>предложений</span>
-          </div>
+          <div class="catalog-count"><b id="offerCount">0</b><span>предложений</span></div>
         </div>
 
         <form class="catalog-search pg-search" id="searchForm2">
@@ -71,56 +68,43 @@
           <button type="submit">Найти</button>
         </form>
 
-        <div class="pg-best" id="bestOfferCard">
-          <div class="pg-best-kicker">САМАЯ НИЗКАЯ ЦЕНА</div>
-          <div class="pg-best-main">
-            <div>
-              <b id="bestOfferTitle">—</b>
-              <small id="bestOfferName">—</small>
-            </div>
-            <strong id="bestOfferPrice">—</strong>
-          </div>
-          <div class="pg-best-bottom">
-            <div><small>Срок</small><b id="bestOfferTerm">—</b></div>
-            <div><small>Наличие</small><b id="bestOfferStock">—</b></div>
-            <button id="bestOfferAdd">В корзину</button>
+        <div class="catalog-disclaimer">
+          Информация по аналогам справочная. Перед заказом совместимость уточняется по автомобилю или VIN.
+        </div>
+
+        <div class="catalog-actions">
+          <button class="filters-toggle" type="button">Показать фильтры</button>
+          <div class="sort-row">
+            <span>Сортировка:</span>
+            <button data-sort="stock">Нал.</button>
+            <button data-sort="warehouse">Склад</button>
+            <button data-sort="speed">Ожид. срок</button>
+            <button class="active" data-sort="price">Цена ▲</button>
           </div>
         </div>
 
-        <div class="pg-disclaimer">
-          Подбор аналогичных деталей носит справочный характер. Перед заказом применимость нужно подтвердить по автомобилю или VIN.
+        <div class="filters pg-filters compact-filters">
+          <button class="active" data-filter="all">Все</button>
+          <button data-filter="exact">Точные</button>
+          <button data-filter="analog">Аналоги</button>
+          <button data-filter="fast">До 2 дней</button>
+          <button data-filter="stock">В наличии</button>
         </div>
 
-        <div class="pg-controls">
-          <div class="filters pg-filters">
-            <button class="active" data-filter="all">Все</button>
-            <button data-filter="exact">Точные</button>
-            <button data-filter="analog">Аналоги</button>
-            <button data-filter="fast">Быстро</button>
-            <button data-filter="stock">В наличии</button>
-          </div>
-          <select id="sortSelect" class="sort-select">
-            <option value="recommended">Рекомендованные</option>
-            <option value="price">Цена ↑</option>
-            <option value="speed">Срок ↑</option>
-            <option value="stock">Наличие ↓</option>
-          </select>
-        </div>
-
-        <section class="pg-list-section">
-          <div class="pg-section-title">
+        <section class="catalog-section">
+          <div class="section-inline-title">
             <span class="group-label exact">ТОЧНЫЕ ПОЗИЦИИ</span>
             <h3 id="exactHeading">Оригинальная позиция</h3>
           </div>
-          <div id="exactResults" class="pg-results"></div>
+          <div id="exactResults" class="compact-results"></div>
         </section>
 
-        <section class="pg-list-section" id="analogSection">
-          <div class="pg-section-title">
+        <section class="catalog-section" id="analogSection">
+          <div class="section-inline-title">
             <span class="group-label analog">АНАЛОГИ</span>
             <h3>Совместимые варианты</h3>
           </div>
-          <div id="analogResults" class="pg-results"></div>
+          <div id="analogResults" class="compact-results"></div>
         </section>
       </section>
 

@@ -8,7 +8,10 @@ const datasets = {
       {id:"b1",type:"exact",brand:"BOSCH",article:"0250603006",name:"Свеча накаливания",warehouse:"03",source:"Поставка 1",purchase:1803,qty:10,days:2},
       {id:"b2",type:"exact",brand:"BOSCH",article:"0250603006",name:"Свеча накаливания",warehouse:"07",source:"Поставка 2",purchase:1865,qty:22,days:1},
       {id:"b3",type:"exact",brand:"BOSCH",article:"0250603006",name:"Свеча накаливания",warehouse:"11",source:"Поставка 3",purchase:1940,qty:5,days:1},
-      {id:"b4",type:"exact",brand:"BOSCH",article:"0250603006",name:"Свеча накаливания",warehouse:"18",source:"Поставка 4",purchase:1725,qty:40,days:5}
+      {id:"b4",type:"exact",brand:"BOSCH",article:"0250603006",name:"Свеча накаливания",warehouse:"18",source:"Поставка 4",purchase:1725,qty:40,days:5},
+      {id:"b5",type:"exact",brand:"BOSCH",article:"0250603006",name:"Свеча накаливания",warehouse:"24",source:"Поставка 5",purchase:1768,qty:12,days:2},
+      {id:"b6",type:"exact",brand:"BOSCH",article:"0250603006",name:"Свеча накаливания",warehouse:"31",source:"Поставка 6",purchase:1792,qty:8,days:3},
+      {id:"b7",type:"exact",brand:"BOSCH",article:"0250603006",name:"Свеча накаливания",warehouse:"44",source:"Поставка 7",purchase:1840,qty:20,days:2}
     ],
     analogs: [
       {id:"ba1",type:"analog",brand:"BERU",article:"GE102",name:"Свеча накаливания",warehouse:"02",source:"Аналог",purchase:1510,qty:12,days:1},
@@ -58,6 +61,7 @@ let currentKey = "0250603006";
 let currentFilter = "all";
 let currentSort = "recommended";
 let quantities = {};
+let expandedGroups = new Set();
 let cart = loadCart();
 
 function retail(p){ return Math.round(p * (1 + MARKUP/100)); }
@@ -134,57 +138,76 @@ function baseList(type){
   return list;
 }
 
-function rowHtml(x){
-  const q=quantities[x.id]||1;
+function cartSvg(){
+  return '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2 3h2l2 11h10l2-8H5.2"></path><circle cx="9" cy="19" r="1.5"></circle><circle cx="16" cy="19" r="1.5"></circle></svg>';
+}
+
+function supplyRowHtml(x){
+  const term=x.days===0?"Сегодня":x.days+(x.days===1?" день":" дн.");
   return `
-    <div class="pg-offer-row">
-      <div class="pg-part">
-        <div class="pg-brand">${x.brand.slice(0,5)}</div>
-        <div>
-          <b>${x.brand} · ${x.name}</b>
-          <small class="pg-code">${x.article}</small>
+    <div class="supply-row">
+      <div class="supply-left">
+        <div class="supply-term">
+          <b>${term}</b>
+          <small>${x.warehouse}</small>
         </div>
+        <span class="supply-warehouse">${x.source}</span>
       </div>
-      <div class="pg-cell warehouse"><small>Склад</small><b>${x.warehouse}</b></div>
-      <div class="pg-cell fast"><small>Срок</small><b>${x.days===0?"Сегодня":x.days+" дн."}</b></div>
-      <div class="pg-cell"><small>Наличие</small><b>${x.qty} шт.</b></div>
-      <div class="pg-price">${rub(retail(x.purchase))}</div>
-      <div class="pg-buy">
-        <div class="pg-qty">
-          <button data-qty-minus="${x.id}">−</button>
-          <span id="qty-${x.id}">${q}</span>
-          <button data-qty-plus="${x.id}">+</button>
-        </div>
-        <button class="pg-add" data-add="${x.id}">В корзину</button>
-      </div>
-      <div class="pg-meta-mobile" style="display:none">
-        <span><b>${x.days===0?"Сегодня":x.days+" дн."}</b></span>
-        <span>${x.qty} шт.</span>
-        <span>склад ${x.warehouse}</span>
-      </div>
+      <div class="supply-price">${rub(retail(x.purchase))}</div>
+      <div class="supply-stock">${x.qty} шт.</div>
+      <button class="cart-icon-btn" data-add="${x.id}" aria-label="В корзину">${cartSvg()}</button>
     </div>`;
+}
+
+function groupCardHtml(items, key){
+  if(!items.length) return "";
+  const first=items[0];
+  const expanded=expandedGroups.has(key);
+  const visible=expanded ? items : items.slice(0,5);
+  const hiddenCount=Math.max(0,items.length-visible.length);
+  return `
+    <article class="product-group">
+      <div class="product-group-head">
+        <div class="product-thumb">${first.brand.slice(0,5)}</div>
+        <div class="product-title">
+          <div class="product-title-line">
+            <a href="javascript:void(0)">${first.article}</a>
+            <b>${first.brand}</b>
+          </div>
+          <small>${first.name}</small>
+        </div>
+        <span class="product-arrow">›</span>
+      </div>
+      <div class="supply-list">${visible.map(supplyRowHtml).join("")}</div>
+      ${hiddenCount ? `<button class="show-more" data-show-group="${key}">Показать ещё <span>${hiddenCount}</span></button>` : ""}
+    </article>`;
 }
 
 function renderCatalog(){
   const exact=baseList("exact");
   const analog=baseList("analog");
-  document.getElementById("exactResults").innerHTML=exact.map(rowHtml).join("") || '<div class="offer-row"><div>Нет предложений по выбранному фильтру.</div></div>';
-  document.getElementById("analogResults").innerHTML=analog.map(rowHtml).join("") || '<div class="offer-row"><div>Нет аналогов по выбранному фильтру.</div></div>';
-  document.getElementById("analogSection").style.display=(currentFilter==="exact")?"none":"block";
-  const count=exact.length+analog.length;
-  document.getElementById("offerCount").textContent=count;
 
-  const all=[...exact,...analog];
-  const best=[...all].sort((a,b)=>retail(a.purchase)-retail(b.purchase))[0];
-  if(best){
-    document.getElementById("bestOfferTitle").textContent=best.brand+" "+best.article;
-    document.getElementById("bestOfferName").textContent=best.name;
-    document.getElementById("bestOfferPrice").textContent=rub(retail(best.purchase));
-    document.getElementById("bestOfferTerm").textContent=best.days===0?"Сегодня":best.days+" дн.";
-    document.getElementById("bestOfferStock").textContent=best.qty+" шт.";
-    const button=document.getElementById("bestOfferAdd");
-    button.dataset.add=best.id;
+  const exactRoot=document.getElementById("exactResults");
+  const analogRoot=document.getElementById("analogResults");
+
+  if(exactRoot){
+    exactRoot.innerHTML=exact.length
+      ? groupCardHtml(exact,"exact-"+currentKey)
+      : '<div class="product-group"><div class="product-group-head"><div class="product-title"><b>Нет точных предложений</b></div></div></div>';
   }
+
+  if(analogRoot){
+    analogRoot.innerHTML=analog.length
+      ? analog.map(x=>groupCardHtml([x],"analog-"+x.id)).join("")
+      : '<div class="product-group"><div class="product-group-head"><div class="product-title"><b>Нет аналогов</b></div></div></div>';
+  }
+
+  const analogSection=document.getElementById("analogSection");
+  if(analogSection) analogSection.style.display=(currentFilter==="exact")?"none":"block";
+
+  const count=exact.length+analog.length;
+  const countEl=document.getElementById("offerCount");
+  if(countEl) countEl.textContent=count;
 }
 
 function findItem(id){
@@ -208,8 +231,8 @@ function addToCart(id,btn){
   else cart.push({...item,price:retail(item.purchase),qty});
   saveCart();
   if(btn){
-    btn.classList.add("added");btn.textContent="Добавлено";
-    setTimeout(()=>{btn.classList.remove("added");btn.textContent="В корзину"},850);
+    btn.classList.add("added");
+    setTimeout(()=>{btn.classList.remove("added")},850);
   }
 }
 
@@ -258,6 +281,21 @@ document.addEventListener("click",e=>{
     document.querySelectorAll("[data-filter]").forEach(x=>x.classList.remove("active"));
     filter.classList.add("active"); currentFilter=filter.dataset.filter; renderCatalog(); return;
   }
+  const sort=e.target.closest("[data-sort]");
+  if(sort){
+    document.querySelectorAll("[data-sort]").forEach(x=>x.classList.remove("active"));
+    sort.classList.add("active");
+    const mode=sort.dataset.sort;
+    currentSort=mode==="warehouse"?"recommended":mode;
+    renderCatalog();
+    return;
+  }
+  const show=e.target.closest("[data-show-group]");
+  if(show){
+    expandedGroups.add(show.dataset.showGroup);
+    renderCatalog();
+    return;
+  }
   const plus=e.target.closest("[data-qty-plus]"); if(plus){ changeQty(plus.dataset.qtyPlus,1); return; }
   const minus=e.target.closest("[data-qty-minus]"); if(minus){ changeQty(minus.dataset.qtyMinus,-1); return; }
   const add=e.target.closest("[data-add]"); if(add){ addToCart(add.dataset.add,add); return; }
@@ -268,7 +306,6 @@ document.addEventListener("click",e=>{
 
 document.getElementById("searchForm").addEventListener("submit",e=>{e.preventDefault();search(document.getElementById("searchInput").value)});
 document.getElementById("searchForm2").addEventListener("submit",e=>{e.preventDefault();search(document.getElementById("searchInput2").value)});
-document.getElementById("sortSelect").addEventListener("change",e=>{currentSort=e.target.value;renderCatalog()});
 document.getElementById("openCart")?.addEventListener("click",openCart);
 document.getElementById("mobileCart")?.addEventListener("click",openCart);
 document.getElementById("closeCart")?.addEventListener("click",closeCart);
