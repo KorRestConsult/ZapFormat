@@ -291,9 +291,10 @@ function showAuthTab(tab){
 }
 
 function applySessionUser(){
-  const headerProfile=document.querySelector('.header-actions [data-route="profile"]');
+  const headerProfile=document.getElementById("accountEntryButton");
   if(headerProfile){
-    headerProfile.textContent=sessionUser?.name || (backendConfigured() ? "Войти" : "Кабинет");
+    headerProfile.textContent=sessionUser?.name || "Войти";
+    headerProfile.dataset.route=sessionUser ? "profile" : "auth";
   }
 
   const userBox=document.querySelector(".account-user");
