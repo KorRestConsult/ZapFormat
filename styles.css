@@ -206,3 +206,35 @@ html,body,.app{max-width:100%;overflow-x:hidden}
   .topbar-inner{grid-template-columns:auto 1fr!important;height:62px!important;padding:0 12px!important}
   .header-actions{grid-column:auto!important;grid-row:auto!important}
 }
+
+/* Restored bottom mobile navigation */
+.mobile-nav{display:none}
+@media(max-width:680px){
+  main{padding-bottom:96px}
+  .mobile-nav{
+    display:flex;
+    position:fixed;
+    left:10px;
+    right:10px;
+    bottom:10px;
+    height:62px;
+    align-items:center;
+    justify-content:space-around;
+    background:var(--navy-3);
+    border:1px solid rgba(255,255,255,.08);
+    border-radius:16px;
+    box-shadow:0 10px 28px rgba(12,30,44,.28);
+    z-index:65;
+    padding-bottom:env(safe-area-inset-bottom)
+  }
+  .mobile-nav button{
+    border:0;
+    background:transparent;
+    color:#dce5eb;
+    font-size:12px;
+    font-weight:700;
+    padding:12px 8px
+  }
+  .mobile-nav b{color:var(--orange)}
+  .cart-drawer{padding-bottom:88px}
+}

@@ -224,6 +224,7 @@ function renderCart(){
   const count=cart.reduce((s,x)=>s+x.qty,0);
   const total=cart.reduce((s,x)=>s+x.price*x.qty,0);
   document.getElementById("cartCount").textContent=count;
+  document.getElementById("mobileCartCount") && (document.getElementById("mobileCartCount").textContent=count);
   document.getElementById("cartSubtotal").textContent=rub(total);
   document.getElementById("cartTotal").textContent=rub(total);
 
@@ -269,6 +270,7 @@ document.getElementById("searchForm").addEventListener("submit",e=>{e.preventDef
 document.getElementById("searchForm2").addEventListener("submit",e=>{e.preventDefault();search(document.getElementById("searchInput2").value)});
 document.getElementById("sortSelect").addEventListener("change",e=>{currentSort=e.target.value;renderCatalog()});
 document.getElementById("openCart")?.addEventListener("click",openCart);
+document.getElementById("mobileCart")?.addEventListener("click",openCart);
 document.getElementById("closeCart")?.addEventListener("click",closeCart);
 document.getElementById("drawerBackdrop")?.addEventListener("click",closeCart);
 document.getElementById("checkoutButton").addEventListener("click",()=>alert("Оформление заказа подключается к серверной части."));
