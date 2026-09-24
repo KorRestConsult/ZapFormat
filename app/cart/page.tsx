@@ -1,0 +1,1 @@
+export default function CartPage(){return <section><div className="eyebrow">Корзина</div><h1>Пока пусто</h1><div className="empty">Следующим шагом подключим реальную корзину и проверку цены PartGrade перед заказом.</div></section>}

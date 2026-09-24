@@ -1,0 +1,1 @@
+export default function GaragePage(){return <section><div className="eyebrow">Автомобили</div><h1>Мой гараж</h1><div className="empty">Добавим VIN, марку, модель, поколение и двигатель.</div></section>}

@@ -1,0 +1,1 @@
+export default function OrdersPage(){return <section><div className="eyebrow">Кабинет</div><h1>Заказы</h1><div className="empty">Здесь появятся наши заказы и статусы PartGrade.</div></section>}
