@@ -348,6 +348,209 @@ app.get("/api/account/overview", requireUser, async (req, res, next) => {
   }
 });
 
+app.get("/api/garage", requireUser, async (req, res, next) => {
+  try {
+    const vehicles = await pool.query(
+      `SELECT id, brand, model, generation, year, engine, vin, plate_number,
+              current_mileage, mileage_updated_at, is_default
+         FROM vehicles
+        WHERE user_id = $1
+        ORDER BY is_default DESC, created_at ASC`,
+      [req.user.id]
+    );
+    res.json({ vehicles: vehicles.rows });
+  } catch (error) {
+    next(error);
+  }
+});
+
+app.post("/api/garage/vehicles", requireUser, async (req, res, next) => {
+  try {
+    const brand = String(req.body?.brand || "").trim();
+    const model = String(req.body?.model || "").trim();
+    const generation = String(req.body?.generation || "").trim() || null;
+    const engine = String(req.body?.engine || "").trim() || null;
+    const vin = String(req.body?.vin || "").trim().toUpperCase() || null;
+    const plate = String(req.body?.plate_number || "").trim().toUpperCase() || null;
+    const year = req.body?.year ? Number(req.body.year) : null;
+    const mileage = req.body?.current_mileage ? Number(req.body.current_mileage) : null;
+
+    if (!brand || !model) {
+      return res.status(400).json({ error: "brand_and_model_required" });
+    }
+
+    const result = await pool.query(
+      `INSERT INTO vehicles
+        (user_id, brand, model, generation, year, engine, vin, plate_number, current_mileage, mileage_updated_at)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,CASE WHEN $9::int IS NULL THEN NULL ELSE now() END)
+       RETURNING *`,
+      [req.user.id, brand, model, generation, year, engine, vin, plate, mileage]
+    );
+
+    if (mileage !== null && Number.isFinite(mileage)) {
+      await pool.query(
+        `INSERT INTO vehicle_mileage_logs (vehicle_id, user_id, mileage)
+         VALUES ($1,$2,$3)`,
+        [result.rows[0].id, req.user.id, mileage]
+      );
+    }
+
+    res.status(201).json({ vehicle: result.rows[0] });
+  } catch (error) {
+    next(error);
+  }
+});
+
+app.get("/api/garage/vehicles/:vehicleId", requireUser, async (req, res, next) => {
+  try {
+    const vehicleResult = await pool.query(
+      `SELECT * FROM vehicles WHERE id = $1 AND user_id = $2 LIMIT 1`,
+      [req.params.vehicleId, req.user.id]
+    );
+    const vehicle = vehicleResult.rows[0];
+    if (!vehicle) return res.status(404).json({ error: "vehicle_not_found" });
+
+    const [plans, measurements, history] = await Promise.all([
+      pool.query(
+        `SELECT * FROM vehicle_maintenance_plans
+          WHERE vehicle_id = $1 AND user_id = $2 AND is_active = true
+          ORDER BY next_service_mileage NULLS LAST, next_service_at NULLS LAST, created_at`,
+        [vehicle.id, req.user.id]
+      ),
+      pool.query(
+        `SELECT * FROM vehicle_measurements
+          WHERE vehicle_id = $1 AND user_id = $2
+          ORDER BY measured_at DESC LIMIT 100`,
+        [vehicle.id, req.user.id]
+      ),
+      pool.query(
+        `SELECT * FROM vehicle_maintenance_records
+          WHERE vehicle_id = $1 AND user_id = $2
+          ORDER BY service_date DESC, created_at DESC LIMIT 100`,
+        [vehicle.id, req.user.id]
+      )
+    ]);
+
+    res.json({
+      vehicle,
+      maintenance: plans.rows,
+      measurements: measurements.rows,
+      history: history.rows
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+app.patch("/api/garage/vehicles/:vehicleId/mileage", requireUser, async (req, res, next) => {
+  const client = await pool.connect();
+  try {
+    const mileage = Number(req.body?.mileage);
+    if (!Number.isInteger(mileage) || mileage < 0) {
+      return res.status(400).json({ error: "invalid_mileage" });
+    }
+
+    await client.query("BEGIN");
+    const result = await client.query(
+      `UPDATE vehicles
+          SET current_mileage = $3, mileage_updated_at = now(), updated_at = now()
+        WHERE id = $1 AND user_id = $2
+        RETURNING *`,
+      [req.params.vehicleId, req.user.id, mileage]
+    );
+    if (!result.rowCount) {
+      await client.query("ROLLBACK");
+      return res.status(404).json({ error: "vehicle_not_found" });
+    }
+
+    await client.query(
+      `INSERT INTO vehicle_mileage_logs (vehicle_id, user_id, mileage)
+       VALUES ($1,$2,$3)`,
+      [req.params.vehicleId, req.user.id, mileage]
+    );
+    await client.query("COMMIT");
+    res.json({ vehicle: result.rows[0] });
+  } catch (error) {
+    await client.query("ROLLBACK").catch(() => {});
+    next(error);
+  } finally {
+    client.release();
+  }
+});
+
+app.post("/api/garage/vehicles/:vehicleId/measurements", requireUser, async (req, res, next) => {
+  try {
+    const owned = await pool.query(
+      "SELECT id FROM vehicles WHERE id = $1 AND user_id = $2 LIMIT 1",
+      [req.params.vehicleId, req.user.id]
+    );
+    if (!owned.rowCount) return res.status(404).json({ error: "vehicle_not_found" });
+
+    const type = String(req.body?.measurement_type || "").trim();
+    const unit = String(req.body?.unit || "").trim() || null;
+    const note = String(req.body?.note || "").trim() || null;
+    const rawValue = req.body?.value;
+    const numericValue = rawValue === "" || rawValue === null || rawValue === undefined ? null : Number(rawValue);
+    const valueText = numericValue === null || Number.isNaN(numericValue) ? String(rawValue || "").trim() || null : null;
+
+    if (!type || (numericValue === null && !valueText)) {
+      return res.status(400).json({ error: "measurement_required" });
+    }
+
+    const result = await pool.query(
+      `INSERT INTO vehicle_measurements
+        (vehicle_id, user_id, measurement_type, value, value_text, unit, note, measured_at)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,COALESCE($8::timestamptz, now()))
+       RETURNING *`,
+      [
+        req.params.vehicleId,
+        req.user.id,
+        type,
+        numericValue !== null && !Number.isNaN(numericValue) ? numericValue : null,
+        valueText,
+        unit,
+        note,
+        req.body?.measured_at || null
+      ]
+    );
+    res.status(201).json({ measurement: result.rows[0] });
+  } catch (error) {
+    next(error);
+  }
+});
+
+app.post("/api/garage/vehicles/:vehicleId/maintenance", requireUser, async (req, res, next) => {
+  try {
+    const owned = await pool.query(
+      "SELECT id FROM vehicles WHERE id = $1 AND user_id = $2 LIMIT 1",
+      [req.params.vehicleId, req.user.id]
+    );
+    if (!owned.rowCount) return res.status(404).json({ error: "vehicle_not_found" });
+
+    const title = String(req.body?.title || "").trim();
+    if (!title) return res.status(400).json({ error: "maintenance_title_required" });
+
+    const result = await pool.query(
+      `INSERT INTO vehicle_maintenance_records
+        (vehicle_id, user_id, mileage, service_date, title, note, cost_amount)
+       VALUES ($1,$2,$3,COALESCE($4::date,CURRENT_DATE),$5,$6,$7)
+       RETURNING *`,
+      [
+        req.params.vehicleId,
+        req.user.id,
+        req.body?.mileage ? Number(req.body.mileage) : null,
+        req.body?.service_date || null,
+        title,
+        String(req.body?.note || "").trim() || null,
+        req.body?.cost_amount ? Number(req.body.cost_amount) : null
+      ]
+    );
+    res.status(201).json({ record: result.rows[0] });
+  } catch (error) {
+    next(error);
+  }
+});
+
 app.use((error, _req, res, _next) => {
   console.error(error);
   if (error?.code === "23505") {
