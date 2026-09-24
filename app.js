@@ -536,3 +536,53 @@ navigate=function(route,push=true){
   }
 };
 renderCartPage();
+
+function showAccountTab(tab){
+  document.querySelectorAll(".account-pane").forEach(x=>x.classList.remove("active"));
+  document.querySelectorAll("[data-account-tab]").forEach(x=>x.classList.remove("active"));
+  document.getElementById("account-"+tab)?.classList.add("active");
+  document.querySelectorAll('[data-account-tab="'+tab+'"]').forEach(x=>x.classList.add("active"));
+  try{ localStorage.setItem("zapformat-account-tab",tab); }catch{}
+}
+
+document.addEventListener("click",e=>{
+  const tab=e.target.closest("[data-account-tab]");
+  if(tab){ showAccountTab(tab.dataset.accountTab); return; }
+
+  const detail=e.target.closest("[data-order-detail]");
+  if(detail){
+    const id=detail.dataset.orderDetail;
+    alert("Детали заказа #"+id+" подключим к реальным данным backend. Здесь будут позиции, статусы по каждой строке и оформление возврата.");
+    return;
+  }
+});
+
+document.getElementById("profileForm")?.addEventListener("submit",e=>{
+  e.preventDefault();
+  const data=Object.fromEntries(new FormData(e.currentTarget).entries());
+  localStorage.setItem("zapformat-profile",JSON.stringify(data));
+  const btn=e.currentTarget.querySelector("button[type=submit]");
+  const old=btn.textContent; btn.textContent="Сохранено"; setTimeout(()=>btn.textContent=old,900);
+});
+
+document.getElementById("deliveryForm")?.addEventListener("submit",e=>{
+  e.preventDefault();
+  const btn=e.currentTarget.querySelector("button[type=submit]");
+  const old=btn.textContent; btn.textContent="Сохранено"; setTimeout(()=>btn.textContent=old,900);
+});
+
+document.getElementById("addCarButton")?.addEventListener("click",()=>{
+  alert("Добавление автомобиля подключим через форму VIN / марка / модель / двигатель.");
+});
+
+try{
+  const savedProfile=JSON.parse(localStorage.getItem("zapformat-profile")||"null");
+  if(savedProfile && document.getElementById("profileForm")){
+    for(const [key,value] of Object.entries(savedProfile)){
+      const input=document.querySelector('#profileForm [name="'+key+'"]');
+      if(input) input.value=value;
+    }
+  }
+  const savedTab=localStorage.getItem("zapformat-account-tab");
+  if(savedTab) showAccountTab(savedTab);
+}catch{}

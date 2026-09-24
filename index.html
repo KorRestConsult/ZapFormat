@@ -155,100 +155,161 @@
       </section>
 
       <section class="view" id="view-profile">
-        <div class="page-simple-head">
-          <span class="eyebrow">ЛИЧНЫЙ КАБИНЕТ</span>
-          <h2>Кабинет клиента</h2>
-          <p>Здесь будут профиль, автомобили, адрес получения, история заказов и уведомления.</p>
-        </div>
+        <div class="account-shell">
+          <aside class="account-sidebar">
+            <div class="account-user">
+              <div class="account-avatar">ZF</div>
+              <div>
+                <b>Личный кабинет</b>
+                <span>ZapFormat</span>
+              </div>
+            </div>
 
-        <div class="cabinet-grid">
-          <article class="cabinet-card">
-            <small>ПРОФИЛЬ</small>
-            <h3>Контакты</h3>
-            <p>Телефон, email и данные получателя.</p>
-            <button>Редактировать</button>
-          </article>
-          <article class="cabinet-card">
-            <small>ГАРАЖ</small>
-            <h3>Автомобили</h3>
-            <p>VIN, модель, двигатель и сохранённые машины.</p>
-            <button data-route="garage">Открыть гараж</button>
-          </article>
-          <article class="cabinet-card">
-            <small>ЗАКАЗЫ</small>
-            <h3>История</h3>
-            <p>Оплаченные заказы, статусы и повтор заказа.</p>
-            <button data-route="orders">Открыть заказы</button>
-          </article>
-          <article class="cabinet-card">
-            <small>ПОЛУЧЕНИЕ</small>
-            <h3>Рязань</h3>
-            <p>Точка выдачи, адрес и способ получения.</p>
-            <button>Настроить</button>
-          </article>
+            <nav class="account-nav" aria-label="Личный кабинет">
+              <button class="active" data-account-tab="overview">Обзор</button>
+              <button data-account-tab="orders">Заказы</button>
+              <button data-account-tab="returns">Возвраты</button>
+              <button data-account-tab="garage">Гараж</button>
+              <button data-account-tab="reports">Отчёты</button>
+              <button data-account-tab="profile">Профиль</button>
+              <button data-account-tab="delivery">Получение</button>
+              <button data-account-tab="notifications">Уведомления</button>
+            </nav>
+          </aside>
+
+          <div class="account-content">
+            <section class="account-pane active" id="account-overview">
+              <div class="account-head">
+                <div>
+                  <span class="eyebrow">ЛИЧНЫЙ КАБИНЕТ</span>
+                  <h2>Добрый день.</h2>
+                  <p>Заказы, автомобили, возвраты и настройки — в одном месте.</p>
+                </div>
+                <button class="account-primary" data-route="home">Найти запчасть</button>
+              </div>
+
+              <div class="account-stats">
+                <article><span>Активные заказы</span><b>2</b><small>5 позиций в работе</small></article>
+                <article><span>Готово к получению</span><b>1</b><small>можно забирать</small></article>
+                <article><span>Автомобили</span><b>1</b><small>BMW X3 F25</small></article>
+                <article><span>Возвраты</span><b>0</b><small>нет активных заявок</small></article>
+              </div>
+
+              <div class="account-block">
+                <div class="account-block-head">
+                  <div><span class="eyebrow">ПОСЛЕДНИЕ ЗАКАЗЫ</span><h3>Что происходит сейчас</h3></div>
+                  <button data-account-tab="orders">Все заказы →</button>
+                </div>
+                <div class="account-order-list">
+                  <article class="account-order">
+                    <div><small>#1042 · 24 сентября</small><b>BOSCH 0250603006</b><span>2 позиции · 4 218 ₽</span></div>
+                    <div class="order-progress"><i class="done"></i><i class="done"></i><i class="done"></i><i></i></div>
+                    <strong class="status">В пути</strong>
+                  </article>
+                  <article class="account-order">
+                    <div><small>#1041 · 23 сентября</small><b>BMW 11277810456</b><span>1 позиция · 3 120 ₽</span></div>
+                    <div class="order-progress"><i class="done"></i><i class="done"></i><i class="done"></i><i class="done"></i></div>
+                    <strong class="status ready">Готов к выдаче</strong>
+                  </article>
+                </div>
+              </div>
+
+              <div class="account-grid-2">
+                <div class="account-block">
+                  <div class="account-block-head"><div><span class="eyebrow">ГАРАЖ</span><h3>Мои автомобили</h3></div><button data-account-tab="garage">Открыть →</button></div>
+                  <div class="account-car">
+                    <div class="car-mark">BMW</div>
+                    <div><b>BMW X3 F25</b><span>2010 · 2.0 Diesel · N47</span><small>VIN будет сохранён после подключения аккаунта</small></div>
+                  </div>
+                </div>
+                <div class="account-block">
+                  <div class="account-block-head"><div><span class="eyebrow">ПОЛУЧЕНИЕ</span><h3>Рязань</h3></div><button data-account-tab="delivery">Настроить →</button></div>
+                  <p class="account-muted">Точка выдачи и способ получения будут привязаны к профилю клиента.</p>
+                </div>
+              </div>
+            </section>
+
+            <section class="account-pane" id="account-orders">
+              <div class="account-head"><div><span class="eyebrow">ЗАКАЗЫ</span><h2>История заказов</h2><p>Статус каждой позиции, сроки и действия по заказу.</p></div></div>
+              <div class="account-toolbar">
+                <input id="orderSearch" placeholder="Номер заказа или артикул">
+                <select><option>Все статусы</option><option>В работе</option><option>В пути</option><option>Готов к выдаче</option><option>Завершён</option></select>
+              </div>
+              <div class="account-table">
+                <div class="account-table-head"><span>Заказ</span><span>Дата</span><span>Позиций</span><span>Сумма</span><span>Статус</span><span></span></div>
+                <div class="account-table-row"><b>#1042</b><span>24.09.2026</span><span>2</span><span>4 218 ₽</span><strong class="status">В пути</strong><button data-order-detail="1042">Подробнее</button></div>
+                <div class="account-table-row"><b>#1041</b><span>23.09.2026</span><span>1</span><span>3 120 ₽</span><strong class="status ready">Готов</strong><button data-order-detail="1041">Подробнее</button></div>
+                <div class="account-table-row"><b>#1038</b><span>18.09.2026</span><span>4</span><span>11 490 ₽</span><strong class="status gray">Завершён</strong><button data-order-detail="1038">Подробнее</button></div>
+              </div>
+            </section>
+
+            <section class="account-pane" id="account-returns">
+              <div class="account-head"><div><span class="eyebrow">ВОЗВРАТЫ</span><h2>Возвраты и претензии</h2><p>Заявки создаются из конкретной позиции заказа, чтобы артикул и документы не приходилось вводить заново.</p></div></div>
+              <div class="account-empty">
+                <div class="empty-icon">↩</div>
+                <h3>Активных возвратов нет</h3>
+                <p>Откройте завершённый заказ и выберите позицию, по которой нужно оформить возврат или претензию.</p>
+                <button data-account-tab="orders">Перейти к заказам</button>
+              </div>
+            </section>
+
+            <section class="account-pane" id="account-garage">
+              <div class="account-head">
+                <div><span class="eyebrow">ГАРАЖ</span><h2>Мои автомобили</h2><p>Сохраняем VIN и характеристики, чтобы не уточнять машину при каждом поиске.</p></div>
+                <button class="account-primary" id="addCarButton">+ Добавить автомобиль</button>
+              </div>
+              <div class="account-car-card">
+                <div class="car-mark large">BMW</div>
+                <div class="car-info"><h3>BMW X3 F25</h3><p>2010 · 2.0 Diesel · N47</p><dl><div><dt>VIN</dt><dd>—</dd></div><div><dt>Госномер</dt><dd>—</dd></div></dl></div>
+                <div class="car-actions"><button data-query="BMW X3 F25">Искать запчасти</button><button>Редактировать</button></div>
+              </div>
+            </section>
+
+            <section class="account-pane" id="account-reports">
+              <div class="account-head"><div><span class="eyebrow">ОТЧЁТЫ</span><h2>История и статистика</h2><p>Покупки, возвраты и расходы по периодам.</p></div></div>
+              <div class="account-stats">
+                <article><span>Заказов за месяц</span><b>7</b><small>сентябрь</small></article>
+                <article><span>Покупок</span><b>31 840 ₽</b><small>за месяц</small></article>
+                <article><span>Возвратов</span><b>0</b><small>за месяц</small></article>
+                <article><span>Средний заказ</span><b>4 549 ₽</b><small>за месяц</small></article>
+              </div>
+              <div class="account-block"><div class="report-placeholder">Графики появятся после подключения реальных заказов.</div></div>
+            </section>
+
+            <section class="account-pane" id="account-profile">
+              <div class="account-head"><div><span class="eyebrow">ПРОФИЛЬ</span><h2>Контактные данные</h2><p>Эти данные будут использоваться для заказов и уведомлений.</p></div></div>
+              <form class="account-form" id="profileForm">
+                <label><span>Имя</span><input name="name" placeholder="Имя"></label>
+                <label><span>Фамилия</span><input name="surname" placeholder="Фамилия"></label>
+                <label><span>Телефон</span><input name="phone" type="tel" placeholder="+7"></label>
+                <label><span>Email</span><input name="email" type="email" placeholder="name@example.ru"></label>
+                <button type="submit" class="account-primary">Сохранить</button>
+              </form>
+            </section>
+
+            <section class="account-pane" id="account-delivery">
+              <div class="account-head"><div><span class="eyebrow">ПОЛУЧЕНИЕ</span><h2>Получение заказов</h2><p>Город, точка выдачи и контакт получателя.</p></div></div>
+              <form class="account-form" id="deliveryForm">
+                <label><span>Город</span><input value="Рязань"></label>
+                <label class="wide-field"><span>Точка выдачи / адрес</span><input placeholder="Выберите точку получения"></label>
+                <label><span>Получатель</span><input placeholder="ФИО"></label>
+                <label><span>Телефон</span><input type="tel" placeholder="+7"></label>
+                <button type="submit" class="account-primary">Сохранить</button>
+              </form>
+            </section>
+
+            <section class="account-pane" id="account-notifications">
+              <div class="account-head"><div><span class="eyebrow">УВЕДОМЛЕНИЯ</span><h2>Что сообщать</h2><p>Только полезные изменения по заказам.</p></div></div>
+              <div class="notification-list">
+                <label><span><b>Статус заказа</b><small>Принят, в пути, готов к выдаче</small></span><input type="checkbox" checked></label>
+                <label><span><b>Изменение позиции</b><small>Отказ, перенос срока, изменение количества</small></span><input type="checkbox" checked></label>
+                <label><span><b>Возвраты</b><small>Изменение статуса заявления</small></span><input type="checkbox" checked></label>
+                <label><span><b>Реклама</b><small>Акции и предложения</small></span><input type="checkbox"></label>
+              </div>
+            </section>
+          </div>
         </div>
       </section>
-
-      <section class="view" id="view-cart">
-        <button class="back-link" id="cartBackButton">← Назад</button>
-
-        <div class="checkout-title">Оформить заказ</div>
-
-        <div class="cart-livebar">
-          <div>
-            <b id="cartRefreshStatus">Цены и наличие проверены</b>
-            <span id="cartRefreshTime">только что</span>
-          </div>
-          <button id="refreshCartButton">Обновить сейчас</button>
-        </div>
-
-        <div id="cartChangeNotice" class="cart-change-notice" hidden></div>
-
-        <div class="order-table-wrap">
-          <div class="order-table-head">
-            <span>№</span>
-            <span>✓</span>
-            <span>Бренд</span>
-            <span>Артикул</span>
-            <span>Описание</span>
-            <span>Склад</span>
-            <span>Срок</span>
-            <span>Кол-во</span>
-            <span>Наличие</span>
-            <span>Цена, ₽</span>
-            <span>Сумма, ₽</span>
-            <span>Комментарий</span>
-            <span></span>
-          </div>
-          <div id="orderCartRows"></div>
-        </div>
-
-        <div class="cart-total-row">
-          <span>Сумма:</span>
-          <strong id="orderCartTotal">0 ₽</strong>
-        </div>
-
-        <div class="cart-bulk-actions">
-          <button id="clearCartButton">⌫ Очистить корзину</button>
-          <button id="deleteSelectedButton">× Удалить отмеченное</button>
-          <button id="saveCartButton">✓ Сохранить</button>
-        </div>
-
-        <button class="checkout-order-button" id="checkoutOrderButton">Оформить заказ</button>
-
-        <details class="cart-import">
-          <summary>Загрузить корзину из файла</summary>
-          <div class="cart-import-body">
-            <input type="file" id="cartFileInput" accept=".csv,.txt" />
-            <small>Поддержку XLS/XLSX подключим на сервере; сейчас можно загрузить простой CSV: артикул, количество.</small>
-          </div>
-        </details>
-
-        <div class="order-warning">
-          Заказ формируется только из позиций, отмеченных галочками. Неотмеченные позиции остаются в корзине.
-        </div>
-      </section>
-
     </main>
 
 
