@@ -66,11 +66,21 @@ function loadCart(){ try { return JSON.parse(localStorage.getItem("parts-ai-cart
 function saveCart(){ localStorage.setItem("parts-ai-cart", JSON.stringify(cart)); renderCart(); }
 
 function resolveDataset(query){
-  const q=(query||"").trim().toUpperCase().replace(/\s+/g,"");
+  const raw=(query||"").trim();
+  const q=raw.toUpperCase().replace(/\s+/g,"");
   if(datasets[q]) return q;
-  if(q.includes("0250603006") || q.includes("СВЕЧ")) return "0250603006";
-  if(q.includes("11277810456") || q.includes("BMW")) return "11277810456";
-  if(q.includes("MIPE475") || q.includes("MIP-E475") || q.includes("НАТЯЖ")) return "MIP-E475";
+
+  const natural=raw.toLowerCase();
+  if(q.includes("0250603006") || natural.includes("свеч") || natural.includes("накал")) return "0250603006";
+  if(q.includes("11277810456")) return "11277810456";
+  if(
+    q.includes("MIPE475") ||
+    q.includes("MIP-E475") ||
+    natural.includes("натяж") ||
+    natural.includes("ролик") ||
+    natural.includes("ремн")
+  ) return "MIP-E475";
+  if(natural.includes("bmw") && natural.includes("x3")) return "MIP-E475";
   return "0250603006";
 }
 
@@ -234,3 +244,10 @@ document.getElementById("checkoutButton").addEventListener("click",()=>alert("О
 
 renderCart();
 renderCatalog();
+const aiInput=document.getElementById("searchInput");
+if(aiInput && aiInput.tagName==="TEXTAREA"){
+  aiInput.addEventListener("input",()=>{
+    aiInput.style.height="auto";
+    aiInput.style.height=Math.min(aiInput.scrollHeight,120)+"px";
+  });
+}

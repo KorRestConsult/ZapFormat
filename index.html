@@ -34,88 +34,62 @@
 
     <main>
       <section class="view active" id="view-home">
-        <div class="welcome">
-          <div class="welcome-main">
-            <div class="welcome-copy">
-              <span class="welcome-kicker">PARTS AI · РЯЗАНЬ</span>
-              <h1>Запчасти без лишнего поиска.</h1>
-              <p>
-                Введите артикул, VIN или просто опишите, что нужно машине.
-                Получите точные позиции, аналоги, сроки и конечную цену в одном месте.
-              </p>
+        <div class="ai-home">
+          <div class="ai-hero">
+            <span class="ai-badge">AI-подбор запчастей</span>
+            <h1>Просто скажите,<br>что нужно машине.</h1>
+            <p>
+              Можно написать артикул, VIN или обычным языком:
+              «BMW X3 F25, нужен ролик натяжителя» —
+              система поймёт запрос и сведёт его к нужным деталям и аналогам.
+            </p>
 
-              <form class="hero-search" id="searchForm">
-                <input id="searchInput" autocomplete="off" placeholder="Например: 0250603006" />
-                <button type="submit">Найти запчасть</button>
-              </form>
+            <form class="ai-search" id="searchForm">
+              <div class="ai-input-wrap">
+                <span class="ai-spark">✦</span>
+                <textarea id="searchInput" rows="1" autocomplete="off" placeholder="Например: BMW X3 F25 2.0 дизель, нужен ролик натяжителя — нормальный, не самый дорогой"></textarea>
+              </div>
+              <button type="submit">Подобрать</button>
+            </form>
 
-              <div class="welcome-actions">
-                <button class="secondary-action" data-route="garage">Добавить автомобиль</button>
-                <button class="ghost-action" data-route="orders">Мои заказы</button>
-              </div>
-            </div>
-
-            <div class="welcome-panel">
-              <div class="welcome-panel-top">
-                <span>Как будет работать</span>
-                <b>3 шага</b>
-              </div>
-              <div class="step-row">
-                <span>01</span>
-                <div><b>Ищете</b><small>Артикул, VIN или обычный запрос</small></div>
-              </div>
-              <div class="step-row">
-                <span>02</span>
-                <div><b>Выбираете</b><small>Оригинал, аналоги, цена и срок</small></div>
-              </div>
-              <div class="step-row">
-                <span>03</span>
-                <div><b>Заказываете</b><small>Заказ и статус — в личном кабинете</small></div>
-              </div>
+            <div class="ai-examples">
+              <span>Попробуйте:</span>
+              <button data-query="0250603006">0250603006</button>
+              <button data-query="BMW X3 F25 2.0 дизель нужен ролик натяжителя">BMW X3 F25 · ролик натяжителя</button>
+              <button data-query="VIN WBAXXXXX нужны передние колодки">VIN + передние колодки</button>
             </div>
           </div>
 
-          <div class="welcome-strip">
-            <div><b>Реальные остатки</b><span>из PartGrade после подключения API</span></div>
-            <div><b>Понятные аналоги</b><span>без сотен бессмысленных строк</span></div>
-            <div><b>Ваши автомобили</b><span>VIN и история поиска в гараже</span></div>
-            <div><b>Один кабинет</b><span>корзина, заказы и статусы</span></div>
+          <div class="ai-capabilities">
+            <article>
+              <span>01</span>
+              <div>
+                <b>Понимает обычный язык</b>
+                <p>Не обязательно знать артикул или точное название детали.</p>
+              </div>
+            </article>
+            <article>
+              <span>02</span>
+              <div>
+                <b>Уточняет автомобиль</b>
+                <p>VIN, кузов, двигатель и другие данные, если без них нельзя подобрать точно.</p>
+              </div>
+            </article>
+            <article>
+              <span>03</span>
+              <div>
+                <b>Сводит каталог к выбору</b>
+                <p>Оригинал, достойные аналоги, цена, срок и наличие — без мусора.</p>
+              </div>
+            </article>
           </div>
 
-          <div class="quick">
-            <button data-query="0250603006">BOSCH 0250603006</button>
-            <button data-query="11277810456">BMW 11277810456</button>
-            <button data-query="MIP-E475">MASUMA MIP-E475</button>
-          </div>
-
-          <div class="section-title welcome-section-title">
+          <div class="ai-footer-note">
             <div>
-              <span class="eyebrow">БЫСТРЫЙ ВХОД</span>
-              <h2>Куда перейти?</h2>
+              <span class="eyebrow">ВАЖНО</span>
+              <strong>Каталог остаётся внутри системы, но клиенту не нужно в нём разбираться.</strong>
             </div>
-          </div>
-
-          <div class="home-grid">
-            <button class="home-card" data-route="garage">
-              <span class="card-kicker">ГАРАЖ</span>
-              <strong>Мои автомобили</strong>
-              <small>VIN, модель, двигатель</small>
-            </button>
-            <button class="home-card" data-query="тормозные колодки">
-              <span class="card-kicker">КАТАЛОГ</span>
-              <strong>Тормоза</strong>
-              <small>Колодки, диски, датчики</small>
-            </button>
-            <button class="home-card" data-query="фильтр">
-              <span class="card-kicker">КАТАЛОГ</span>
-              <strong>ТО</strong>
-              <small>Фильтры, свечи, ремни</small>
-            </button>
-            <button class="home-card" data-route="profile">
-              <span class="card-kicker">КАБИНЕТ</span>
-              <strong>Профиль</strong>
-              <small>Контакты, гараж, настройки</small>
-            </button>
+            <button data-route="garage">Мой гараж →</button>
           </div>
         </div>
       </section>
