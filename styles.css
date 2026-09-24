@@ -125,7 +125,7 @@ main{width:min(1280px,94vw);margin:auto;padding:34px 0 110px}.view{display:none}
 .ai-footer-note button{border:0;background:transparent;color:var(--navy);font-weight:800}
 @media(max-width:800px){.ai-hero{padding:28px 20px}.ai-hero h1{font-size:48px}.ai-hero>p{font-size:16px}.ai-search{grid-template-columns:1fr}.ai-search>button{min-height:50px}.ai-capabilities{grid-template-columns:1fr}.ai-footer-note{align-items:flex-start;flex-direction:column}}
 
-/* Mobile catalog rework — PartGrade-like information density */
+/* Mobile catalog rework — professional information density */
 html,body,.app{max-width:100%;overflow-x:hidden}
 *{min-width:0}
 .back-link{border:0;background:transparent;color:#687986;font-weight:800;padding:4px 0 12px}
