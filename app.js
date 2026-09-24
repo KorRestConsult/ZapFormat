@@ -84,11 +84,19 @@ function resolveDataset(query){
   return "0250603006";
 }
 
-function navigate(route){
+function showRoute(route){
   document.querySelectorAll(".view").forEach(v=>v.classList.remove("active"));
   const target=document.getElementById("view-"+route);
   if(target) target.classList.add("active");
-  window.scrollTo({top:0,behavior:"smooth"});
+  window.scrollTo({top:0,behavior:"auto"});
+}
+
+function navigate(route, push=true){
+  showRoute(route);
+  if(push){
+    const url = route==="home" ? location.pathname : location.pathname+"?view="+encodeURIComponent(route);
+    history.pushState({route}, "", url);
+  }
 }
 
 function search(query){
@@ -100,8 +108,9 @@ function search(query){
   document.getElementById("exactHeading").textContent=data.subtitle;
   document.getElementById("searchInput2").value=currentKey;
   document.getElementById("headerSearchInput").value=currentKey;
-  navigate("search");
+  showRoute("search");
   renderCatalog();
+  history.pushState({route:"search",query}, "", location.pathname+"?q="+encodeURIComponent(query));
 }
 
 function baseList(type){
@@ -120,25 +129,30 @@ function baseList(type){
 function rowHtml(x){
   const q=quantities[x.id]||1;
   return `
-    <div class="offer-row">
-      <div class="part-main">
-        <div class="brand-box">${x.brand.slice(0,5)}</div>
+    <div class="pg-offer-row">
+      <div class="pg-part">
+        <div class="pg-brand">${x.brand.slice(0,5)}</div>
         <div>
           <b>${x.brand} · ${x.name}</b>
-          <small class="article">${x.article}</small>
+          <small class="pg-code">${x.article}</small>
         </div>
       </div>
-      <div class="warehouse"><b>${x.warehouse}</b><small>${x.source}</small></div>
-      <div class="term ${x.days<=2?"fast":""}">${x.days===0?"Сегодня":x.days+" дн."}</div>
-      <div class="stock ${x.qty<=3?"low":""}">${x.qty} шт.</div>
-      <div class="price">${rub(retail(x.purchase))}</div>
-      <div class="buy-cell">
-        <div class="qty">
+      <div class="pg-cell warehouse"><small>Склад</small><b>${x.warehouse}</b></div>
+      <div class="pg-cell fast"><small>Срок</small><b>${x.days===0?"Сегодня":x.days+" дн."}</b></div>
+      <div class="pg-cell"><small>Наличие</small><b>${x.qty} шт.</b></div>
+      <div class="pg-price">${rub(retail(x.purchase))}</div>
+      <div class="pg-buy">
+        <div class="pg-qty">
           <button data-qty-minus="${x.id}">−</button>
           <span id="qty-${x.id}">${q}</span>
           <button data-qty-plus="${x.id}">+</button>
         </div>
-        <button class="add-btn" data-add="${x.id}">В корзину</button>
+        <button class="pg-add" data-add="${x.id}">В корзину</button>
+      </div>
+      <div class="pg-meta-mobile" style="display:none">
+        <span><b>${x.days===0?"Сегодня":x.days+" дн."}</b></span>
+        <span>${x.qty} шт.</span>
+        <span>склад ${x.warehouse}</span>
       </div>
     </div>`;
 }
@@ -151,6 +165,18 @@ function renderCatalog(){
   document.getElementById("analogSection").style.display=(currentFilter==="exact")?"none":"block";
   const count=exact.length+analog.length;
   document.getElementById("offerCount").textContent=count;
+
+  const all=[...exact,...analog];
+  const best=[...all].sort((a,b)=>retail(a.purchase)-retail(b.purchase))[0];
+  if(best){
+    document.getElementById("bestOfferTitle").textContent=best.brand+" "+best.article;
+    document.getElementById("bestOfferName").textContent=best.name;
+    document.getElementById("bestOfferPrice").textContent=rub(retail(best.purchase));
+    document.getElementById("bestOfferTerm").textContent=best.days===0?"Сегодня":best.days+" дн.";
+    document.getElementById("bestOfferStock").textContent=best.qty+" шт.";
+    const button=document.getElementById("bestOfferAdd");
+    button.dataset.add=best.id;
+  }
 }
 
 function findItem(id){
@@ -251,3 +277,27 @@ if(aiInput && aiInput.tagName==="TEXTAREA"){
     aiInput.style.height=Math.min(aiInput.scrollHeight,120)+"px";
   });
 }
+
+function restoreFromUrl(){
+  const params=new URLSearchParams(location.search);
+  const q=params.get("q");
+  const view=params.get("view");
+  if(q){
+    currentKey=resolveDataset(q);
+    const data=datasets[currentKey];
+    document.getElementById("resultTitle").textContent=data.title;
+    document.getElementById("resultSubtitle").textContent=data.subtitle+" · точные предложения и аналоги";
+    document.getElementById("exactHeading").textContent=data.subtitle;
+    document.getElementById("searchInput2").value=currentKey;
+    document.getElementById("headerSearchInput").value=currentKey;
+    showRoute("search");
+    renderCatalog();
+  } else if(view){
+    showRoute(view);
+  } else {
+    showRoute("home");
+  }
+}
+window.addEventListener("popstate",restoreFromUrl);
+document.getElementById("backButton").addEventListener("click",()=>history.back());
+restoreFromUrl();

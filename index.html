@@ -95,84 +95,75 @@
       </section>
 
       <section class="view" id="view-search">
-        <div class="breadcrumbs">Главная <span>→</span> Поиск <span>→</span> <b id="crumbQuery">—</b></div>
+        <button class="back-link" id="backButton">← Назад</button>
 
-        <div class="product-head">
-          <div>
-            <span class="eyebrow">ПОИСК ПО АРТИКУЛУ</span>
+        <div class="pg-product-card">
+          <div class="pg-product-copy">
+            <span class="eyebrow">РЕЗУЛЬТАТ ПОИСКА</span>
             <h2 id="resultTitle">—</h2>
-            <p id="resultSubtitle">Точное совпадение и совместимые аналоги</p>
+            <p id="resultSubtitle">Точное совпадение и аналоги</p>
           </div>
-          <div class="product-stat">
+          <div class="pg-product-count">
             <b id="offerCount">0</b>
             <span>предложений</span>
           </div>
         </div>
 
-        <div class="catalog-toolbar">
-          <form class="catalog-search" id="searchForm2">
-            <input id="searchInput2" placeholder="Артикул, VIN или название" />
-            <button type="submit">Найти</button>
-          </form>
+        <form class="catalog-search pg-search" id="searchForm2">
+          <input id="searchInput2" placeholder="Артикул, VIN или название детали" />
+          <button type="submit">Найти</button>
+        </form>
 
-          <div class="toolbar-row">
-            <div class="filters">
-              <button class="active" data-filter="all">Все</button>
-              <button data-filter="exact">Точное совпадение</button>
-              <button data-filter="analog">Аналоги</button>
-              <button data-filter="fast">До 2 дней</button>
-              <button data-filter="stock">В наличии</button>
+        <div class="pg-best" id="bestOfferCard">
+          <div class="pg-best-kicker">САМАЯ НИЗКАЯ ЦЕНА</div>
+          <div class="pg-best-main">
+            <div>
+              <b id="bestOfferTitle">—</b>
+              <small id="bestOfferName">—</small>
             </div>
-
-            <select id="sortSelect" class="sort-select">
-              <option value="recommended">Сначала рекомендованные</option>
-              <option value="price">Сначала дешевле</option>
-              <option value="speed">Сначала быстрее</option>
-              <option value="stock">Больше в наличии</option>
-            </select>
+            <strong id="bestOfferPrice">—</strong>
+          </div>
+          <div class="pg-best-bottom">
+            <div><small>Срок</small><b id="bestOfferTerm">—</b></div>
+            <div><small>Наличие</small><b id="bestOfferStock">—</b></div>
+            <button id="bestOfferAdd">В корзину</button>
           </div>
         </div>
 
-        <section class="catalog-group">
-          <div class="group-head">
-            <div>
-              <span class="group-label exact">ТОЧНОЕ СОВПАДЕНИЕ</span>
-              <h3 id="exactHeading">Оригинальная позиция</h3>
-            </div>
-            <span class="group-note">Цена и наличие будут обновляться через API PartGrade</span>
+        <div class="pg-disclaimer">
+          Подбор аналогичных деталей носит справочный характер. Перед заказом применимость нужно подтвердить по автомобилю или VIN.
+        </div>
+
+        <div class="pg-controls">
+          <div class="filters pg-filters">
+            <button class="active" data-filter="all">Все</button>
+            <button data-filter="exact">Точные</button>
+            <button data-filter="analog">Аналоги</button>
+            <button data-filter="fast">Быстро</button>
+            <button data-filter="stock">В наличии</button>
           </div>
-          <div class="offer-table">
-            <div class="offer-table-head">
-              <span>Деталь</span>
-              <span>Склад</span>
-              <span>Срок</span>
-              <span>Наличие</span>
-              <span>Цена</span>
-              <span></span>
-            </div>
-            <div id="exactResults"></div>
+          <select id="sortSelect" class="sort-select">
+            <option value="recommended">Рекомендованные</option>
+            <option value="price">Цена ↑</option>
+            <option value="speed">Срок ↑</option>
+            <option value="stock">Наличие ↓</option>
+          </select>
+        </div>
+
+        <section class="pg-list-section">
+          <div class="pg-section-title">
+            <span class="group-label exact">ТОЧНЫЕ ПОЗИЦИИ</span>
+            <h3 id="exactHeading">Оригинальная позиция</h3>
           </div>
+          <div id="exactResults" class="pg-results"></div>
         </section>
 
-        <section class="catalog-group" id="analogSection">
-          <div class="group-head">
-            <div>
-              <span class="group-label analog">АНАЛОГИ</span>
-              <h3>Совместимые варианты</h3>
-            </div>
-            <span class="group-note">Проверка применимости будет привязана к каталогу/VIN</span>
+        <section class="pg-list-section" id="analogSection">
+          <div class="pg-section-title">
+            <span class="group-label analog">АНАЛОГИ</span>
+            <h3>Совместимые варианты</h3>
           </div>
-          <div class="offer-table">
-            <div class="offer-table-head">
-              <span>Деталь</span>
-              <span>Склад</span>
-              <span>Срок</span>
-              <span>Наличие</span>
-              <span>Цена</span>
-              <span></span>
-            </div>
-            <div id="analogResults"></div>
-          </div>
+          <div id="analogResults" class="pg-results"></div>
         </section>
       </section>
 
@@ -257,13 +248,6 @@
         </div>
       </section>
     </main>
-
-    <nav class="mobile-nav">
-      <button data-route="home">Поиск</button>
-      <button data-route="garage">Гараж</button>
-      <button data-route="orders">Заказы</button>
-      <button id="mobileCart">Корзина <b id="mobileCartCount">0</b></button>
-    </nav>
 
     <div class="drawer-backdrop" id="drawerBackdrop"></div>
     <aside class="cart-drawer" id="cartDrawer">
