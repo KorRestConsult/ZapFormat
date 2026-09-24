@@ -929,3 +929,137 @@ html,body,.app{max-width:100%;overflow-x:hidden}
   .return-form-actions button{width:100%}
   .receive-info>div{grid-template-columns:72px minmax(0,1fr)}
 }
+
+
+/* Authentication */
+.auth-shell{
+  min-height:calc(100dvh - 190px);
+  display:grid;
+  grid-template-columns:minmax(0,1fr) minmax(360px,460px);
+  gap:54px;
+  align-items:center;
+  max-width:1040px;
+  margin:0 auto;
+  padding:42px 0 70px
+}
+.auth-brand h2{
+  margin:0 0 12px;
+  color:var(--navy-3);
+  font-size:clamp(42px,6vw,72px);
+  line-height:.98;
+  letter-spacing:-.055em
+}
+.auth-brand p{
+  max-width:520px;
+  margin:0;
+  color:#74828d;
+  font-size:17px;
+  line-height:1.55
+}
+.auth-card{
+  background:#fff;
+  border:1px solid var(--line);
+  border-radius:14px;
+  padding:18px;
+  box-shadow:0 16px 44px rgba(31,55,74,.08);
+  min-width:0
+}
+.auth-tabs{
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:5px;
+  padding:4px;
+  border-radius:10px;
+  background:#eef3f6;
+  margin-bottom:18px
+}
+.auth-tabs button{
+  border:0;
+  background:transparent;
+  color:#687985;
+  border-radius:7px;
+  padding:10px 8px;
+  font-weight:800
+}
+.auth-tabs button.active{
+  background:#fff;
+  color:var(--navy);
+  box-shadow:0 2px 8px rgba(24,48,66,.08)
+}
+.auth-form{display:none;gap:12px}
+.auth-form.active{display:grid}
+.auth-form-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.auth-form label span{
+  display:block;
+  margin-bottom:5px;
+  color:#778691;
+  font-size:11px
+}
+.auth-form input{
+  width:100%;
+  min-width:0;
+  border:1px solid #d2dce3;
+  background:#fff;
+  color:var(--text);
+  border-radius:8px;
+  padding:12px;
+  outline:0
+}
+.auth-form input:focus{
+  border-color:#9fb2bf;
+  box-shadow:0 0 0 3px rgba(46,83,108,.08)
+}
+.auth-submit{width:100%;margin-top:2px}
+.auth-submit:disabled{opacity:.6;cursor:wait}
+.auth-hint{color:#8a97a1;line-height:1.45}
+.auth-status{
+  min-height:20px;
+  margin-top:12px;
+  font-size:12px;
+  color:#7d8a94;
+  line-height:1.45
+}
+.auth-status.error{
+  color:#a34a4a;
+  background:#fff0f0;
+  border:1px solid #f0d2d2;
+  border-radius:7px;
+  padding:9px 10px
+}
+.auth-status.success{
+  color:#2f7753;
+  background:#edf8f1;
+  border:1px solid #d3eadd;
+  border-radius:7px;
+  padding:9px 10px
+}
+.account-logout{
+  width:calc(100% - 16px);
+  margin:0 8px 8px;
+  border:1px solid #d7dfe4;
+  background:#fff;
+  color:#7b8993;
+  border-radius:8px;
+  padding:10px 12px;
+  text-align:left;
+  font-weight:700
+}
+.account-logout[hidden]{display:none}
+
+@media(max-width:900px){
+  .auth-shell{grid-template-columns:1fr;gap:26px;max-width:620px;padding-top:26px}
+  .auth-brand h2{font-size:48px}
+}
+@media(max-width:680px){
+  .auth-shell{
+    display:block;
+    min-height:0;
+    padding:16px 0 30px
+  }
+  .auth-brand{padding:6px 4px 20px}
+  .auth-brand h2{font-size:38px}
+  .auth-brand p{font-size:14px}
+  .auth-card{padding:13px;border-radius:10px}
+  .auth-form-grid{grid-template-columns:1fr}
+  .auth-tabs button{font-size:12px}
+}
