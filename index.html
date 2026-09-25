@@ -6,7 +6,7 @@
   <meta name="theme-color" content="#17324a" />
   <title>ZapFormat — автозапчасти</title>
   <meta name="description" content="Умный поиск автозапчастей по артикулу, VIN и обычному запросу" />
-  <link rel="stylesheet" href="./styles.css" />
+  <link rel="stylesheet" href="./styles.css?v=20260925-0916" />
 </head>
 <body>
   <div class="app">
@@ -363,6 +363,67 @@
           </div>
         </div>
       </section>
+
+      <section class="view" id="view-cart">
+        <button class="back-link" id="cartBackButton">← Назад</button>
+
+        <div class="checkout-title">Оформить заказ</div>
+
+        <div class="cart-livebar">
+          <div>
+            <b id="cartRefreshStatus">Цены и наличие проверены</b>
+            <span id="cartRefreshTime">только что</span>
+          </div>
+          <button id="refreshCartButton" type="button">Обновить сейчас</button>
+        </div>
+
+        <div id="cartChangeNotice" class="cart-change-notice" hidden></div>
+
+        <div class="order-table-wrap">
+          <div class="order-table-head">
+            <span>№</span>
+            <span>✓</span>
+            <span>Бренд</span>
+            <span>Артикул</span>
+            <span>Описание</span>
+            <span>Склад</span>
+            <span>Срок</span>
+            <span>Кол-во</span>
+            <span>Наличие</span>
+            <span>Цена, ₽</span>
+            <span>Сумма, ₽</span>
+            <span>Комментарий</span>
+            <span></span>
+          </div>
+          <div id="orderCartRows"></div>
+        </div>
+
+        <div class="cart-total-row">
+          <span>Сумма:</span>
+          <strong id="orderCartTotal">0 ₽</strong>
+        </div>
+
+        <div class="cart-bulk-actions">
+          <button id="clearCartButton" type="button">⌫ Очистить корзину</button>
+          <button id="deleteSelectedButton" type="button">× Удалить отмеченное</button>
+          <button id="saveCartButton" type="button">✓ Сохранить</button>
+        </div>
+
+        <button class="checkout-order-button" id="checkoutOrderButton" type="button">Оформить заказ</button>
+
+        <details class="cart-import">
+          <summary>Загрузить корзину из файла</summary>
+          <div class="cart-import-body">
+            <input type="file" id="cartFileInput" accept=".csv,.txt" />
+            <small>CSV/TXT: артикул, количество.</small>
+          </div>
+        </details>
+
+        <div class="order-warning">
+          Заказ формируется только из отмеченных позиций. Неотмеченные остаются в корзине.
+        </div>
+      </section>
+
     </main>
 
 
@@ -374,7 +435,7 @@
     </nav>
 </div>
 
-  <script src="./config.js"></script>
-  <script src="./app.js"></script>
+  <script src="./config.js?v=20260925-0916"></script>
+  <script src="./app.js?v=20260925-0916"></script>
 </body>
 </html>
