@@ -6,7 +6,7 @@
   <meta name="theme-color" content="#17324a" />
   <title>ZapFormat — автозапчасти</title>
   <meta name="description" content="Умный поиск автозапчастей по артикулу, VIN и обычному запросу" />
-  <link rel="stylesheet" href="./styles.css?v=20260925-qa6" />
+  <link rel="stylesheet" href="./styles.css?v=20260925-qa7" />
 </head>
 <body>
   <div class="app">
@@ -39,7 +39,7 @@
                 id="searchInput"
                 rows="1"
                 autocomplete="off"
-                placeholder="Артикул, VIN или название детали"
+                placeholder="Артикул / VIN / деталь"
               ></textarea>
               <button type="submit">Найти</button>
             </form>
@@ -373,7 +373,7 @@
       <section class="view" id="view-cart">
         <button class="back-link" id="cartBackButton">← Назад</button>
 
-        <div class="checkout-title">Оформить заказ</div>
+        <div class="checkout-title">Корзина</div>
 
         <div class="cart-livebar">
           <div>
@@ -384,15 +384,7 @@
         </div>
 
         <div id="cartChangeNotice" class="cart-change-notice" hidden></div>
-
-        <div class="cart-bulk-actions cart-bulk-actions-top" aria-label="Действия с корзиной">
-          <button type="button" data-cart-action="clear">⌫ Очистить</button>
-          <button type="button" data-cart-action="delete-selected">× Удалить отмеченное</button>
-          <button type="button" data-cart-action="save">✓ Сохранить</button>
-        </div>
-        <button class="checkout-order-button cart-checkout-top" type="button" data-cart-action="checkout">Оформить заказ</button>
-
-        <div class="order-table-wrap">
+<div class="order-table-wrap">
           <div class="order-table-head">
             <span>№</span>
             <span>✓</span>
@@ -449,6 +441,6 @@
 </div>
 
   <script src="./config.js?v=20260925-qa6"></script>
-  <script src="./app.js?v=20260925-qa6"></script>
+  <script src="./app.js?v=20260925-qa7"></script>
 </body>
 </html>
