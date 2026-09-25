@@ -7,7 +7,8 @@
   "scripts": {
     "start": "node src/server.js",
     "dev": "node --watch src/server.js",
-    "db:migrate": "psql \"$DATABASE_URL\" -f db/001_init.sql && psql \"$DATABASE_URL\" -f db/002_garage_owner_app.sql"
+    "db:migrate": "psql \"$DATABASE_URL\" -f db/001_init.sql && psql \"$DATABASE_URL\" -f db/002_garage_owner_app.sql",
+    "test": "node --test"
   },
   "engines": {
     "node": ">=20"
