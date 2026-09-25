@@ -311,6 +311,11 @@ function saveGarageState(){
 
 
 function retail(p){ return Math.round(p * (1 + MARKUP/100)); }
+function itemRetail(item){
+  const live=Number(item?.retailPrice);
+  if(Number.isFinite(live) && live>=0) return Math.round(live);
+  return retail(Number(item?.purchase||0));
+}
 function rub(n){ return new Intl.NumberFormat("ru-RU").format(n) + " ₽"; }
 
 function showToast(message,type=""){
@@ -530,7 +535,57 @@ function navigate(route, push=true){
   }
 }
 
-function search(query){
+async function tryLiveArticle(raw){
+  if(!backendConfigured()) return false;
+
+  const article=String(raw||"").trim();
+  const compact=article.replace(/[^A-Za-zА-Яа-я0-9-]/g,"");
+  if(compact.length<4 || compact.length>32 || /\s/.test(article)) return false;
+
+  try{
+    const brandsData=await apiRequest("/api/catalog/brands?number="+encodeURIComponent(article));
+    const brands=(brandsData?.brands||[]).filter(x=>x?.brand);
+    if(!brands.length) return false;
+
+    const preferred=brands.find(x=>x.available) || brands[0];
+    const offersData=await apiRequest(
+      "/api/catalog/offers?number="+encodeURIComponent(preferred.article||article)+
+      "&brand="+encodeURIComponent(preferred.brand)
+    );
+    const offers=Array.isArray(offersData?.offers) ? offersData.offers : [];
+    if(!offers.length) return false;
+
+    const key="live:"+article.toUpperCase();
+    const exact=offers.map((o,index)=>({
+      id:"live-"+Date.now()+"-"+index,
+      type:"exact",
+      brand:o.brand||preferred.brand,
+      article:o.article||preferred.article||article,
+      name:o.description||preferred.description||"Автозапчасть",
+      warehouse:"PartGrade",
+      source:"Живое предложение",
+      purchase:0,
+      retailPrice:Number(o.price||0),
+      qty:Number(o.availability||0),
+      days:Math.max(0,Math.ceil(Number(o.delivery_hours||0)/24)),
+      live:true
+    }));
+
+    datasets[key]={
+      title:(preferred.brand+" "+(preferred.article||article)).trim(),
+      subtitle:preferred.description||exact[0].name||"Результат PartGrade",
+      exact,
+      analogs:[]
+    };
+    currentKey=key;
+    return true;
+  }catch(error){
+    console.warn("Live PartGrade search unavailable",error);
+    return false;
+  }
+}
+
+async function search(query){
   const raw=(query||"").trim();
   if(!raw) return;
 
@@ -541,7 +596,8 @@ function search(query){
     filtersToggle.setAttribute("aria-expanded","false");
   }
 
-  currentKey=resolveDataset(raw);
+  const liveLoaded=await tryLiveArticle(raw);
+  if(!liveLoaded) currentKey=resolveDataset(raw);
   const data=datasets[currentKey];
 
   const title=document.getElementById("resultTitle");
@@ -550,7 +606,7 @@ function search(query){
   const secondary=document.getElementById("searchInput2");
 
   if(title) title.textContent=data.title;
-  if(subtitle) subtitle.textContent=data.subtitle+" · точные предложения и аналоги";
+  if(subtitle) subtitle.textContent=data.subtitle+(String(currentKey).startsWith("live:")?" · данные PartGrade":" · точные предложения и аналоги");
   if(heading) heading.textContent=data.subtitle;
   if(secondary) secondary.value=raw;
 
@@ -566,8 +622,8 @@ function baseList(type){
   if(currentFilter==="analog" && type!=="analog") return [];
   if(currentFilter==="fast") list=list.filter(x=>x.days<=2);
   if(currentFilter==="stock") list=list.filter(x=>x.qty>0);
-  if(currentSort==="price") list.sort((a,b)=>retail(a.purchase)-retail(b.purchase));
-  if(currentSort==="speed") list.sort((a,b)=>a.days-b.days || retail(a.purchase)-retail(b.purchase));
+  if(currentSort==="price") list.sort((a,b)=>itemRetail(a)-itemRetail(b));
+  if(currentSort==="speed") list.sort((a,b)=>a.days-b.days || itemRetail(a)-itemRetail(b));
   if(currentSort==="stock") list.sort((a,b)=>b.qty-a.qty);
   if(currentSort==="warehouse") list.sort((a,b)=>{
     const an=Number(String(a.warehouse).replace(/\D/g,""));
@@ -593,7 +649,7 @@ function supplyRowHtml(x){
         </div>
         <span class="supply-warehouse">${x.source}</span>
       </div>
-      <div class="supply-price">${rub(retail(x.purchase))}</div>
+      <div class="supply-price">${rub(itemRetail(x))}</div>
       <div class="supply-stock">${x.qty} шт.</div>
       <button class="cart-icon-btn" data-add="${x.id}" aria-label="В корзину">${cartSvg()}</button>
     </div>`;
@@ -666,7 +722,7 @@ function changeQty(id,delta){
 function addToCart(id,btn){
   const item=findItem(id); if(!item) return;
   const orderQty=quantities[id]||1;
-  const price=retail(item.purchase);
+  const price=itemRetail(item);
   const existing=cart.find(x=>x.id===id);
   if(existing){
     existing.orderQty+=orderQty;
@@ -713,7 +769,7 @@ function refreshCartOffers(){
     const live=findItem(item.id);
     if(!live) return;
 
-    const nextPrice=retail(live.purchase);
+    const nextPrice=itemRetail(live);
     const nextAvailable=live.qty;
 
     item.previousPrice=item.price;
@@ -1154,7 +1210,7 @@ function repeatOrder(id){
     const item=findCatalogItemById(position.sourceId);
     if(!item) continue;
     const existing=cart.find(x=>x.id===item.id);
-    const price=retail(item.purchase);
+    const price=itemRetail(item);
     if(existing){
       existing.orderQty+=position.qty;
       existing.selected=true;
