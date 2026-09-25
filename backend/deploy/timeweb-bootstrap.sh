@@ -14,6 +14,20 @@ if [[ "${EUID}" -ne 0 ]]; then
   exit 1
 fi
 
+# Never replace an existing application directory that is not this repository.
+if [[ -e "${APP_DIR}" ]]; then
+  if [[ ! -d "${APP_DIR}/.git" ]]; then
+    echo "${APP_DIR} уже существует и не является git-репозиторием. Ничего не удалено."
+    exit 1
+  fi
+  if [[ "$(git -C "${APP_DIR}" remote get-url origin)" != "${REPO_URL}" ]] ||
+     [[ "$(git -C "${APP_DIR}" branch --show-current)" != "main" ]] ||
+     [[ -n "$(git -C "${APP_DIR}" status --porcelain)" ]]; then
+    echo "Существующая копия ${APP_DIR} отличается от чистой ветки main ZapFormat. Ничего не перезаписано."
+    exit 1
+  fi
+fi
+
 echo "=== ZapFormat · быстрый deploy PartGrade backend ==="
 read -r -p "Логин PartGrade: " PG_LOGIN
 read -r -s -p "Временный пароль PartGrade: " PG_PASSWORD
@@ -42,36 +56,75 @@ fi
 
 if [[ -d "${APP_DIR}/.git" ]]; then
   git -C "${APP_DIR}" fetch origin main
-  git -C "${APP_DIR}" reset --hard origin/main
+  git -C "${APP_DIR}" merge --ff-only origin/main
 else
-  rm -rf "${APP_DIR}"
   git clone --branch main --depth 1 "${REPO_URL}" "${APP_DIR}"
 fi
 
 cd "${APP_DIR}/backend"
-npm install --omit=dev
+if [[ -f package-lock.json ]]; then
+  npm ci --omit=dev
+else
+  npm install --omit=dev --package-lock=false
+fi
 
 mkdir -p "${ENV_DIR}"
-cat > "${ENV_FILE}" <<EOF
-NODE_ENV=production
-PORT=3000
-HOST=127.0.0.1
-FRONTEND_ORIGINS=https://korrestconsult.github.io
-COOKIE_NAME=zf_session
-COOKIE_SAME_SITE=none
-SESSION_DAYS=30
+export ZF_PG_LOGIN="${PG_LOGIN}" ZF_PG_HASH="${PG_HASH}"
+python3 - "${ENV_FILE}" <<'PY'
+import os
+import pathlib
+import tempfile
+import sys
 
-PARTGRADE_API_BASE=https://auto-complekt.public.api.abcp.ru
-PARTGRADE_API_LOGIN=${PG_LOGIN}
-PARTGRADE_API_PASSWORD_MD5=${PG_HASH}
-PARTGRADE_API_TIMEOUT_MS=12000
-
-DEFAULT_MARKUP_PERCENT=15
-MIN_MARKUP_RUB=0
-EOF
-chmod 600 "${ENV_FILE}"
+path = pathlib.Path(sys.argv[1])
+values = {
+    "NODE_ENV": "production",
+    "PORT": "3000",
+    "HOST": "127.0.0.1",
+    "FRONTEND_ORIGINS": "https://korrestconsult.github.io",
+    "COOKIE_NAME": "zf_session",
+    "COOKIE_SAME_SITE": "none",
+    "SESSION_DAYS": "30",
+    "PARTGRADE_API_BASE": "https://auto-complekt.public.api.abcp.ru",
+    "PARTGRADE_API_LOGIN": os.environ["ZF_PG_LOGIN"],
+    "PARTGRADE_API_PASSWORD_MD5": os.environ["ZF_PG_HASH"],
+    "PARTGRADE_API_TIMEOUT_MS": "12000",
+    "DEFAULT_MARKUP_PERCENT": "15",
+    "MIN_MARKUP_RUB": "0",
+}
+if any(c in values["PARTGRADE_API_LOGIN"] for c in '\r\n\x00'):
+    raise SystemExit("Недопустимые символы в логине; ENV не изменён")
+original = path.read_text() if path.exists() else ""
+lines = original.splitlines()
+present = {line.split('=', 1)[0] for line in lines if '=' in line}
+changed = set()
+updated = []
+for line in lines:
+    key = line.split('=', 1)[0] if '=' in line else None
+    if key in values:
+        if key in changed:
+            continue
+        updated.append(f'{key}={values[key]}' if key.startswith('PARTGRADE_') else line)
+        changed.add(key)
+    else:
+        updated.append(line)
+updated += [f'{key}={value}' for key, value in values.items() if key not in present]
+fd, temp_path = tempfile.mkstemp(prefix='.zf-env-', dir=path.parent)
+try:
+    with os.fdopen(fd, 'w') as out:
+        out.write('\n'.join(updated) + '\n')
+    os.chmod(temp_path, 0o600)
+    os.replace(temp_path, path)
+finally:
+    if os.path.exists(temp_path):
+        os.unlink(temp_path)
+PY
+unset ZF_PG_LOGIN ZF_PG_HASH PG_HASH PG_LOGIN
 chown root:root "${ENV_FILE}"
 
+if [[ -e "${SERVICE_FILE}" ]]; then
+  cp -p "${SERVICE_FILE}" "${SERVICE_FILE}.zapformat-backup-$(date +%Y%m%d%H%M%S)"
+fi
 cat > "${SERVICE_FILE}" <<'EOF'
 [Unit]
 Description=ZapFormat API
@@ -96,6 +149,7 @@ EOF
 chown -R zapformat:zapformat "${APP_DIR}"
 systemctl daemon-reload
 systemctl enable --now zapformat-api
+systemctl restart zapformat-api
 sleep 2
 
 echo
@@ -108,6 +162,9 @@ curl -fsS http://127.0.0.1:3000/api/health || {
 }
 echo
 
+if [[ -e "${NGINX_FILE}" ]]; then
+  cp -p "${NGINX_FILE}" "${NGINX_FILE}.zapformat-backup-$(date +%Y%m%d%H%M%S)"
+fi
 cat > "${NGINX_FILE}" <<EOF
 server {
     listen 80;
@@ -126,7 +183,6 @@ server {
 EOF
 
 ln -sfn "${NGINX_FILE}" /etc/nginx/sites-enabled/zapformat-api
-rm -f /etc/nginx/sites-enabled/default
 nginx -t
 systemctl reload nginx
 
@@ -144,9 +200,17 @@ echo "Проверка публичного API:"
 curl -fsS "https://${API_HOST}/api/health"
 echo
 
+echo "Проверка PartGrade:"
+if ! curl -fsS "https://${API_HOST}/api/supplier/health"; then
+  echo
+  echo "Backend запущен, но проверка поставщика не прошла. Поиск будет проверен отдельно."
+fi
+echo
+
 echo
 echo "Проверка PartGrade PATRON PRS3420:"
-HTTP_CODE="$(curl -sS -o /tmp/zf-offers.json -w '%{http_code}'   "https://${API_HOST}/api/catalog/offers?number=PRS3420&brand=PATRON")"
+HTTP_CODE="$(curl -sS -o /tmp/zf-offers.json -w '%{http_code}' \
+  "https://${API_HOST}/api/catalog/offers?number=PRS3420&brand=PATRON")"
 echo "HTTP: ${HTTP_CODE}"
 python3 - <<'PY'
 import json
@@ -166,12 +230,19 @@ if isinstance(data,dict) and isinstance(data.get("offers"),list):
             "availability":x.get("availability"),
             "delivery_hours":x.get("delivery_hours"),
         })
+    if not data["offers"]:
+        raise SystemExit("Поиск ответил HTTP 200, но живых предложений нет")
 else:
     print(data)
 PY
 
+if [[ "${HTTP_CODE}" != "200" ]]; then
+  echo "Backend работает, но живой поиск PartGrade пока не работает (HTTP ${HTTP_CODE})."
+  exit 4
+fi
+
 echo
-echo "=== Готово ==="
+echo "=== Backend доступен, проверка ответа поиска завершена ==="
 echo "API: https://${API_HOST}"
 echo "Сайт: https://korrestconsult.github.io/ZapFormat/"
-echo "Если выше HTTP 200 и есть предложения — живая цепочка PartGrade → ZapFormat работает."
+echo "Проверка frontend и оформления заказа — отдельные шаги после подтверждения живых предложений."
