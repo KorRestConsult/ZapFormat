@@ -1407,3 +1407,342 @@ html,body,.app{max-width:100%;overflow-x:hidden}
   .garage-service-price{font-size:13px}
   .garage-service-summary{border-radius:9px;padding:14px}
 }
+
+
+/* Dense cabinet/order mobile pass */
+.order-detail-toolbar{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:12px;
+  margin-bottom:12px
+}
+.order-detail-toolbar .order-detail-back{margin:0}
+.order-repeat-compact{
+  border:1px solid #cbd6dd;
+  background:#fff;
+  color:var(--navy);
+  border-radius:7px;
+  padding:7px 10px;
+  font-size:11px;
+  font-weight:850
+}
+.order-quickfacts{
+  display:grid;
+  grid-template-columns:repeat(4,minmax(0,1fr));
+  background:#fff;
+  border:1px solid var(--line);
+  border-radius:10px;
+  box-shadow:var(--shadow);
+  margin-bottom:8px;
+  overflow:hidden
+}
+.order-quickfacts>div{
+  padding:10px 12px;
+  border-right:1px solid #edf1f3;
+  min-width:0
+}
+.order-quickfacts>div:last-child{border-right:0}
+.order-quickfacts span,.order-quickfacts b{display:block}
+.order-quickfacts span{font-size:9px;color:#8c98a2;margin-bottom:3px}
+.order-quickfacts b{font-size:12px;color:#405766;overflow-wrap:anywhere}
+.order-detail-grid.single{grid-template-columns:1fr}
+
+@media(max-width:680px){
+  /* tighter shell */
+  main{padding:10px 10px 82px}
+  .topbar-inner{height:56px!important;padding:0 10px!important}
+  .logo-main,.logo-ai{font-size:18px}
+  .cart-pill{
+    width:42px;
+    height:42px;
+    padding:0!important;
+    display:grid;
+    place-items:center
+  }
+  .cart-pill b{min-width:24px;height:24px;font-size:11px}
+
+  /* account navigation: separate readable pills, not one merged sentence */
+  .account-shell{gap:6px}
+  .account-sidebar{
+    position:static;
+    border:0;
+    background:transparent;
+    border-radius:0;
+    box-shadow:none;
+    overflow:visible
+  }
+  .account-user{display:none}
+  .account-nav{
+    display:flex;
+    gap:5px;
+    overflow-x:auto;
+    padding:1px 0 5px;
+    margin:0;
+    background:transparent;
+    scrollbar-width:none;
+    -webkit-overflow-scrolling:touch;
+    scroll-snap-type:x proximity
+  }
+  .account-nav::-webkit-scrollbar{display:none}
+  .account-nav button{
+    flex:0 0 auto;
+    min-width:max-content;
+    scroll-snap-align:start;
+    white-space:nowrap;
+    border:1px solid #d9e1e6;
+    background:#fff;
+    color:#667986;
+    border-radius:7px;
+    padding:7px 10px;
+    font-size:10px;
+    line-height:1;
+    font-weight:750
+  }
+  .account-nav button.active{
+    background:#e8eef2;
+    border-color:#bfcdd6;
+    color:var(--navy);
+    font-weight:900
+  }
+  .account-logout{display:none!important}
+
+  /* compact order header */
+  .order-detail-head{
+    padding:11px 12px 12px;
+    margin-bottom:7px;
+    border-radius:9px;
+    box-shadow:0 2px 8px rgba(31,55,74,.04)
+  }
+  .order-detail-toolbar{margin-bottom:9px}
+  .order-detail-back{
+    font-size:11px;
+    font-weight:850
+  }
+  .order-repeat-compact{
+    padding:6px 9px;
+    font-size:10px
+  }
+  .order-detail-title{
+    display:grid;
+    grid-template-columns:minmax(0,1fr) auto;
+    gap:10px;
+    align-items:end
+  }
+  .order-detail-title .eyebrow{
+    font-size:8px;
+    margin-bottom:3px;
+    letter-spacing:.11em
+  }
+  .order-detail-title h2{
+    font-size:27px;
+    line-height:1;
+    letter-spacing:-.035em
+  }
+  .order-detail-title p{
+    margin-top:4px;
+    font-size:10px;
+    line-height:1.2
+  }
+  .order-detail-state{
+    gap:5px;
+    align-self:end
+  }
+  .order-detail-state>b{
+    font-size:18px;
+    line-height:1
+  }
+  .order-detail-state .status{
+    padding:5px 7px;
+    font-size:8px;
+    line-height:1;
+    white-space:nowrap
+  }
+
+  /* one dense information strip instead of four large cards */
+  .order-quickfacts{
+    grid-template-columns:repeat(4,minmax(0,1fr));
+    margin-bottom:7px;
+    border-radius:8px;
+    box-shadow:none
+  }
+  .order-quickfacts>div{
+    padding:7px 6px;
+    text-align:left
+  }
+  .order-quickfacts span{
+    font-size:8px;
+    margin-bottom:2px;
+    white-space:nowrap
+  }
+  .order-quickfacts b{
+    font-size:10px;
+    line-height:1.2
+  }
+
+  /* tracking stays prominent but compact */
+  .order-detail-block{
+    padding:10px 11px;
+    margin-bottom:7px;
+    border-radius:9px;
+    box-shadow:0 2px 8px rgba(31,55,74,.035)
+  }
+  .order-detail-block-head{margin-bottom:9px}
+  .order-detail-block-head .eyebrow{
+    font-size:8px;
+    margin-bottom:4px
+  }
+  .order-detail-block-head h3{
+    font-size:15px;
+    line-height:1.15
+  }
+  .order-timeline{
+    grid-template-columns:1fr;
+    gap:7px
+  }
+  .timeline-step{
+    min-height:28px;
+    padding-left:22px
+  }
+  .timeline-step:before{
+    left:6px;
+    top:8px;
+    bottom:-10px
+  }
+  .timeline-dot{
+    left:1px;
+    top:4px;
+    width:11px;
+    height:11px
+  }
+  .timeline-copy small{
+    font-size:8px;
+    margin-bottom:1px
+  }
+  .timeline-copy b{
+    font-size:10px;
+    line-height:1.2
+  }
+
+  /* position = dense professional row/card */
+  .positions-block{padding:10px}
+  .order-positions{gap:6px}
+  .order-position{
+    border-radius:8px;
+    background:#fff
+  }
+  .position-top{
+    grid-template-columns:22px minmax(0,1fr) auto;
+    gap:7px;
+    padding:8px 9px
+  }
+  .position-index{
+    width:20px;
+    height:20px;
+    border-radius:5px;
+    font-size:8px
+  }
+  .position-top .status{
+    grid-column:3;
+    grid-row:1;
+    align-self:start;
+    justify-self:end;
+    margin:0;
+    padding:5px 6px;
+    font-size:8px
+  }
+  .position-brand-row{
+    display:flex;
+    flex-wrap:wrap;
+    gap:2px 6px
+  }
+  .position-brand-row b{font-size:11px}
+  .position-brand-row span{font-size:9px}
+  .position-title h3{
+    margin-top:2px;
+    font-size:10px;
+    line-height:1.25
+  }
+
+  .position-meta{
+    grid-template-columns:repeat(5,minmax(0,1fr))
+  }
+  .position-meta>div,
+  .position-meta>div:nth-child(n+3){
+    padding:6px 5px;
+    border-top:0
+  }
+  .position-meta>div:nth-child(odd),
+  .position-meta>div:nth-child(even){
+    border-right:1px solid #edf1f3
+  }
+  .position-meta>div:last-child{border-right:0}
+  .position-meta small{
+    font-size:7px;
+    margin-bottom:2px;
+    white-space:nowrap
+  }
+  .position-meta b{
+    font-size:9px;
+    line-height:1.15
+  }
+
+  .position-timeline{
+    padding:9px 6px 7px;
+    gap:2px
+  }
+  .position-timeline .timeline-step{
+    min-height:0;
+    padding:12px 2px 0;
+    border-top-width:2px
+  }
+  .position-timeline .timeline-dot{
+    top:-6px;
+    width:9px;
+    height:9px
+  }
+  .position-timeline .timeline-copy b{
+    font-size:7px;
+    line-height:1.1
+  }
+  .position-actions{
+    min-height:0;
+    padding:6px 8px
+  }
+  .position-return{
+    width:auto;
+    padding:6px 8px;
+    font-size:9px
+  }
+
+  /* receiving/comment details */
+  .order-detail-grid{gap:7px}
+  .order-comment,.receive-note{
+    font-size:10px;
+    line-height:1.35
+  }
+  .receive-info>div{
+    grid-template-columns:62px minmax(0,1fr);
+    gap:8px;
+    padding:6px 0;
+    font-size:10px
+  }
+  .receive-note{margin-top:7px}
+
+  /* bottom navigation should not cover half the page */
+  .mobile-nav{
+    left:10px;
+    right:10px;
+    bottom:max(8px,env(safe-area-inset-bottom));
+    height:54px;
+    border-radius:13px;
+    padding:0 3px;
+    box-shadow:0 8px 20px rgba(12,30,44,.22)
+  }
+  .mobile-nav button{
+    flex:1;
+    font-size:10px;
+    padding:8px 3px;
+    font-weight:750
+  }
+}
