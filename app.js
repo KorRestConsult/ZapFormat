@@ -796,16 +796,32 @@ function deleteSelected(){
 
 function saveCartManual(){
   localStorage.setItem("zapformat-cart",JSON.stringify(cart));
-  const btn=document.getElementById("saveCartButton");
-  if(btn){
+  const buttons=document.querySelectorAll('#saveCartButton,[data-cart-action="save"]');
+  buttons.forEach(btn=>{
     const old=btn.textContent;
     btn.textContent="✓ Сохранено";
     setTimeout(()=>btn.textContent=old,900);
-  }
+  });
+}
+
+function checkoutCart(){
+  const selected=selectedCartItems();
+  if(!selected.length){ alert("Отметьте хотя бы одну доступную позицию."); return; }
+  alert("Заказ готов к отправке. Реальную отправку подключим к серверной части.");
 }
 
 
 document.addEventListener("click",e=>{
+  const cartAction=e.target.closest("[data-cart-action]");
+  if(cartAction){
+    const action=cartAction.dataset.cartAction;
+    if(action==="clear") clearCart();
+    else if(action==="delete-selected") deleteSelected();
+    else if(action==="save") saveCartManual();
+    else if(action==="checkout") checkoutCart();
+    return;
+  }
+
   const route=e.target.closest("[data-route]"); if(route){ navigate(route.dataset.route); return; }
   const query=e.target.closest("[data-query]"); if(query){ search(query.dataset.query); return; }
   const filter=e.target.closest("[data-filter]");
@@ -896,11 +912,7 @@ document.getElementById("refreshCartButton")?.addEventListener("click",refreshCa
 document.getElementById("clearCartButton")?.addEventListener("click",clearCart);
 document.getElementById("deleteSelectedButton")?.addEventListener("click",deleteSelected);
 document.getElementById("saveCartButton")?.addEventListener("click",saveCartManual);
-document.getElementById("checkoutOrderButton")?.addEventListener("click",()=>{
-  const selected=selectedCartItems();
-  if(!selected.length){ alert("Отметьте хотя бы одну доступную позицию."); return; }
-  alert("Заказ готов к отправке. Реальную отправку подключим к серверной части.");
-});
+document.getElementById("checkoutOrderButton")?.addEventListener("click",checkoutCart);
 document.getElementById("cartBackButton")?.addEventListener("click",()=>history.back());
 
 document.getElementById("cartFileInput")?.addEventListener("change",async e=>{
@@ -1492,8 +1504,11 @@ function showAccountTab(tab){
   const navTab=tab==="order-detail" ? "orders" : tab;
   document.querySelectorAll('[data-account-tab="'+navTab+'"]').forEach(x=>x.classList.add("active"));
   if(tab==="garage") renderGarageApp();
-  if(tab==="orders" || tab==="order-detail") syncMobileNav("orders");
-  else if(tab==="garage") syncMobileNav("garage");
+  const profileViewActive=document.getElementById("view-profile")?.classList.contains("active");
+  if(profileViewActive){
+    if(tab==="orders" || tab==="order-detail") syncMobileNav("orders");
+    else if(tab==="garage") syncMobileNav("garage");
+  }
   try{ localStorage.setItem("zapformat-account-tab",tab); }catch{}
 }
 
