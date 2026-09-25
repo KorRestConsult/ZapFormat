@@ -312,6 +312,22 @@ function saveGarageState(){
 
 function retail(p){ return Math.round(p * (1 + MARKUP/100)); }
 function rub(n){ return new Intl.NumberFormat("ru-RU").format(n) + " ₽"; }
+
+function showToast(message,type=""){
+  let root=document.getElementById("appToast");
+  if(!root){
+    root=document.createElement("div");
+    root.id="appToast";
+    root.className="app-toast";
+    root.setAttribute("role","status");
+    root.setAttribute("aria-live","polite");
+    document.body.appendChild(root);
+  }
+  root.textContent=message;
+  root.className="app-toast show"+(type?" "+type:"");
+  clearTimeout(showToast._timer);
+  showToast._timer=setTimeout(()=>root.classList.remove("show"),2400);
+}
 function loadCart(){
   try{
     const raw=JSON.parse(localStorage.getItem("zapformat-cart") || "[]");
@@ -518,6 +534,13 @@ function search(query){
   const raw=(query||"").trim();
   if(!raw) return;
 
+  document.querySelector(".compact-filters")?.classList.remove("open");
+  const filtersToggle=document.querySelector(".filters-toggle");
+  if(filtersToggle){
+    filtersToggle.textContent="Показать фильтры";
+    filtersToggle.setAttribute("aria-expanded","false");
+  }
+
   currentKey=resolveDataset(raw);
   const data=datasets[currentKey];
 
@@ -546,6 +569,12 @@ function baseList(type){
   if(currentSort==="price") list.sort((a,b)=>retail(a.purchase)-retail(b.purchase));
   if(currentSort==="speed") list.sort((a,b)=>a.days-b.days || retail(a.purchase)-retail(b.purchase));
   if(currentSort==="stock") list.sort((a,b)=>b.qty-a.qty);
+  if(currentSort==="warehouse") list.sort((a,b)=>{
+    const an=Number(String(a.warehouse).replace(/\D/g,""));
+    const bn=Number(String(b.warehouse).replace(/\D/g,""));
+    if(Number.isFinite(an) && Number.isFinite(bn) && an!==bn) return an-bn;
+    return String(a.warehouse).localeCompare(String(b.warehouse),"ru",{numeric:true});
+  });
   return list;
 }
 
@@ -806,8 +835,8 @@ function saveCartManual(){
 
 function checkoutCart(){
   const selected=selectedCartItems();
-  if(!selected.length){ alert("Отметьте хотя бы одну доступную позицию."); return; }
-  alert("Заказ готов к отправке. Реальную отправку подключим к серверной части.");
+  if(!selected.length){ showToast("Отметьте хотя бы одну доступную позицию.","warn"); return; }
+  showToast("Корзина готова к оформлению. Подключение отправки заказа — следующий серверный этап.");
 }
 
 
@@ -824,6 +853,16 @@ document.addEventListener("click",e=>{
 
   const route=e.target.closest("[data-route]"); if(route){ navigate(route.dataset.route); return; }
   const query=e.target.closest("[data-query]"); if(query){ search(query.dataset.query); return; }
+
+  const filtersToggle=e.target.closest(".filters-toggle");
+  if(filtersToggle){
+    const filters=document.querySelector(".compact-filters");
+    const open=filters?.classList.toggle("open");
+    filtersToggle.textContent=open ? "Скрыть фильтры" : "Показать фильтры";
+    filtersToggle.setAttribute("aria-expanded",open ? "true" : "false");
+    return;
+  }
+
   const filter=e.target.closest("[data-filter]");
   if(filter){
     document.querySelectorAll("[data-filter]").forEach(x=>x.classList.remove("active"));
@@ -834,7 +873,7 @@ document.addEventListener("click",e=>{
     document.querySelectorAll("[data-sort]").forEach(x=>x.classList.remove("active"));
     sort.classList.add("active");
     const mode=sort.dataset.sort;
-    currentSort=mode==="warehouse"?"recommended":mode;
+    currentSort=mode;
     renderCatalog();
     return;
   }
@@ -935,7 +974,7 @@ document.getElementById("cartFileInput")?.addEventListener("change",async e=>{
       added++;
     }
   }
-  alert("Добавлено позиций: "+added);
+  showToast("Добавлено позиций: "+added);
   e.target.value="";
 });
 
@@ -1466,7 +1505,7 @@ async function saveGarageVin(){
   const input=document.getElementById("garageVinInput");
   const vin=String(input?.value||"").trim().toUpperCase().replace(/[^A-HJ-NPR-Z0-9]/g,"");
   if(vin.length!==17){
-    alert("VIN должен содержать 17 символов.");
+    showToast("VIN должен содержать 17 символов.","warn");
     input?.focus();
     return;
   }
