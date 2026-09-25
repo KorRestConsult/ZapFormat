@@ -2071,7 +2071,7 @@ html,body,.app{max-width:100%;overflow-x:hidden}
 
 
 /* Mobile cart redesign — compact, readable, no overlapping fields */
-@media(max-width:680px){
+@media(max-width:1100px){
   #view-cart{
     padding-bottom:84px;
   }
@@ -2354,5 +2354,342 @@ html,body,.app{max-width:100%;overflow-x:hidden}
     border-radius:9px;
     font-size:9px;
     line-height:1.35;
+  }
+}
+
+
+/* Cross-device QA pass: desktop / iPad / iPhone */
+html{
+  -webkit-text-size-adjust:100%;
+  text-size-adjust:100%;
+  width:100%;
+  max-width:100%;
+  overflow-x:hidden
+}
+body{
+  width:100%;
+  max-width:100%;
+  min-width:320px;
+  overflow-x:hidden
+}
+.app,main,.view,.account-content,.account-pane,.garage-tab-body,
+.garage-owner-main,.garage-owner-side,.garage-service-main,
+.product-group,.supply-list,.order-table-wrap{
+  min-width:0;
+  max-width:100%
+}
+img,video,canvas{max-width:100%;height:auto}
+svg{max-width:100%}
+input,select,textarea,button{min-width:0}
+button,[role="button"]{touch-action:manipulation}
+input,select,textarea{max-width:100%}
+
+/* Narrow desktop + iPad landscape: prevent the cart table from becoming a horizontal page. */
+@media(max-width:1100px){
+  #view-cart .order-table-head{display:none}
+  #view-cart .order-table-wrap{
+    overflow:visible;
+    border:0;
+    background:transparent
+  }
+  #view-cart .order-cart-row{
+    width:100%;
+    max-width:100%
+  }
+  #view-cart .cart-livebar,
+  #view-cart .cart-total-row,
+  #view-cart .cart-import,
+  #view-cart .order-warning{
+    max-width:100%
+  }
+}
+
+/* iPad portrait and smaller: navigation and account layout stay usable. */
+@media(max-width:900px){
+  main{
+    width:calc(100% - 28px);
+    max-width:100%;
+    padding-bottom:96px
+  }
+  .topbar-inner{
+    width:100%;
+    max-width:100%;
+    padding-left:18px;
+    padding-right:18px
+  }
+
+  .mobile-nav{
+    display:flex;
+    left:50%;
+    right:auto;
+    width:min(620px,calc(100% - 20px));
+    transform:translateX(-50%);
+    bottom:max(8px,env(safe-area-inset-bottom));
+    height:56px;
+    padding:3px;
+    border-radius:15px;
+    background:linear-gradient(180deg,#f7a657 0%,var(--orange) 100%);
+    border:1px solid rgba(130,76,24,.16);
+    box-shadow:0 10px 24px rgba(122,72,25,.22);
+    gap:3px;
+    z-index:65
+  }
+  .mobile-nav button{
+    flex:1;
+    height:48px;
+    padding:0 8px;
+    border:0;
+    border-radius:10px;
+    background:transparent;
+    color:#5c3d21;
+    opacity:.84;
+    font-size:11px;
+    font-weight:800;
+    white-space:nowrap
+  }
+  .mobile-nav button.active{
+    background:#fff;
+    color:var(--navy-3);
+    opacity:1;
+    box-shadow:0 3px 10px rgba(88,51,17,.16)
+  }
+  .mobile-nav b{
+    display:inline-grid;
+    min-width:18px;
+    height:18px;
+    place-items:center;
+    margin-left:2px;
+    padding:0 4px;
+    border-radius:999px;
+    background:rgba(255,255,255,.72);
+    color:#6a401c;
+    font-size:9px
+  }
+  .mobile-nav button.active b{
+    background:var(--navy-3);
+    color:#fff
+  }
+
+  .account-user{display:none}
+  .account-sidebar{
+    position:static;
+    max-width:100%
+  }
+  .account-nav{
+    display:flex;
+    max-width:100%;
+    overflow-x:auto;
+    overscroll-behavior-x:contain;
+    -webkit-overflow-scrolling:touch;
+    scrollbar-width:none
+  }
+  .account-nav::-webkit-scrollbar{display:none}
+  .account-nav button{flex:0 0 auto}
+
+  .garage-vehicle-strip,
+  .garage-tabs{
+    max-width:100%;
+    overflow-x:auto;
+    overscroll-behavior-x:contain;
+    -webkit-overflow-scrolling:touch
+  }
+  .garage-vehicle-strip>button{flex:0 0 auto}
+
+  #view-cart .checkout-title{
+    border-radius:10px;
+    text-align:left
+  }
+  #view-cart .cart-bulk-actions{
+    grid-template-columns:repeat(3,minmax(0,1fr))
+  }
+}
+
+/* iPhone and other narrow phones. */
+@media(max-width:680px){
+  main{
+    width:100%;
+    padding-left:12px;
+    padding-right:12px;
+    padding-bottom:calc(88px + env(safe-area-inset-bottom))
+  }
+  .topbar-inner{
+    width:100%!important;
+    height:62px!important;
+    padding:0 12px!important
+  }
+  .logo{
+    min-width:0;
+    white-space:nowrap
+  }
+  .logo-main,.logo-ai{font-size:20px}
+
+  /* Keep Safari from auto-zooming focused fields and shifting the whole layout. */
+  input,select,textarea{
+    font-size:16px!important
+  }
+  .minimal-search textarea{
+    font-size:16px!important;
+    line-height:1.25
+  }
+
+  .catalog-query-head{
+    min-width:0;
+    gap:10px
+  }
+  .catalog-query-head>div{min-width:0}
+  .catalog-query-head h2{
+    overflow-wrap:anywhere
+  }
+  .sort-row{
+    max-width:100%;
+    overflow:hidden
+  }
+  .sort-row button{
+    flex:0 0 auto
+  }
+
+  .product-title small{
+    max-width:100%
+  }
+  .supply-row{
+    min-width:0
+  }
+  .supply-left{
+    min-width:0;
+    overflow:hidden
+  }
+  .supply-warehouse{
+    min-width:0;
+    overflow:hidden;
+    text-overflow:ellipsis;
+    white-space:nowrap
+  }
+  .supply-price,.supply-stock{white-space:nowrap}
+
+  .account-head,
+  .account-block,
+  .account-table,
+  .garage-owner-head,
+  .garage-car-hero,
+  .garage-mileage-card,
+  .garage-panel,
+  .garage-service-head,
+  .garage-fitment,
+  .garage-service-item,
+  .order-detail-head,
+  .order-detail-block,
+  .order-position{
+    max-width:100%;
+    min-width:0
+  }
+
+  .garage-vin-entry{
+    min-width:0
+  }
+  .garage-vin-entry input{
+    width:100%!important;
+    min-width:0
+  }
+  .garage-measure-form input,
+  .garage-mileage-edit input,
+  .account-form input,
+  .auth-form input,
+  .cart-comment input{
+    width:100%;
+    min-width:0
+  }
+
+  #view-cart{
+    max-width:100%;
+    overflow:hidden
+  }
+  #view-cart .cart-livebar{
+    grid-template-columns:minmax(0,1fr) auto
+  }
+  #view-cart .cart-livebar button{
+    max-width:122px;
+    white-space:normal;
+    line-height:1.15
+  }
+  #view-cart .order-cart-row{
+    overflow:hidden
+  }
+  #view-cart .cart-comment input{
+    font-size:16px!important
+  }
+  #view-cart .cart-bulk-actions{
+    grid-template-columns:1fr
+  }
+  #view-cart .cart-bulk-actions button{
+    min-height:38px;
+    font-size:11px
+  }
+
+  .mobile-nav{
+    width:calc(100% - 20px);
+    height:54px
+  }
+  .mobile-nav button{
+    height:46px;
+    padding:0 3px;
+    font-size:10px
+  }
+}
+
+/* Very small iPhones: trade density for readability instead of squeezing. */
+@media(max-width:390px){
+  .minimal-hero h1{font-size:39px}
+  .minimal-search{
+    grid-template-columns:minmax(0,1fr) 78px;
+    gap:5px
+  }
+  .minimal-search button{
+    padding:0 8px;
+    font-size:11px
+  }
+
+  .supply-row{
+    grid-template-columns:minmax(0,1fr) 66px 48px 34px!important;
+    gap:4px!important
+  }
+  .supply-warehouse{display:none}
+  .supply-price{font-size:12px}
+  .supply-stock{font-size:10px}
+  .cart-icon-btn{width:34px;height:34px}
+
+  .order-quickfacts{
+    grid-template-columns:1fr 1fr!important
+  }
+  .position-meta{
+    grid-template-columns:1fr 1fr!important
+  }
+  .position-meta>div{
+    border-top:1px solid #edf1f3!important
+  }
+  .position-meta>div:nth-child(-n+2){
+    border-top:0!important
+  }
+
+  .garage-next-service,
+  .garage-measure-form{
+    grid-template-columns:1fr!important
+  }
+  .garage-next-service .garage-primary,
+  .garage-measure-form label,
+  .garage-measure-form label:first-child,
+  .garage-measure-note,
+  .garage-measure-actions{
+    grid-column:1!important
+  }
+  .garage-measure-actions{
+    grid-template-columns:1fr!important
+  }
+
+  #view-cart .order-cart-row{
+    grid-template-columns:22px minmax(0,1fr) auto
+  }
+  #view-cart .order-cart-row .price-cell{font-size:12px}
+  #view-cart .cart-stepper{
+    grid-template-columns:24px 30px 24px
   }
 }
