@@ -10,11 +10,9 @@ import urllib.request
 
 HOST = "https://auto-complekt.public.api.abcp.ru"
 
-
 class NoRedirect(urllib.request.HTTPRedirectHandler):
     def redirect_request(self, req, fp, code, msg, headers, newurl):
         return None
-
 
 def request_json(path, login, password_hash, extra=None):
     params = {"userlogin": login, "userpsw": password_hash}
@@ -41,19 +39,39 @@ def request_json(path, login, password_hash, extra=None):
     except (ValueError, UnicodeError):
         return status, {"localError": "invalid_json"}
 
-
-def short_error(data):
+def compact(data):
     if isinstance(data, dict):
         return {
             key: data.get(key)
             for key in ("errorCode", "errorMessage", "message", "localError")
             if data.get(key) is not None
         }
+    if isinstance(data, list):
+        return {"items": len(data)}
     return data
 
+def classify(status, data):
+    if status == 200:
+        return "OK"
+    if isinstance(data, dict):
+        code = data.get("errorCode")
+        if code == 102:
+            return "AUTH_ERROR_102"
+        if code == 103:
+            return "ACCESS_DENIED_103"
+    return "ERROR"
+
+def run_check(title, path, login, password_hash, extra=None):
+    print(f"\n{title}")
+    status, data = request_json(path, login, password_hash, extra)
+    result = classify(status, data)
+    print("HTTP:", status)
+    print("Результат:", result)
+    print(json.dumps(compact(data), ensure_ascii=False))
+    return result, data
 
 def main():
-    print("Диагностика PartGrade API. Ничего не заказываем и не изменяем.")
+    print("Диагностика PartGrade API. Только чтение: ничего не заказываем и не изменяем.")
     print("Логин и пароль вводятся скрыто и не сохраняются.")
     login = getpass.getpass("Логин PartGrade: ").strip()
     password = getpass.getpass("Пароль PartGrade: ")
@@ -67,47 +85,55 @@ def main():
         if candidate not in candidates:
             candidates.append(candidate)
 
-    working_login = None
-    for index, candidate in enumerate(candidates, start=1):
-        print(f"\nШаг 1.{index}: проверяю авторизацию через user/info…")
-        status, data = request_json("/user/info", candidate, password_hash)
-        if status == 200 and isinstance(data, dict) and not data.get("errorCode"):
-            working_login = candidate
-            print("Авторизация подтверждена.")
-            break
-        print("Авторизация не подтверждена.")
-        print("HTTP:", status)
-        print(json.dumps(short_error(data), ensure_ascii=False))
+    overall = []
+    for candidate in candidates:
+        print("\n========================================")
+        print("Проверяю вариант логина:", "[введённый]" if candidate == login else "[нижний регистр]")
 
-    if not working_login:
-        print("\nИтог: проблема НЕ в скачивании скрипта и НЕ в JSON.")
-        print("ABCP не принимает сочетание userlogin + MD5 текущего пароля.")
-        print("Нужно у PartGrade подтвердить точный API-login и активацию API для этого кабинета.")
+        checks = [
+            ("1) user/info — базовая авторизация", "/user/info", None),
+            ("2) search/brands — поиск бренда по PRS3420", "/search/brands/", {"number": "PRS3420", "locale": "ru_RU"}),
+            ("3) search/articles — предложения PATRON PRS3420", "/search/articles/", {
+                "number": "PRS3420", "brand": "PATRON", "locale": "ru_RU"
+            }),
+        ]
+
+        for title, path, extra in checks:
+            result, data = run_check(title, path, candidate, password_hash, extra)
+            overall.append((candidate, title, result))
+            if result == "OK" and isinstance(data, list) and data:
+                print("Первые строки:")
+                for row in data[:3]:
+                    if isinstance(row, dict):
+                        selected = {
+                            key: row.get(key)
+                            for key in ("brand", "number", "description", "price", "availability", "deliveryPeriod")
+                            if key in row
+                        }
+                        print(json.dumps(selected, ensure_ascii=False))
+
+    print("\n========================================")
+    print("ИТОГ")
+    ok_count = sum(1 for _, _, result in overall if result == "OK")
+    auth102 = sum(1 for _, _, result in overall if result == "AUTH_ERROR_102")
+    denied103 = sum(1 for _, _, result in overall if result == "ACCESS_DENIED_103")
+    print("Успешных методов:", ok_count)
+    print("102 (ошибка авторизации):", auth102)
+    print("103 (доступ запрещён):", denied103)
+
+    if ok_count:
+        print("API частично или полностью работает. Один код 103 не означает, что весь API закрыт.")
+        return 0
+    if denied103 and not auth102:
+        print("Учётные данные, вероятно, распознаются, но проверенные методы запрещены правами.")
+        print("Это не поломка сервера/скрипта; нужно проверить, какие методы разрешены аккаунту.")
+        return 3
+    if auth102:
+        print("Есть ошибка 102: ABCP не принимает сочетание userlogin + MD5 текущего пароля.")
         return 2
 
-    print("\nШаг 2: проверяю каталог PATRON PRS3420…")
-    status, data = request_json(
-        "/search/articles/",
-        working_login,
-        password_hash,
-        {"number": "PRS3420", "brand": "PATRON"},
-    )
-    print("HTTP:", status)
-    if status == 200 and isinstance(data, list):
-        print("Каталог доступен. Предложений:", len(data))
-        for row in data[:5]:
-            if isinstance(row, dict):
-                selected = {
-                    key: row.get(key)
-                    for key in ("brand", "number", "price", "availability", "deliveryPeriod")
-                }
-                print(json.dumps(selected, ensure_ascii=False))
-        return 0
-
-    print("Авторизация работает, но каталог не подтверждён.")
-    print(json.dumps(short_error(data), ensure_ascii=False))
-    return 3
-
+    print("Доступ не подтверждён; смотрим конкретные HTTP/ответы выше.")
+    return 4
 
 if __name__ == "__main__":
     try:
