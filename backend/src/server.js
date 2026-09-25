@@ -24,16 +24,15 @@ const FRONTEND_ORIGINS = String(process.env.FRONTEND_ORIGINS || "")
 
 const partGrade = createPartGradeClient();
 
-if (!process.env.DATABASE_URL) {
-  throw new Error("DATABASE_URL is required");
-}
-
-const pool = new Pool({
-  connectionString: process.env.DATABASE_URL,
-  ssl: String(process.env.PGSSL || "false") === "true"
-    ? { rejectUnauthorized: false }
-    : false
-});
+const hasDatabase = Boolean(process.env.DATABASE_URL);
+const pool = hasDatabase
+  ? new Pool({
+      connectionString: process.env.DATABASE_URL,
+      ssl: String(process.env.PGSSL || "false") === "true"
+        ? { rejectUnauthorized: false }
+        : false
+    })
+  : null;
 
 app.set("trust proxy", 1);
 app.use(helmet());
@@ -56,6 +55,15 @@ const authLimiter = rateLimit({
   standardHeaders: "draft-8",
   legacyHeaders: false
 });
+
+function requireDatabase(_req, res, next) {
+  if (!pool) return res.status(503).json({ error: "database_not_configured" });
+  next();
+}
+
+app.use("/api/auth", requireDatabase);
+app.use("/api/account", requireDatabase);
+app.use("/api/garage", requireDatabase);
 
 function normalizeEmail(value) {
   const email = String(value || "").trim().toLowerCase();
@@ -154,12 +162,21 @@ async function requireUser(req, res, next) {
 
 app.get("/api/health", async (_req, res, next) => {
   try {
-    const db = await pool.query("SELECT now() AS now");
+    let db = false;
+    let time = new Date().toISOString();
+
+    if (pool) {
+      const result = await pool.query("SELECT now() AS now");
+      db = true;
+      time = result.rows[0].now;
+    }
+
     res.json({
       ok: true,
       service: "zapformat-api",
-      db: true,
-      time: db.rows[0].now
+      db,
+      supplier_configured: partGrade.configured(),
+      time
     });
   } catch (error) {
     next(error);
@@ -698,7 +715,7 @@ app.use((error, _req, res, _next) => {
 });
 
 async function start() {
-  await pool.query("SELECT 1");
+  if (pool) await pool.query("SELECT 1");
   app.listen(PORT, HOST, () => {
     console.log(`ZAPFORMAT API listening on http://${HOST}:${PORT}`);
   });
