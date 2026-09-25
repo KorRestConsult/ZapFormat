@@ -1864,3 +1864,64 @@ html,body,.app{max-width:100%;overflow-x:hidden}
     overflow:hidden;
   }
 }
+
+
+/* Dense mobile landing */
+@media(max-width:680px){
+  .minimal-home{
+    min-height:0;
+    display:block;
+    padding:28px 2px 22px;
+  }
+  .minimal-hero{
+    width:100%;
+    text-align:left;
+  }
+  .minimal-kicker{
+    margin-bottom:8px;
+    font-size:9px;
+    letter-spacing:.16em;
+  }
+  .minimal-hero h1{
+    max-width:340px;
+    font-size:43px;
+    line-height:.95;
+    letter-spacing:-.055em;
+  }
+  .minimal-hero>p{
+    margin:12px 0 0;
+    max-width:340px;
+    font-size:13px;
+    line-height:1.35;
+  }
+  .minimal-search{
+    display:grid;
+    grid-template-columns:minmax(0,1fr) 86px;
+    gap:6px;
+    margin:18px 0 0;
+    max-width:none;
+  }
+  .minimal-search textarea{
+    min-height:48px;
+    max-height:96px;
+    border-radius:9px;
+    padding:13px 14px;
+    font-size:13px;
+    line-height:1.25;
+    box-shadow:none;
+  }
+  .minimal-search button{
+    min-width:0;
+    min-height:48px;
+    width:auto;
+    border-radius:9px;
+    padding:0 12px;
+    font-size:12px;
+  }
+  .minimal-note{
+    margin:8px 2px 0;
+    font-size:9px;
+    line-height:1.25;
+    letter-spacing:.02em;
+  }
+}
