@@ -1835,6 +1835,21 @@ document.addEventListener("submit",e=>{
   renderOrderDetail(orderId);
 });
 
+function filterAccountOrders(){
+  const query=String(document.getElementById("orderSearch")?.value||"").trim().toLowerCase();
+  const status=String(document.getElementById("orderStatusFilter")?.value||"").trim().toLowerCase();
+  document.querySelectorAll("#account-orders .account-table-row").forEach(row=>{
+    const text=row.textContent.toLowerCase();
+    const rowStatus=String(row.querySelector(".status")?.textContent||"").trim().toLowerCase();
+    const matchesQuery=!query || text.includes(query);
+    const matchesStatus=!status || rowStatus.includes(status);
+    row.hidden=!(matchesQuery && matchesStatus);
+  });
+}
+
+document.getElementById("orderSearch")?.addEventListener("input",filterAccountOrders);
+document.getElementById("orderStatusFilter")?.addEventListener("change",filterAccountOrders);
+
 document.addEventListener("keydown",e=>{
   const order=e.target.closest?.("[data-order-detail][tabindex]");
   if(order && (e.key==="Enter" || e.key===" ")){
@@ -1866,7 +1881,7 @@ document.getElementById("profileForm")?.addEventListener("submit",async e=>{
     btn.textContent="Сохранено";
   }catch(error){
     btn.textContent="Ошибка";
-    setTimeout(()=>alert(authErrorText(error)),0);
+    showToast(authErrorText(error),"warn");
   }finally{
     setTimeout(()=>{
       btn.textContent=oldText;
@@ -1877,8 +1892,14 @@ document.getElementById("profileForm")?.addEventListener("submit",async e=>{
 
 document.getElementById("deliveryForm")?.addEventListener("submit",e=>{
   e.preventDefault();
-  const btn=e.currentTarget.querySelector("button[type=submit]");
-  const old=btn.textContent; btn.textContent="Сохранено"; setTimeout(()=>btn.textContent=old,900);
+  const form=e.currentTarget;
+  const data=Object.fromEntries(new FormData(form).entries());
+  try{ localStorage.setItem("zapformat-delivery",JSON.stringify(data)); }catch{}
+  const btn=form.querySelector("button[type=submit]");
+  const old=btn.textContent;
+  btn.textContent="Сохранено";
+  showToast("Настройки получения сохранены.");
+  setTimeout(()=>btn.textContent=old,900);
 });
 
 document.addEventListener("click",e=>{
@@ -1906,6 +1927,22 @@ try{
       if(input) input.value=value;
     }
   }
+  const savedDelivery=JSON.parse(localStorage.getItem("zapformat-delivery")||"null");
+  if(savedDelivery && document.getElementById("deliveryForm")){
+    for(const [key,value] of Object.entries(savedDelivery)){
+      const input=document.querySelector('#deliveryForm [name="'+key+'"]');
+      if(input) input.value=value;
+    }
+  }
+
+  const savedNotifications=JSON.parse(localStorage.getItem("zapformat-notifications")||"null");
+  if(savedNotifications){
+    document.querySelectorAll("[data-notification]").forEach(input=>{
+      const key=input.dataset.notification;
+      if(Object.prototype.hasOwnProperty.call(savedNotifications,key)) input.checked=Boolean(savedNotifications[key]);
+    });
+  }
+
   const savedTab=localStorage.getItem("zapformat-account-tab");
   if(savedTab==="order-detail"){
     const savedOrder=localStorage.getItem("zapformat-order-detail");
@@ -1920,3 +1957,13 @@ try{
   }
   renderGarageApp();
 }catch{}
+
+
+document.addEventListener("change",e=>{
+  const notification=e.target.closest?.("[data-notification]");
+  if(!notification) return;
+  const state={};
+  document.querySelectorAll("[data-notification]").forEach(input=>state[input.dataset.notification]=input.checked);
+  try{localStorage.setItem("zapformat-notifications",JSON.stringify(state))}catch{}
+  showToast("Настройки уведомлений сохранены.");
+});
