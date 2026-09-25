@@ -9,6 +9,8 @@ class PartGradeError extends Error {
     this.name = "PartGradeError";
     this.code = options.code || "partgrade_error";
     this.status = options.status || null;
+    this.upstreamCode = options.upstreamCode ?? null;
+    this.upstreamMessage = options.upstreamMessage ?? null;
     this.cause = options.cause;
   }
 }
@@ -93,9 +95,20 @@ function createPartGradeClient(options = {}) {
     }
 
     if (!response.ok) {
+      const upstreamCode =
+        data && typeof data === "object"
+          ? (data.errorCode ?? data.code ?? null)
+          : null;
+      const upstreamMessage =
+        data && typeof data === "object"
+          ? (data.errorMessage ?? data.message ?? null)
+          : null;
+
       throw new PartGradeError("PartGrade API request failed", {
         code: "partgrade_http_error",
-        status: response.status
+        status: response.status,
+        upstreamCode,
+        upstreamMessage
       });
     }
 
