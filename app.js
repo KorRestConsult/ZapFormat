@@ -866,7 +866,18 @@ document.addEventListener("click",e=>{
   const filter=e.target.closest("[data-filter]");
   if(filter){
     document.querySelectorAll("[data-filter]").forEach(x=>x.classList.remove("active"));
-    filter.classList.add("active"); currentFilter=filter.dataset.filter; renderCatalog(); return;
+    filter.classList.add("active");
+    currentFilter=filter.dataset.filter;
+    renderCatalog();
+    if(window.matchMedia("(max-width:680px)").matches){
+      document.querySelector(".compact-filters")?.classList.remove("open");
+      const toggle=document.querySelector(".filters-toggle");
+      if(toggle){
+        toggle.textContent="Показать фильтры";
+        toggle.setAttribute("aria-expanded","false");
+      }
+    }
+    return;
   }
   const sort=e.target.closest("[data-sort]");
   if(sort){
@@ -1541,7 +1552,12 @@ function showAccountTab(tab){
   document.querySelectorAll("[data-account-tab]").forEach(x=>x.classList.remove("active"));
   document.getElementById("account-"+tab)?.classList.add("active");
   const navTab=tab==="order-detail" ? "orders" : tab;
-  document.querySelectorAll('[data-account-tab="'+navTab+'"]').forEach(x=>x.classList.add("active"));
+  const activeAccountTabs=document.querySelectorAll('[data-account-tab="'+navTab+'"]');
+  activeAccountTabs.forEach(x=>x.classList.add("active"));
+  const activeNav=[...activeAccountTabs].find(x=>x.closest(".account-nav"));
+  if(activeNav){
+    requestAnimationFrame(()=>activeNav.scrollIntoView({behavior:"auto",block:"nearest",inline:"center"}));
+  }
   if(tab==="garage") renderGarageApp();
   const profileViewActive=document.getElementById("view-profile")?.classList.contains("active");
   if(profileViewActive){
