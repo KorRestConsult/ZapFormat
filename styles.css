@@ -2787,3 +2787,123 @@ input,select,textarea{max-width:100%}
     font-size:11px
   }
 }
+
+
+/* Final responsive/interaction QA layer */
+.app-toast{
+  position:fixed;
+  left:50%;
+  bottom:calc(88px + env(safe-area-inset-bottom));
+  transform:translate(-50%,14px);
+  width:min(520px,calc(100% - 28px));
+  padding:11px 14px;
+  border-radius:10px;
+  background:var(--navy-3);
+  color:#fff;
+  font-size:12px;
+  line-height:1.35;
+  text-align:center;
+  opacity:0;
+  pointer-events:none;
+  transition:opacity .18s ease,transform .18s ease;
+  box-shadow:0 10px 30px rgba(15,38,57,.24);
+  z-index:120
+}
+.app-toast.show{opacity:1;transform:translate(-50%,0)}
+.app-toast.warn{background:#765322}
+
+.filters-toggle{display:none}
+
+:where(button,input,select,textarea):focus-visible{
+  outline:3px solid rgba(244,154,69,.38);
+  outline-offset:2px
+}
+
+html{scroll-padding-bottom:calc(88px + env(safe-area-inset-bottom))}
+
+@media(max-width:680px){
+  .filters-toggle{display:block;border-radius:8px}
+  .compact-filters{display:none}
+  .compact-filters.open{
+    display:flex;
+    overflow-x:auto;
+    gap:7px;
+    padding:0 0 4px;
+    scrollbar-width:none
+  }
+  .compact-filters.open::-webkit-scrollbar{display:none}
+  .compact-filters.open button{flex:0 0 auto}
+
+  .catalog-actions{margin-top:8px}
+  .sort-row{
+    flex-wrap:nowrap;
+    overflow-x:auto;
+    padding-bottom:3px;
+    scrollbar-width:none
+  }
+  .sort-row::-webkit-scrollbar{display:none}
+  .sort-row>span{flex:0 0 auto}
+  .sort-row button{white-space:nowrap}
+
+  .account-nav,
+  .garage-tabs,
+  .garage-vehicle-strip{
+    -webkit-mask-image:linear-gradient(90deg,#000 0,#000 calc(100% - 18px),transparent 100%);
+    mask-image:linear-gradient(90deg,#000 0,#000 calc(100% - 18px),transparent 100%)
+  }
+
+  .order-detail-title,
+  .garage-panel-head,
+  .account-block-head{
+    min-width:0
+  }
+
+  .app-toast{
+    bottom:calc(72px + env(safe-area-inset-bottom));
+    font-size:11px
+  }
+}
+
+/* iPhone landscape: preserve usable content height and avoid oversized chrome. */
+@media(max-width:900px) and (orientation:landscape) and (max-height:500px){
+  .topbar-inner{
+    height:50px!important
+  }
+  .logo-main,.logo-ai{font-size:18px}
+  main{
+    padding-top:10px;
+    padding-bottom:calc(58px + env(safe-area-inset-bottom))
+  }
+  .mobile-nav{
+    height:44px;
+    bottom:max(4px,env(safe-area-inset-bottom));
+    border-radius:12px
+  }
+  .mobile-nav button{
+    height:38px;
+    font-size:9px
+  }
+  .minimal-home{padding:14px 2px 10px}
+  .minimal-hero h1{
+    max-width:520px;
+    font-size:36px
+  }
+  .minimal-hero>p{margin-top:7px}
+  .minimal-search{margin-top:10px}
+  .account-head,.garage-owner-head{padding:12px 14px}
+  .app-toast{bottom:calc(54px + env(safe-area-inset-bottom))}
+}
+
+/* Large desktop polish. */
+@media(min-width:1101px){
+  .checkout-title{
+    border-radius:12px;
+    text-align:left
+  }
+  #view-cart .cart-bulk-actions-top,
+  #view-cart .cart-checkout-top{
+    display:none
+  }
+  .account-shell{gap:18px}
+  .account-sidebar{top:96px}
+}
