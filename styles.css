@@ -3068,3 +3068,57 @@ html{scroll-padding-bottom:calc(88px + env(safe-area-inset-bottom))}
   }
   .position-return{font-size:10px}
 }
+
+
+/* Cart cleanup after real-device QA */
+@media(max-width:900px){
+  #view-cart .checkout-title{
+    margin-bottom:8px;
+    padding:9px 12px;
+    border-radius:9px;
+    background:#fff;
+    border:1px solid var(--line);
+    color:var(--navy-3);
+    font-size:20px;
+    box-shadow:0 2px 8px rgba(31,55,74,.035)
+  }
+
+  #view-cart .cart-bulk-actions:not(.cart-bulk-actions-top){
+    display:grid;
+    grid-template-columns:repeat(3,minmax(0,1fr));
+    gap:6px;
+    margin-top:8px
+  }
+  #view-cart .cart-bulk-actions:not(.cart-bulk-actions-top) button{
+    min-width:0;
+    min-height:38px;
+    padding:8px 5px;
+    border:1px solid #d7dfe4;
+    border-radius:8px;
+    background:#eef2f4;
+    color:#465863;
+    font-size:10px;
+    font-weight:850;
+    line-height:1.15
+  }
+  #view-cart .checkout-order-button{
+    min-height:44px;
+    margin-top:7px;
+    border-radius:9px;
+    font-size:14px
+  }
+}
+
+@media(max-width:430px){
+  #view-cart .cart-bulk-actions:not(.cart-bulk-actions-top){
+    grid-template-columns:repeat(3,minmax(0,1fr))!important
+  }
+  #view-cart .cart-bulk-actions:not(.cart-bulk-actions-top) button{
+    min-height:36px;
+    padding:7px 3px;
+    font-size:9px
+  }
+  #view-cart .cart-comment input{
+    min-height:40px
+  }
+}
