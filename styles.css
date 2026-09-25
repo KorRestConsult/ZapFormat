@@ -2693,3 +2693,97 @@ input,select,textarea{max-width:100%}
     grid-template-columns:24px 30px 24px
   }
 }
+
+
+/* Screenshot QA refinements: mobile home, orders and PartGrade-style cart workflow */
+.cart-bulk-actions-top,
+.cart-checkout-top{
+  display:none
+}
+
+@media(max-width:900px){
+  .cart-bulk-actions-top{
+    display:grid;
+    grid-template-columns:repeat(3,minmax(0,1fr));
+    gap:6px;
+    margin:0 0 6px
+  }
+  .cart-bulk-actions-top button{
+    min-width:0;
+    padding:9px 7px;
+    border:1px solid #d7dfe4;
+    border-radius:8px;
+    background:#e9edef;
+    color:#3f4d56;
+    font-size:10px;
+    font-weight:850;
+    line-height:1.15
+  }
+  .cart-checkout-top{
+    display:block;
+    margin:0 0 8px
+  }
+
+  .account-nav{
+    scroll-snap-type:x proximity;
+    scroll-padding-inline:8px
+  }
+  .account-nav button{
+    scroll-snap-align:start
+  }
+}
+
+@media(max-width:680px){
+  .minimal-search textarea{
+    min-height:54px;
+    height:54px;
+    max-height:88px;
+    padding:15px 14px;
+    overflow:hidden
+  }
+
+  #account-orders .account-toolbar{
+    align-items:stretch
+  }
+  #account-orders .account-toolbar input,
+  #account-orders .account-toolbar select{
+    min-height:44px
+  }
+
+  .cart-bulk-actions-top{
+    grid-template-columns:1fr 1fr 1fr
+  }
+  .cart-bulk-actions-top button{
+    padding:8px 4px;
+    font-size:9px
+  }
+  .cart-checkout-top{
+    min-height:42px;
+    font-size:13px
+  }
+}
+
+@media(max-width:430px){
+  #account-orders .account-toolbar{
+    grid-template-columns:1fr!important
+  }
+  #account-orders .account-toolbar select{
+    width:100%
+  }
+  .account-nav{
+    gap:4px;
+    padding-right:18px
+  }
+  .account-nav button{
+    font-size:11px;
+    padding:8px 9px
+  }
+
+  .cart-bulk-actions-top{
+    grid-template-columns:1fr
+  }
+  .cart-bulk-actions-top button{
+    min-height:36px;
+    font-size:11px
+  }
+}
