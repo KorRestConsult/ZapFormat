@@ -1011,7 +1011,10 @@ function renderOrderDetail(id){
 
   mount.innerHTML=`
     <div class="order-detail-head">
-      <button class="order-detail-back" data-account-tab="orders">← Все заказы</button>
+      <div class="order-detail-toolbar">
+        <button class="order-detail-back" data-account-tab="orders">← Заказы</button>
+        <button class="order-repeat-compact" data-repeat-order="${order.id}">Повторить</button>
+      </div>
       <div class="order-detail-title">
         <div>
           <span class="eyebrow">ЗАКАЗ</span>
@@ -1023,16 +1026,13 @@ function renderOrderDetail(id){
           <b>${rub(order.total)}</b>
         </div>
       </div>
-      <div class="order-detail-actions">
-        <button data-repeat-order="${order.id}">Повторить заказ</button>
-      </div>
     </div>
 
-    <div class="order-summary-grid">
-      <article><span>Дата</span><b>${order.date}</b><small>${order.time}</small></article>
-      <article><span>Сумма</span><b>${rub(order.total)}</b><small>итого по заказу</small></article>
-      <article><span>Позиций</span><b>${order.items.length}</b><small>${order.items.reduce((s,x)=>s+x.qty,0)} шт.</small></article>
-      <article><span>Статус</span><b>${order.status}</b><small>обновляется по позициям</small></article>
+    <div class="order-quickfacts">
+      <div><span>Позиций</span><b>${order.items.length}</b></div>
+      <div><span>Количество</span><b>${order.items.reduce((s,x)=>s+x.qty,0)} шт.</b></div>
+      <div><span>Получение</span><b>${order.receive.method}</b></div>
+      <div><span>Город</span><b>${order.receive.city}</b></div>
     </div>
 
     <section class="order-detail-block">
@@ -1045,16 +1045,16 @@ function renderOrderDetail(id){
       <div class="order-positions">${itemsHtml}</div>
     </section>
 
-    <div class="order-detail-grid">
-      <section class="order-detail-block">
-        <div class="order-detail-block-head"><span class="eyebrow">КОММЕНТАРИЙ</span><h3>К заказу</h3></div>
-        <p class="order-comment">${order.comment}</p>
-      </section>
-
+    <div class="order-detail-grid ${order.comment==="Без комментария." ? "single" : ""}">
+      ${order.comment!=="Без комментария." ? `
+        <section class="order-detail-block">
+          <div class="order-detail-block-head"><span class="eyebrow">КОММЕНТАРИЙ</span><h3>К заказу</h3></div>
+          <p class="order-comment">${order.comment}</p>
+        </section>
+      ` : ""}
       <section class="order-detail-block">
         <div class="order-detail-block-head"><span class="eyebrow">ПОЛУЧЕНИЕ</span><h3>${order.receive.method}</h3></div>
         <dl class="receive-info">
-          <div><dt>Город</dt><dd>${order.receive.city}</dd></div>
           <div><dt>Точка</dt><dd>${order.receive.point}</dd></div>
           <div><dt>Получатель</dt><dd>${order.receive.recipient}</dd></div>
         </dl>
@@ -1477,7 +1477,8 @@ function showAccountTab(tab){
   document.querySelectorAll(".account-pane").forEach(x=>x.classList.remove("active"));
   document.querySelectorAll("[data-account-tab]").forEach(x=>x.classList.remove("active"));
   document.getElementById("account-"+tab)?.classList.add("active");
-  document.querySelectorAll('[data-account-tab="'+tab+'"]').forEach(x=>x.classList.add("active"));
+  const navTab=tab==="order-detail" ? "orders" : tab;
+  document.querySelectorAll('[data-account-tab="'+navTab+'"]').forEach(x=>x.classList.add("active"));
   if(tab==="garage") renderGarageApp();
   try{ localStorage.setItem("zapformat-account-tab",tab); }catch{}
 }
