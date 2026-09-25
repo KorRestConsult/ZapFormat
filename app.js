@@ -1438,12 +1438,12 @@ function renderGarageApp(){
         <h2>Мой автомобиль</h2>
         <p>Мини-приложение владельца: ТО, замеры, история и заказ деталей из одного места.</p>
       </div>
-      <button class="account-primary" id="addCarButton">+ Добавить автомобиль</button>
+      <button class="account-primary" id="addCarButton">Изменить автомобиль</button>
     </div>
 
     <div class="garage-vehicle-strip">
       <button class="active"><span class="car-mark">${v.brand}</span><span><b>${v.brand} ${v.model}</b><small>${v.year} · ${v.engine}</small></span></button>
-      <button class="garage-add-small" id="addCarButtonCompact">+</button>
+      <button class="garage-add-small" id="addCarButtonCompact" aria-label="Изменить автомобиль">✎</button>
     </div>
 
     <nav class="garage-tabs" aria-label="Разделы автомобиля">
@@ -1535,6 +1535,66 @@ async function saveGarageVin(){
       console.warn("ZapFormat VIN sync failed",error);
     }
   }
+}
+
+function closeGarageVehicleEditor(){
+  document.getElementById("garageVehicleEditor")?.remove();
+}
+
+function openGarageVehicleEditor(){
+  closeGarageVehicleEditor();
+  const v=garageState.vehicle;
+  const esc=value=>String(value??"").replace(/&/g,"&amp;").replace(/"/g,"&quot;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
+  const root=document.createElement("div");
+  root.id="garageVehicleEditor";
+  root.className="vehicle-editor-backdrop";
+  root.innerHTML=`
+    <div class="vehicle-editor" role="dialog" aria-modal="true" aria-labelledby="vehicleEditorTitle">
+      <div class="vehicle-editor-head">
+        <div><span class="eyebrow">ГАРАЖ</span><h3 id="vehicleEditorTitle">Автомобиль</h3></div>
+        <button type="button" class="vehicle-editor-close" data-close-vehicle-editor aria-label="Закрыть">×</button>
+      </div>
+      <form id="garageVehicleForm" class="vehicle-editor-form">
+        <label><span>Марка</span><input name="brand" value="${esc(v.brand)}" required></label>
+        <label><span>Модель</span><input name="model" value="${esc(v.model)}" required></label>
+        <label><span>Год</span><input name="year" inputmode="numeric" value="${esc(v.year)}" required></label>
+        <label><span>Двигатель</span><input name="engine" value="${esc(v.engine)}" required></label>
+        <label class="wide"><span>VIN</span><input name="vin" maxlength="17" autocomplete="off" value="${esc(v.vin)}" placeholder="17 символов"></label>
+        <label class="wide"><span>Пробег, км</span><input name="mileage" inputmode="numeric" value="${esc(v.mileage)}"></label>
+        <div class="vehicle-editor-actions">
+          <button type="button" data-close-vehicle-editor>Отмена</button>
+          <button type="submit" class="account-primary">Сохранить</button>
+        </div>
+      </form>
+    </div>`;
+  document.body.appendChild(root);
+  requestAnimationFrame(()=>root.classList.add("show"));
+  root.querySelector('input[name="brand"]')?.focus();
+}
+
+function saveGarageVehicleForm(form){
+  const data=Object.fromEntries(new FormData(form).entries());
+  const vin=String(data.vin||"").trim().toUpperCase().replace(/[^A-HJ-NPR-Z0-9]/g,"");
+  if(vin && vin.length!==17){
+    showToast("VIN должен содержать 17 символов.","warn");
+    form.querySelector('[name="vin"]')?.focus();
+    return;
+  }
+  const year=Math.max(1900,Math.min(2100,parseInt(data.year,10)||garageState.vehicle.year));
+  const mileage=Math.max(0,parseInt(String(data.mileage||"0").replace(/\D/g,""),10)||0);
+  garageState.vehicle={
+    ...garageState.vehicle,
+    brand:String(data.brand||"").trim().toUpperCase(),
+    model:String(data.model||"").trim(),
+    year,
+    engine:String(data.engine||"").trim(),
+    vin,
+    mileage
+  };
+  saveGarageState();
+  renderGarageApp();
+  closeGarageVehicleEditor();
+  showToast("Автомобиль сохранён.");
 }
 
 function prefillGarageSearch(query){
@@ -1823,7 +1883,18 @@ document.getElementById("deliveryForm")?.addEventListener("submit",e=>{
 
 document.addEventListener("click",e=>{
   if(e.target.closest("#addCarButton, #addCarButtonCompact")){
-    alert("Следующий шаг: добавление автомобиля по VIN / марке / модели / двигателю с сохранением в аккаунт.");
+    openGarageVehicleEditor();
+    return;
+  }
+  if(e.target.closest("[data-close-vehicle-editor]") || (e.target.classList?.contains("vehicle-editor-backdrop"))){
+    closeGarageVehicleEditor();
+  }
+});
+
+document.addEventListener("submit",e=>{
+  if(e.target?.id==="garageVehicleForm"){
+    e.preventDefault();
+    saveGarageVehicleForm(e.target);
   }
 });
 
