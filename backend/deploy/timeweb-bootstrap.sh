@@ -14,6 +14,9 @@ if [[ "${EUID}" -ne 0 ]]; then
   exit 1
 fi
 
+# The application checkout is owned by the service user; allow root deploy checks.
+git config --global --add safe.directory "${APP_DIR}" 2>/dev/null || true
+
 # Never replace an existing application directory that is not this repository.
 if [[ -e "${APP_DIR}" ]]; then
   if [[ ! -d "${APP_DIR}/.git" ]]; then
