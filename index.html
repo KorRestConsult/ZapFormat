@@ -290,7 +290,13 @@
               <div class="account-head"><div><span class="eyebrow">ЗАКАЗЫ</span><h2>История заказов</h2><p>Статус каждой позиции, сроки и действия по заказу.</p></div></div>
               <div class="account-toolbar">
                 <input id="orderSearch" placeholder="Номер заказа или артикул">
-                <select><option>Все статусы</option><option>В работе</option><option>В пути</option><option>Готов к выдаче</option><option>Завершён</option></select>
+                <select id="orderStatusFilter" aria-label="Статус заказа">
+  <option value="">Все статусы</option>
+  <option value="В работе">В работе</option>
+  <option value="В пути">В пути</option>
+  <option value="Готов">Готов к выдаче</option>
+  <option value="Завершён">Завершён</option>
+</select>
               </div>
               <div class="account-table">
                 <div class="account-table-head"><span>Заказ</span><span>Дата</span><span>Позиций</span><span>Сумма</span><span>Статус</span><span></span></div>
@@ -343,10 +349,10 @@
             <section class="account-pane" id="account-delivery">
               <div class="account-head"><div><span class="eyebrow">ПОЛУЧЕНИЕ</span><h2>Получение заказов</h2><p>Город, точка выдачи и контакт получателя.</p></div></div>
               <form class="account-form" id="deliveryForm">
-                <label><span>Город</span><input value="Рязань"></label>
-                <label class="wide-field"><span>Точка выдачи / адрес</span><input placeholder="Выберите точку получения"></label>
-                <label><span>Получатель</span><input placeholder="ФИО"></label>
-                <label><span>Телефон</span><input type="tel" placeholder="+7"></label>
+                <label><span>Город</span><input name="city" value="Рязань"></label>
+                <label class="wide-field"><span>Точка выдачи / адрес</span><input name="address" placeholder="Выберите точку получения"></label>
+                <label><span>Получатель</span><input name="recipient" placeholder="ФИО"></label>
+                <label><span>Телефон</span><input name="phone" type="tel" placeholder="+7"></label>
                 <button type="submit" class="account-primary">Сохранить</button>
               </form>
             </section>
@@ -354,10 +360,10 @@
             <section class="account-pane" id="account-notifications">
               <div class="account-head"><div><span class="eyebrow">УВЕДОМЛЕНИЯ</span><h2>Что сообщать</h2><p>Только полезные изменения по заказам.</p></div></div>
               <div class="notification-list">
-                <label><span><b>Статус заказа</b><small>Принят, в пути, готов к выдаче</small></span><input type="checkbox" checked></label>
-                <label><span><b>Изменение позиции</b><small>Отказ, перенос срока, изменение количества</small></span><input type="checkbox" checked></label>
-                <label><span><b>Возвраты</b><small>Изменение статуса заявления</small></span><input type="checkbox" checked></label>
-                <label><span><b>Реклама</b><small>Акции и предложения</small></span><input type="checkbox"></label>
+                <label><span><b>Статус заказа</b><small>Принят, в пути, готов к выдаче</small></span><input type="checkbox" data-notification="orderStatus" checked></label>
+                <label><span><b>Изменение позиции</b><small>Отказ, перенос срока, изменение количества</small></span><input type="checkbox" data-notification="positionChange" checked></label>
+                <label><span><b>Возвраты</b><small>Изменение статуса заявления</small></span><input type="checkbox" data-notification="returns" checked></label>
+                <label><span><b>Реклама</b><small>Акции и предложения</small></span><input type="checkbox" data-notification="marketing"></label>
               </div>
             </section>
           </div>
