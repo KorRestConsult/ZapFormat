@@ -17,11 +17,23 @@ psql "$DATABASE_URL" -f db/001_init.sql
 npm start
 ```
 
-Health endpoint:
+Health endpoints:
 
 ```
 GET /api/health
+GET /api/supplier/health
 ```
+
+PartGrade / ABCP catalog endpoints:
+
+```
+GET /api/catalog/brands?number=PRS3420
+GET /api/catalog/offers?number=PRS3420&brand=PATRON
+```
+
+PartGrade confirmed the ABCP public API host `auto-complekt.public.api.abcp.ru`.
+ABCP authentication uses the PartGrade site login and the MD5 hash of the site password.
+Only the final ZAPFORMAT customer price is returned by public catalog endpoints; supplier route IDs, item keys and procurement prices stay server-side.
 
 Authentication endpoints:
 
