@@ -474,12 +474,23 @@ function resolveDataset(query){
   return "0250603006";
 }
 
+function syncMobileNav(route){
+  const mappedRoute=route==="search" ? "home" : route;
+  document.querySelectorAll(".mobile-nav [data-route]").forEach(button=>{
+    const active=button.dataset.route===mappedRoute;
+    button.classList.toggle("active",active);
+    if(active) button.setAttribute("aria-current","page");
+    else button.removeAttribute("aria-current");
+  });
+}
+
 function showRoute(route){
   const protectedAccountRoute=route==="profile" || route==="orders" || route==="garage";
   if(protectedAccountRoute && backendConfigured() && !sessionUser){
     pendingAccountRoute=route;
     document.querySelectorAll(".view").forEach(v=>v.classList.remove("active"));
     document.getElementById("view-auth")?.classList.add("active");
+    syncMobileNav("");
     window.scrollTo({top:0,behavior:"auto"});
     return;
   }
@@ -491,6 +502,7 @@ function showRoute(route){
   if(target) target.classList.add("active");
   if(route==="orders") showAccountTab("orders");
   if(route==="garage") showAccountTab("garage");
+  syncMobileNav(route);
   window.scrollTo({top:0,behavior:"auto"});
 }
 
@@ -1480,6 +1492,8 @@ function showAccountTab(tab){
   const navTab=tab==="order-detail" ? "orders" : tab;
   document.querySelectorAll('[data-account-tab="'+navTab+'"]').forEach(x=>x.classList.add("active"));
   if(tab==="garage") renderGarageApp();
+  if(tab==="orders" || tab==="order-detail") syncMobileNav("orders");
+  else if(tab==="garage") syncMobileNav("garage");
   try{ localStorage.setItem("zapformat-account-tab",tab); }catch{}
 }
 
