@@ -2304,6 +2304,70 @@ app.get("/api/admin/queue", requireStaff, async (req, res, next) => {
   }
 });
 
+app.get("/api/admin/pickup-points", requireStaff, async (_req, res, next) => {
+  try {
+    const result = await pool.query(
+      `SELECT id, code, city, name, address, is_active, created_at
+         FROM pickup_points
+        ORDER BY is_active DESC, city, name`
+    );
+    res.json({ pickup_points: result.rows });
+  } catch (error) {
+    next(error);
+  }
+});
+
+app.post("/api/admin/pickup-points", requireStaff, async (req, res, next) => {
+  try {
+    const city = String(req.body?.city || "").trim().slice(0, 120);
+    const name = String(req.body?.name || "").trim().slice(0, 180);
+    const address = String(req.body?.address || "").trim().slice(0, 500) || null;
+    if (!city || !name) return res.status(400).json({ error: "pickup_city_and_name_required" });
+
+    const code = "P-" + crypto.randomBytes(4).toString("hex").toUpperCase();
+    const result = await pool.query(
+      `INSERT INTO pickup_points (code, city, name, address, is_active)
+       VALUES ($1,$2,$3,$4,true)
+       RETURNING id, code, city, name, address, is_active, created_at`,
+      [code, city, name, address]
+    );
+    res.status(201).json({ pickup_point: result.rows[0] });
+  } catch (error) {
+    next(error);
+  }
+});
+
+app.patch("/api/admin/pickup-points/:pickupPointId", requireStaff, async (req, res, next) => {
+  try {
+    const current = await pool.query(
+      "SELECT * FROM pickup_points WHERE id = $1 LIMIT 1",
+      [req.params.pickupPointId]
+    );
+    const row = current.rows[0];
+    if (!row) return res.status(404).json({ error: "pickup_point_not_found" });
+
+    const city = req.body?.city === undefined ? row.city : String(req.body.city || "").trim().slice(0, 120);
+    const name = req.body?.name === undefined ? row.name : String(req.body.name || "").trim().slice(0, 180);
+    const address = req.body?.address === undefined
+      ? row.address
+      : String(req.body.address || "").trim().slice(0, 500) || null;
+    const isActive = req.body?.is_active === undefined ? row.is_active : Boolean(req.body.is_active);
+
+    if (!city || !name) return res.status(400).json({ error: "pickup_city_and_name_required" });
+
+    const result = await pool.query(
+      `UPDATE pickup_points
+          SET city = $2, name = $3, address = $4, is_active = $5
+        WHERE id = $1
+        RETURNING id, code, city, name, address, is_active, created_at`,
+      [req.params.pickupPointId, city, name, address, isActive]
+    );
+    res.json({ pickup_point: result.rows[0] });
+  } catch (error) {
+    next(error);
+  }
+});
+
 app.patch("/api/admin/quote-requests/:requestId", requireStaff, async (req, res, next) => {
   try {
     const allowed = new Set(["new", "in_progress", "confirmed", "completed", "cancelled"]);
