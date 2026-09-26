@@ -2910,8 +2910,9 @@ app.get("/api/garage/overview", requireUser, async (req, res, next) => {
 app.get("/api/garage", requireUser, async (req, res, next) => {
   try {
     const vehicles = await pool.query(
-      `SELECT id, brand, model, generation, year, engine, vin, plate_number,
-              current_mileage, mileage_updated_at, is_default
+      `SELECT id, brand, model, generation, year, engine, transmission, body_type,
+              tire_front, tire_rear, wheel_size, oil_spec, coolant_spec,
+              vin, plate_number, current_mileage, mileage_updated_at, is_default
          FROM vehicles
         WHERE user_id = $1
         ORDER BY is_default DESC, created_at ASC`,
@@ -2929,6 +2930,13 @@ app.post("/api/garage/vehicles", requireUser, async (req, res, next) => {
     const model = String(req.body?.model || "").trim();
     const generation = String(req.body?.generation || "").trim() || null;
     const engine = String(req.body?.engine || "").trim() || null;
+    const transmission = String(req.body?.transmission || "").trim().slice(0, 120) || null;
+    const bodyType = String(req.body?.body_type || "").trim().slice(0, 120) || null;
+    const tireFront = String(req.body?.tire_front || "").trim().slice(0, 80) || null;
+    const tireRear = String(req.body?.tire_rear || "").trim().slice(0, 80) || null;
+    const wheelSize = String(req.body?.wheel_size || "").trim().slice(0, 80) || null;
+    const oilSpec = String(req.body?.oil_spec || "").trim().slice(0, 160) || null;
+    const coolantSpec = String(req.body?.coolant_spec || "").trim().slice(0, 160) || null;
     const vin = String(req.body?.vin || "").trim().toUpperCase() || null;
     const plate = String(req.body?.plate_number || "").trim().toUpperCase() || null;
     const year = req.body?.year ? Number(req.body.year) : null;
@@ -2940,10 +2948,14 @@ app.post("/api/garage/vehicles", requireUser, async (req, res, next) => {
 
     const result = await pool.query(
       `INSERT INTO vehicles
-        (user_id, brand, model, generation, year, engine, vin, plate_number, current_mileage, mileage_updated_at)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,CASE WHEN $9::int IS NULL THEN NULL ELSE now() END)
+        (user_id, brand, model, generation, year, engine, transmission, body_type,
+         tire_front, tire_rear, wheel_size, oil_spec, coolant_spec,
+         vin, plate_number, current_mileage, mileage_updated_at)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,
+               CASE WHEN $16::int IS NULL THEN NULL ELSE now() END)
        RETURNING *`,
-      [req.user.id, brand, model, generation, year, engine, vin, plate, mileage]
+      [req.user.id, brand, model, generation, year, engine, transmission, bodyType,
+       tireFront, tireRear, wheelSize, oilSpec, coolantSpec, vin, plate, mileage]
     );
 
     if (mileage !== null && Number.isFinite(mileage)) {
@@ -3021,6 +3033,13 @@ app.patch("/api/garage/vehicles/:vehicleId", requireUser, async (req, res, next)
     const model = req.body?.model === undefined ? vehicle.model : String(req.body.model || "").trim();
     const generation = req.body?.generation === undefined ? vehicle.generation : String(req.body.generation || "").trim() || null;
     const engine = req.body?.engine === undefined ? vehicle.engine : String(req.body.engine || "").trim() || null;
+    const transmission = req.body?.transmission === undefined ? vehicle.transmission : String(req.body.transmission || "").trim().slice(0,120) || null;
+    const bodyType = req.body?.body_type === undefined ? vehicle.body_type : String(req.body.body_type || "").trim().slice(0,120) || null;
+    const tireFront = req.body?.tire_front === undefined ? vehicle.tire_front : String(req.body.tire_front || "").trim().slice(0,80) || null;
+    const tireRear = req.body?.tire_rear === undefined ? vehicle.tire_rear : String(req.body.tire_rear || "").trim().slice(0,80) || null;
+    const wheelSize = req.body?.wheel_size === undefined ? vehicle.wheel_size : String(req.body.wheel_size || "").trim().slice(0,80) || null;
+    const oilSpec = req.body?.oil_spec === undefined ? vehicle.oil_spec : String(req.body.oil_spec || "").trim().slice(0,160) || null;
+    const coolantSpec = req.body?.coolant_spec === undefined ? vehicle.coolant_spec : String(req.body.coolant_spec || "").trim().slice(0,160) || null;
     const plate = req.body?.plate_number === undefined ? vehicle.plate_number : String(req.body.plate_number || "").trim().toUpperCase() || null;
     const vin = req.body?.vin === undefined ? vehicle.vin : String(req.body.vin || "").trim().toUpperCase() || null;
     const year = req.body?.year === undefined ? vehicle.year : (req.body.year ? Number(req.body.year) : null);
@@ -3037,12 +3056,20 @@ app.patch("/api/garage/vehicles/:vehicleId", requireUser, async (req, res, next)
               generation = $5,
               year = $6,
               engine = $7,
-              vin = $8,
-              plate_number = $9,
+              transmission = $8,
+              body_type = $9,
+              tire_front = $10,
+              tire_rear = $11,
+              wheel_size = $12,
+              oil_spec = $13,
+              coolant_spec = $14,
+              vin = $15,
+              plate_number = $16,
               updated_at = now()
         WHERE id = $1 AND user_id = $2
         RETURNING *`,
-      [req.params.vehicleId, req.user.id, brand, model, generation, year, engine, vin, plate]
+      [req.params.vehicleId, req.user.id, brand, model, generation, year, engine,
+       transmission, bodyType, tireFront, tireRear, wheelSize, oilSpec, coolantSpec, vin, plate]
     );
 
     res.json({ vehicle: result.rows[0] });
