@@ -374,6 +374,7 @@ const S={
   vehicleDetail:null,
   orders:[],
   quoteRequests:[],
+  quoteDetail:null,
   orderDetail:null,
   offerSort:"price",
   offerOnlyAvailable:false,
@@ -778,12 +779,27 @@ async function loadOrders(){
 function renderOrders(){
   const root=$("#ordersBody");
   const pending=S.quoteRequests.length
-    ?'<div class="panel panel-pad" style="margin-bottom:16px"><div class="panel-title"><div><h3>Заявки на подтверждение</h3><p>Ещё не заказ: мы перепроверяем цену и наличие.</p></div><span class="status">'+S.quoteRequests.length+'</span></div><div class="order-list">'+S.quoteRequests.map(q=>'<div class="order-row" style="cursor:default"><b>'+esc(q.id)+'</b><span><b>'+date(q.created_at)+'</b><span class="small muted">'+q.item_count+' поз.</span></span><span class="status">'+esc(q.status==="new"?"На подтверждении":q.status)+'</span><strong>'+rub(q.quoted_total)+'</strong><span class="small muted">заявка</span></div>').join("")+'</div></div>'
+    ?'<div class="panel panel-pad" style="margin-bottom:16px"><div class="panel-title"><div><h3>Заявки на подтверждение</h3><p>Ещё не заказ: мы перепроверяем цену и наличие.</p></div><span class="status">'+S.quoteRequests.length+'</span></div><div class="order-list">'+S.quoteRequests.map(q=>'<button class="order-row" data-quote-id="'+esc(q.id)+'"><b>'+esc(q.id)+'</b><span><b>'+date(q.created_at)+'</b><span class="small muted">'+q.item_count+' поз.</span></span><span class="status">'+esc(q.status==="new"?"На подтверждении":q.status)+'</span><strong>'+rub(q.quoted_total)+'</strong><span>→</span></button>').join("")+'</div></div>'
     :'';
   root.innerHTML='<div class="orders-toolbar"><span class="muted">'+S.orders.length+' заказов · '+S.quoteRequests.length+' заявок</span><button class="secondary" data-go="home">Найти деталь</button></div>'+
   pending+
   (S.orders.length?'<div class="order-list">'+S.orders.map(o=>'<button class="order-row" data-order-id="'+o.id+'"><b>№ '+esc(o.order_number)+'</b><span><b>'+date(o.created_at)+'</b><span class="small muted">'+o.item_count+' поз.</span></span><span class="status '+statusClass(o.status)+'">'+esc(statusLabel(o.status))+'</span><strong>'+rub(o.total_amount)+'</strong><span>→</span></button>').join("")+'</div>':'<div class="empty"><div><b>Подтверждённых заказов пока нет</b><p>'+(S.quoteRequests.length?'Заявки выше появятся здесь после создания реального заказа.':'Здесь появятся только реально созданные заказы ZapFormat.')+'</p><button class="primary" data-go="home">К поиску</button></div></div>')+
   '<div id="orderDetailRoot"></div>';
+}
+async function loadQuoteRequest(id){
+  const root=$("#orderDetailRoot");
+  root.innerHTML='<div class="state-card" style="margin-top:18px"><div class="spinner"></div></div>';
+  try{
+    S.quoteDetail=await api("/api/account/quote-requests/"+encodeURIComponent(id));
+    renderQuoteDetail();
+  }catch{
+    root.innerHTML='<div class="notice" style="margin-top:18px">Не удалось открыть заявку.</div>';
+  }
+}
+function renderQuoteDetail(){
+  const d=S.quoteDetail,q=d.request,items=d.items||[],root=$("#orderDetailRoot");
+  const total=items.reduce((a,x)=>a+Number(x.quoted_price||0)*Number(x.quantity||1),0);
+  root.innerHTML='<div class="order-detail"><div><div class="panel panel-pad"><div class="detail-title"><div><span class="kicker">ЗАЯВКА '+esc(q.id)+'</span><h3>'+(q.status==="new"?"На подтверждении":esc(q.status))+'</h3><p>Отправлена '+datetime(q.created_at)+'</p></div><span class="status">'+(q.status==="new"?"На подтверждении":esc(q.status))+'</span></div></div><div class="order-items" style="margin-top:12px">'+(items.length?items.map(x=>'<div class="order-item"><span><b>'+esc(x.brand||"")+' '+esc(x.article)+'</b><span class="offer-desc">'+esc(x.description||"Автозапчасть")+'</span></span><span>'+x.quantity+' шт.</span><strong>'+(x.quoted_price===null?"На проверке":rub(Number(x.quoted_price)*Number(x.quantity)))+'</strong><span class="status">'+(x.needs_confirmation?"Проверяем":"Подтверждено")+'</span></div>').join(""):'<div class="empty">Позиции не найдены.</div>')+'</div></div><aside class="order-side"><div class="panel panel-pad"><div class="panel-title"><div><h3>Предварительно</h3><p>По цене последнего поиска</p></div></div><div style="font-size:32px;font-weight:900">'+rub(total)+'</div><div class="summary-note">Это ещё не заказ. После проверки цены и наличия заявка может перейти в реальный заказ.</div></div><div class="panel panel-pad"><div class="panel-title"><div><h3>Контакт</h3><p>Для подтверждения</p></div></div><b>'+esc(q.name||S.user?.name||"")+'</b><p class="muted">'+esc(q.phone||S.user?.phone||"")+'</p></div></aside></div>';
 }
 async function loadOrder(id){
   const root=$("#orderDetailRoot");root.innerHTML='<div class="state-card" style="margin-top:18px"><div class="spinner"></div></div>';
@@ -826,6 +842,7 @@ document.addEventListener("click",async e=>{
   }
   if(e.target.closest("[data-search-vin]")){const v=S.vehicleDetail?.vehicle;go("home");const input=$('[data-search-form] input');if(input){input.value=v?.vin||"";input.focus()}return}
   if(e.target.closest("[data-reload-garage]"))return loadGarage();
+  x=e.target.closest("[data-quote-id]");if(x)return loadQuoteRequest(x.dataset.quoteId);
   x=e.target.closest("[data-order-id]");if(x)return loadOrder(x.dataset.orderId);
   if(e.target.closest("[data-repeat-order]")){
     const items=S.orderDetail?.items||[];
