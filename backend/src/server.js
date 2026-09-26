@@ -2977,6 +2977,89 @@ app.patch("/api/support-requests/:requestId/close", requireUser, async (req, res
   }
 });
 
+app.get("/api/admin/release-readiness", requireStaff, async (req, res, next) => {
+  try {
+    const activePickups = await pool.query(
+      "SELECT count(*)::int AS count FROM pickup_points WHERE is_active = true"
+    );
+    const live = String(req.query?.live || "") === "1";
+
+    let supplierLive = null;
+    if (live) {
+      supplierLive = {
+        checked: true,
+        user_info_ok: false,
+        search_articles_ok: false,
+        search_articles_denied: false,
+        http_status: null,
+        upstream_code: null
+      };
+      if (partGrade.configured()) {
+        try {
+          await partGrade.userInfo();
+          supplierLive.user_info_ok = true;
+          await partGrade.searchArticles("PRS3420", "PATRON");
+          supplierLive.search_articles_ok = true;
+        } catch (error) {
+          if (error instanceof PartGradeError) {
+            supplierLive.http_status = error.status || null;
+            supplierLive.upstream_code = error.upstreamCode ?? null;
+            supplierLive.search_articles_denied =
+              Number(error.status) === 403 || Number(error.upstreamCode) === 103;
+          } else {
+            throw error;
+          }
+        }
+      }
+    }
+
+    const legal = {
+      seller_identity: Boolean(String(process.env.SELLER_LEGAL_NAME || "").trim()),
+      privacy_policy: Boolean(String(process.env.PRIVACY_POLICY_URL || "").trim()),
+      terms: Boolean(String(process.env.TERMS_URL || "").trim()),
+      returns_policy: Boolean(String(process.env.RETURNS_POLICY_URL || "").trim())
+    };
+
+    res.json({
+      generated_at: new Date().toISOString(),
+      core: {
+        database: Boolean(pool),
+        ai: aiConfigured(),
+        supplier_credentials: partGrade.configured(),
+        active_pickup_points: Number(activePickups.rows[0]?.count || 0)
+      },
+      external: {
+        supplier_search_live: supplierLive,
+        supplier_order_write_enabled:
+          String(process.env.SUPPLIER_ORDER_WRITE_ENABLED || "false").toLowerCase() === "true",
+        payment_provider:
+          String(process.env.PAYMENT_PROVIDER_ENABLED || "false").toLowerCase() === "true",
+        calculated_delivery:
+          String(process.env.DELIVERY_PROVIDER_ENABLED || "false").toLowerCase() === "true",
+        vin_epc:
+          String(process.env.VIN_EPC_PROVIDER_ENABLED || "false").toLowerCase() === "true",
+        outbound_notifications:
+          String(process.env.OUTBOUND_NOTIFICATIONS_ENABLED || "false").toLowerCase() === "true",
+        production_domain: Boolean(String(process.env.PUBLIC_BASE_URL || "").trim())
+      },
+      legal,
+      ready_for_supplier_smoke:
+        partGrade.configured() && Boolean(pool),
+      ready_for_public_commerce:
+        Boolean(pool) &&
+        partGrade.configured() &&
+        Boolean(supplierLive?.search_articles_ok) &&
+        legal.seller_identity &&
+        legal.privacy_policy &&
+        legal.terms &&
+        legal.returns_policy &&
+        Boolean(String(process.env.PUBLIC_BASE_URL || "").trim())
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
 app.get("/api/admin/overview", requireStaff, async (req, res, next) => {
   try {
     const [quotes, vin, returns, orders, support] = await Promise.all([
