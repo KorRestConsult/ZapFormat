@@ -83,6 +83,34 @@ try {
     await assertNoHorizontalOverflow(page, `${viewport.name}/catalog/offers`);
 
     await page.evaluate(() => {
+      S.aiOriginalQuery = "передние колодки для моего Focus";
+      S.aiResult = {
+        ai: true,
+        mode: "candidates",
+        vehicle: { brand: "Ford", model: "Focus", generation: "II", year: "2006" },
+        intent: {
+          kind: "part_name",
+          article: "",
+          normalized_query: "передние тормозные колодки",
+          part_name: "передние тормозные колодки",
+          position: "передняя ось",
+          search_terms: ["тормозные колодки", "колодки передние"],
+          assistant_text: "Понял запрос. Совместимость подтверждаем только каталогом.",
+          needs_article: true,
+          confidence: 0.96
+        }
+      };
+      S.aiCandidates = [
+        { brand: "PATRON", article: "PRS3420", description: "Каталожная подсказка" },
+        { brand: "BREMBO", article: "P24061", description: "Каталожная подсказка" }
+      ];
+      document.querySelectorAll(".page").forEach(x=>x.classList.toggle("active",x.dataset.page==="catalog"));
+      renderAiResult();
+    });
+    await page.waitForTimeout(50);
+    await assertNoHorizontalOverflow(page, `${viewport.name}/catalog/ai`);
+
+    await page.evaluate(() => {
       S.cart = [
         {
           id: "offer1", offer_ref: "offer1", brand: "PATRON", article: "PRS3420",
