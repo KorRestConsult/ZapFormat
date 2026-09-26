@@ -6,7 +6,7 @@
   <meta name="theme-color" content="#17324a" />
   <title>ZapFormat — автозапчасти</title>
   <meta name="description" content="Умный поиск автозапчастей по артикулу, VIN и обычному запросу" />
-  <link rel="stylesheet" href="./styles.css?v=20260926-live4" />
+  <link rel="stylesheet" href="./styles.css?v=20260926-live5" />
 </head>
 <body>
   <div class="app">
@@ -245,11 +245,11 @@
                 <button class="account-primary" data-route="home">Найти запчасть</button>
               </div>
 
-              <div class="account-stats">
-                <article><span>Активные заказы</span><b>2</b><small>5 позиций в работе</small></article>
-                <article><span>Готово к получению</span><b>1</b><small>можно забирать</small></article>
-                <article><span>Автомобили</span><b>1</b><small>BMW X3 F25</small></article>
-                <article><span>Возвраты</span><b>0</b><small>нет активных заявок</small></article>
+              <div class="account-stats" id="accountLiveStats">
+                <article><span>Активные заказы</span><b>—</b><small>загружаем</small></article>
+                <article><span>Готово к получению</span><b>—</b><small>загружаем</small></article>
+                <article><span>Автомобили</span><b>—</b><small>загружаем</small></article>
+                <article><span>Возвраты</span><b>—</b><small>загружаем</small></article>
               </div>
 
               <div class="account-block">
@@ -257,27 +257,15 @@
                   <div><span class="eyebrow">ПОСЛЕДНИЕ ЗАКАЗЫ</span><h3>Статус заказов</h3></div>
                   <button data-account-tab="orders">Все →</button>
                 </div>
-                <div class="account-order-list">
-                  <article class="account-order" data-order-detail="1042" tabindex="0">
-                    <div><small>#1042 · 24 сентября</small><b>BOSCH 0250603006</b><span>2 позиции · 4 218 ₽</span></div>
-                    <div class="order-progress"><i class="done"></i><i class="done"></i><i class="done"></i><i></i></div>
-                    <strong class="status">В пути</strong>
-                  </article>
-                  <article class="account-order" data-order-detail="1041" tabindex="0">
-                    <div><small>#1041 · 23 сентября</small><b>BMW 11277810456</b><span>1 позиция · 3 120 ₽</span></div>
-                    <div class="order-progress"><i class="done"></i><i class="done"></i><i class="done"></i><i class="done"></i></div>
-                    <strong class="status ready">Готов к выдаче</strong>
-                  </article>
+                <div class="account-order-list" id="accountRecentRequests">
+                  <div class="account-empty"><p>Реальные заказы появятся после оформления.</p></div>
                 </div>
               </div>
 
               <div class="account-grid-2">
                 <div class="account-block">
                   <div class="account-block-head"><div><span class="eyebrow">ГАРАЖ</span><h3>Мои автомобили</h3></div><button data-account-tab="garage">Открыть →</button></div>
-                  <div class="account-car">
-                    <div class="car-mark">BMW</div>
-                    <div><b>BMW X3 F25</b><span>2010 · 2.0 Diesel · N47</span><small>VIN будет сохранён после подключения аккаунта</small></div>
-                  </div>
+                  <div id="accountGaragePreview" class="account-muted">Добавьте автомобиль в гараж.</div>
                 </div>
                 <div class="account-block">
                   <div class="account-block-head"><div><span class="eyebrow">ПОЛУЧЕНИЕ</span><h3>Рязань</h3></div><button data-account-tab="delivery">Настроить →</button></div>
@@ -298,11 +286,9 @@
   <option value="Завершён">Завершён</option>
 </select>
               </div>
-              <div class="account-table">
+              <div class="account-table" id="accountOrdersTable">
                 <div class="account-table-head"><span>Заказ</span><span>Дата</span><span>Позиций</span><span>Сумма</span><span>Статус</span><span></span></div>
-                <div class="account-table-row"><b>#1042</b><span>24.09.2026</span><span>2</span><span>4 218 ₽</span><strong class="status">В пути</strong><button data-order-detail="1042">Подробнее</button></div>
-                <div class="account-table-row"><b>#1041</b><span>23.09.2026</span><span>1</span><span>3 120 ₽</span><strong class="status ready">Готов</strong><button data-order-detail="1041">Подробнее</button></div>
-                <div class="account-table-row"><b>#1038</b><span>18.09.2026</span><span>4</span><span>11 490 ₽</span><strong class="status gray">Завершён</strong><button data-order-detail="1038">Подробнее</button></div>
+                <div class="account-empty"><p>Здесь будут только реальные заказы и запросы.</p></div>
               </div>
             </section>
 
@@ -445,7 +431,7 @@
     </nav>
 </div>
 
-  <script src="./config.js?v=20260926-live4"></script>
-  <script src="./app.js?v=20260926-live4"></script>
+  <script src="./config.js?v=20260926-live5"></script>
+  <script src="./app.js?v=20260926-live5"></script>
 </body>
 </html>
