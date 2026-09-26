@@ -368,6 +368,9 @@ try {
     await page.evaluate(() => {
       S.quoteRequests = [{
         id: "Q-20260926-ABCDEF", status: "new", item_count: 2, quoted_total: 12000, created_at: "2026-09-26T10:00:00Z"
+      },{
+        id: "Q-20260924-DONE01", status: "completed", item_count: 2, quoted_total: 15284.25,
+        order_id: "o1", order_number: 101, created_at: "2026-09-24T09:45:00Z"
       }];
       S.vinRequests = [{
         id: "vr1", vehicle_id: "v2", vin: "X9F5XXEED56R37916",
@@ -380,7 +383,9 @@ try {
         brand: "PATRON", article: "PRS3420", unit_price: 5284.25, order_number: 101, created_at: "2026-09-25T10:00:00Z"
       }];
       S.orders = [{
-        id: "o1", order_number: 101, status: "ready", total_amount: 15284.25, item_count: 2, created_at: "2026-09-24T10:00:00Z"
+        id: "o1", order_number: 101, status: "ready", total_amount: 15284.25, item_count: 2,
+        source_quote_id: "Q-20260924-DONE01", fulfillment_method: "pickup",
+        payment_method: "after_confirmation", created_at: "2026-09-24T10:00:00Z"
       }];
       document.querySelectorAll(".page").forEach(x=>x.classList.toggle("active",x.dataset.page==="orders"));
       renderOrders();
@@ -391,7 +396,8 @@ try {
     await page.evaluate(() => {
       S.quoteDetail = {
         request: {
-          id: "Q-20260926-ABCDEF", status: "in_progress", name: "Илья",
+          id: "Q-20260926-ABCDEF", status: "completed", name: "Илья",
+          order_id: "o1", order_number: 101,
           recipient_name: "Илья Коробицин", recipient_phone: "+79000000000",
           fulfillment_method: "delivery", payment_method: "after_confirmation",
           manager_note: "Проверяем поставщика и срок.", created_at: "2026-09-26T10:00:00Z"
