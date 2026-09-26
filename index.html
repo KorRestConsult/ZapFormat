@@ -129,11 +129,11 @@ button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-vis
 .expert-card p{margin:0;color:#c9d4d8}
 .expert-card .secondary{border-color:#49606b;background:#fff}
 .vin-list{display:grid;gap:8px}
-.operator-stats{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:18px}
+.operator-stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(145px,1fr));gap:10px;margin-bottom:18px}
 .operator-stat{padding:17px;border:1px solid var(--line);border-radius:14px;background:#fff}
 .operator-stat b{display:block;font-size:30px;letter-spacing:-.05em}
 .operator-stat span{font-size:12px;color:var(--muted)}
-.operator-columns{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px;align-items:start}
+.operator-columns{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px;align-items:start}
 .operator-column{display:grid;gap:10px}
 .operator-searchbar{display:flex;gap:8px;align-items:center;margin-bottom:14px}
 .operator-searchbar input{flex:1;min-width:0;border:1px solid var(--line);background:#fff;border-radius:11px;padding:11px 13px}
@@ -2079,7 +2079,8 @@ function operatorStatusOptions(kind,current){
   const map={
     quote:[["new","Новая"],["in_progress","В работе"],["confirmed","Подтверждена"],["completed","Завершена"],["cancelled","Отменена"]],
     vin:[["new","Новый"],["in_progress","В подборе"],["answered","Ответ готов"],["closed","Закрыт"],["cancelled","Отменён"]],
-    return:[["created","Создан"],["in_progress","В работе"],["approved","Одобрен"],["rejected","Отклонён"],["completed","Завершён"],["cancelled","Отменён"]]
+    return:[["created","Создан"],["in_progress","В работе"],["approved","Одобрен"],["rejected","Отклонён"],["completed","Завершён"],["cancelled","Отменён"]],
+    support:[["new","Новое"],["in_progress","В работе"],["waiting_customer","Ждём клиента"],["resolved","Решено"],["closed","Закрыто"]]
   };
   return (map[kind]||[]).map(([v,l])=>'<option value="'+v+'" '+(v===current?"selected":"")+'>'+l+'</option>').join("");
 }
@@ -2218,25 +2219,27 @@ async function loadOperator(){
   }
 }
 function renderOperator(){
-  const root=$("#operatorBody"),o=S.operatorOverview||{},q=S.operatorQueue||{quotes:[],vin:[],returns:[]};
+  const root=$("#operatorBody"),o=S.operatorOverview||{},q=S.operatorQueue||{quotes:[],vin:[],returns:[],support:[]};
   const query=String(S.operatorQuery||"").trim().toLowerCase();
   const filterRows=rows=>!query?(rows||[]):(rows||[]).filter(r=>
     Object.values(r||{}).some(v=>String(v??"").toLowerCase().includes(query))
   );
-  const quoteRows=filterRows(q.quotes),vinRows=filterRows(q.vin),returnRows=filterRows(q.returns);
+  const quoteRows=filterRows(q.quotes),vinRows=filterRows(q.vin),returnRows=filterRows(q.returns),supportRows=filterRows(q.support);
   const stats=[
     ["Новые заявки",Number(o.quotes?.new||0)],
     ["VIN в очереди",Number(o.vin?.new||0)+Number(o.vin?.in_progress||0)],
     ["Возвраты",Number(o.returns?.created||0)+Number(o.returns?.in_progress||0)],
+    ["Поддержка",Number(o.support?.new||0)+Number(o.support?.in_progress||0)],
     ["Активные заказы",Number(o.orders?.active||0)]
   ];
   root.innerHTML='<form class="operator-searchbar" data-operator-search-form><input name="query" value="'+esc(S.operatorQuery||"")+'" placeholder="Телефон, VIN, артикул, номер заявки или имя"><button class="secondary">Найти</button>'+(S.operatorQuery?'<button class="ghost-btn" type="button" data-clear-operator-search>Сбросить</button>':'')+'</form>'+
     '<div class="operator-stats">'+stats.map(x=>'<div class="operator-stat"><b>'+x[1]+'</b><span>'+esc(x[0])+'</span></div>').join("")+'</div>'+
-    (query?'<div class="small muted" style="margin:-7px 0 12px">Найдено: '+(quoteRows.length+vinRows.length+returnRows.length)+'</div>':'')+
+    (query?'<div class="small muted" style="margin:-7px 0 12px">Найдено: '+(quoteRows.length+vinRows.length+returnRows.length+supportRows.length)+'</div>':'')+
     '<div class="operator-columns">'+
       operatorColumn("Заявки",quoteRows,"quote")+
       operatorColumn("VIN-подбор",vinRows,"vin")+
       operatorColumn("Возвраты",returnRows,"return")+
+      operatorColumn("Поддержка",supportRows,"support")+
     '</div>'+operatorPickupPanel();
 }
 function operatorPickupPanel(){
@@ -2264,12 +2267,14 @@ function operatorColumn(title,rows,kind){
     (rows.length?rows.map(r=>operatorCard(r,kind)).join(""):'<div class="panel panel-pad muted">Очередь пуста.</div>')+'</section>';
 }
 function operatorCard(r,kind){
-  const id=kind==="quote"?r.id:(kind==="vin"?r.id:r.id);
+  const id=r.id;
   const title=kind==="quote"
     ?r.id
     :kind==="vin"
       ?r.request_text
-      :"Возврат № "+r.return_number+" · "+r.brand+" "+r.article;
+      :kind==="return"
+        ?"Возврат № "+r.return_number+" · "+r.brand+" "+r.article
+        :"S-"+String(r.ticket_number||"").padStart(6,"0")+" · "+r.subject;
   const contact=kind==="quote"
     ?[r.recipient_name,r.recipient_phone].filter(Boolean).join(" · ")
     :[r.user_name,r.user_phone||r.user_email].filter(Boolean).join(" · ");
@@ -2277,7 +2282,9 @@ function operatorCard(r,kind){
     ?[r.item_count+" поз.",r.verified_total!==null?rub(r.verified_total):null,r.fulfillment_method].filter(Boolean).join(" · ")
     :kind==="vin"
       ?[[r.brand,r.model,r.generation,r.year].filter(Boolean).join(" "),r.vin].filter(Boolean).join(" · ")
-      :["Заказ № "+r.order_number,r.quantity+" шт.",rub(Number(r.unit_price||0)*Number(r.quantity||1))].join(" · ");
+      :kind==="return"
+        ?["Заказ № "+r.order_number,r.quantity+" шт.",rub(Number(r.unit_price||0)*Number(r.quantity||1))].join(" · ")
+        :[supportCategoryLabel(r.category),r.linked_type&&r.linked_id?(supportCategoryLabel(r.linked_type)+" · "+r.linked_id):null,(r.message_count||0)+" сообщ."].filter(Boolean).join(" · ");
   const readiness=kind==="quote"?S.operatorReadiness[id]:null;
   const readinessHtml=kind==="quote"
     ?'<div class="summary-note" style="margin-top:9px">'+(
@@ -2289,7 +2296,16 @@ function operatorCard(r,kind){
         :'Можно безопасно проверить, готова ли заявка к передаче поставщику. Заказ при этом не создаётся.'
     )+'</div>'
     :"";
-  return '<form class="operator-card" data-operator-form="'+kind+'" data-id="'+id+'"><div class="op-top"><div><h4>'+esc(title)+'</h4><p>'+esc(contact||"Контакт не указан")+'</p></div><span class="status">'+esc(r.status)+'</span></div><div class="op-meta"><span class="ai-chip">'+esc(details)+'</span><span class="ai-chip">'+datetime(r.created_at)+'</span></div>'+(kind==="quote"&&r.customer_comment?'<p><b>Комментарий клиента:</b> '+esc(r.customer_comment)+'</p>':"")+(kind==="return"&&r.reason?'<p><b>Причина:</b> '+esc(r.reason)+'</p>':"")+readinessHtml+'<select name="status">'+operatorStatusOptions(kind,r.status)+'</select><textarea name="manager_note" placeholder="Комментарий сотрудника">'+esc(r.manager_note||"")+'</textarea><div class="form-actions"><div style="display:flex;gap:7px;flex-wrap:wrap"><button class="secondary">Сохранить</button>'+(kind==="quote"?'<button type="button" class="ghost-btn" data-check-supplier="'+esc(id)+'">Проверить поставщика</button>':'')+'</div><span class="small muted">ID '+esc(String(id).slice(0,14))+'</span></div></form>';
+  const extra=kind==="quote"&&r.customer_comment
+    ?'<p><b>Комментарий клиента:</b> '+esc(r.customer_comment)+'</p>'
+    :kind==="return"&&r.reason
+      ?'<p><b>Причина:</b> '+esc(r.reason)+'</p>'
+      :kind==="support"&&r.last_message
+        ?'<p><b>Последнее сообщение:</b> '+esc(r.last_message)+'</p>'
+        :"";
+  const textareaValue=kind==="support"?"":(r.manager_note||"");
+  const textareaPlaceholder=kind==="support"?"Ответ клиенту (необязательно при смене статуса)":"Комментарий сотрудника";
+  return '<form class="operator-card" data-operator-form="'+kind+'" data-id="'+id+'"><div class="op-top"><div><h4>'+esc(title)+'</h4><p>'+esc(contact||"Контакт не указан")+'</p></div><span class="status">'+esc(kind==="support"?supportStatusLabel(r.status):r.status)+'</span></div><div class="op-meta"><span class="ai-chip">'+esc(details)+'</span><span class="ai-chip">'+datetime(r.created_at)+'</span></div>'+extra+readinessHtml+'<select name="status">'+operatorStatusOptions(kind,r.status)+'</select><textarea name="manager_note" placeholder="'+esc(textareaPlaceholder)+'">'+esc(textareaValue)+'</textarea><div class="form-actions"><div style="display:flex;gap:7px;flex-wrap:wrap"><button class="secondary">Сохранить</button>'+(kind==="quote"?'<button type="button" class="ghost-btn" data-check-supplier="'+esc(id)+'">Проверить поставщика</button>':'')+'</div><span class="small muted">ID '+esc(String(id).slice(0,14))+'</span></div></form>';
 }
 async function checkOperatorSupplier(id){
   try{
@@ -2309,13 +2325,18 @@ async function saveOperatorItem(form){
     ?"/api/admin/quote-requests/"+encodeURIComponent(id)
     :kind==="vin"
       ?"/api/admin/vin-requests/"+encodeURIComponent(id)
-      :"/api/admin/returns/"+encodeURIComponent(id);
+      :kind==="return"
+        ?"/api/admin/returns/"+encodeURIComponent(id)
+        :"/api/admin/support-requests/"+encodeURIComponent(id);
+  const note=String(f.get("manager_note")||"").trim();
+  const body=kind==="support"
+    ?{status:f.get("status"),...(note?{message:note}:{})}
+    :{status:f.get("status"),manager_note:note};
   try{
-    await api(path,{method:"PATCH",body:JSON.stringify({status:f.get("status"),manager_note:f.get("manager_note")})});
-    toast("Очередь обновлена");await loadOperator();
+    await api(path,{method:"PATCH",body:JSON.stringify(body)});
+    toast(kind==="support"&&note?"Ответ отправлен":"Очередь обновлена");await loadOperator();
   }catch{toast("Не удалось обновить")}
 }
-
 function caseTimelineHtml(history,currentStatus,createdAt){
   const rows=[...(history||[])];
   if(!rows.length&&createdAt)rows.push({status:currentStatus||"new",actor_type:"system",note:"Текущее состояние",created_at:createdAt});
