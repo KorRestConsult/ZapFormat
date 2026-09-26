@@ -43,7 +43,7 @@ This is the launch gate for the rebuild branch. A checked item means the code pa
 
 These must stay explicit. Do not replace them with fake UI/data.
 
-- [ ] **PartGrade search/articles rights:** run the real supplier verification script on the VPS after access is enabled. Historical state was HTTP 403 / ABCP errorCode 103.
+- [ ] **PartGrade live search:** run the real supplier verification script on the VPS. `search/articles` is preferred; when ABCP explicitly denies that method, ZapFormat now verifies and can use the documented `search/batch` fallback. Historical `search/articles` state was HTTP 403 / ABCP errorCode 103; `search/batch` still needs a real VPS check.
 - [ ] **Real PartGrade order write:** verify supplier-required basket/order fields and an agreed safe staging path before enabling SUPPLIER_ORDER_WRITE_ENABLED.
 - [ ] **Supplier order synchronization:** map supplier order/status changes back into ZapFormat orders.
 - [ ] **Real payment provider:** no online payment is currently connected; checkout correctly states payment happens after confirmation.
@@ -64,4 +64,4 @@ These must stay explicit. Do not replace them with fake UI/data.
 
 ## Release rule
 
-Do not call ZapFormat fully live until the real supplier search smoke passes. Do not enable supplier order writes merely because the storefront/checkout UI is complete. Payment, logistics, legal documents and supplier write access should each be enabled only after their own production checks pass.
+Do not call ZapFormat fully live until the real supplier search smoke passes through either `search/articles` or the verified `search/batch` fallback. Do not enable supplier order writes merely because the storefront/checkout UI is complete. Payment, logistics, legal documents and supplier write access should each be enabled only after their own production checks pass.
