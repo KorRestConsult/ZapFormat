@@ -2387,6 +2387,7 @@ async function checkoutOptionsForUser(user) {
       hasPickupPoints: pickupPoints.length > 0
     }),
     payment_methods: checkoutPaymentMethods(),
+    legal: publicPublicationConfig(),
     online_payment_enabled: false,
     logistics_pricing_enabled: false
   };
@@ -2603,6 +2604,9 @@ app.post("/api/checkout/submit", requireUser, quoteLimiter, async (req, res, nex
     const customerComment = String(req.body?.comment || "").trim().slice(0, 1200) || null;
     const recipientName = String(req.body?.recipient_name || req.user.name || "").trim().slice(0, 160);
     const recipientPhone = normalizePhone(req.body?.recipient_phone || req.user.phone);
+    const publication = publicPublicationConfig();
+    const legalRequired = Boolean(publication.links.terms || publication.links.privacy);
+    const legalAccepted = req.body?.legal_accepted === true;
 
     if (!["delivery", "pickup", "confirmation"].includes(fulfillmentMethod)) {
       return res.status(400).json({ error: "invalid_fulfillment_method" });
@@ -2613,6 +2617,9 @@ app.post("/api/checkout/submit", requireUser, quoteLimiter, async (req, res, nex
     if (!recipientName) return res.status(400).json({ error: "recipient_name_required" });
     if (!recipientPhone || recipientPhone.replace(/\D/g, "").length < 10) {
       return res.status(400).json({ error: "recipient_phone_required" });
+    }
+    if (legalRequired && !legalAccepted) {
+      return res.status(400).json({ error: "legal_acceptance_required" });
     }
 
     let deliveryAddress = null;
@@ -2674,10 +2681,12 @@ app.post("/api/checkout/submit", requireUser, quoteLimiter, async (req, res, nex
         (id, user_id, name, phone, status, source, created_at,
          fulfillment_method, pickup_point_id, delivery_address_id,
          recipient_name, recipient_phone, payment_method, customer_comment,
-         verified_total, delivery_fee, vehicle_id, checkout_version)
+         verified_total, delivery_fee, vehicle_id, checkout_version,
+         terms_accepted_at, privacy_accepted_at, terms_url_snapshot, privacy_url_snapshot)
        VALUES
         ($1,$2,$3,$4,'new','zapformat-checkout',$5,
-         $6,$7,$8,$9,$10,$11,$12,$13,NULL,$14,1)`,
+         $6,$7,$8,$9,$10,$11,$12,$13,NULL,$14,1,
+         $15,$16,$17,$18)`,
       [
         requestId,
         req.user.id,
@@ -2692,7 +2701,11 @@ app.post("/api/checkout/submit", requireUser, quoteLimiter, async (req, res, nex
         paymentMethod,
         customerComment,
         verifiedTotal,
-        vehicle?.id || null
+        vehicle?.id || null,
+        legalAccepted && publication.links.terms ? now : null,
+        legalAccepted && publication.links.privacy ? now : null,
+        legalAccepted ? publication.links.terms : null,
+        legalAccepted ? publication.links.privacy : null
       ]
     );
 
@@ -2766,7 +2779,8 @@ app.post("/api/checkout/submit", requireUser, quoteLimiter, async (req, res, nex
         : null,
       items: items.length,
       checked_at: now.toISOString(),
-      next_step: "confirmation"
+      next_step: "confirmation",
+      legal_accepted: legalRequired ? legalAccepted : null
     });
   } catch (error) {
     await client.query("ROLLBACK").catch(() => {});
