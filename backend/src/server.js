@@ -1810,12 +1810,15 @@ app.get("/api/account/quote-requests", requireUser, async (req, res, next) => {
           q.verified_total,
           q.created_at,
           q.updated_at,
+          o.id AS order_id,
+          o.order_number,
           count(i.id)::int AS item_count,
           COALESCE(sum(i.quoted_price * i.quantity), 0) AS quoted_total
        FROM quote_requests q
        LEFT JOIN quote_request_items i ON i.request_id = q.id
+       LEFT JOIN orders o ON o.source_quote_id = q.id
        WHERE q.user_id = $1
-       GROUP BY q.id
+       GROUP BY q.id, o.id
        ORDER BY q.created_at DESC
        LIMIT 100`,
       [req.user.id]
@@ -1831,7 +1834,9 @@ app.get("/api/account/quote-requests", requireUser, async (req, res, next) => {
         item_count: row.item_count,
         quoted_total: Number(row.quoted_total || 0),
         created_at: row.created_at,
-        updated_at: row.updated_at
+        updated_at: row.updated_at,
+        order_id: row.order_id || null,
+        order_number: row.order_number || null
       }))
     });
   } catch (error) {
@@ -1842,12 +1847,13 @@ app.get("/api/account/quote-requests", requireUser, async (req, res, next) => {
 app.get("/api/account/quote-requests/:requestId", requireUser, async (req, res, next) => {
   try {
     const requestResult = await pool.query(
-      `SELECT id, status, name, phone, fulfillment_method, pickup_point_id,
-              delivery_address_id, recipient_name, recipient_phone, payment_method,
-              customer_comment, manager_note, verified_total, delivery_fee, vehicle_id,
-              created_at, updated_at
-         FROM quote_requests
-        WHERE id = $1 AND user_id = $2
+      `SELECT q.id, q.status, q.name, q.phone, q.fulfillment_method, q.pickup_point_id,
+              q.delivery_address_id, q.recipient_name, q.recipient_phone, q.payment_method,
+              q.customer_comment, q.manager_note, q.verified_total, q.delivery_fee, q.vehicle_id,
+              q.created_at, q.updated_at, o.id AS order_id, o.order_number
+         FROM quote_requests q
+         LEFT JOIN orders o ON o.source_quote_id = q.id
+        WHERE q.id = $1 AND q.user_id = $2
         LIMIT 1`,
       [req.params.requestId, req.user.id]
     );
