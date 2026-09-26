@@ -371,6 +371,8 @@ const S={
   overview:null,
   notifications:null,
   addresses:[],
+  returns:[],
+  selectedReturnItem:null,
   cartPersistTimer:null,
   cartServerWarning:"",
   vehicles:[],
@@ -756,8 +758,12 @@ async function renderAccount(){
   }
   root.innerHTML='<div class="section-head"><span class="kicker">ЛИЧНЫЙ КАБИНЕТ</span><h2>'+esc(S.user.name)+'</h2><p>Профиль, автомобили и заказы в одном месте.</p></div><div class="dashboard-grid"><div><div id="accountPrimary"></div></div><aside id="accountSide"></aside></div>';
   try{
-    const [overview,notif]=await Promise.all([api("/api/account/overview"),api("/api/account/notifications")]);
-    S.overview=overview;S.notifications=notif.settings;
+    const [overview,notif,addresses]=await Promise.all([
+      api("/api/account/overview"),
+      api("/api/account/notifications"),
+      api("/api/account/addresses").catch(()=>({addresses:[]}))
+    ]);
+    S.overview=overview;S.notifications=notif.settings;S.addresses=addresses.addresses||[];
   }catch{}
   const stats=S.overview?.stats||{active_orders:0,ready_orders:0,vehicles:0,active_returns:0};
   $("#accountPrimary").innerHTML=
@@ -770,9 +776,54 @@ async function renderAccount(){
     notificationRow("item_changes","Изменения позиций","Цена, срок или наличие",n.item_changes)+
     notificationRow("returns","Возвраты","Изменения по возвратам",n.returns)+
     notificationRow("marketing","Предложения","Новости и акции ZapFormat",n.marketing)+
-    '</div></div><div class="panel panel-pad" style="margin-top:16px"><div class="panel-title"><div><h3>Сеанс</h3><p>Аккаунт останется на устройстве до выхода.</p></div></div><button class="danger" data-logout>Выйти из аккаунта</button></div>';
+    '</div></div><div class="panel panel-pad" style="margin-top:16px"><div class="panel-title"><div><h3>Безопасность</h3><p>Пароль и активные устройства.</p></div></div><form id="passwordForm"><div class="field"><label>Текущий пароль</label><input name="current_password" type="password" autocomplete="current-password" required></div><div class="field" style="margin-top:9px"><label>Новый пароль</label><input name="new_password" type="password" minlength="8" autocomplete="new-password" required></div><div class="form-actions"><button class="secondary">Сменить пароль</button></div></form><div class="form-actions"><button class="secondary" data-logout-others>Выйти на других устройствах</button><button class="danger" data-logout>Выйти</button></div></div>';
+  $("#accountPrimary").insertAdjacentHTML("beforeend",accountAddressPanel());
   $("#profileForm")?.addEventListener("submit",saveProfile);
+  $("#passwordForm")?.addEventListener("submit",changePassword);
+  $("#addressForm")?.addEventListener("submit",saveAddress);
 }
+function accountAddressPanel(){
+  const cards=S.addresses.length
+    ?'<div class="measurements">'+S.addresses.map(a=>'<div class="measurement"><span><b>'+esc(a.label||"Адрес")+(a.is_default?' · основной':'')+'</b><span class="small muted">'+esc(a.city)+', '+esc(a.address)+(a.recipient_name?' · '+esc(a.recipient_name):'')+'</span></span><span style="display:flex;gap:6px"><button class="ghost-btn small" type="button" data-edit-address="'+a.id+'">Изменить</button><button class="ghost-btn small" type="button" data-delete-address="'+a.id+'">×</button></span></div>').join("")+'</div>'
+    :'<p class="muted">Сохранённых адресов пока нет.</p>';
+  return '<div class="panel panel-pad" style="margin-top:16px"><div class="panel-title"><div><h3>Адреса получения</h3><p>Для будущей доставки и получателя.</p></div></div>'+cards+'<div class="mini-form"><form id="addressForm"><input type="hidden" name="id"><div class="form-grid"><div class="field"><label>Название</label><input name="label" placeholder="Дом"></div><div class="field"><label>Город</label><input name="city" placeholder="Рязань" required></div><div class="field full"><label>Адрес</label><input name="address" placeholder="Улица, дом, квартира" required></div><div class="field"><label>Получатель</label><input name="recipient_name" placeholder="'+esc(S.user?.name||"")+'"></div><div class="field"><label>Телефон</label><input name="recipient_phone" placeholder="'+esc(S.user?.phone||"")+'"></div><div class="field full"><label><input type="checkbox" name="is_default"> Основной адрес</label></div></div><div class="form-actions"><button class="secondary">Сохранить адрес</button><button class="ghost-btn" type="button" data-reset-address>Очистить</button></div></form></div></div>';
+}
+async function saveAddress(e){
+  e.preventDefault();
+  const f=new FormData(e.currentTarget),id=String(f.get("id")||"");
+  const payload={
+    label:f.get("label"),city:f.get("city"),address:f.get("address"),
+    recipient_name:f.get("recipient_name"),recipient_phone:f.get("recipient_phone"),
+    is_default:f.get("is_default")==="on"
+  };
+  try{
+    await api(id?"/api/account/addresses/"+id:"/api/account/addresses",{method:id?"PATCH":"POST",body:JSON.stringify(payload)});
+    toast("Адрес сохранён");return renderAccount();
+  }catch{toast("Не удалось сохранить адрес")}
+}
+function editAddress(id){
+  const a=S.addresses.find(x=>x.id===id),f=$("#addressForm");if(!a||!f)return;
+  for(const key of ["id","label","city","address","recipient_name","recipient_phone"]){
+    if(f.elements[key])f.elements[key].value=a[key]||"";
+  }
+  f.elements.is_default.checked=Boolean(a.is_default);
+  f.scrollIntoView({behavior:"smooth",block:"center"});
+}
+async function deleteAddress(id){
+  if(!confirm("Удалить этот адрес?"))return;
+  try{await api("/api/account/addresses/"+id,{method:"DELETE"});toast("Адрес удалён");return renderAccount()}catch{toast("Не удалось удалить адрес")}
+}
+async function changePassword(e){
+  e.preventDefault();const f=new FormData(e.currentTarget);
+  try{
+    await api("/api/account/password",{method:"PATCH",body:JSON.stringify({current_password:f.get("current_password"),new_password:f.get("new_password")})});
+    e.currentTarget.reset();toast("Пароль изменён; другие сеансы закрыты");
+  }catch(err){toast(err.status===401?"Текущий пароль неверный":"Не удалось сменить пароль")}
+}
+async function logoutOthers(){
+  try{const d=await api("/api/auth/logout-others",{method:"POST"});toast("Закрыто сеансов: "+Number(d.revoked||0))}catch{toast("Не удалось закрыть сеансы")}
+}
+
 function notificationRow(key,title,sub,checked){
   return '<label class="switch-row"><span><b>'+title+'</b><span>'+sub+'</span></span><span class="switch"><input type="checkbox" data-notification="'+key+'" '+(checked?"checked":"")+'><i></i></span></label>';
 }
@@ -961,6 +1012,10 @@ document.addEventListener("click",async e=>{
   if(e.target.closest("[data-auth-open]"))return openAuth();
   x=e.target.closest("[data-close-dialog]");if(x)return $("#"+x.dataset.closeDialog).close();
   x=e.target.closest("[data-auth-tab]");if(x){S.authMode=x.dataset.authTab;return authUi()}
+  if(e.target.closest("[data-logout-others]"))return logoutOthers();
+  x=e.target.closest("[data-edit-address]");if(x)return editAddress(x.dataset.editAddress);
+  x=e.target.closest("[data-delete-address]");if(x)return deleteAddress(x.dataset.deleteAddress);
+  if(e.target.closest("[data-reset-address]")){const f=$("#addressForm");if(f)f.reset();return}
   if(e.target.closest("[data-logout]")){try{await api("/api/auth/logout",{method:"POST"})}catch{}S.user=null;S.overview=null;S.addresses=[];clearTimeout(S.cartPersistTimer);updateHeader();toast("Вы вышли");return go("home")}
   if(e.target.closest("[data-add-vehicle]"))return openVehicleDialog();
   x=e.target.closest("[data-vehicle-id]");if(x)return loadVehicle(x.dataset.vehicleId);
