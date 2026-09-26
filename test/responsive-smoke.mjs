@@ -301,9 +301,17 @@ try {
         ],
         payment_methods: [
           { code: "after_confirmation", label: "После подтверждения", description: "Оплата после подтверждения.", online: false }
-        ]
+        ],
+        legal: {
+          seller: { legal_name: "ООО «ЗапФормат»" },
+          links: {
+            terms: "https://example.com/terms",
+            privacy: "https://example.com/privacy",
+            returns: "https://example.com/returns"
+          }
+        }
       };
-      S.checkoutDraft = { fulfillment_method: "delivery", payment_method: "after_confirmation" };
+      S.checkoutDraft = { fulfillment_method: "delivery", payment_method: "after_confirmation", legal_accepted: true };
       S.checkoutResult = null;
       document.querySelectorAll(".page").forEach(x=>x.classList.toggle("active",x.dataset.page==="checkout"));
       renderCheckout();
