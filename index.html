@@ -1027,6 +1027,16 @@ function looksLikeArticleQuery(value){
   if(/^[A-HJ-NPR-Z0-9]{17}$/i.test(q))return false;
   return /^[A-Za-z0-9][A-Za-z0-9._/+\-]{2,47}$/.test(q);
 }
+function parseBrandArticleQuery(value){
+  const q=String(value||"").trim().replace(/\s+/g," ");
+  if(!q||q.length>100)return null;
+  const parts=q.split(" ");
+  if(parts.length<2||parts.length>4)return null;
+  const article=parts.at(-1),brand=parts.slice(0,-1).join(" ");
+  if(!looksLikeArticleQuery(article)||!/\d/.test(article))return null;
+  if(!/[A-Za-z]/.test(brand)||!/^[A-Za-z0-9&.+\- ]{2,60}$/.test(brand))return null;
+  return {brand,article};
+}
 function vehicleForAI(){
   const v=S.activeVehicle;if(!v)return null;
   return {
@@ -1141,8 +1151,15 @@ function chooseSearchSuggestion(item){
 async function search(q,push=true){
   q=String(q||"").trim();
   if(!q)return;
-  recordSearch(q,looksLikeArticleQuery(q)?"article":"smart");
+  const direct=parseBrandArticleQuery(q);
+  recordSearch(q,(looksLikeArticleQuery(q)||direct)?"article":"smart");
   if(looksLikeArticleQuery(q))return searchArticle(q,push,q,null);
+  if(direct){
+    return searchArticle(direct.article,push,q,{
+      ai:false,
+      intent:{brand_hint:direct.brand}
+    });
+  }
   return searchWithAI(q,push);
 }
 async function searchArticle(article,push=true,urlQuery=article,aiResult=null){
