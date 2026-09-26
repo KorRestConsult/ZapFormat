@@ -161,6 +161,47 @@ function normalizePhone(value) {
   return raw.startsWith("+") ? raw : "+" + raw;
 }
 
+function normalizeReferralCode(value) {
+  const code = String(value || "")
+    .trim()
+    .toUpperCase()
+    .replace(/[^A-Z0-9]/g, "")
+    .slice(0, 16);
+  return code.length >= 6 ? code : null;
+}
+
+async function ensureReferralCode(db, userId) {
+  const existing = await db.query(
+    "SELECT code FROM referral_codes WHERE user_id = $1 LIMIT 1",
+    [userId]
+  );
+  if (existing.rowCount) return existing.rows[0].code;
+
+  const alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+  for (let attempt = 0; attempt < 8; attempt += 1) {
+    let code = "";
+    for (let i = 0; i < 8; i += 1) {
+      code += alphabet[crypto.randomInt(0, alphabet.length)];
+    }
+    const inserted = await db.query(
+      `INSERT INTO referral_codes (user_id, code)
+       VALUES ($1, $2)
+       ON CONFLICT DO NOTHING
+       RETURNING code`,
+      [userId, code]
+    );
+    if (inserted.rowCount) return inserted.rows[0].code;
+
+    const raced = await db.query(
+      "SELECT code FROM referral_codes WHERE user_id = $1 LIMIT 1",
+      [userId]
+    );
+    if (raced.rowCount) return raced.rows[0].code;
+  }
+
+  throw new Error("referral_code_unavailable");
+}
+
 function validVehicleYear(value) {
   if (value === null || value === undefined || value === "") return true;
   const year = Number(value);
@@ -1200,6 +1241,7 @@ app.post("/api/auth/register", authLimiter, async (req, res, next) => {
     const email = normalizeEmail(req.body?.email);
     const phone = normalizePhone(req.body?.phone);
     const password = String(req.body?.password || "");
+    const referralCode = normalizeReferralCode(req.body?.referral_code);
 
     if (!name || (!email && !phone)) {
       return res.status(400).json({ error: "name_and_identity_required" });
@@ -1209,6 +1251,20 @@ app.post("/api/auth/register", authLimiter, async (req, res, next) => {
     }
 
     await client.query("BEGIN");
+
+    let referrerUserId = null;
+    if (referralCode) {
+      const referral = await client.query(
+        `SELECT rc.user_id
+           FROM referral_codes rc
+           JOIN users u ON u.id = rc.user_id
+          WHERE rc.code = $1
+            AND u.status = 'active'
+          LIMIT 1`,
+        [referralCode]
+      );
+      referrerUserId = referral.rows[0]?.user_id || null;
+    }
 
     const exists = await client.query(
       `SELECT id FROM users
@@ -1239,10 +1295,24 @@ app.post("/api/auth/register", authLimiter, async (req, res, next) => {
       "INSERT INTO user_notification_settings (user_id) VALUES ($1) ON CONFLICT (user_id) DO NOTHING",
       [user.id]
     );
+    await ensureReferralCode(client, user.id);
+
+    let referralApplied = false;
+    if (referrerUserId && referrerUserId !== user.id) {
+      const attributed = await client.query(
+        `INSERT INTO referral_attributions
+          (referrer_user_id, referred_user_id, code)
+         VALUES ($1, $2, $3)
+         ON CONFLICT (referred_user_id) DO NOTHING
+         RETURNING id`,
+        [referrerUserId, user.id, referralCode]
+      );
+      referralApplied = Boolean(attributed.rowCount);
+    }
 
     await client.query("COMMIT");
     await issueSession(req, res, user.id);
-    res.status(201).json({ user: publicUser(user) });
+    res.status(201).json({ user: publicUser(user), referral_applied: referralApplied });
   } catch (error) {
     await client.query("ROLLBACK").catch(() => {});
     next(error);
@@ -1579,6 +1649,52 @@ app.get("/api/account/overview", requireUser, async (req, res, next) => {
         unread_notifications: stats.unread_notifications,
         due_maintenance: due.rows
       }
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+app.get("/api/account/referrals", requireUser, async (req, res, next) => {
+  try {
+    const code = await ensureReferralCode(pool, req.user.id);
+    const [statsResult, recentResult] = await Promise.all([
+      pool.query(
+        `SELECT
+           count(*) FILTER (WHERE status = 'registered')::int AS registered,
+           count(*) FILTER (WHERE status = 'qualified')::int AS qualified,
+           count(*) FILTER (WHERE status = 'rewarded')::int AS rewarded,
+           (SELECT COALESCE(sum(points),0)::int FROM loyalty_ledger WHERE user_id = $1) AS points_balance
+         FROM referral_attributions
+         WHERE referrer_user_id = $1`,
+        [req.user.id]
+      ),
+      pool.query(
+        `SELECT ra.id, ra.status, ra.created_at, u.name
+           FROM referral_attributions ra
+           JOIN users u ON u.id = ra.referred_user_id
+          WHERE ra.referrer_user_id = $1
+          ORDER BY ra.created_at DESC
+          LIMIT 20`,
+        [req.user.id]
+      )
+    ]);
+
+    const row = statsResult.rows[0] || {};
+    res.json({
+      code,
+      stats: {
+        registered: Number(row.registered || 0),
+        qualified: Number(row.qualified || 0),
+        rewarded: Number(row.rewarded || 0),
+        points_balance: Number(row.points_balance || 0)
+      },
+      referrals: recentResult.rows.map((item) => ({
+        id: item.id,
+        name: item.name,
+        status: item.status,
+        created_at: item.created_at
+      }))
     });
   } catch (error) {
     next(error);
@@ -4517,5 +4633,6 @@ module.exports = {
   resolveSupplierWriteItems,
   validVehicleYear,
   validMileage,
+  normalizeReferralCode,
   MAX_CART_ITEMS
 };
