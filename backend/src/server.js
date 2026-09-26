@@ -2979,7 +2979,7 @@ app.patch("/api/support-requests/:requestId/close", requireUser, async (req, res
 
 app.get("/api/admin/overview", requireStaff, async (req, res, next) => {
   try {
-    const [quotes, vin, returns, orders] = await Promise.all([
+    const [quotes, vin, returns, orders, support] = await Promise.all([
       pool.query(
         `SELECT
             count(*) FILTER (WHERE status = 'new')::int AS new,
@@ -3006,6 +3006,13 @@ app.get("/api/admin/overview", requireStaff, async (req, res, next) => {
             count(*) FILTER (WHERE status NOT IN ('completed','cancelled','returned'))::int AS active,
             count(*) FILTER (WHERE status = 'ready')::int AS ready
            FROM orders`
+      ),
+      pool.query(
+        `SELECT
+            count(*) FILTER (WHERE status = 'new')::int AS new,
+            count(*) FILTER (WHERE status = 'in_progress')::int AS in_progress,
+            count(*) FILTER (WHERE status = 'waiting_customer')::int AS waiting_customer
+           FROM support_requests`
       )
     ]);
 
@@ -3013,7 +3020,8 @@ app.get("/api/admin/overview", requireStaff, async (req, res, next) => {
       quotes: quotes.rows[0],
       vin: vin.rows[0],
       returns: returns.rows[0],
-      orders: orders.rows[0]
+      orders: orders.rows[0],
+      support: support.rows[0]
     });
   } catch (error) {
     next(error);
@@ -3022,7 +3030,7 @@ app.get("/api/admin/overview", requireStaff, async (req, res, next) => {
 
 app.get("/api/admin/queue", requireStaff, async (req, res, next) => {
   try {
-    const [quotes, vin, returns] = await Promise.all([
+    const [quotes, vin, returns, support] = await Promise.all([
       pool.query(
         `SELECT
             q.id, q.status, q.fulfillment_method, q.payment_method,
@@ -3071,6 +3079,27 @@ app.get("/api/admin/queue", requireStaff, async (req, res, next) => {
            CASE r.status WHEN 'created' THEN 0 WHEN 'in_progress' THEN 1 ELSE 2 END,
            r.created_at ASC
          LIMIT 200`
+      ),
+      pool.query(
+        `SELECT
+            sr.id, sr.ticket_number, sr.category, sr.subject, sr.status,
+            sr.linked_type, sr.linked_id, sr.created_at, sr.updated_at,
+            u.name AS user_name, u.phone AS user_phone, u.email AS user_email,
+            (SELECT sm.message
+               FROM support_messages sm
+              WHERE sm.request_id = sr.id
+              ORDER BY sm.created_at DESC, sm.id DESC
+              LIMIT 1) AS last_message,
+            (SELECT count(*)::int
+               FROM support_messages sm
+              WHERE sm.request_id = sr.id) AS message_count
+         FROM support_requests sr
+         JOIN users u ON u.id = sr.user_id
+         WHERE sr.status NOT IN ('closed','resolved')
+         ORDER BY
+           CASE sr.status WHEN 'new' THEN 0 WHEN 'in_progress' THEN 1 WHEN 'waiting_customer' THEN 2 ELSE 3 END,
+           sr.created_at ASC
+         LIMIT 200`
       )
     ]);
 
@@ -3083,10 +3112,88 @@ app.get("/api/admin/queue", requireStaff, async (req, res, next) => {
       returns: returns.rows.map((row) => ({
         ...row,
         unit_price: Number(row.unit_price || 0)
-      }))
+      })),
+      support: support.rows
     });
   } catch (error) {
     next(error);
+  }
+});
+
+app.patch("/api/admin/support-requests/:requestId", requireStaff, async (req, res, next) => {
+  const client = await pool.connect();
+  try {
+    const allowed = new Set(["new","in_progress","waiting_customer","resolved","closed"]);
+    const status = req.body?.status === undefined ? null : String(req.body.status);
+    const message = req.body?.message === undefined
+      ? null
+      : String(req.body.message || "").trim().slice(0, 4000);
+
+    if (status !== null && !allowed.has(status)) {
+      return res.status(400).json({ error: "invalid_support_status" });
+    }
+    if (req.body?.message !== undefined && !message) {
+      return res.status(400).json({ error: "support_message_required" });
+    }
+
+    await client.query("BEGIN");
+    const current = await client.query(
+      `SELECT id, ticket_number, user_id, status
+         FROM support_requests
+        WHERE id = $1
+        FOR UPDATE`,
+      [req.params.requestId]
+    );
+    const request = current.rows[0];
+    if (!request) {
+      await client.query("ROLLBACK");
+      return res.status(404).json({ error: "support_request_not_found" });
+    }
+
+    const nextStatus = status ?? (message ? "waiting_customer" : request.status);
+    const updated = await client.query(
+      `UPDATE support_requests
+          SET status = $2,
+              assigned_to = $3,
+              updated_at = now()
+        WHERE id = $1
+        RETURNING id, ticket_number, category, subject, status,
+                  linked_type, linked_id, assigned_to, created_at, updated_at`,
+      [request.id, nextStatus, req.user.id]
+    );
+
+    if (message) {
+      await client.query(
+        `INSERT INTO support_messages
+          (request_id, actor_type, actor_user_id, message)
+         VALUES ($1,'staff',$2,$3)`,
+        [request.id, req.user.id, message]
+      );
+    } else if (nextStatus !== request.status) {
+      await client.query(
+        `INSERT INTO support_messages
+          (request_id, actor_type, actor_user_id, message)
+         VALUES ($1,'system',$2,$3)`,
+        [request.id, req.user.id, "Статус изменён: " + nextStatus]
+      );
+    }
+
+    if (message || nextStatus !== request.status) {
+      const body = message || "Статус обращения изменён.";
+      await client.query(
+        `INSERT INTO notifications (user_id, type, title, body)
+         VALUES ($1,'support',$2,$3)`,
+        [request.user_id, "Поддержка S-" + request.ticket_number, body.slice(0, 500)]
+      );
+    }
+
+    await client.query("COMMIT");
+    res.json({ request: updated.rows[0] });
+  } catch (error) {
+    await client.query("ROLLBACK").catch(() => {});
+    next(error);
+  } finally {
+    client.release();
   }
 });
 
