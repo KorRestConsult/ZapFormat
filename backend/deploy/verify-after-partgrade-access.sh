@@ -152,3 +152,28 @@ function forbiddenKeyFound(value) {
   process.exit(1);
 });
 NODE
+
+if [[ -n "${VERIFY_QUOTE_REQUEST_ID:-}" ]]; then
+  echo "6) supplier write readiness: checking quote ${VERIFY_QUOTE_REQUEST_ID}"
+  readiness_json="$(curl -fsS "${LOCAL_API}/api/internal/supplier/order-readiness/${VERIFY_QUOTE_REQUEST_ID}")"
+  node - "${readiness_json}" <<'NODE'
+const data = JSON.parse(process.argv[2]);
+const forbidden = /supplierCode|supplier_code_value|itemKey|item_key_value|purchase|procurement|cost_price|userpsw|password|md5/i;
+const serialized = JSON.stringify(data);
+if (forbidden.test(serialized.replace(/"missing":\[[^\]]*\]/g, ""))) {
+  throw new Error("readiness response leaked supplier routing or secret values");
+}
+if (!Array.isArray(data.items) || !data.items.length) {
+  throw new Error("readiness response has no items");
+}
+if (typeof data.all_items_ready !== "boolean" || typeof data.can_submit !== "boolean") {
+  throw new Error("readiness booleans are missing");
+}
+if (data.write_enabled === false && data.can_submit !== false) {
+  throw new Error("supplier write disabled but can_submit is true");
+}
+console.log("6) supplier write readiness: OK; all_items_ready =", data.all_items_ready, "; write_enabled =", data.write_enabled);
+NODE
+else
+  echo "6) supplier write readiness: SKIP (set VERIFY_QUOTE_REQUEST_ID to test an existing quote)"
+fi
