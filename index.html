@@ -149,6 +149,14 @@ button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-vis
 .operator-card textarea,.operator-card select{width:100%;border:1px solid var(--line);border-radius:9px;padding:9px;background:#fff}
 .operator-card textarea{min-height:72px;resize:vertical;margin-top:8px}
 .operator-card .form-actions{justify-content:space-between}
+.release-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:8px}
+.release-check{display:flex;align-items:flex-start;gap:9px;padding:11px;border-radius:11px;background:#f3f5f2;min-width:0}
+.release-check i{display:grid;place-items:center;width:22px;height:22px;flex:0 0 auto;border-radius:7px;background:#e8ece8;color:var(--muted);font-style:normal;font-weight:950;font-size:11px}
+.release-check.ok i{background:#dff0e7;color:var(--green2)}
+.release-check.warn i{background:#fff0d9;color:#875716}
+.release-check b{display:block;font-size:13px}
+.release-check small{display:block;color:var(--muted);margin-top:2px;overflow-wrap:anywhere}
+
 
 .vin-row{display:grid;grid-template-columns:minmax(0,1.5fr) minmax(120px,.6fr) auto;gap:12px;align-items:center;padding:14px 16px;border:1px solid var(--line);border-radius:12px;background:#fff}
 .vin-row small{display:block;color:var(--muted);margin-top:3px}
@@ -772,6 +780,7 @@ const S={
   operatorQuery:"",
   operatorPickupPoints:[],
   operatorReadiness:{},
+  operatorReleaseReadiness:null,
   vehicles:[],
   garageDue:[],
   vehicleDetail:null,
@@ -2297,12 +2306,13 @@ async function loadOperator(){
   }
   root.innerHTML='<div class="state-card"><div><div class="spinner" style="margin:auto"></div><p>Загружаем очередь…</p></div></div>';
   try{
-    const [overview,queue,pickups]=await Promise.all([
+    const [overview,queue,pickups,release]=await Promise.all([
       api("/api/admin/overview"),
       api("/api/admin/queue"),
-      api("/api/admin/pickup-points").catch(()=>({pickup_points:[]}))
+      api("/api/admin/pickup-points").catch(()=>({pickup_points:[]})),
+      api("/api/admin/release-readiness").catch(()=>null)
     ]);
-    S.operatorOverview=overview;S.operatorQueue=queue;S.operatorPickupPoints=pickups.pickup_points||[];renderOperator();
+    S.operatorOverview=overview;S.operatorQueue=queue;S.operatorPickupPoints=pickups.pickup_points||[];S.operatorReleaseReadiness=release;renderOperator();
   }catch{
     root.innerHTML='<div class="empty"><div><b>Не удалось загрузить очередь</b><button class="secondary" data-reload-operator>Повторить</button></div></div>';
   }
@@ -2329,8 +2339,50 @@ function renderOperator(){
       operatorColumn("VIN-подбор",vinRows,"vin")+
       operatorColumn("Возвраты",returnRows,"return")+
       operatorColumn("Поддержка",supportRows,"support")+
-    '</div>'+operatorPickupPanel();
+    '</div>'+operatorReleasePanel()+operatorPickupPanel();
 }
+function releaseCheck(title,ok,detail="",warn=false){
+  return '<div class="release-check '+(ok?"ok":warn?"warn":"")+'"><i>'+(ok?"✓":warn?"!":"×")+'</i><span><b>'+esc(title)+'</b><small>'+esc(detail||"")+'</small></span></div>';
+}
+function operatorReleasePanel(){
+  const r=S.operatorReleaseReadiness;if(!r)return "";
+  const live=r.external?.supplier_search_live;
+  const liveText=!live
+    ?"Не проверялось в этом сеансе"
+    :live.search_articles_ok
+      ?"search/articles доступен"
+      :live.search_articles_denied
+        ?"Доступ к search/articles пока запрещён"+(live.upstream_code?" · код "+live.upstream_code:"")
+        :"Проверка не прошла"+(live.http_status?" · HTTP "+live.http_status:"");
+  const checks=[
+    releaseCheck("PostgreSQL",Boolean(r.core?.database),"Основная база данных"),
+    releaseCheck("PartGrade credentials",Boolean(r.core?.supplier_credentials),r.core?.supplier_credentials?"Настроены на backend":"Не настроены"),
+    releaseCheck("PartGrade search/articles",Boolean(live?.search_articles_ok),liveText,Boolean(live&&!live.search_articles_ok)),
+    releaseCheck("OpenAI",Boolean(r.core?.ai),r.core?.ai?"Ключ и модель настроены":"AI на сервере не настроен"),
+    releaseCheck("Пункты выдачи",Number(r.core?.active_pickup_points||0)>0,Number(r.core?.active_pickup_points||0)+" активных",Number(r.core?.active_pickup_points||0)===0),
+    releaseCheck("Домен",Boolean(r.external?.production_domain),r.external?.production_domain?"PUBLIC_BASE_URL задан":"Production URL не задан"),
+    releaseCheck("Продавец",Boolean(r.legal?.seller_identity),r.legal?.seller_identity?"Юр. данные заданы":"SELLER_LEGAL_NAME не задан"),
+    releaseCheck("Политика конфиденциальности",Boolean(r.legal?.privacy_policy),r.legal?.privacy_policy?"Ссылка задана":"Не опубликована"),
+    releaseCheck("Оферта / условия",Boolean(r.legal?.terms),r.legal?.terms?"Ссылка задана":"Не опубликована"),
+    releaseCheck("Правила возврата",Boolean(r.legal?.returns_policy),r.legal?.returns_policy?"Ссылка задана":"Не опубликована"),
+    releaseCheck("Оплата",Boolean(r.external?.payment_provider),r.external?.payment_provider?"Провайдер подключён":"Онлайн-оплата отключена"),
+    releaseCheck("Расчёт доставки",Boolean(r.external?.calculated_delivery),r.external?.calculated_delivery?"Провайдер подключён":"Авторасчёт не подключён"),
+    releaseCheck("VIN / EPC",Boolean(r.external?.vin_epc),r.external?.vin_epc?"Каталог подключён":"Автоприменимость не подключена"),
+    releaseCheck("Email / SMS / push",Boolean(r.external?.outbound_notifications),r.external?.outbound_notifications?"Внешняя доставка уведомлений включена":"Только in-app уведомления"),
+    releaseCheck("Запись заказа поставщику",Boolean(r.external?.supplier_order_write_enabled),r.external?.supplier_order_write_enabled?"Разрешена":"Безопасно выключена")
+  ];
+  return '<div class="panel panel-pad" style="margin-top:18px"><div class="panel-title"><div><h3>Готовность к запуску</h3><p>Только фактическое состояние. Никаких «зелёных» пунктов без настройки.</p></div><span class="status '+(r.ready_for_public_commerce?"ready":"neutral")+'">'+(r.ready_for_public_commerce?"Готово":"Есть блокеры")+'</span></div><div class="release-grid">'+checks.join("")+'</div><div class="form-actions"><button class="secondary" data-check-release-supplier>Проверить PartGrade сейчас</button><span class="small muted">Проверка read-only: user/info + PRS3420/PATRON search/articles. Заказ не создаётся.</span></div></div>';
+}
+async function checkReleaseSupplier(){
+  try{
+    toast("Проверяем PartGrade");
+    S.operatorReleaseReadiness=await api("/api/admin/release-readiness?live=1");
+    renderOperator();
+    const live=S.operatorReleaseReadiness?.external?.supplier_search_live;
+    toast(live?.search_articles_ok?"PartGrade search/articles доступен":"PartGrade ещё не готов полностью");
+  }catch{toast("Не удалось проверить готовность")}
+}
+
 function operatorPickupPanel(){
   const rows=S.operatorPickupPoints||[];
   return '<div class="panel panel-pad" style="margin-top:18px"><div class="panel-title"><div><h3>Пункты выдачи</h3><p>В checkout попадают только активные реальные точки.</p></div><span class="status neutral">'+rows.filter(x=>x.is_active).length+' активных</span></div>'+
@@ -2758,6 +2810,7 @@ document.addEventListener("click",async e=>{
   x=e.target.closest("[data-close-support]");if(x)return closeSupportRequest(x.dataset.closeSupport);
   x=e.target.closest("[data-support-context-type]");if(x)return openSupportForContext(x.dataset.supportContextType,x.dataset.supportContextId,x.dataset.supportContextLabel||"");
   x=e.target.closest("[data-check-supplier]");if(x)return checkOperatorSupplier(x.dataset.checkSupplier);
+  if(e.target.closest("[data-check-release-supplier]"))return checkReleaseSupplier();
   x=e.target.closest("[data-toggle-pickup]");if(x)return togglePickupPoint(x.dataset.togglePickup,x.dataset.active==="1");
   if(e.target.closest("[data-clear-operator-search]")){S.operatorQuery="";return renderOperator()}
   if(e.target.closest("[data-reload-operator]"))return loadOperator();
