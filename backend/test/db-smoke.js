@@ -22,7 +22,8 @@ async function main() {
       "008_customer_personalization.sql",
       "009_vehicle_specs.sql",
       "010_customer_case_history.sql",
-      "011_notification_entities.sql"
+      "011_notification_entities.sql",
+      "012_support_center.sql"
     ];
 
     for (const file of migrations) {
@@ -126,6 +127,26 @@ async function main() {
           AND column_name IN ('entity_type','entity_id')`
     );
     if (notificationColumns.rowCount !== 2) throw new Error("notification entity columns are missing");
+
+    const support = await client.query(
+      `INSERT INTO support_requests (user_id, category, subject)
+       VALUES ($1,'order','CI support request')
+       RETURNING id, ticket_number, status`,
+      [userId]
+    );
+    await client.query(
+      `INSERT INTO support_messages (request_id, actor_type, actor_user_id, message)
+       VALUES ($1,'customer',$2,'Need help'),
+              ($1,'staff',$2,'Checking')`,
+      [support.rows[0].id, userId]
+    );
+    const supportMessages = await client.query(
+      "SELECT actor_type, message FROM support_messages WHERE request_id = $1 ORDER BY id",
+      [support.rows[0].id]
+    );
+    if (!support.rows[0].ticket_number || support.rows[0].status !== "new" || supportMessages.rowCount !== 2) {
+      throw new Error("support center migration or messages failed");
+    }
 
     console.log("database migrations and critical upserts: ok");
   } finally {
