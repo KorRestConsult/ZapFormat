@@ -123,6 +123,15 @@ try {
         { id: "rs1", query: "передние колодки для моего Focus", use_count: 3 },
         { id: "rs2", query: "PRS3420", use_count: 2 }
       ];
+      S.referrals = {
+        code: "ZAPTEST8",
+        stats: { total: 4, registered: 2, qualified: 1, rewarded: 1, points_balance: 75 },
+        referrals: [
+          { id: "r1", name: "Алексей", status: "registered", created_at: "2026-09-26T08:00:00Z" },
+          { id: "r2", name: "Марина", status: "qualified", created_at: "2026-09-25T08:00:00Z" },
+          { id: "r3", name: "Сергей", status: "rewarded", created_at: "2026-09-24T08:00:00Z" }
+        ]
+      };
       S.notificationFeed = [
         { id: "n1", type: "quote_status", entity_type: "quote", entity_id: "Q-20260926-ABCDEF", title: "Заявка в работе", body: "Проверяем цену и срок.", read_at: null, created_at: "2026-09-26T12:00:00Z" },
         { id: "n2", type: "vin_status", entity_type: "vin", entity_id: "vr1", title: "Подбор готов", body: "Есть ответ оператора.", read_at: "2026-09-26T12:30:00Z", created_at: "2026-09-26T12:20:00Z" }
@@ -511,6 +520,15 @@ try {
         name: "ZapFormat · тестовая геометрия", address: "Очень длинное название улицы для проверки адаптивности, дом 123",
         is_active: true, created_at: "2026-09-26T12:00:00Z"
       }];
+      S.operatorReferrals = {
+        rewards_enabled: false,
+        reward_points: 0,
+        stats: { total: 4, registered: 2, qualified: 1, rewarded: 1, cancelled: 0, points_issued: 75 },
+        referrals: [
+          { id: "r1", code: "ZAPTEST8", status: "registered", referrer_name: "Илья", referred_name: "Алексей", created_at: "2026-09-26T08:00:00Z" },
+          { id: "r2", code: "ZAPTEST8", status: "qualified", referrer_name: "Илья", referred_name: "Марина", created_at: "2026-09-25T08:00:00Z" }
+        ]
+      };
       S.operatorReadiness = {
         "Q-20260926-ABCDEF": {
           request_id: "Q-20260926-ABCDEF",
