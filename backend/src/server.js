@@ -275,6 +275,100 @@ app.get("/api/supplier/health", async (_req, res, next) => {
   }
 });
 
+app.get("/api/supplier/capabilities", async (_req, res, next) => {
+  try {
+    const [basket, payments, shipments, addresses, statuses, orders] = await Promise.allSettled([
+      partGrade.basketContent(),
+      partGrade.paymentMethods(),
+      partGrade.shipmentMethods(),
+      partGrade.shipmentAddresses(),
+      partGrade.orderStatuses(),
+      partGrade.orders({ limit: 20 })
+    ]);
+
+    const count = (result) => {
+      if (result.status !== "fulfilled") return null;
+      const value = result.value;
+      if (Array.isArray(value)) return value.length;
+      if (value && Array.isArray(value.items)) return value.items.length;
+      return value && typeof value === "object" ? Object.keys(value).length : 0;
+    };
+
+    res.json({
+      ok: true,
+      provider: "PartGrade",
+      read_access: {
+        basket_content: count(basket),
+        payment_methods: count(payments),
+        shipment_methods: count(shipments),
+        shipment_addresses: count(addresses),
+        order_statuses: count(statuses),
+        orders: count(orders)
+      }
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+app.get("/api/supplier/basket", async (_req, res, next) => {
+  try {
+    const rows = await partGrade.basketContent();
+    const items = (Array.isArray(rows) ? rows : []).map((row) => ({
+      brand: row.brand ?? null,
+      article: row.number ?? row.code ?? null,
+      description: row.description ?? null,
+      quantity: Number(row.quantity || 0),
+      price: row.priceInSiteCurrency ?? row.price ?? null,
+      delivery_hours: row.deadline ?? null,
+      delivery_hours_max: row.deadlineMax ?? null,
+      position_id: row.positionId ?? null,
+      status: row.status ?? null
+    }));
+    res.json({ source: "PartGrade", items });
+  } catch (error) {
+    next(error);
+  }
+});
+
+app.get("/api/supplier/order-statuses", async (_req, res, next) => {
+  try {
+    const rows = await partGrade.orderStatuses();
+    res.json({ source: "PartGrade", statuses: Array.isArray(rows) ? rows : [] });
+  } catch (error) {
+    next(error);
+  }
+});
+
+app.get("/api/supplier/orders", async (req, res, next) => {
+  try {
+    const limit = Math.max(1, Math.min(100, Number(req.query?.limit || 20)));
+    const skip = Math.max(0, Number(req.query?.skip || 0));
+    const data = await partGrade.orders({ limit, skip });
+    res.json({ source: "PartGrade", data });
+  } catch (error) {
+    next(error);
+  }
+});
+
+app.get("/api/supplier/checkout-options", async (_req, res, next) => {
+  try {
+    const [paymentMethods, shipmentMethods, shipmentAddresses] = await Promise.all([
+      partGrade.paymentMethods(),
+      partGrade.shipmentMethods(),
+      partGrade.shipmentAddresses()
+    ]);
+    res.json({
+      source: "PartGrade",
+      payment_methods: paymentMethods,
+      shipment_methods: shipmentMethods,
+      shipment_addresses: shipmentAddresses
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
 app.get("/api/catalog/brands", async (req, res, next) => {
   try {
     const number = String(req.query?.number || "").trim();
