@@ -1136,7 +1136,7 @@ app.get("/api/account/quote-requests/:requestId", requireUser, async (req, res, 
     const requestResult = await pool.query(
       `SELECT id, status, name, phone, fulfillment_method, pickup_point_id,
               delivery_address_id, recipient_name, recipient_phone, payment_method,
-              customer_comment, verified_total, delivery_fee, vehicle_id,
+              customer_comment, manager_note, verified_total, delivery_fee, vehicle_id,
               created_at, updated_at
          FROM quote_requests
         WHERE id = $1 AND user_id = $2
@@ -2056,6 +2056,7 @@ app.get("/api/returns", requireUser, async (req, res, next) => {
           r.reason,
           r.comment,
           r.status,
+          r.manager_note,
           r.created_at,
           r.updated_at,
           oi.article,
