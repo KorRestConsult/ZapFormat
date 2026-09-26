@@ -40,16 +40,18 @@ app.set("trust proxy", 1);
 app.use(helmet());
 app.use(express.json({ limit: "512kb" }));
 app.use(cookieParser());
-app.use(cors({
-  origin(origin, callback) {
-    if (!origin) return callback(null, true);
-    if (FRONTEND_ORIGINS.includes(origin)) return callback(null, true);
-    return callback(new Error("Origin is not allowed"));
-  },
-  credentials: true,
-  methods: ["GET", "POST", "PATCH", "DELETE", "OPTIONS"],
-  allowedHeaders: ["Content-Type", "Accept"]
-}));
+if (FRONTEND_ORIGINS.length) {
+  app.use(cors({
+    origin(origin, callback) {
+      if (!origin) return callback(null, true);
+      if (FRONTEND_ORIGINS.includes(origin)) return callback(null, true);
+      return callback(new Error("Origin is not allowed"));
+    },
+    credentials: true,
+    methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+    allowedHeaders: ["Content-Type", "Accept"]
+  }));
+}
 
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
@@ -357,9 +359,7 @@ app.get("/api/supplier/health", async (_req, res, next) => {
     await partGrade.userInfo();
     res.json({
       ok: true,
-      configured: true,
-      provider: "PartGrade",
-      api_host: new URL(partGrade.baseUrl).hostname
+      configured: true
     });
   } catch (error) {
     next(error);
@@ -622,8 +622,6 @@ app.get("/api/catalog/offers", async (req, res, next) => {
       .sort((a, b) => a.price - b.price || a.delivery_hours - b.delivery_hours);
 
     res.json({
-      source: "PartGrade",
-      mode: supplier.mode,
       query: { number, brand },
       offers
     });
