@@ -4,6 +4,8 @@ const browser = await chromium.launch({ headless: true });
 const viewports = [
   { name: "desktop", width: 1440, height: 900 },
   { name: "ipad", width: 1024, height: 1366 },
+  { name: "ipad-pro-11-portrait", width: 834, height: 1194 },
+  { name: "ipad-pro-11-landscape", width: 1194, height: 834 },
   { name: "iphone", width: 390, height: 844 }
 ];
 
@@ -299,6 +301,67 @@ try {
     });
     await page.waitForTimeout(50);
     await assertNoHorizontalOverflow(page, `${viewport.name}/orders/data`);
+
+    await page.evaluate(() => {
+      S.quoteDetail = {
+        request: {
+          id: "Q-20260926-ABCDEF", status: "in_progress", name: "Илья",
+          recipient_name: "Илья Коробицин", recipient_phone: "+79000000000",
+          fulfillment_method: "delivery", payment_method: "after_confirmation",
+          manager_note: "Проверяем поставщика и срок.", created_at: "2026-09-26T10:00:00Z"
+        },
+        items: [{
+          id: "qi1", brand: "PATRON", article: "PRS3420",
+          description: "Передние тормозные колодки", quantity: 2,
+          quoted_price: 5284.25, needs_confirmation: false
+        }],
+        history: [
+          { id: 1, status: "new", actor_type: "customer", note: "Заявка создана.", created_at: "2026-09-26T10:00:00Z" },
+          { id: 2, status: "in_progress", actor_type: "staff", note: "Проверяем поставщика и срок.", created_at: "2026-09-26T10:15:00Z" }
+        ]
+      };
+      renderQuoteDetail();
+    });
+    await page.waitForTimeout(50);
+    await assertNoHorizontalOverflow(page, `${viewport.name}/orders/quote-detail`);
+
+    await page.evaluate(() => {
+      S.vinDetail = {
+        request: {
+          id: "vr1", vin: "X9F5XXEED56R37916",
+          request_text: "Передние тормозные колодки среднего ценового сегмента",
+          status: "answered", manager_note: "Подобраны два подтверждённых артикула.",
+          created_at: "2026-09-26T11:00:00Z",
+          brand: "Ford", model: "Focus", generation: "II", year: 2006, engine: "1.8"
+        },
+        history: [
+          { id: 1, status: "new", actor_type: "customer", note: "Запрос создан.", created_at: "2026-09-26T11:00:00Z" },
+          { id: 2, status: "answered", actor_type: "staff", note: "Подобраны два подтверждённых артикула.", created_at: "2026-09-26T11:30:00Z" }
+        ]
+      };
+      renderVinDetail();
+    });
+    await page.waitForTimeout(50);
+    await assertNoHorizontalOverflow(page, `${viewport.name}/orders/vin-detail`);
+
+    await page.evaluate(() => {
+      S.returnDetail = {
+        return: {
+          id: "ret1", return_number: 7, quantity: 1, reason: "Не подошла деталь",
+          comment: "Упаковка сохранена.", status: "in_progress",
+          manager_note: "Проверяем условия возврата.", created_at: "2026-09-25T10:00:00Z",
+          brand: "PATRON", article: "PRS3420", unit_price: 5284.25,
+          order_id: "o1", order_number: 101
+        },
+        history: [
+          { id: 1, status: "created", actor_type: "customer", note: "Запрос на возврат создан.", created_at: "2026-09-25T10:00:00Z" },
+          { id: 2, status: "in_progress", actor_type: "staff", note: "Проверяем условия возврата.", created_at: "2026-09-25T10:20:00Z" }
+        ]
+      };
+      renderReturnDetail();
+    });
+    await page.waitForTimeout(50);
+    await assertNoHorizontalOverflow(page, `${viewport.name}/orders/return-detail`);
 
     await page.evaluate(() => {
       S.user.role = "admin";
