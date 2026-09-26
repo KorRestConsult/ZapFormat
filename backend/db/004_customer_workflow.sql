@@ -2,6 +2,7 @@ BEGIN;
 
 ALTER TABLE cart_items
   ADD COLUMN IF NOT EXISTS offer_ref text,
+  ADD COLUMN IF NOT EXISTS delivery_hours integer,
   ADD COLUMN IF NOT EXISTS delivery_hours_max integer,
   ADD COLUMN IF NOT EXISTS returnable boolean,
   ADD COLUMN IF NOT EXISTS price_checked_at timestamptz;
