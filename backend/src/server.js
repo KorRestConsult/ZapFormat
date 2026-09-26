@@ -603,6 +603,25 @@ app.get("/api/supplier/checkout-options", requireInternal, async (_req, res, nex
   }
 });
 
+app.get("/api/catalog/suggest", catalogLimiter, async (req, res, next) => {
+  try {
+    const query = String(req.query?.q || "").trim().slice(0, 120);
+    if (query.length < 2) return res.json({ query, suggestions: [] });
+
+    const cacheKey = "tips|" + query.toUpperCase();
+    const cached = catalogCacheGet(cacheKey);
+    if (cached) return res.json(cached);
+
+    const rows = publicSearchTipCandidates(await partGrade.searchTips(query))
+      .slice(0, 12);
+    const payload = { query, suggestions: rows };
+    catalogCacheSet(cacheKey, payload);
+    res.json(payload);
+  } catch (error) {
+    next(error);
+  }
+});
+
 app.get("/api/catalog/brands", catalogLimiter, async (req, res, next) => {
   try {
     const number = String(req.query?.number || "").trim();
