@@ -8,11 +8,31 @@ const viewports = [
 ];
 
 async function assertNoHorizontalOverflow(page, label) {
-  const metrics = await page.evaluate(() => ({
-    scrollWidth: document.documentElement.scrollWidth,
-    clientWidth: document.documentElement.clientWidth,
-    bodyWidth: document.body.scrollWidth
-  }));
+  const metrics = await page.evaluate(() => {
+    const clientWidth = document.documentElement.clientWidth;
+    const offenders = [...document.querySelectorAll("body *")]
+      .map((el) => {
+        const r = el.getBoundingClientRect();
+        return {
+          tag: el.tagName,
+          cls: String(el.className || "").slice(0, 120),
+          id: el.id || "",
+          left: Math.round(r.left),
+          right: Math.round(r.right),
+          width: Math.round(r.width),
+          text: String(el.textContent || "").trim().replace(/\s+/g, " ").slice(0, 90)
+        };
+      })
+      .filter((x) => x.right > clientWidth + 1 || x.left < -1)
+      .sort((a,b) => b.right - a.right)
+      .slice(0, 8);
+    return {
+      scrollWidth: document.documentElement.scrollWidth,
+      clientWidth,
+      bodyWidth: document.body.scrollWidth,
+      offenders
+    };
+  });
   if (metrics.scrollWidth > metrics.clientWidth + 1 || metrics.bodyWidth > metrics.clientWidth + 1) {
     throw new Error(`${label} horizontal overflow: ${JSON.stringify(metrics)}`);
   }
