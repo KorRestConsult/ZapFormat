@@ -23,7 +23,8 @@ async function main() {
       "009_vehicle_specs.sql",
       "010_customer_case_history.sql",
       "011_notification_entities.sql",
-      "012_support_center.sql"
+      "012_support_center.sql",
+      "013_referrals.sql"
     ];
 
     for (const file of migrations) {
@@ -146,6 +147,36 @@ async function main() {
     );
     if (!support.rows[0].ticket_number || support.rows[0].status !== "new" || supportMessages.rowCount !== 2) {
       throw new Error("support center migration or messages failed");
+    }
+
+    const referrer = await client.query(
+      `INSERT INTO users (name, email, password_hash)
+       VALUES ('CI Referrer','referrer@example.invalid','not-a-real-password-hash')
+       RETURNING id`
+    );
+    const referrerId = referrer.rows[0].id;
+    await client.query(
+      "INSERT INTO referral_codes (user_id, code) VALUES ($1, 'TESTREF1')",
+      [referrerId]
+    );
+    await client.query(
+      `INSERT INTO referral_attributions (referrer_user_id, referred_user_id, code)
+       VALUES ($1, $2, 'TESTREF1')`,
+      [referrerId, userId]
+    );
+    await client.query(
+      `INSERT INTO loyalty_ledger (user_id, points, kind, reference_type, reference_id, note)
+       VALUES ($1, 25, 'referral', 'referral', $2, 'CI reward')`,
+      [referrerId, userId]
+    );
+    const referral = await client.query(
+      `SELECT
+         (SELECT count(*)::int FROM referral_attributions WHERE referrer_user_id = $1) AS referrals,
+         (SELECT COALESCE(sum(points),0)::int FROM loyalty_ledger WHERE user_id = $1) AS points`,
+      [referrerId]
+    );
+    if (referral.rows[0].referrals !== 1 || referral.rows[0].points !== 25) {
+      throw new Error("referral attribution or loyalty ledger failed");
     }
 
     console.log("database migrations and critical upserts: ok");
