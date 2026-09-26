@@ -2011,7 +2011,7 @@ async function loadVinRequest(id){
 }
 function renderVinDetail(){
   const d=S.vinDetail,r=d.request,root=$("#orderDetailRoot");
-  root.innerHTML='<div class="order-detail"><div><div class="panel panel-pad"><div class="detail-title"><div><span class="kicker">ПОДБОР ПО VIN</span><h3>'+esc(r.request_text)+'</h3><p>'+esc([r.brand,r.model,r.generation,r.year,r.engine].filter(Boolean).join(" · "))+'</p></div><span class="status '+(r.status==="answered"?"ready":"")+'">'+esc(vinStatusLabel(r.status))+'</span></div><div class="info-grid"><div class="info"><span>VIN</span><b>'+esc(r.vin||"—")+'</b></div><div class="info"><span>Создан</span><b>'+date(r.created_at)+'</b></div></div>'+(r.manager_note?'<div class="notice" style="margin-top:14px"><b>Ответ ZapFormat:</b> '+esc(r.manager_note)+'</div>':'')+'</div></div><aside class="order-side"><div class="panel panel-pad"><div class="panel-title"><div><h3>История подбора</h3><p>Все изменения запроса</p></div></div>'+caseTimelineHtml(d.history,r.status,r.created_at)+'</div><div class="panel panel-pad"><h3 style="margin-top:0">Новая деталь?</h3><p class="muted">Для этой же машины создайте отдельный запрос — статусы не смешиваются.</p><button class="secondary" data-vin-open style="width:100%">Новый VIN-запрос</button></div></aside></div>';
+  root.innerHTML='<div class="order-detail"><div><div class="panel panel-pad"><div class="detail-title"><div><span class="kicker">ПОДБОР ПО VIN</span><h3>'+esc(r.request_text)+'</h3><p>'+esc([r.brand,r.model,r.generation,r.year,r.engine].filter(Boolean).join(" · "))+'</p></div><span class="status '+(r.status==="answered"?"ready":"")+'">'+esc(vinStatusLabel(r.status))+'</span></div><div class="info-grid"><div class="info"><span>VIN</span><b>'+esc(r.vin||"—")+'</b></div><div class="info"><span>Создан</span><b>'+date(r.created_at)+'</b></div></div>'+(r.manager_note?'<div class="notice" style="margin-top:14px"><b>Ответ ZapFormat:</b> '+esc(r.manager_note)+'</div>':'')+(['new','in_progress'].includes(r.status)?'<div class="form-actions"><button class="danger" data-cancel-vin="'+r.id+'">Отменить запрос</button><span class="small muted">Доступно до ответа.</span></div>':'')+'</div></div><aside class="order-side"><div class="panel panel-pad"><div class="panel-title"><div><h3>История подбора</h3><p>Все изменения запроса</p></div></div>'+caseTimelineHtml(d.history,r.status,r.created_at)+'</div><div class="panel panel-pad"><h3 style="margin-top:0">Новая деталь?</h3><p class="muted">Для этой же машины создайте отдельный запрос — статусы не смешиваются.</p><button class="secondary" data-vin-open style="width:100%">Новый VIN-запрос</button></div></aside></div>';
 }
 async function loadReturnRequest(id){
   const root=$("#orderDetailRoot");
@@ -2025,7 +2025,30 @@ async function loadReturnRequest(id){
 }
 function renderReturnDetail(){
   const d=S.returnDetail,r=d.return,root=$("#orderDetailRoot");
-  root.innerHTML='<div class="order-detail"><div><div class="panel panel-pad"><div class="detail-title"><div><span class="kicker">ВОЗВРАТ № '+esc(r.return_number)+'</span><h3>'+esc(r.brand)+' '+esc(r.article)+'</h3><p>Заказ № '+esc(r.order_number)+' · '+Number(r.quantity||1)+' шт.</p></div><span class="status '+statusClass(r.status)+'">'+esc(statusLabel(r.status))+'</span></div><div class="info-grid"><div class="info"><span>Причина</span><b>'+esc(r.reason||"—")+'</b></div><div class="info"><span>Сумма позиции</span><b>'+rub(Number(r.unit_price||0)*Number(r.quantity||1))+'</b></div></div>'+(r.comment?'<div class="notice" style="margin-top:14px"><b>Ваш комментарий:</b> '+esc(r.comment)+'</div>':'')+(r.manager_note?'<div class="notice" style="margin-top:10px"><b>Комментарий ZapFormat:</b> '+esc(r.manager_note)+'</div>':'')+'</div></div><aside class="order-side"><div class="panel panel-pad"><div class="panel-title"><div><h3>История возврата</h3><p>Статусы и комментарии</p></div></div>'+caseTimelineHtml(d.history,r.status,r.created_at)+'</div><div class="panel panel-pad"><h3 style="margin-top:0">Исходный заказ</h3><p class="muted">Откройте заказ, чтобы увидеть все позиции.</p><button class="secondary" data-order-id="'+r.order_id+'" style="width:100%">Заказ № '+esc(r.order_number)+'</button></div></aside></div>';
+  root.innerHTML='<div class="order-detail"><div><div class="panel panel-pad"><div class="detail-title"><div><span class="kicker">ВОЗВРАТ № '+esc(r.return_number)+'</span><h3>'+esc(r.brand)+' '+esc(r.article)+'</h3><p>Заказ № '+esc(r.order_number)+' · '+Number(r.quantity||1)+' шт.</p></div><span class="status '+statusClass(r.status)+'">'+esc(statusLabel(r.status))+'</span></div><div class="info-grid"><div class="info"><span>Причина</span><b>'+esc(r.reason||"—")+'</b></div><div class="info"><span>Сумма позиции</span><b>'+rub(Number(r.unit_price||0)*Number(r.quantity||1))+'</b></div></div>'+(r.comment?'<div class="notice" style="margin-top:14px"><b>Ваш комментарий:</b> '+esc(r.comment)+'</div>':'')+(r.manager_note?'<div class="notice" style="margin-top:10px"><b>Комментарий ZapFormat:</b> '+esc(r.manager_note)+'</div>':'')+(['created','in_progress'].includes(r.status)?'<div class="form-actions"><button class="danger" data-cancel-return="'+r.id+'">Отменить возврат</button><span class="small muted">Пока возврат не одобрен.</span></div>':'')+'</div></div><aside class="order-side"><div class="panel panel-pad"><div class="panel-title"><div><h3>История возврата</h3><p>Статусы и комментарии</p></div></div>'+caseTimelineHtml(d.history,r.status,r.created_at)+'</div><div class="panel panel-pad"><h3 style="margin-top:0">Исходный заказ</h3><p class="muted">Откройте заказ, чтобы увидеть все позиции.</p><button class="secondary" data-order-id="'+r.order_id+'" style="width:100%">Заказ № '+esc(r.order_number)+'</button></div></aside></div>';
+}
+
+async function cancelVinRequest(id){
+  if(!confirm("Отменить этот запрос по VIN?"))return;
+  try{
+    await api("/api/vin-requests/"+encodeURIComponent(id)+"/cancel",{method:"PATCH",body:"{}"});
+    toast("VIN-запрос отменён");
+    S.vinDetail=null;
+    await loadOrders();
+  }catch(err){
+    toast(err.status===409?"Запрос уже нельзя отменить":"Не удалось отменить запрос");
+  }
+}
+async function cancelReturnRequest(id){
+  if(!confirm("Отменить этот возврат?"))return;
+  try{
+    await api("/api/returns/"+encodeURIComponent(id)+"/cancel",{method:"PATCH",body:"{}"});
+    toast("Возврат отменён");
+    S.returnDetail=null;
+    await loadOrders();
+  }catch(err){
+    toast(err.status===409?"Возврат уже нельзя отменить":"Не удалось отменить возврат");
+  }
 }
 
 async function loadOrder(id){
@@ -2154,6 +2177,8 @@ document.addEventListener("click",async e=>{
   }
   if(e.target.closest("[data-reload-garage]"))return loadGarage();
   x=e.target.closest("[data-cancel-quote]");if(x)return cancelQuoteRequest(x.dataset.cancelQuote);
+  x=e.target.closest("[data-cancel-vin]");if(x)return cancelVinRequest(x.dataset.cancelVin);
+  x=e.target.closest("[data-cancel-return]");if(x)return cancelReturnRequest(x.dataset.cancelReturn);
   x=e.target.closest("[data-quote-id]");if(x)return loadQuoteRequest(x.dataset.quoteId);
   x=e.target.closest("[data-vin-id]");if(x)return loadVinRequest(x.dataset.vinId);
   x=e.target.closest("[data-return-id]");if(x)return loadReturnRequest(x.dataset.returnId);
