@@ -24,7 +24,8 @@ async function main() {
       "010_customer_case_history.sql",
       "011_notification_entities.sql",
       "012_support_center.sql",
-      "013_referrals.sql"
+      "013_referrals.sql",
+      "014_order_workflow.sql"
     ];
 
     for (const file of migrations) {
@@ -177,6 +178,16 @@ async function main() {
     );
     if (referral.rows[0].referrals !== 1 || referral.rows[0].points !== 25) {
       throw new Error("referral attribution or loyalty ledger failed");
+    }
+
+    const orderWorkflowColumns = await client.query(
+      `SELECT column_name
+         FROM information_schema.columns
+        WHERE table_name = 'orders'
+          AND column_name IN ('source_quote_id','fulfillment_method','payment_method','vehicle_id')`
+    );
+    if (orderWorkflowColumns.rowCount !== 4) {
+      throw new Error("local order workflow columns are missing");
     }
 
     console.log("database migrations and critical upserts: ok");
