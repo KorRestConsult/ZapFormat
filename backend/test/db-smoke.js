@@ -25,7 +25,8 @@ async function main() {
       "011_notification_entities.sql",
       "012_support_center.sql",
       "013_referrals.sql",
-      "014_order_workflow.sql"
+      "014_order_workflow.sql",
+      "015_checkout_legal_consent.sql"
     ];
 
     for (const file of migrations) {
@@ -188,6 +189,16 @@ async function main() {
     );
     if (orderWorkflowColumns.rowCount !== 4) {
       throw new Error("local order workflow columns are missing");
+    }
+
+    const consentColumns = await client.query(
+      `SELECT column_name
+         FROM information_schema.columns
+        WHERE table_name = 'quote_requests'
+          AND column_name IN ('terms_accepted_at','privacy_accepted_at','terms_url_snapshot','privacy_url_snapshot')`
+    );
+    if (consentColumns.rowCount !== 4) {
+      throw new Error("checkout legal consent columns are missing");
     }
 
     console.log("database migrations and critical upserts: ok");
