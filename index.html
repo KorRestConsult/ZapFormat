@@ -1324,7 +1324,7 @@ function renderPartDetail(){
   root.innerHTML='<div class="part-shell"><main>'+
     '<section class="part-hero"><div class="part-title"><div><span class="kicker">КАРТОЧКА ДЕТАЛИ</span><h2>'+esc(p.brand||"")+' '+esc(p.article||"")+'</h2><p class="muted">'+esc(p.description||"Описание поставщиком не передано")+'</p></div><code>'+esc(p.article||"")+'</code></div>'+
     '<div class="part-stats">'+stats.map(x=>'<div class="part-stat"><span>'+esc(x[0])+'</span><b>'+esc(x[1])+'</b></div>').join("")+'</div>'+
-    '<div class="part-context"><b>'+(vehicle?'Выбран автомобиль: '+esc(vehicle.brand)+' '+esc(vehicle.model):'Автомобиль не выбран')+'</b><p>Эта карточка показывает реальные предложения по артикулу. Применимость к автомобилю не объявляется без подтверждения каталога или VIN-подбора.</p><div class="form-actions"><button class="secondary" data-vin-prefill="Проверить применимость '+esc(p.brand)+' '+esc(p.article)+': ">Проверить по VIN</button><button class="ghost-btn" data-save-part-card>☆ Сохранить</button></div></div></section>'+
+    '<div class="part-context"><b>'+(vehicle?'Выбран автомобиль: '+esc(vehicle.brand)+' '+esc(vehicle.model):'Автомобиль не выбран')+'</b><p>Эта карточка показывает реальные предложения по артикулу. Применимость к автомобилю не объявляется без подтверждения каталога или VIN-подбора.</p><div class="form-actions"><button class="secondary" data-vin-prefill="Проверить применимость '+esc(p.brand)+' '+esc(p.article)+': ">Проверить по VIN</button><button class="ghost-btn" data-save-part-card>☆ Сохранить</button><button class="ghost-btn" data-copy-part>Скопировать артикул</button><button class="ghost-btn" data-share-part>Поделиться</button></div></div></section>'+
     '<section class="panel panel-pad part-offers"><div class="panel-title"><div><h3>Предложения</h3><p>Цена, срок, остаток и условия поставки.</p></div><select class="secondary" data-part-sort><option value="balance" '+(S.partOfferSort==="balance"?"selected":"")+'>Баланс</option><option value="price" '+(S.partOfferSort==="price"?"selected":"")+'>Дешевле</option><option value="fast" '+(S.partOfferSort==="fast"?"selected":"")+'>Быстрее</option><option value="stock" '+(S.partOfferSort==="stock"?"selected":"")+'>Остаток</option><option value="probability" '+(S.partOfferSort==="probability"?"selected":"")+'>Надёжнее</option></select></div>'+
     (offers.length?offers.map((x,i)=>{
       const originalIndex=(d.offers||[]).indexOf(x);
@@ -1337,6 +1337,36 @@ function renderPartDetail(){
     '<p class="part-balance-note">«Баланс цены и срока» считается только среди предложений с остатком: 34% цена, 36% срок, 15% вероятность поставки, 10% возможность возврата, 5% остаток. Это не оценка качества детали и не подтверждение применимости.</p></section>'+
     '</main><aside class="part-aside"><div class="panel"><div class="panel-title"><div><h3>Другие варианты</h3><p>Результаты каталога по этому запросу.</p></div></div><div class="part-alternatives">'+(alts.length?alts.slice(0,10).map(a=>'<button class="part-alt" data-part-alt data-brand="'+esc(a.brand||"")+'" data-article="'+esc(a.article||"")+'"><span><b>'+esc(a.brand||"Без бренда")+'</b><small>'+esc(a.description||"Каталожный вариант")+'</small></span><code>'+esc(a.article||"")+'</code></button>').join(""):'<p class="muted">Других вариантов поставщик не вернул.</p>')+'</div><p class="part-balance-note">Эти позиции показаны как варианты каталога. ZapFormat не называет их взаимозаменяемыми без подтверждённых данных применимости.</p></div><div class="panel"><h3 style="margin-top:0">Нужна уверенность?</h3><p class="muted">Отправьте запрос по VIN — оператор сможет проверить деталь по конкретной машине.</p><button class="primary" style="width:100%" data-vin-prefill="Проверить деталь '+esc(p.brand)+' '+esc(p.article)+' по VIN: ">Подбор по VIN</button></div></aside></div>';
 }
+async function copyCurrentPart(){
+  const p=S.currentPartData?.part;if(!p)return;
+  const text=[p.brand,p.article].filter(Boolean).join(" ");
+  try{
+    await navigator.clipboard.writeText(text);
+    toast("Артикул скопирован");
+  }catch{
+    toast(text);
+  }
+}
+async function shareCurrentPart(){
+  const p=S.currentPartData?.part;if(!p)return;
+  const url=new URL(location.href);
+  url.search="";
+  url.searchParams.set("view","part");
+  url.searchParams.set("brand",p.brand||"");
+  url.searchParams.set("article",p.article||"");
+  const title=[p.brand,p.article].filter(Boolean).join(" ");
+  try{
+    if(navigator.share){
+      await navigator.share({title:"ZapFormat · "+title,text:p.description||title,url:url.toString()});
+      return;
+    }
+    await navigator.clipboard.writeText(url.toString());
+    toast("Ссылка скопирована");
+  }catch(err){
+    if(err?.name!=="AbortError")toast("Не удалось поделиться");
+  }
+}
+
 function addPartOffer(i){
   const d=S.currentPartData,x=d?.offers?.[i];if(!x)return;
   const previousOffers=S.offers;
@@ -2310,6 +2340,8 @@ document.addEventListener("click",async e=>{
   x=e.target.closest("[data-add-part-offer]");if(x)return addPartOffer(Number(x.dataset.addPartOffer));
   x=e.target.closest("[data-save-part-offer]");if(x){const p=S.currentPartData?.offers?.[Number(x.dataset.savePartOffer)];if(p)return saveCurrentPart(p)}
   if(e.target.closest("[data-save-part-card]")){const p=S.currentPartData?.part;if(p)return saveCurrentPart(p)}
+  if(e.target.closest("[data-copy-part]"))return copyCurrentPart();
+  if(e.target.closest("[data-share-part]"))return shareCurrentPart();
   x=e.target.closest("[data-part-alt]");if(x)return openPart(x.dataset.brand,x.dataset.article);
   x=e.target.closest("[data-part-retry]");if(x)return openPart(x.dataset.brand,x.dataset.article,false);
   if(e.target.closest("[data-part-back]")){
