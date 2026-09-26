@@ -241,19 +241,56 @@ app.post("/api/quote-requests", quoteLimiter, async (req, res, next) => {
       "-" +
       crypto.randomBytes(3).toString("hex").toUpperCase();
 
+    const requestUser = pool ? await currentUser(req) : null;
     const record = {
       id: requestId,
       created_at: now.toISOString(),
-      name: name || null,
+      name: name || requestUser?.name || null,
       phone,
       items,
       source: "zapformat-web",
       status: "new"
     };
 
-    const file = process.env.QUOTE_REQUESTS_FILE || "/var/lib/zapformat/quote-requests.jsonl";
-    await fs.mkdir(path.dirname(file), { recursive: true });
-    await fs.appendFile(file, JSON.stringify(record) + "\n", { encoding: "utf8", mode: 0o600 });
+    if (pool) {
+      const client = await pool.connect();
+      try {
+        await client.query("BEGIN");
+        await client.query(
+          `INSERT INTO quote_requests (id, user_id, name, phone, status, source, created_at)
+           VALUES ($1,$2,$3,$4,'new','zapformat-web',$5)`,
+          [requestId, requestUser?.id || null, record.name, phone, now]
+        );
+
+        for (const item of items) {
+          await client.query(
+            `INSERT INTO quote_request_items
+              (request_id, brand, article, description, quantity, comment, quoted_price, needs_confirmation)
+             VALUES ($1,$2,$3,$4,$5,$6,$7,$8)`,
+            [
+              requestId,
+              item.brand || null,
+              item.article,
+              item.description || null,
+              item.quantity,
+              item.comment || null,
+              item.quoted_price,
+              item.needs_confirmation
+            ]
+          );
+        }
+        await client.query("COMMIT");
+      } catch (error) {
+        await client.query("ROLLBACK").catch(() => {});
+        throw error;
+      } finally {
+        client.release();
+      }
+    } else {
+      const file = process.env.QUOTE_REQUESTS_FILE || "/var/lib/zapformat/quote-requests.jsonl";
+      await fs.mkdir(path.dirname(file), { recursive: true });
+      await fs.appendFile(file, JSON.stringify(record) + "\n", { encoding: "utf8", mode: 0o600 });
+    }
 
     res.status(201).json({
       ok: true,
@@ -623,7 +660,7 @@ app.patch("/api/account/profile", requireUser, async (req, res, next) => {
 
 app.get("/api/account/overview", requireUser, async (req, res, next) => {
   try {
-    const [orders, vehicles, returns] = await Promise.all([
+    const [orders, vehicles, returns, requests] = await Promise.all([
       pool.query(
         `SELECT count(*) FILTER (WHERE status NOT IN ('completed','cancelled'))::int AS active,
                 count(*) FILTER (WHERE status = 'ready')::int AS ready
@@ -634,18 +671,65 @@ app.get("/api/account/overview", requireUser, async (req, res, next) => {
       pool.query(
         "SELECT count(*)::int AS count FROM returns WHERE user_id = $1 AND status NOT IN ('completed','rejected')",
         [req.user.id]
+      ),
+      pool.query(
+        "SELECT count(*)::int AS count FROM quote_requests WHERE user_id = $1 AND status NOT IN ('completed','cancelled')",
+        [req.user.id]
       )
     ]);
 
     res.json({
       user: publicUser(req.user),
       stats: {
-        active_orders: orders.rows[0].active,
+        active_orders: orders.rows[0].active + requests.rows[0].count,
         ready_orders: orders.rows[0].ready,
+        quote_requests: requests.rows[0].count,
         vehicles: vehicles.rows[0].count,
         active_returns: returns.rows[0].count
       }
     });
+  } catch (error) {
+    next(error);
+  }
+});
+
+app.get("/api/account/requests", requireUser, async (req, res, next) => {
+  try {
+    const result = await pool.query(
+      `SELECT q.id, q.status, q.name, q.phone, q.created_at,
+              count(i.id)::int AS items_count,
+              COALESCE(sum(CASE WHEN i.quoted_price IS NULL THEN 0 ELSE i.quoted_price * i.quantity END),0)::numeric(14,2) AS quoted_total,
+              bool_or(i.needs_confirmation) AS needs_confirmation
+         FROM quote_requests q
+         LEFT JOIN quote_request_items i ON i.request_id = q.id
+        WHERE q.user_id = $1
+        GROUP BY q.id
+        ORDER BY q.created_at DESC
+        LIMIT 100`,
+      [req.user.id]
+    );
+    res.json({ requests: result.rows });
+  } catch (error) {
+    next(error);
+  }
+});
+
+app.get("/api/account/requests/:requestId", requireUser, async (req, res, next) => {
+  try {
+    const request = await pool.query(
+      `SELECT * FROM quote_requests WHERE id = $1 AND user_id = $2 LIMIT 1`,
+      [req.params.requestId, req.user.id]
+    );
+    if (!request.rowCount) return res.status(404).json({ error: "request_not_found" });
+
+    const items = await pool.query(
+      `SELECT brand, article, description, quantity, comment, quoted_price, needs_confirmation
+         FROM quote_request_items
+        WHERE request_id = $1
+        ORDER BY created_at ASC`,
+      [req.params.requestId]
+    );
+    res.json({ request: request.rows[0], items: items.rows });
   } catch (error) {
     next(error);
   }
