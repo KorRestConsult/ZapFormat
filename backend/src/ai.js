@@ -94,6 +94,29 @@ const SEARCH_SCHEMA = {
   }
 };
 
+function sanitizeIntent(parsed, input) {
+  const source = String(input || "").trim();
+  const explicitArticle = looksLikeArticle(parsed?.article) &&
+    source.toUpperCase().includes(String(parsed.article).toUpperCase());
+
+  return {
+    kind: String(parsed?.kind || "unknown"),
+    article: explicitArticle ? String(parsed.article).trim() : "",
+    brand_hint: String(parsed?.brand_hint || "").trim().slice(0, 80),
+    normalized_query: String(parsed?.normalized_query || source).trim().slice(0, 240),
+    part_name: String(parsed?.part_name || "").trim().slice(0, 160),
+    position: String(parsed?.position || "").trim().slice(0, 120),
+    search_terms: [...new Set(
+      (Array.isArray(parsed?.search_terms) ? parsed.search_terms : [])
+        .map((x) => String(x || "").trim().slice(0, 160))
+        .filter(Boolean)
+    )].slice(0, 6),
+    assistant_text: String(parsed?.assistant_text || "").trim().slice(0, 500),
+    needs_article: explicitArticle ? false : Boolean(parsed?.needs_article),
+    confidence: Math.max(0, Math.min(1, Number(parsed?.confidence || 0)))
+  };
+}
+
 async function interpretSearch({ query, vehicle = null, fetchImpl = globalThis.fetch }) {
   const input = String(query || "").trim().slice(0, 500);
   if (!input) throw new ZapFormatAIError("ai_query_required", "Search query is required", 400);
@@ -179,25 +202,7 @@ async function interpretSearch({ query, vehicle = null, fetchImpl = globalThis.f
       throw new ZapFormatAIError("ai_invalid_json", "OpenAI structured output was invalid", 502);
     }
 
-    const explicitArticle = looksLikeArticle(parsed?.article) &&
-      input.toUpperCase().includes(String(parsed.article).toUpperCase());
-
-    return {
-      kind: String(parsed?.kind || "unknown"),
-      article: explicitArticle ? String(parsed.article).trim() : "",
-      brand_hint: String(parsed?.brand_hint || "").trim().slice(0, 80),
-      normalized_query: String(parsed?.normalized_query || input).trim().slice(0, 240),
-      part_name: String(parsed?.part_name || "").trim().slice(0, 160),
-      position: String(parsed?.position || "").trim().slice(0, 120),
-      search_terms: [...new Set(
-        (Array.isArray(parsed?.search_terms) ? parsed.search_terms : [])
-          .map((x) => String(x || "").trim().slice(0, 160))
-          .filter(Boolean)
-      )].slice(0, 6),
-      assistant_text: String(parsed?.assistant_text || "").trim().slice(0, 500),
-      needs_article: explicitArticle ? false : Boolean(parsed?.needs_article),
-      confidence: Math.max(0, Math.min(1, Number(parsed?.confidence || 0)))
-    };
+    return sanitizeIntent(parsed, input);
   } catch (error) {
     if (error instanceof ZapFormatAIError) throw error;
     if (error?.name === "AbortError") {
@@ -217,5 +222,6 @@ module.exports = {
   looksLikeVin,
   modelName,
   outputText,
-  safeVehicleContext
+  safeVehicleContext,
+  sanitizeIntent
 };
