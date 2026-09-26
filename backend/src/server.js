@@ -811,6 +811,40 @@ app.get("/api/account/requests/:requestId", requireUser, async (req, res, next) 
   }
 });
 
+app.get("/api/account/quote-requests", requireUser, async (req, res, next) => {
+  try {
+    const result = await pool.query(
+      `SELECT
+          q.id,
+          q.status,
+          q.created_at,
+          q.updated_at,
+          count(i.id)::int AS item_count,
+          COALESCE(sum(i.quoted_price * i.quantity), 0) AS quoted_total
+       FROM quote_requests q
+       LEFT JOIN quote_request_items i ON i.request_id = q.id
+       WHERE q.user_id = $1
+       GROUP BY q.id
+       ORDER BY q.created_at DESC
+       LIMIT 100`,
+      [req.user.id]
+    );
+
+    res.json({
+      requests: result.rows.map((row) => ({
+        id: row.id,
+        status: row.status,
+        item_count: row.item_count,
+        quoted_total: Number(row.quoted_total || 0),
+        created_at: row.created_at,
+        updated_at: row.updated_at
+      }))
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
 app.get("/api/account/notifications", requireUser, async (req, res, next) => {
   try {
     await pool.query(
