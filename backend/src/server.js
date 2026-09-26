@@ -159,6 +159,18 @@ function normalizePhone(value) {
   return raw.startsWith("+") ? raw : "+" + raw;
 }
 
+function validVehicleYear(value) {
+  if (value === null || value === undefined || value === "") return true;
+  const year = Number(value);
+  return Number.isInteger(year) && year >= 1950 && year <= new Date().getFullYear() + 1;
+}
+
+function validMileage(value) {
+  if (value === null || value === undefined || value === "") return true;
+  const mileage = Number(value);
+  return Number.isInteger(mileage) && mileage >= 0 && mileage <= 10_000_000;
+}
+
 function publicUser(row) {
   return {
     id: row.id,
@@ -3469,10 +3481,10 @@ app.get("/api/garage", requireUser, async (req, res, next) => {
 
 app.post("/api/garage/vehicles", requireUser, async (req, res, next) => {
   try {
-    const brand = String(req.body?.brand || "").trim();
-    const model = String(req.body?.model || "").trim();
-    const generation = String(req.body?.generation || "").trim() || null;
-    const engine = String(req.body?.engine || "").trim() || null;
+    const brand = String(req.body?.brand || "").trim().slice(0, 120);
+    const model = String(req.body?.model || "").trim().slice(0, 120);
+    const generation = String(req.body?.generation || "").trim().slice(0, 120) || null;
+    const engine = String(req.body?.engine || "").trim().slice(0, 160) || null;
     const transmission = String(req.body?.transmission || "").trim().slice(0, 120) || null;
     const bodyType = String(req.body?.body_type || "").trim().slice(0, 120) || null;
     const tireFront = String(req.body?.tire_front || "").trim().slice(0, 80) || null;
@@ -3488,6 +3500,11 @@ app.post("/api/garage/vehicles", requireUser, async (req, res, next) => {
     if (!brand || !model) {
       return res.status(400).json({ error: "brand_and_model_required" });
     }
+    if (vin && !/^[A-HJ-NPR-Z0-9]{17}$/.test(vin)) {
+      return res.status(400).json({ error: "invalid_vin" });
+    }
+    if (!validVehicleYear(year)) return res.status(400).json({ error: "invalid_year" });
+    if (!validMileage(mileage)) return res.status(400).json({ error: "invalid_mileage" });
 
     const result = await pool.query(
       `INSERT INTO vehicles
@@ -3572,10 +3589,10 @@ app.patch("/api/garage/vehicles/:vehicleId", requireUser, async (req, res, next)
     const vehicle = current.rows[0];
     if (!vehicle) return res.status(404).json({ error: "vehicle_not_found" });
 
-    const brand = req.body?.brand === undefined ? vehicle.brand : String(req.body.brand || "").trim();
-    const model = req.body?.model === undefined ? vehicle.model : String(req.body.model || "").trim();
-    const generation = req.body?.generation === undefined ? vehicle.generation : String(req.body.generation || "").trim() || null;
-    const engine = req.body?.engine === undefined ? vehicle.engine : String(req.body.engine || "").trim() || null;
+    const brand = req.body?.brand === undefined ? vehicle.brand : String(req.body.brand || "").trim().slice(0,120);
+    const model = req.body?.model === undefined ? vehicle.model : String(req.body.model || "").trim().slice(0,120);
+    const generation = req.body?.generation === undefined ? vehicle.generation : String(req.body.generation || "").trim().slice(0,120) || null;
+    const engine = req.body?.engine === undefined ? vehicle.engine : String(req.body.engine || "").trim().slice(0,160) || null;
     const transmission = req.body?.transmission === undefined ? vehicle.transmission : String(req.body.transmission || "").trim().slice(0,120) || null;
     const bodyType = req.body?.body_type === undefined ? vehicle.body_type : String(req.body.body_type || "").trim().slice(0,120) || null;
     const tireFront = req.body?.tire_front === undefined ? vehicle.tire_front : String(req.body.tire_front || "").trim().slice(0,80) || null;
@@ -3591,6 +3608,7 @@ app.patch("/api/garage/vehicles/:vehicleId", requireUser, async (req, res, next)
     if (vin && !/^[A-HJ-NPR-Z0-9]{17}$/.test(vin)) {
       return res.status(400).json({ error: "invalid_vin" });
     }
+    if (!validVehicleYear(year)) return res.status(400).json({ error: "invalid_year" });
 
     const result = await pool.query(
       `UPDATE vehicles
