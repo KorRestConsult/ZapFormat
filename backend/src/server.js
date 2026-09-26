@@ -2275,7 +2275,7 @@ app.patch("/api/admin/quote-requests/:requestId", requireStaff, async (req, res,
     }
 
     const current = await pool.query(
-      "SELECT status, manager_note FROM quote_requests WHERE id = $1 LIMIT 1",
+      "SELECT status, manager_note, user_id FROM quote_requests WHERE id = $1 LIMIT 1",
       [req.params.requestId]
     );
     if (!current.rowCount) return res.status(404).json({ error: "quote_request_not_found" });
@@ -2300,6 +2300,17 @@ app.patch("/api/admin/quote-requests/:requestId", requireStaff, async (req, res,
         req.user.id
       ]
     );
+    if (current.rows[0].user_id) {
+      await pool.query(
+        `INSERT INTO notifications (user_id, type, title, body)
+         VALUES ($1,'quote_status',$2,$3)`,
+        [
+          current.rows[0].user_id,
+          "Заявка " + req.params.requestId + ": " + nextStatus,
+          result.rows[0].manager_note || "Статус заявки обновлён."
+        ]
+      );
+    }
     res.json({ request: result.rows[0] });
   } catch (error) {
     next(error);
@@ -2319,7 +2330,7 @@ app.patch("/api/admin/vin-requests/:requestId", requireStaff, async (req, res, n
     }
 
     const current = await pool.query(
-      "SELECT status, manager_note FROM vin_requests WHERE id = $1 LIMIT 1",
+      "SELECT status, manager_note, user_id FROM vin_requests WHERE id = $1 LIMIT 1",
       [req.params.requestId]
     );
     if (!current.rowCount) return res.status(404).json({ error: "vin_request_not_found" });
@@ -2335,6 +2346,15 @@ app.patch("/api/admin/vin-requests/:requestId", requireStaff, async (req, res, n
         req.params.requestId,
         status ?? current.rows[0].status,
         managerNote === undefined ? current.rows[0].manager_note : managerNote
+      ]
+    );
+    await pool.query(
+      `INSERT INTO notifications (user_id, type, title, body)
+       VALUES ($1,'vin_status',$2,$3)`,
+      [
+        current.rows[0].user_id,
+        "Подбор по VIN: " + (status ?? current.rows[0].status),
+        result.rows[0].manager_note || "Статус подбора обновлён."
       ]
     );
     res.json({ request: result.rows[0] });
@@ -2356,7 +2376,7 @@ app.patch("/api/admin/returns/:returnId", requireStaff, async (req, res, next) =
     }
 
     const current = await pool.query(
-      "SELECT status, manager_note FROM returns WHERE id = $1 LIMIT 1",
+      "SELECT status, manager_note, user_id FROM returns WHERE id = $1 LIMIT 1",
       [req.params.returnId]
     );
     if (!current.rowCount) return res.status(404).json({ error: "return_not_found" });
@@ -2374,6 +2394,15 @@ app.patch("/api/admin/returns/:returnId", requireStaff, async (req, res, next) =
         status ?? current.rows[0].status,
         managerNote === undefined ? current.rows[0].manager_note : managerNote,
         req.user.id
+      ]
+    );
+    await pool.query(
+      `INSERT INTO notifications (user_id, type, title, body)
+       VALUES ($1,'return_status',$2,$3)`,
+      [
+        current.rows[0].user_id,
+        "Возврат № " + req.params.returnId + ": " + (status ?? current.rows[0].status),
+        result.rows[0].manager_note || "Статус возврата обновлён."
       ]
     );
     res.json({ return: result.rows[0] });
@@ -2520,6 +2549,12 @@ app.post("/api/vin-requests", requireUser, async (req, res, next) => {
        VALUES ($1,$2,$3,$4)
        RETURNING id, vehicle_id, vin, request_text, status, created_at, updated_at`,
       [req.user.id, vehicle?.id || null, vin, requestText]
+    );
+
+    await pool.query(
+      `INSERT INTO notifications (user_id, type, title, body)
+       VALUES ($1,'vin_request','Запрос по VIN создан',$2)`,
+      [req.user.id, "Запрос принят: " + requestText.slice(0, 180)]
     );
 
     res.status(201).json({
