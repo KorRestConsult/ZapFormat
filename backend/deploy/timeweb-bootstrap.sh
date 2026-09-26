@@ -150,6 +150,9 @@ WantedBy=multi-user.target
 EOF
 
 chown -R zapformat:zapformat "${APP_DIR}"
+mkdir -p /var/lib/zapformat
+chown zapformat:zapformat /var/lib/zapformat
+chmod 750 /var/lib/zapformat
 systemctl daemon-reload
 systemctl enable --now zapformat-api
 systemctl restart zapformat-api
