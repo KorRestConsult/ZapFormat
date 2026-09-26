@@ -11,6 +11,20 @@ permissions:
 jobs:
   test:
     runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: zapformat_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d zapformat_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -25,6 +39,14 @@ jobs:
       - name: Backend unit tests
         working-directory: backend
         run: npm test
+      - name: PostgreSQL migrations and database smoke
+        working-directory: backend
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/zapformat_test
+        run: node test/db-smoke.js
+      - name: Deploy script syntax
+        shell: bash
+        run: bash -n backend/deploy/*.sh
       - name: Frontend integrity and syntax
         shell: bash
         run: |
