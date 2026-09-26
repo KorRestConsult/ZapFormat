@@ -1895,6 +1895,8 @@ app.get("/api/account/quote-requests/:requestId", requireUser, async (req, res, 
       `SELECT q.id, q.status, q.name, q.phone, q.fulfillment_method, q.pickup_point_id,
               q.delivery_address_id, q.recipient_name, q.recipient_phone, q.payment_method,
               q.customer_comment, q.manager_note, q.verified_total, q.delivery_fee, q.vehicle_id,
+              q.terms_accepted_at, q.privacy_accepted_at,
+              q.terms_url_snapshot, q.privacy_url_snapshot,
               q.created_at, q.updated_at, o.id AS order_id, o.order_number
          FROM quote_requests q
          LEFT JOIN orders o ON o.source_quote_id = q.id
@@ -3532,7 +3534,9 @@ app.get("/api/admin/queue", requireStaff, async (req, res, next) => {
         `SELECT
             q.id, q.status, q.fulfillment_method, q.payment_method,
             q.verified_total, q.customer_comment, q.manager_note,
-            q.recipient_name, q.recipient_phone, q.created_at, q.updated_at,
+            q.recipient_name, q.recipient_phone,
+            q.terms_accepted_at, q.privacy_accepted_at,
+            q.created_at, q.updated_at,
             q.vehicle_id, v.brand, v.model, v.generation, v.year,
             count(i.id)::int AS item_count
          FROM quote_requests q
