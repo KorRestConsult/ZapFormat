@@ -470,6 +470,56 @@ app.get("/api/supplier/capabilities", requireInternal, async (_req, res, next) =
   }
 });
 
+app.get("/api/internal/supplier/order-readiness/:requestId", requireInternal, requireDatabase, async (req, res, next) => {
+  try {
+    const requestResult = await pool.query(
+      `SELECT id, status, fulfillment_method, payment_method, verified_total, created_at
+         FROM quote_requests
+        WHERE id = $1
+        LIMIT 1`,
+      [req.params.requestId]
+    );
+    const request = requestResult.rows[0];
+    if (!request) return res.status(404).json({ error: "quote_request_not_found" });
+
+    const itemsResult = await pool.query(
+      `SELECT brand, article, quantity, offer_ref
+         FROM quote_request_items
+        WHERE request_id = $1
+        ORDER BY created_at, id`,
+      [request.id]
+    );
+
+    const resolved = await resolveSupplierWriteItems(itemsResult.rows);
+    const publicItems = resolved.map(({ _supplier, ...item }) => item);
+    const writeEnabled = String(process.env.SUPPLIER_ORDER_WRITE_ENABLED || "false") === "true";
+    const confirmed = request.status === "confirmed";
+    const allReady = resolved.length > 0 && resolved.every((item) => item.write_ready);
+
+    res.json({
+      request: {
+        id: request.id,
+        status: request.status,
+        fulfillment_method: request.fulfillment_method,
+        payment_method: request.payment_method,
+        verified_total: request.verified_total === null ? null : Number(request.verified_total),
+        created_at: request.created_at
+      },
+      supplier: "PartGrade / ABCP",
+      write_enabled: writeEnabled,
+      confirmed,
+      all_items_ready: allReady,
+      can_submit: Boolean(writeEnabled && confirmed && allReady),
+      items: publicItems,
+      note: writeEnabled
+        ? "Supplier order write is enabled by server configuration."
+        : "Supplier order write is prepared but disabled. No supplier order will be created."
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
 app.get("/api/supplier/basket", requireInternal, async (_req, res, next) => {
   try {
     const rows = await partGrade.basketContent();
@@ -823,6 +873,74 @@ async function supplierRowsForOffer(number, brand, { fresh = false } = {}) {
     }
     throw error;
   }
+}
+
+async function resolveSupplierWriteItems(items = []) {
+  const output = [];
+  for (const item of (Array.isArray(items) ? items : []).slice(0, 100)) {
+    const brand = String(item?.brand || "").trim();
+    const article = String(item?.article || "").trim();
+    const offerRef = String(item?.offer_ref || "").trim();
+    const quantity = Math.max(1, Math.min(999, Number(item?.quantity || 1)));
+
+    if (!brand || !article || !offerRef) {
+      output.push({
+        brand,
+        article,
+        quantity,
+        found: false,
+        write_ready: false,
+        missing: ["offer_identity"]
+      });
+      continue;
+    }
+
+    const supplier = await supplierRowsForOffer(article, brand, { fresh: true });
+    const match = supplier.rows.find((row) =>
+      supplierOfferRef(row, { number: article, brand }) === offerRef
+    );
+
+    if (!match) {
+      output.push({
+        brand,
+        article,
+        quantity,
+        found: false,
+        write_ready: false,
+        missing: ["offer_missing"]
+      });
+      continue;
+    }
+
+    const availability = Number(match.availability || 0);
+    const packing = Math.max(1, Number(match.packing || 1));
+    const supplierCode = String(match.supplierCode ?? match.supplier ?? "").trim();
+    const itemKey = String(match.itemKey ?? "").trim();
+    const numberFix = String(match.numberFix ?? match.number ?? article).trim();
+    const missing = [];
+
+    if (!supplierCode) missing.push("supplier_code");
+    if (!itemKey) missing.push("item_key");
+    if (availability < quantity) missing.push("availability");
+    if (quantity % packing !== 0) missing.push("packing");
+
+    output.push({
+      brand: match.brand || brand,
+      article: match.number || article,
+      quantity,
+      found: true,
+      availability,
+      packing,
+      write_ready: missing.length === 0,
+      missing,
+      _supplier: {
+        supplierCode,
+        itemKey,
+        numberFix
+      }
+    });
+  }
+  return output;
 }
 
 async function resolveRequestedOffers(requested = []) {
@@ -3466,5 +3584,6 @@ module.exports = {
   checkoutFulfillmentMethods,
   summarizePublicOffers,
   catalogCacheGet,
-  catalogCacheSet
+  catalogCacheSet,
+  resolveSupplierWriteItems
 };
