@@ -718,8 +718,8 @@ function routeUrl(page){
   return "?view="+encodeURIComponent(page);
 }
 function go(page,push=true){
-  $(".page").forEach(x=>x.classList.toggle("active",x.dataset.page===page));
-  $("[data-go]").forEach(x=>{
+  document.querySelectorAll(".page").forEach(x=>x.classList.toggle("active",x.dataset.page===page));
+  document.querySelectorAll("[data-go]").forEach(x=>{
     const active=x.dataset.go===page;
     x.classList.toggle("active",active);
     if(active)x.setAttribute("aria-current","page");else x.removeAttribute("aria-current");
