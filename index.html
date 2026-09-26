@@ -644,6 +644,8 @@ const S={
   orderDetail:null,
   offerSort:"price",
   offerOnlyAvailable:false,
+  offerOnlyReturnable:false,
+  offerHighProbability:false,
   cartRefreshing:false,
   lastCartRefreshAttempt:0,
   authMode:"login"
@@ -1047,7 +1049,7 @@ function renderBrands(){
   $("#catalogSub").textContent=S.brands.length?"Выберите производителя":"Производители не найдены";
   const ai=S.aiResult?.ai?aiSummaryHtml(S.aiResult):"";
   $("#catalogBody").innerHTML=ai+(S.brands.length
-    ?'<div class="brand-list">'+S.brands.map((x,i)=>'<button class="brand-row" data-brand-index="'+i+'"><span class="monogram">'+esc(String(x.brand||"?").slice(0,2))+'</span><span><b>'+esc(x.brand||"Без бренда")+'</b><small>'+esc(x.description||"Описание не указано")+'</small></span><code>'+esc(x.article||S.query)+'</code><i>Предложения →</i></button>').join("")+'</div>'
+    ?'<div class="brand-list">'+S.brands.map((x,i)=>'<button class="brand-row" data-brand-index="'+i+'"><span class="monogram">'+esc(String(x.brand||"?").slice(0,2))+'</span><span><b>'+esc(x.brand||"Без бренда")+'</b><small>'+esc(x.description||"Описание не указано")+(x.available?' · есть у поставщика':'')+'</small></span><code>'+esc(x.article||S.query)+'</code><i>Предложения →</i></button>').join("")+'</div>'
     :'<div class="state-card"><div><b>Ничего не найдено</b><p>Проверьте артикул или попробуйте другой вариант написания.</p></div></div>');
 }
 async function loadOffers(i){
@@ -1059,6 +1061,8 @@ async function loadOffers(i){
     S.offers=d.offers||[];
     S.offerSort="price";
     S.offerOnlyAvailable=false;
+    S.offerOnlyReturnable=false;
+    S.offerHighProbability=false;
     $("#catalogTitle").textContent=(b.brand||"")+" "+(b.article||S.query);
     $("#catalogSub").textContent=b.description||"Предложения";
     renderOfferTable();
@@ -1069,6 +1073,8 @@ async function loadOffers(i){
 function renderOfferTable(){
   let rows=[...S.offers];
   if(S.offerOnlyAvailable)rows=rows.filter(x=>Number(x.availability||0)>0);
+  if(S.offerOnlyReturnable)rows=rows.filter(x=>x.returnable!==false);
+  if(S.offerHighProbability)rows=rows.filter(x=>Number(x.delivery_probability||0)>=90);
   if(S.offerSort==="fast")rows.sort((a,b)=>Number(a.delivery_hours||0)-Number(b.delivery_hours||0)||Number(a.price)-Number(b.price));
   else if(S.offerSort==="stock")rows.sort((a,b)=>Number(b.availability||0)-Number(a.availability||0)||Number(a.price)-Number(b.price));
   else rows.sort((a,b)=>Number(a.price)-Number(b.price)||Number(a.delivery_hours||0)-Number(b.delivery_hours||0));
@@ -1078,7 +1084,7 @@ function renderOfferTable(){
   const minDelivery=timed.length?Math.min(...timed.map(x=>Number(x.delivery_hours))):null;
   const maxStock=rows.length?Math.max(...rows.map(x=>Number(x.availability||0))):0;
   $("#catalogBody").innerHTML=
-    '<div class="offer-toolbar"><div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap"><button class="back" data-show-brands>← Другой производитель</button><button class="secondary" data-open-current-part>Карточка детали</button></div><div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap"><label class="small muted"><input type="checkbox" data-offer-stock '+(S.offerOnlyAvailable?"checked":"")+'> Только в наличии</label><select class="secondary" data-offer-sort><option value="price" '+(S.offerSort==="price"?"selected":"")+'>Сначала дешевле</option><option value="fast" '+(S.offerSort==="fast"?"selected":"")+'>Сначала быстрее</option><option value="stock" '+(S.offerSort==="stock"?"selected":"")+'>Больше в наличии</option></select><span class="muted small">'+rows.length+' предложений</span></div></div>'+
+    '<div class="offer-toolbar"><div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap"><button class="back" data-show-brands>← Другой производитель</button><button class="secondary" data-open-current-part>Карточка детали</button></div><div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap"><label class="small muted"><input type="checkbox" data-offer-stock '+(S.offerOnlyAvailable?"checked":"")+'> Только в наличии</label><label class="small muted"><input type="checkbox" data-offer-return '+(S.offerOnlyReturnable?"checked":"")+'> С возвратом</label><label class="small muted"><input type="checkbox" data-offer-probability '+(S.offerHighProbability?"checked":"")+'> Поставка ≥90%</label><select class="secondary" data-offer-sort><option value="price" '+(S.offerSort==="price"?"selected":"")+'>Сначала дешевле</option><option value="fast" '+(S.offerSort==="fast"?"selected":"")+'>Сначала быстрее</option><option value="stock" '+(S.offerSort==="stock"?"selected":"")+'>Больше в наличии</option></select><span class="muted small">'+rows.length+' предложений</span></div></div>'+
     (indexed.length?'<div class="offer-table"><div class="offer labels"><span>Описание</span><span>Наличие</span><span>Срок</span><span>Цена</span><span></span></div>'+
     indexed.map(({x,j})=>{
       const delivery=deliveryLabel(x.delivery_hours,x.delivery_hours_max);
@@ -1940,6 +1946,8 @@ document.addEventListener("click",async e=>{
   x=e.target.closest("[data-offer-sort]");if(x){S.offerSort=x.value;return renderOfferTable()}
   x=e.target.closest("[data-part-sort]");if(x){S.partOfferSort=x.value;return renderPartDetail()}
   x=e.target.closest("[data-offer-stock]");if(x){S.offerOnlyAvailable=x.checked;return renderOfferTable()}
+  x=e.target.closest("[data-offer-return]");if(x){S.offerOnlyReturnable=x.checked;return renderOfferTable()}
+  x=e.target.closest("[data-offer-probability]");if(x){S.offerHighProbability=x.checked;return renderOfferTable()}
   if(e.target.closest("[data-retry-search]"))return search(S.query,false);
   x=e.target.closest("[data-cart-qty]");if(x){const i=Number(x.dataset.cartQty),d=Number(x.dataset.delta),step=Math.max(1,Number(S.cart[i].packing||1));S.cart[i].qty=Math.max(step,Number(S.cart[i].qty)+d*step);writeCart();return renderCart()}
   x=e.target.closest("[data-cart-remove]");if(x){S.cart.splice(Number(x.dataset.cartRemove),1);writeCart();return renderCart()}
