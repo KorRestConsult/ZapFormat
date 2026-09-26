@@ -392,7 +392,7 @@ dialog::backdrop{background:rgba(13,41,56,.56);backdrop-filter:blur(5px)}
 </section>
 
 <section class="page shell section-page" data-page="orders">
-  <div class="section-head"><span class="kicker">ЛИЧНЫЙ КАБИНЕТ</span><h2>Заказы</h2><p>Только реальные заказы ZapFormat и их фактические статусы.</p></div>
+  <div class="section-head"><span class="kicker">ЛИЧНЫЙ КАБИНЕТ</span><h2>Заказы и подбор</h2><p>Реальные заказы, заявки на подтверждение, возвраты и запросы по VIN — каждый процесс отдельно.</p></div>
   <div id="ordersBody"></div>
 </section>
 </main>
@@ -504,6 +504,21 @@ const rub=n=>new Intl.NumberFormat("ru-RU",{maximumFractionDigits:2}).format(Num
 const date=v=>v?new Intl.DateTimeFormat("ru-RU",{day:"2-digit",month:"short",year:"numeric"}).format(new Date(v)):"—";
 const datetime=v=>v?new Intl.DateTimeFormat("ru-RU",{day:"2-digit",month:"short",hour:"2-digit",minute:"2-digit"}).format(new Date(v)):"—";
 const initials=u=>((u?.name?.[0]||"")+(u?.surname?.[0]||"")).toUpperCase()||"Я";
+function deliveryLabel(hours,maxHours=hours){
+  const h=Number(hours||0),mh=Math.max(h,Number(maxHours||h));
+  if(!h)return "уточняется";
+  const now=new Date(),a=new Date(now.getTime()+h*3600000),b=new Date(now.getTime()+mh*3600000);
+  const dayLabel=d=>{
+    const today=new Date(now.getFullYear(),now.getMonth(),now.getDate());
+    const target=new Date(d.getFullYear(),d.getMonth(),d.getDate());
+    const diff=Math.round((target-today)/86400000);
+    if(diff===0)return "сегодня";
+    if(diff===1)return "завтра";
+    return new Intl.DateTimeFormat("ru-RU",{day:"numeric",month:"short"}).format(d);
+  };
+  const first=dayLabel(a),last=dayLabel(b);
+  return first===last?first:first+" – "+last;
+}
 
 function readCart(){try{return JSON.parse(localStorage.getItem("zf-cart")||"[]")}catch{return []}}
 function writeCart({persist=true}={}){
@@ -852,8 +867,8 @@ function renderOfferTable(){
     '<div class="offer-toolbar"><button class="back" data-show-brands>← Другой производитель</button><div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap"><label class="small muted"><input type="checkbox" data-offer-stock '+(S.offerOnlyAvailable?"checked":"")+'> Только в наличии</label><select class="secondary" data-offer-sort><option value="price" '+(S.offerSort==="price"?"selected":"")+'>Сначала дешевле</option><option value="fast" '+(S.offerSort==="fast"?"selected":"")+'>Сначала быстрее</option><option value="stock" '+(S.offerSort==="stock"?"selected":"")+'>Больше в наличии</option></select><span class="muted small">'+rows.length+' предложений</span></div></div>'+
     (indexed.length?'<div class="offer-table"><div class="offer labels"><span>Описание</span><span>Наличие</span><span>Срок</span><span>Цена</span><span></span></div>'+
     indexed.map(({x,j})=>{
-      const days=Math.max(1,Math.ceil(Number(x.delivery_hours||0)/24));
-      return '<div class="offer"><span><b>'+esc(x.brand)+' '+esc(x.article)+'</b><span class="offer-desc">'+esc(x.description||"Автозапчасть")+(Number(x.packing||1)>1?' · кратность '+Number(x.packing):'')+(x.delivery_probability!==null&&x.delivery_probability!==undefined?' · вероятность '+esc(x.delivery_probability)+'%':'')+(x.returnable===false?' · без возврата':'')+'</span></span><span class="availability">'+Number(x.availability||0)+' шт.</span><span>'+days+' дн.</span><strong>'+rub(x.price)+'</strong><button class="small-primary" data-add-offer="'+j+'">В корзину</button></div>';
+      const delivery=deliveryLabel(x.delivery_hours,x.delivery_hours_max);
+      return '<div class="offer"><span><b>'+esc(x.brand)+' '+esc(x.article)+'</b><span class="offer-desc">'+esc(x.description||"Автозапчасть")+(Number(x.packing||1)>1?' · кратность '+Number(x.packing):'')+(x.delivery_probability!==null&&x.delivery_probability!==undefined?' · вероятность поставки '+esc(x.delivery_probability)+'%':'')+(x.returnable===false?' · без возврата':'')+'</span></span><span class="availability">'+Number(x.availability||0)+' шт.</span><span><b>'+esc(delivery)+'</b><span class="offer-note">'+(Number(x.delivery_hours||0)?Math.max(1,Math.ceil(Number(x.delivery_hours||0)/24))+' дн.':'')+'</span></span><strong>'+rub(x.price)+'</strong><button class="small-primary" data-add-offer="'+j+'">В корзину</button></div>';
     }).join("")+'</div>':'<div class="state-card"><div><b>Под этот фильтр ничего нет</b><p>Снимите фильтр наличия или выберите другого производителя.</p></div></div>');
 }
 function addOffer(i){
