@@ -709,6 +709,7 @@ dialog::backdrop{background:rgba(13,41,56,.56);backdrop-filter:blur(5px)}
     <input name="name" placeholder="Имя" hidden>
     <input name="login" placeholder="Телефон или email" autocomplete="username" required>
     <input name="password" type="password" placeholder="Пароль" minlength="8" autocomplete="current-password" required>
+    <div id="referralNotice" class="small muted" hidden></div>
     <button class="primary">Продолжить</button>
     <div id="authStatus" class="small error"></div>
   </form>
@@ -772,6 +773,15 @@ dialog::backdrop{background:rgba(13,41,56,.56);backdrop-filter:blur(5px)}
 const API=location.origin;
 const MAX_CART_ITEMS=50;
 const PAGE_NAMES=new Set(["home","catalog","part","catalogs","cart","checkout","account","garage","orders","support","help","operator"]);
+const REFERRAL_STORAGE_KEY="zf-ref";
+function normalizeReferralClient(value){
+  const code=String(value||"").trim().toUpperCase().replace(/[^A-Z0-9]/g,"").slice(0,16);
+  return code.length>=6?code:"";
+}
+try{
+  const incomingRef=normalizeReferralClient(new URLSearchParams(location.search).get("ref"));
+  if(incomingRef)localStorage.setItem(REFERRAL_STORAGE_KEY,incomingRef);
+}catch{}
 const S={
   user:null,
   cart:readCart(),
@@ -792,6 +802,7 @@ const S={
   savedParts:[],
   recentSearches:[],
   sessions:[],
+  referrals:null,
   addresses:[],
   returns:[],
   selectedReturnItem:null,
@@ -1916,10 +1927,17 @@ async function hydrate(){
   renderHomeOverview();
 }
 function authUi(){
-  $$("[data-auth-tab]").forEach(x=>x.classList.toggle("active",x.dataset.authTab===S.authMode));
+  $("[data-auth-tab]").forEach(x=>x.classList.toggle("active",x.dataset.authTab===S.authMode));
   $("#authTitle").textContent=S.authMode==="login"?"Войти":"Создать аккаунт";
   $('#authForm [name="name"]').hidden=S.authMode==="login";
   $('#authForm [name="password"]').autocomplete=S.authMode==="login"?"current-password":"new-password";
+  const notice=$("#referralNotice");
+  let storedRef="";
+  try{storedRef=normalizeReferralClient(localStorage.getItem(REFERRAL_STORAGE_KEY))}catch{}
+  if(notice){
+    notice.hidden=S.authMode!=="register"||!storedRef;
+    notice.textContent=storedRef?"Код приглашения "+storedRef+" будет учтён при регистрации.":"";
+  }
   $("#authStatus").textContent="";
 }
 function openAuth(mode="login",preserveReturn=false){
@@ -1934,12 +1952,17 @@ async function submitAuth(e){
   e.preventDefault();
   const f=new FormData(e.currentTarget);
   const login=String(f.get("login")||"").trim();
+  let referralCode="";
+  try{referralCode=normalizeReferralClient(localStorage.getItem(REFERRAL_STORAGE_KEY))}catch{}
   const payload=S.authMode==="login"
     ?{login,password:f.get("password")}
-    :{name:f.get("name"),email:login.includes("@")?login:null,phone:login.includes("@")?null:login,password:f.get("password")};
+    :{name:f.get("name"),email:login.includes("@")?login:null,phone:login.includes("@")?null:login,password:f.get("password"),referral_code:referralCode||null};
   try{
+    const wasRegister=S.authMode==="register";
     const d=await api("/api/auth/"+(S.authMode==="login"?"login":"register"),{method:"POST",body:JSON.stringify(payload)});
-    S.user=d.user;$("#authDialog").close();await hydrate();toast("Готово");
+    if(wasRegister&&referralCode){try{localStorage.removeItem(REFERRAL_STORAGE_KEY)}catch{}}
+    S.user=d.user;$("#authDialog").close();await hydrate();
+    toast(wasRegister&&referralCode&&!d.referral_applied?"Аккаунт создан. Код приглашения не найден.":wasRegister&&d.referral_applied?"Приглашение учтено":"Готово");
     const after=S.authAfter,page=S.authReturnPage||"account",payload=S.authPayload;
     S.authReturnPage="account";S.authAfter="";S.authPayload=null;
     if(after==="checkout"){go("cart");return checkout()}
@@ -1976,16 +1999,17 @@ async function renderAccount(){
   }
   root.innerHTML='<div class="section-head"><span class="kicker">ЛИЧНЫЙ КАБИНЕТ</span><h2>'+esc(S.user.name)+'</h2><p>Профиль, автомобили и заказы в одном месте.</p></div><div class="dashboard-grid"><div><div id="accountPrimary"></div></div><aside id="accountSide"></aside></div>';
   try{
-    const [overview,notif,feed,addresses,saved,recent,sessions]=await Promise.all([
+    const [overview,notif,feed,addresses,saved,recent,sessions,referrals]=await Promise.all([
       api("/api/account/overview"),
       api("/api/account/notifications"),
       api("/api/account/notifications/feed").catch(()=>({notifications:[],unread:0})),
       api("/api/account/addresses").catch(()=>({addresses:[]})),
       api("/api/account/saved-parts").catch(()=>({parts:[]})),
       api("/api/account/recent-searches").catch(()=>({searches:[]})),
-      api("/api/account/sessions").catch(()=>({sessions:[]}))
+      api("/api/account/sessions").catch(()=>({sessions:[]})),
+      api("/api/account/referrals").catch(()=>null)
     ]);
-    S.overview=overview;S.notifications=notif.settings;S.notificationFeed=feed.notifications||[];S.notificationUnread=Number(feed.unread||0);S.addresses=addresses.addresses||[];S.savedParts=saved.parts||[];S.recentSearches=recent.searches||[];S.sessions=sessions.sessions||[];accountBadges();
+    S.overview=overview;S.notifications=notif.settings;S.notificationFeed=feed.notifications||[];S.notificationUnread=Number(feed.unread||0);S.addresses=addresses.addresses||[];S.savedParts=saved.parts||[];S.recentSearches=recent.searches||[];S.sessions=sessions.sessions||[];S.referrals=referrals;accountBadges();
   }catch{}
   const stats=S.overview?.stats||{active_orders:0,ready_orders:0,vehicles:0,active_returns:0};
   $("#accountPrimary").innerHTML=
@@ -2000,7 +2024,7 @@ async function renderAccount(){
     notificationRow("returns","Возвраты","Изменения по возвратам",n.returns)+
     notificationRow("marketing","Предложения","Новости и акции ZapFormat",n.marketing)+
     '</div></div><div class="panel panel-pad" style="margin-top:16px"><div class="panel-title"><div><h3>Безопасность</h3><p>Пароль и активные устройства.</p></div></div><div class="measurements">'+(S.sessions.length?S.sessions.map(s=>'<div class="measurement"><span><b>'+esc(sessionDeviceLabel(s.user_agent))+(s.current?' · это устройство':'')+'</b><span class="small muted">Вход '+datetime(s.created_at)+' · действует до '+date(s.expires_at)+'</span></span>'+(s.current?'<span class="status neutral">Текущий</span>':'<button class="ghost-btn small" data-revoke-session="'+s.id+'">Завершить</button>')+'</div>').join(""):'<p class="muted">Активные сеансы не найдены.</p>')+'</div><div class="mini-form"><form id="passwordForm"><div class="field"><label>Текущий пароль</label><input name="current_password" type="password" autocomplete="current-password" required></div><div class="field" style="margin-top:9px"><label>Новый пароль</label><input name="new_password" type="password" minlength="8" autocomplete="new-password" required></div><div class="form-actions"><button class="secondary">Сменить пароль</button></div></form><div class="form-actions"><button class="secondary" data-logout-others>Выйти на других устройствах</button><button class="danger" data-logout>Выйти</button></div></div></div>';
-  $("#accountPrimary").insertAdjacentHTML("beforeend",accountAttentionPanel()+accountAddressPanel()+accountSavedPanel());
+  $("#accountPrimary").insertAdjacentHTML("beforeend",accountAttentionPanel()+accountAddressPanel()+accountSavedPanel()+accountReferralPanel());
   $("#profileForm")?.addEventListener("submit",saveProfile);
   $("#passwordForm")?.addEventListener("submit",changePassword);
   $("#addressForm")?.addEventListener("submit",saveAddress);
@@ -2010,6 +2034,39 @@ function accountSavedPanel(){
   return '<div class="panel panel-pad" style="margin-top:16px"><div class="panel-title"><div><h3>Сохранённые детали</h3><p>Артикулы без сохранения старой цены.</p></div><span class="status neutral">'+saved.length+'</span></div>'+
     (saved.length?'<div>'+saved.slice(0,20).map(x=>'<div class="saved-part-row"><span><b>'+esc(x.brand)+' '+esc(x.article)+'</b><small>'+esc(x.description||"")+'</small></span><button class="ghost-btn small" data-open-saved-part data-brand="'+esc(x.brand)+'" data-article="'+esc(x.article)+'">Открыть</button><button class="ghost-btn small" data-delete-saved="'+x.id+'">×</button></div>').join("")+'</div>':'<p class="muted">Нажмите ☆ рядом с предложением, чтобы сохранить артикул.</p>')+
     '<div class="mini-form"><div class="panel-title" style="margin-bottom:8px"><div><h3 style="font-size:16px">История поиска</h3><p>'+recent.length+' последних запросов</p></div>'+(recent.length?'<button class="ghost-btn small" data-clear-recent>Очистить</button>':'')+'</div>'+(recent.length?'<div class="recent-searches">'+recent.slice(0,8).map(x=>'<button class="recent-search" data-recent-search="'+esc(x.query)+'">'+esc(x.query)+'</button>').join("")+'</div>':'<p class="muted">История пока пуста.</p>')+'</div></div>';
+}
+
+function referralUrl(){
+  const code=S.referrals?.code;
+  if(!code)return "";
+  const url=new URL(location.origin+location.pathname);
+  url.searchParams.set("ref",code);
+  return url.toString();
+}
+function referralStatusLabel(status){
+  return ({registered:"Зарегистрирован",qualified:"Квалифицирован",rewarded:"Начислено",cancelled:"Отменено"})[status]||status||"—";
+}
+function accountReferralPanel(){
+  const data=S.referrals;
+  if(!data?.code)return "";
+  const stats=data.stats||{},rows=data.referrals||[];
+  return '<div class="panel panel-pad" style="margin-top:16px"><div class="panel-title"><div><h3>Приглашения</h3><p>Прямая реферальная ссылка ZapFormat.</p></div><span class="status neutral">'+Number(stats.registered||0)+'</span></div>'+
+    '<div class="notice"><b>Код '+esc(data.code)+'</b><p style="margin:6px 0 0">Сейчас система фиксирует источник регистрации. Правила начисления и списания бонусов ещё не включены, поэтому бонусы не обещаем до утверждения экономики.</p></div>'+
+    '<div class="form-actions"><button class="secondary" data-copy-referral>Копировать ссылку</button><button class="ghost-btn" data-share-referral>Поделиться</button></div>'+
+    (Number(stats.points_balance||0)?'<div class="mini-form"><b>Баланс: '+Number(stats.points_balance||0)+' баллов</b></div>':'')+
+    (rows.length?'<div class="mini-form"><div class="panel-title"><div><h3 style="font-size:16px">Последние приглашения</h3><p>'+rows.length+' показано</p></div></div><div class="measurements">'+rows.slice(0,10).map(r=>'<div class="measurement"><span><b>'+esc(r.name||"Клиент")+'</b><span class="small muted">'+date(r.created_at)+'</span></span><span class="status neutral">'+esc(referralStatusLabel(r.status))+'</span></div>').join("")+'</div></div>':'')+
+  '</div>';
+}
+async function copyReferralLink(){
+  const link=referralUrl();if(!link)return;
+  try{await navigator.clipboard.writeText(link);toast("Реферальная ссылка скопирована")}catch{toast("Не удалось скопировать ссылку")}
+}
+async function shareReferralLink(){
+  const link=referralUrl();if(!link)return;
+  if(navigator.share){
+    try{await navigator.share({title:"ZapFormat",text:"Моя ссылка на ZapFormat",url:link});return}catch(e){if(e?.name==="AbortError")return}
+  }
+  return copyReferralLink();
 }
 
 function accountNotificationFeedPanel(){
@@ -2862,11 +2919,13 @@ document.addEventListener("click",async e=>{
   x=e.target.closest("[data-notification-open]");if(x)return openNotification(x.dataset.notificationOpen);
     if(e.target.closest("[data-read-all-notifications]"))return readAllNotifications();
   x=e.target.closest("[data-revoke-session]");if(x)return revokeSession(x.dataset.revokeSession);
+  if(e.target.closest("[data-copy-referral]"))return copyReferralLink();
+  if(e.target.closest("[data-share-referral]"))return shareReferralLink();
   if(e.target.closest("[data-logout-others]"))return logoutOthers();
   x=e.target.closest("[data-edit-address]");if(x)return editAddress(x.dataset.editAddress);
   x=e.target.closest("[data-delete-address]");if(x)return deleteAddress(x.dataset.deleteAddress);
   if(e.target.closest("[data-reset-address]")){const f=$("#addressForm");if(f)f.reset();return}
-  if(e.target.closest("[data-logout]")){try{await api("/api/auth/logout",{method:"POST"})}catch{}S.user=null;S.overview=null;S.addresses=[];S.vehicles=[];S.activeVehicle=null;clearTimeout(S.cartPersistTimer);updateHeader();renderVehicleContext();toast("Вы вышли");return go("home")}
+  if(e.target.closest("[data-logout]")){try{await api("/api/auth/logout",{method:"POST"})}catch{}S.user=null;S.overview=null;S.referrals=null;S.addresses=[];S.vehicles=[];S.activeVehicle=null;clearTimeout(S.cartPersistTimer);updateHeader();renderVehicleContext();toast("Вы вышли");return go("home")}
   if(e.target.closest("[data-add-vehicle]"))return openVehicleDialog();
   x=e.target.closest("[data-vehicle-id]");if(x)return loadVehicle(x.dataset.vehicleId);
   if(e.target.closest("[data-edit-current-vehicle]"))return openVehicleDialog(S.vehicleDetail?.vehicle);
