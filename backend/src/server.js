@@ -1167,6 +1167,56 @@ app.get("/api/account/quote-requests/:requestId", requireUser, async (req, res, 
   }
 });
 
+app.get("/api/account/notifications/feed", requireUser, async (req, res, next) => {
+  try {
+    const result = await pool.query(
+      `SELECT id, type, title, body, read_at, created_at
+         FROM notifications
+        WHERE user_id = $1
+        ORDER BY created_at DESC
+        LIMIT 100`,
+      [req.user.id]
+    );
+    res.json({
+      notifications: result.rows,
+      unread: result.rows.filter((row) => !row.read_at).length
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+app.patch("/api/account/notifications/:notificationId/read", requireUser, async (req, res, next) => {
+  try {
+    const result = await pool.query(
+      `UPDATE notifications
+          SET read_at = COALESCE(read_at, now())
+        WHERE id = $1 AND user_id = $2
+        RETURNING id, type, title, body, read_at, created_at`,
+      [req.params.notificationId, req.user.id]
+    );
+    if (!result.rowCount) return res.status(404).json({ error: "notification_not_found" });
+    res.json({ notification: result.rows[0] });
+  } catch (error) {
+    next(error);
+  }
+});
+
+app.post("/api/account/notifications/read-all", requireUser, async (req, res, next) => {
+  try {
+    const result = await pool.query(
+      `UPDATE notifications
+          SET read_at = COALESCE(read_at, now())
+        WHERE user_id = $1 AND read_at IS NULL
+        RETURNING id`,
+      [req.user.id]
+    );
+    res.json({ updated: result.rowCount });
+  } catch (error) {
+    next(error);
+  }
+});
+
 app.get("/api/account/notifications", requireUser, async (req, res, next) => {
   try {
     await pool.query(
