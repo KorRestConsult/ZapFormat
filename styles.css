@@ -3122,3 +3122,13 @@ html{scroll-padding-bottom:calc(88px + env(safe-area-inset-bottom))}
     min-height:40px
   }
 }
+
+.live-brand-button{width:100%;border:0;background:transparent;text-align:left;cursor:pointer}
+.live-brand-button:hover{background:#fbfcfd}
+.live-brand-action{margin-left:auto;color:var(--navy);font-weight:800;font-size:13px;white-space:nowrap}
+.live-article{color:var(--navy);font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-weight:800}
+.supplier-error-card{border-color:#e6c8c8}
+@media(max-width:680px){
+  .live-brand-button{display:grid;grid-template-columns:44px 1fr;gap:10px}
+  .live-brand-action{grid-column:2;margin:8px 0 0}
+}
