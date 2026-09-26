@@ -579,6 +579,7 @@ const S={
   operatorOverview:null,
   operatorQueue:null,
   vehicles:[],
+  garageDue:[],
   vehicleDetail:null,
   activeVehicle:null,
   orders:[],
@@ -1431,12 +1432,25 @@ async function loadGarage(){
   if(!S.user){root.innerHTML='<div class="empty"><div><b>Войдите, чтобы открыть гараж</b><p>Автомобили хранятся только в вашем аккаунте.</p><button class="primary" data-auth-open>Войти</button></div></div>';return}
   root.innerHTML='<div class="state-card"><div class="spinner"></div></div>';
   try{
-    const d=await api("/api/garage");S.vehicles=d.vehicles||[];const defaultVehicle=S.vehicles.find(v=>v.is_default);const existingActive=S.vehicles.find(v=>v.id===S.activeVehicle?.id);S.activeVehicle=defaultVehicle||existingActive||S.vehicles[0]||null;renderVehicleContext();renderGarage();
+    const [d,overview]=await Promise.all([
+      api("/api/garage"),
+      api("/api/garage/overview").catch(()=>({due:[]}))
+    ]);
+    S.vehicles=d.vehicles||[];
+    S.garageDue=overview.due||[];
+    const defaultVehicle=S.vehicles.find(v=>v.is_default);
+    const existingActive=S.vehicles.find(v=>v.id===S.activeVehicle?.id);
+    S.activeVehicle=defaultVehicle||existingActive||S.vehicles[0]||null;
+    renderVehicleContext();renderGarage();
   }catch{root.innerHTML='<div class="empty"><div><b>Не удалось загрузить гараж</b><p>Попробуйте ещё раз.</p><button class="secondary" data-reload-garage>Повторить</button></div></div>'}
 }
 function renderGarage(){
   const root=$("#garageBody");
-  root.innerHTML='<div class="garage-toolbar"><span class="muted">'+S.vehicles.length+' авто</span><button class="primary" data-add-vehicle>+ Добавить автомобиль</button></div>'+
+  const due=S.garageDue||[];
+  const duePanel=due.length
+    ?'<div class="panel panel-pad" style="margin-bottom:16px"><div class="panel-title"><div><h3>Скоро обслуживание</h3><p>Ближайшие планы и напоминания по вашим машинам.</p></div><span class="status">'+due.length+'</span></div><div class="timeline-list">'+due.slice(0,8).map(x=>'<button class="timeline-row" style="width:100%;border:0;background:none;text-align:left" data-vehicle-id="'+x.vehicle_id+'"><span class="dot"></span><p><b>'+esc(x.title)+'</b><small>'+esc([x.brand,x.model,x.generation,x.year].filter(Boolean).join(" · "))+' · '+([x.due_mileage?new Intl.NumberFormat("ru-RU").format(x.due_mileage)+" км":null,x.due_at?date(x.due_at):null].filter(Boolean).join(" · ")||"без срока")+'</small></p><span>→</span></button>').join("")+'</div></div>'
+    :'';
+  root.innerHTML=duePanel+'<div class="garage-toolbar"><span class="muted">'+S.vehicles.length+' авто</span><button class="primary" data-add-vehicle>+ Добавить автомобиль</button></div>'+
   (S.vehicles.length?'<div class="vehicle-grid">'+S.vehicles.map(v=>'<button class="vehicle-card" data-vehicle-id="'+v.id+'"><span style="display:flex;justify-content:space-between;align-items:start"><span class="car-mark">'+esc(String(v.brand||"?").slice(0,2).toUpperCase())+'</span>'+(v.is_default?'<span class="status">Основной</span>':'')+'</span><h3>'+esc(v.brand)+' '+esc(v.model)+'</h3><p>'+esc([v.generation,v.year,v.engine].filter(Boolean).join(" · ")||"Данные автомобиля")+'</p><footer><span>'+esc(v.vin||"VIN не указан")+'</span><span>'+(v.current_mileage?new Intl.NumberFormat("ru-RU").format(v.current_mileage)+" км":"Пробег —")+'</span></footer></button>').join("")+'</div>':'<div class="empty"><div><b>Гараж пока пуст</b><p>Добавьте автомобиль — VIN и пробег будут доступны в одном месте.</p><button class="primary" data-add-vehicle>Добавить автомобиль</button></div></div>')+
   '<div id="vehicleDetailRoot"></div>';
 }
