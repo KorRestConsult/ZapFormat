@@ -1717,6 +1717,7 @@ app.get("/api/account/referrals", requireUser, async (req, res, next) => {
     const [statsResult, recentResult] = await Promise.all([
       pool.query(
         `SELECT
+           count(*)::int AS total,
            count(*) FILTER (WHERE status = 'registered')::int AS registered,
            count(*) FILTER (WHERE status = 'qualified')::int AS qualified,
            count(*) FILTER (WHERE status = 'rewarded')::int AS rewarded,
@@ -1740,6 +1741,7 @@ app.get("/api/account/referrals", requireUser, async (req, res, next) => {
     res.json({
       code,
       stats: {
+        total: Number(row.total || 0),
         registered: Number(row.registered || 0),
         qualified: Number(row.qualified || 0),
         rewarded: Number(row.rewarded || 0),
@@ -3332,6 +3334,53 @@ app.get("/api/admin/release-readiness", requireStaff, async (req, res, next) => 
         legal.terms &&
         legal.returns_policy &&
         Boolean(String(process.env.PUBLIC_BASE_URL || "").trim())
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+app.get("/api/admin/referrals", requireStaff, async (_req, res, next) => {
+  try {
+    const [statsResult, recentResult] = await Promise.all([
+      pool.query(
+        `SELECT
+           count(*)::int AS total,
+           count(*) FILTER (WHERE status = 'registered')::int AS registered,
+           count(*) FILTER (WHERE status = 'qualified')::int AS qualified,
+           count(*) FILTER (WHERE status = 'rewarded')::int AS rewarded,
+           count(*) FILTER (WHERE status = 'cancelled')::int AS cancelled,
+           (SELECT COALESCE(sum(points),0)::int
+              FROM loyalty_ledger
+             WHERE kind = 'referral') AS points_issued
+         FROM referral_attributions`
+      ),
+      pool.query(
+        `SELECT
+            ra.id, ra.code, ra.status, ra.created_at, ra.qualified_at, ra.rewarded_at,
+            referrer.name AS referrer_name,
+            referred.name AS referred_name
+         FROM referral_attributions ra
+         JOIN users referrer ON referrer.id = ra.referrer_user_id
+         JOIN users referred ON referred.id = ra.referred_user_id
+         ORDER BY ra.created_at DESC
+         LIMIT 50`
+      )
+    ]);
+
+    const row = statsResult.rows[0] || {};
+    res.json({
+      rewards_enabled: String(process.env.REFERRAL_REWARDS_ENABLED || "false").toLowerCase() === "true",
+      reward_points: Math.max(0, Math.floor(Number(process.env.REFERRAL_REWARD_POINTS || 0))),
+      stats: {
+        total: Number(row.total || 0),
+        registered: Number(row.registered || 0),
+        qualified: Number(row.qualified || 0),
+        rewarded: Number(row.rewarded || 0),
+        cancelled: Number(row.cancelled || 0),
+        points_issued: Number(row.points_issued || 0)
+      },
+      referrals: recentResult.rows
     });
   } catch (error) {
     next(error);
