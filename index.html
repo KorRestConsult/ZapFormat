@@ -615,6 +615,11 @@ async function searchArticle(article,push=true,urlQuery=article,aiResult=null){
   try{
     const d=await api("/api/catalog/brands?number="+encodeURIComponent(q));
     S.brands=d.brands||[];
+    const hint=String(aiResult?.intent?.brand_hint||"").trim().toUpperCase();
+    if(hint){
+      const exact=S.brands.findIndex(x=>String(x.brand||"").trim().toUpperCase()===hint);
+      if(exact>=0)return loadOffers(exact);
+    }
     renderBrands();
   }catch(e){
     catalogFail("Поиск временно недоступен","Поставщик не ответил. Фиктивные товары и цены не показываем.");
@@ -1188,7 +1193,8 @@ document.addEventListener("click",async e=>{
   let x=e.target.closest("[data-go]");if(x)return go(x.dataset.go);
   x=e.target.closest("[data-ai-candidate]");if(x){
     const candidate=S.aiCandidates[Number(x.dataset.aiCandidate)];if(!candidate)return;
-    return searchArticle(candidate.article,false,S.aiOriginalQuery||candidate.article,S.aiResult);
+    const ai=S.aiResult?{...S.aiResult,intent:{...(S.aiResult.intent||{}),brand_hint:candidate.brand||""}}:null;
+    return searchArticle(candidate.article,false,S.aiOriginalQuery||candidate.article,ai);
   }
   x=e.target.closest("[data-brand-index]");if(x)return loadOffers(Number(x.dataset.brandIndex));
   x=e.target.closest("[data-add-offer]");if(x)return addOffer(Number(x.dataset.addOffer));
