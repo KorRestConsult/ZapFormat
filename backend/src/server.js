@@ -756,6 +756,61 @@ app.get("/api/auth/me", async (req, res, next) => {
   }
 });
 
+app.post("/api/auth/logout-others", requireUser, async (req, res, next) => {
+  try {
+    const token = req.cookies?.[COOKIE_NAME];
+    const currentHash = token ? tokenHash(token) : "";
+    const result = await pool.query(
+      `DELETE FROM user_sessions
+        WHERE user_id = $1
+          AND token_hash <> $2
+        RETURNING id`,
+      [req.user.id, currentHash]
+    );
+    res.json({ revoked: result.rowCount });
+  } catch (error) {
+    next(error);
+  }
+});
+
+app.patch("/api/account/password", requireUser, authLimiter, async (req, res, next) => {
+  try {
+    const currentPassword = String(req.body?.current_password || "");
+    const newPassword = String(req.body?.new_password || "");
+    if (!currentPassword || newPassword.length < 8) {
+      return res.status(400).json({ error: "invalid_password_change" });
+    }
+
+    const userResult = await pool.query(
+      "SELECT password_hash FROM users WHERE id = $1 LIMIT 1",
+      [req.user.id]
+    );
+    const hash = userResult.rows[0]?.password_hash;
+    if (!hash || !(await bcrypt.compare(currentPassword, hash))) {
+      return res.status(401).json({ error: "invalid_current_password" });
+    }
+
+    const nextHash = await bcrypt.hash(newPassword, 12);
+    await pool.query(
+      "UPDATE users SET password_hash = $2, updated_at = now() WHERE id = $1",
+      [req.user.id, nextHash]
+    );
+
+    const token = req.cookies?.[COOKIE_NAME];
+    const currentHash = token ? tokenHash(token) : "";
+    await pool.query(
+      `DELETE FROM user_sessions
+        WHERE user_id = $1
+          AND token_hash <> $2`,
+      [req.user.id, currentHash]
+    );
+
+    res.status(204).end();
+  } catch (error) {
+    next(error);
+  }
+});
+
 app.patch("/api/account/profile", requireUser, async (req, res, next) => {
   try {
     const name = String(req.body?.name ?? req.user.name ?? "").trim();
@@ -1293,7 +1348,7 @@ app.get("/api/orders/:orderId", requireUser, async (req, res, next) => {
     const [itemsResult, historyResult] = await Promise.all([
       pool.query(
         `SELECT id, article, brand, description, warehouse, delivery_days,
-                quantity, unit_price, status, supplier_status, expected_at,
+                quantity, unit_price, returnable, status, supplier_status, expected_at,
                 received_at, created_at, updated_at
            FROM order_items
           WHERE order_id = $1
@@ -1331,6 +1386,109 @@ app.get("/api/orders/:orderId", requireUser, async (req, res, next) => {
     });
   } catch (error) {
     next(error);
+  }
+});
+
+app.get("/api/returns", requireUser, async (req, res, next) => {
+  try {
+    const result = await pool.query(
+      `SELECT
+          r.id,
+          r.return_number,
+          r.quantity,
+          r.reason,
+          r.comment,
+          r.status,
+          r.created_at,
+          r.updated_at,
+          oi.article,
+          oi.brand,
+          oi.description,
+          oi.unit_price,
+          o.order_number
+       FROM returns r
+       JOIN order_items oi ON oi.id = r.order_item_id
+       JOIN orders o ON o.id = oi.order_id
+       WHERE r.user_id = $1
+       ORDER BY r.created_at DESC
+       LIMIT 100`,
+      [req.user.id]
+    );
+    res.json({
+      returns: result.rows.map((row) => ({
+        ...row,
+        unit_price: Number(row.unit_price || 0)
+      }))
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+app.post("/api/returns", requireUser, async (req, res, next) => {
+  const client = await pool.connect();
+  try {
+    const orderItemId = String(req.body?.order_item_id || "");
+    const quantity = Math.max(1, Math.min(999, Number(req.body?.quantity || 1)));
+    const reason = String(req.body?.reason || "").trim().slice(0, 300);
+    const comment = String(req.body?.comment || "").trim().slice(0, 1000) || null;
+
+    if (!orderItemId || !reason || !Number.isInteger(quantity)) {
+      return res.status(400).json({ error: "return_data_required" });
+    }
+
+    await client.query("BEGIN");
+    const itemResult = await client.query(
+      `SELECT oi.id, oi.quantity, oi.returnable, oi.status, o.id AS order_id
+         FROM order_items oi
+         JOIN orders o ON o.id = oi.order_id
+        WHERE oi.id = $1 AND o.user_id = $2
+        FOR UPDATE`,
+      [orderItemId, req.user.id]
+    );
+    const item = itemResult.rows[0];
+    if (!item) {
+      await client.query("ROLLBACK");
+      return res.status(404).json({ error: "order_item_not_found" });
+    }
+    if (item.returnable === false) {
+      await client.query("ROLLBACK");
+      return res.status(409).json({ error: "item_not_returnable" });
+    }
+
+    const usedResult = await client.query(
+      `SELECT COALESCE(sum(quantity),0)::int AS used
+         FROM returns
+        WHERE order_item_id = $1
+          AND status NOT IN ('rejected','cancelled')`,
+      [orderItemId]
+    );
+    const remaining = Number(item.quantity || 0) - Number(usedResult.rows[0]?.used || 0);
+    if (quantity > remaining) {
+      await client.query("ROLLBACK");
+      return res.status(409).json({ error: "return_quantity_exceeded", remaining });
+    }
+
+    const result = await client.query(
+      `INSERT INTO returns (user_id, order_item_id, quantity, reason, comment)
+       VALUES ($1,$2,$3,$4,$5)
+       RETURNING *`,
+      [req.user.id, orderItemId, quantity, reason, comment]
+    );
+
+    await client.query(
+      `INSERT INTO order_status_history (order_id, order_item_id, status, source, note)
+       VALUES ($1,$2,'return_created','zapformat',$3)`,
+      [item.order_id, orderItemId, "Запрос на возврат создан"]
+    );
+
+    await client.query("COMMIT");
+    res.status(201).json({ return: result.rows[0] });
+  } catch (error) {
+    await client.query("ROLLBACK").catch(() => {});
+    next(error);
+  } finally {
+    client.release();
   }
 });
 
