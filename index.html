@@ -1927,7 +1927,7 @@ async function hydrate(){
   renderHomeOverview();
 }
 function authUi(){
-  $("[data-auth-tab]").forEach(x=>x.classList.toggle("active",x.dataset.authTab===S.authMode));
+  $$("[data-auth-tab]").forEach(x=>x.classList.toggle("active",x.dataset.authTab===S.authMode));
   $("#authTitle").textContent=S.authMode==="login"?"Войти":"Создать аккаунт";
   $('#authForm [name="name"]').hidden=S.authMode==="login";
   $('#authForm [name="password"]').autocomplete=S.authMode==="login"?"current-password":"new-password";
