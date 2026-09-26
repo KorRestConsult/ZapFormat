@@ -52,7 +52,7 @@ try {
     await page.goto("http://127.0.0.1:4173/index.html", { waitUntil: "domcontentloaded" });
     await page.waitForTimeout(150);
 
-    for (const screen of ["home", "catalogs", "garage", "orders", "cart", "account"]) {
+    for (const screen of ["home", "catalogs", "garage", "orders", "cart", "checkout", "account"]) {
       await page.evaluate((name) => window.go(name, false), screen);
       await page.waitForTimeout(50);
       await assertNoHorizontalOverflow(page, `${viewport.name}/${screen}/guest`);
@@ -147,6 +147,53 @@ try {
     });
     await page.waitForTimeout(50);
     await assertNoHorizontalOverflow(page, `${viewport.name}/cart/mixed`);
+
+    await page.evaluate(() => {
+      S.cart = [{
+        id: "offer1", offer_ref: "offer1", brand: "PATRON", article: "PRS3420",
+        description: "Актуальная позиция", qty: 2, packing: 1, availability: 12,
+        delivery_hours: 24, delivery_hours_max: 48, price: 5284.25,
+        checked_at: new Date().toISOString(), found: true, returnable: true
+      }];
+      S.checkoutOptions = {
+        customer: S.user,
+        addresses: [{
+          id: "a1", label: "Дом", city: "Рязань",
+          address: "Очень длинное тестовое название улицы, дом 123, квартира 456",
+          recipient_name: "Илья", recipient_phone: "+79000000000", is_default: true
+        }],
+        pickup_points: [],
+        vehicles: [{
+          id: "v2", brand: "Ford", model: "Focus", generation: "II", year: 2006,
+          engine: "1.8", vin: "X9F5XXEED56R37916", is_default: true
+        }],
+        fulfillment_methods: [
+          { code: "delivery", label: "Доставка", description: "Используйте сохранённый адрес.", ready: true },
+          { code: "confirmation", label: "Согласовать получение", description: "Менеджер согласует способ получения.", ready: true }
+        ],
+        payment_methods: [
+          { code: "after_confirmation", label: "После подтверждения", description: "Оплата после подтверждения.", online: false }
+        ]
+      };
+      S.checkoutDraft = { fulfillment_method: "delivery", payment_method: "after_confirmation" };
+      S.checkoutResult = null;
+      document.querySelectorAll(".page").forEach(x=>x.classList.toggle("active",x.dataset.page==="checkout"));
+      renderCheckout();
+    });
+    await page.waitForTimeout(50);
+    await assertNoHorizontalOverflow(page, `${viewport.name}/checkout/form`);
+
+    await page.evaluate(() => {
+      S.checkoutResult = {
+        request_id: "Q-20260926-ABCDEF",
+        verified_total: 10568.5,
+        fulfillment_method: "delivery",
+        payment_method: "after_confirmation"
+      };
+      renderCheckoutSuccess();
+    });
+    await page.waitForTimeout(50);
+    await assertNoHorizontalOverflow(page, `${viewport.name}/checkout/success`);
 
     await page.evaluate(() => {
       S.vehicles = [
