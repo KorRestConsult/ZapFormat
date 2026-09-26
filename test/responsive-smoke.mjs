@@ -66,6 +66,21 @@ try {
     }
 
     await page.evaluate(() => {
+      go("home", false);
+      const form = document.querySelector('[data-page="home"] [data-search-form]');
+      const input = form.querySelector('input[name="query"]');
+      input.value = "PRS";
+      renderSearchSuggestions(form, [
+        { brand: "PATRON", article: "PRS3420", description: "Передние тормозные колодки" },
+        { brand: "BREMBO", article: "P24061", description: "Очень длинная каталожная подсказка для проверки мобильной ширины автодополнения без выхода за экран" },
+        { brand: "TRW", article: "GDB0001", description: "Каталожный вариант" }
+      ]);
+    });
+    await page.waitForTimeout(50);
+    await assertNoHorizontalOverflow(page, `${browserName}/${viewport.name}/home/suggestions`);
+    await page.evaluate(() => document.querySelectorAll("[data-search-form]").forEach(clearSearchSuggestions));
+
+    await page.evaluate(() => {
       S.user = {
         id: "u1",
         name: "Илья",
