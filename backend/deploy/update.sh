@@ -19,6 +19,17 @@ fi
 mkdir -p /var/lib/zapformat
 chown zapformat:zapformat /var/lib/zapformat
 chmod 750 /var/lib/zapformat
+if [[ -f /etc/zapformat/zapformat-api.env ]]; then
+  set -a
+  source /etc/zapformat/zapformat-api.env
+  set +a
+  if [[ -n "${DATABASE_URL:-}" ]]; then
+    psql "${DATABASE_URL}" -f db/001_init.sql >/dev/null
+    psql "${DATABASE_URL}" -f db/002_garage_owner_app.sql >/dev/null
+    psql "${DATABASE_URL}" -f db/003_quote_requests.sql >/dev/null
+  fi
+fi
+
 systemctl restart zapformat-api
 sleep 2
 curl -fsS http://127.0.0.1:3000/api/health
