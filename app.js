@@ -772,7 +772,7 @@ async function tryLiveArticle(raw){
   }
 
   const key="quote:"+article.toUpperCase();
-  const candidates=(brands.length ? brands.slice(0,8) : [preferred]).map((item,index)=>({
+  const candidates=(brands.length ? brands.slice(0,100) : [preferred]).map((item,index)=>({
     id:"quote-"+article.toUpperCase()+"-"+index,
     type:"exact",
     brand:item.brand||"Уточняем",
@@ -916,8 +916,11 @@ function renderCatalog(){
   const analogRoot=document.getElementById("analogResults");
 
   if(exactRoot){
+    const quoteMode=String(currentKey).startsWith("quote:");
     exactRoot.innerHTML=exact.length
-      ? groupCardHtml(exact,"exact-"+currentKey)
+      ? (quoteMode
+          ? exact.map(x=>groupCardHtml([x],"quote-"+x.id)).join("")
+          : groupCardHtml(exact,"exact-"+currentKey))
       : '<div class="product-group"><div class="product-group-head"><div class="product-title"><b>Нет точных предложений</b></div></div></div>';
   }
 
