@@ -465,6 +465,11 @@ app.get("/api/catalog/brands", async (req, res, next) => {
   }
 });
 
+function normalizeSupplierRows(value) {
+  if (Array.isArray(value)) return value;
+  return value && typeof value === "object" ? Object.values(value) : [];
+}
+
 function supplierOfferRef(row, fallback = {}) {
   const parts = [
     row?.brand ?? fallback.brand ?? "",
@@ -472,9 +477,7 @@ function supplierOfferRef(row, fallback = {}) {
     row?.supplierCode ?? row?.supplier ?? "",
     row?.itemKey ?? row?.itemId ?? row?.id ?? "",
     row?.warehouse ?? row?.warehouseCode ?? "",
-    row?.price ?? "",
-    row?.deliveryPeriod ?? "",
-    row?.deliveryPeriodMax ?? ""
+    row?.packing ?? ""
   ];
   return crypto.createHash("sha256").update(parts.map((x) => String(x)).join("|")).digest("hex").slice(0, 24);
 }
@@ -502,11 +505,11 @@ function publicSupplierOffer(row, fallback = {}) {
 async function supplierRowsForOffer(number, brand) {
   try {
     const rows = await partGrade.searchArticles(number, brand);
-    return { mode: "articles", rows: Array.isArray(rows) ? rows : [] };
+    return { mode: "articles", rows: normalizeSupplierRows(rows) };
   } catch (error) {
     if (error instanceof PartGradeError && Number(error.upstreamCode) === 103) {
       const rows = await partGrade.searchBatch([{ number, brand }]);
-      return { mode: "batch", rows: Array.isArray(rows) ? rows : [] };
+      return { mode: "batch", rows: normalizeSupplierRows(rows) };
     }
     throw error;
   }
