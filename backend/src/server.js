@@ -26,6 +26,7 @@ const {
 const app = express();
 const isProduction = process.env.NODE_ENV === "production";
 const PORT = Number(process.env.PORT || 3000);
+const MAX_CART_ITEMS = 50;
 const HOST = process.env.HOST || "127.0.0.1";
 const COOKIE_NAME = process.env.COOKIE_NAME || "zf_session";
 const SESSION_DAYS = Math.max(1, Number(process.env.SESSION_DAYS || 30));
@@ -319,7 +320,10 @@ app.post("/api/quote-requests", quoteLimiter, async (req, res, next) => {
   try {
     const name = String(req.body?.name || "").trim().slice(0, 120);
     const phone = normalizePhone(req.body?.phone);
-    const rawItems = Array.isArray(req.body?.items) ? req.body.items.slice(0, 50) : [];
+    const rawItems = Array.isArray(req.body?.items) ? req.body.items : [];
+    if (rawItems.length > MAX_CART_ITEMS) {
+      return res.status(400).json({ error: "too_many_items", max_items: MAX_CART_ITEMS });
+    }
 
     if (!phone || phone.replace(/\D/g, "").length < 10) {
       return res.status(400).json({ error: "phone_required" });
@@ -1164,8 +1168,11 @@ app.get("/api/catalog/offers", catalogLimiter, async (req, res, next) => {
 
 app.post("/api/catalog/recheck", catalogLimiter, async (req, res, next) => {
   try {
-    const requested = Array.isArray(req.body?.items) ? req.body.items.slice(0, 30) : [];
+    const requested = Array.isArray(req.body?.items) ? req.body.items : [];
     if (!requested.length) return res.status(400).json({ error: "items_required" });
+    if (requested.length > MAX_CART_ITEMS) {
+      return res.status(400).json({ error: "too_many_items", max_items: MAX_CART_ITEMS });
+    }
 
     const items = await resolveRequestedOffers(requested);
     res.json({ checked_at: new Date().toISOString(), items });
@@ -2158,7 +2165,10 @@ app.get("/api/cart", requireUser, async (req, res, next) => {
 app.put("/api/cart", requireUser, async (req, res, next) => {
   const client = await pool.connect();
   try {
-    const requested = Array.isArray(req.body?.items) ? req.body.items.slice(0, 50) : [];
+    const requested = Array.isArray(req.body?.items) ? req.body.items : [];
+    if (requested.length > MAX_CART_ITEMS) {
+      return res.status(400).json({ error: "too_many_items", max_items: MAX_CART_ITEMS });
+    }
     if (!requested.length) {
       const cartId = await userCartId(req.user.id, client);
       await client.query("DELETE FROM cart_items WHERE cart_id = $1", [cartId]);
@@ -2253,7 +2263,10 @@ app.get("/api/checkout/options", requireUser, async (req, res, next) => {
 app.post("/api/checkout/submit", requireUser, quoteLimiter, async (req, res, next) => {
   const client = await pool.connect();
   try {
-    const rawItems = Array.isArray(req.body?.items) ? req.body.items.slice(0, 50) : [];
+    const rawItems = Array.isArray(req.body?.items) ? req.body.items : [];
+    if (rawItems.length > MAX_CART_ITEMS) {
+      return res.status(400).json({ error: "too_many_items", max_items: MAX_CART_ITEMS });
+    }
     const fulfillmentMethod = String(req.body?.fulfillment_method || "confirmation");
     const paymentMethod = String(req.body?.payment_method || "after_confirmation");
     const deliveryAddressId = req.body?.delivery_address_id ? String(req.body.delivery_address_id) : null;
@@ -3988,5 +4001,6 @@ module.exports = {
   catalogCacheSet,
   resolveSupplierWriteItems,
   validVehicleYear,
-  validMileage
+  validMileage,
+  MAX_CART_ITEMS
 };
