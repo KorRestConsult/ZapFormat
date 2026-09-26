@@ -18,6 +18,7 @@ const {
   interpretSearch,
   looksLikeArticle,
   looksLikeVin,
+  parseBrandArticle,
   modelName,
   safeVehicleContext
 } = require("./ai");
@@ -723,6 +724,30 @@ app.post("/api/ai/search", aiLimiter, async (req, res, next) => {
         intent: {
           kind: "article",
           article: query,
+          brand_hint: "",
+          normalized_query: query,
+          part_name: "",
+          position: "",
+          search_terms: [],
+          assistant_text: "",
+          needs_article: false,
+          confidence: 1
+        },
+        candidates: []
+      });
+    }
+
+    const explicitBrandArticle = parseBrandArticle(query);
+    if (explicitBrandArticle) {
+      return res.json({
+        ai: false,
+        mode: "article",
+        query,
+        vehicle,
+        intent: {
+          kind: "article",
+          article: explicitBrandArticle.article,
+          brand_hint: explicitBrandArticle.brand_hint,
           normalized_query: query,
           part_name: "",
           position: "",
