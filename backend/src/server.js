@@ -5109,5 +5109,6 @@ module.exports = {
   normalizeReferralCode,
   safePublicUrl,
   publicPublicationConfig,
+  qualifyReferralForCompletedOrder,
   MAX_CART_ITEMS
 };
