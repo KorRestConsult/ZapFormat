@@ -1458,7 +1458,7 @@ app.patch("/api/account/profile", requireUser, async (req, res, next) => {
 
 app.get("/api/account/overview", requireUser, async (req, res, next) => {
   try {
-    const [orders, vehicles, returns, requests] = await Promise.all([
+    const [orders, vehicles, returns, requests, vin, support, unread, due] = await Promise.all([
       pool.query(
         `SELECT count(*) FILTER (WHERE status NOT IN ('completed','cancelled'))::int AS active,
                 count(*) FILTER (WHERE status = 'ready')::int AS ready
@@ -1467,23 +1467,117 @@ app.get("/api/account/overview", requireUser, async (req, res, next) => {
       ),
       pool.query("SELECT count(*)::int AS count FROM vehicles WHERE user_id = $1", [req.user.id]),
       pool.query(
-        "SELECT count(*)::int AS count FROM returns WHERE user_id = $1 AND status NOT IN ('completed','rejected')",
+        `SELECT count(*) FILTER (WHERE status NOT IN ('completed','rejected','cancelled'))::int AS active,
+                count(*) FILTER (WHERE status = 'approved')::int AS approved
+           FROM returns WHERE user_id = $1`,
         [req.user.id]
       ),
       pool.query(
-        "SELECT count(*)::int AS count FROM quote_requests WHERE user_id = $1 AND status NOT IN ('completed','cancelled')",
+        `SELECT count(*) FILTER (WHERE status NOT IN ('completed','cancelled'))::int AS active,
+                count(*) FILTER (WHERE status = 'confirmed')::int AS confirmed
+           FROM quote_requests WHERE user_id = $1`,
+        [req.user.id]
+      ),
+      pool.query(
+        `SELECT count(*) FILTER (WHERE status = 'answered')::int AS answered,
+                count(*) FILTER (WHERE status IN ('new','in_progress'))::int AS active
+           FROM vin_requests WHERE user_id = $1`,
+        [req.user.id]
+      ),
+      pool.query(
+        `SELECT count(*) FILTER (WHERE status = 'waiting_customer')::int AS waiting_customer,
+                count(*) FILTER (WHERE status IN ('new','in_progress','waiting_customer'))::int AS open
+           FROM support_requests WHERE user_id = $1`,
+        [req.user.id]
+      ),
+      pool.query(
+        "SELECT count(*)::int AS count FROM notifications WHERE user_id = $1 AND read_at IS NULL",
+        [req.user.id]
+      ),
+      pool.query(
+        `SELECT *
+         FROM (
+           SELECT
+             'plan'::text AS source,
+             p.id,
+             p.vehicle_id,
+             p.title,
+             p.next_service_mileage AS due_mileage,
+             p.next_service_at::timestamptz AS due_at,
+             v.current_mileage,
+             v.brand,
+             v.model,
+             v.generation,
+             v.year
+           FROM vehicle_maintenance_plans p
+           JOIN vehicles v ON v.id = p.vehicle_id
+           WHERE p.user_id = $1
+             AND p.is_active = true
+             AND (
+               (p.next_service_at IS NOT NULL AND p.next_service_at <= CURRENT_DATE + 45)
+               OR
+               (p.next_service_mileage IS NOT NULL
+                AND v.current_mileage IS NOT NULL
+                AND p.next_service_mileage <= v.current_mileage + 3000)
+             )
+           UNION ALL
+           SELECT
+             'reminder'::text AS source,
+             r.id,
+             r.vehicle_id,
+             r.title,
+             r.due_mileage,
+             r.due_at::timestamptz,
+             v.current_mileage,
+             v.brand,
+             v.model,
+             v.generation,
+             v.year
+           FROM vehicle_reminders r
+           JOIN vehicles v ON v.id = r.vehicle_id
+           WHERE r.user_id = $1
+             AND r.is_done = false
+             AND (
+               (r.due_at IS NOT NULL AND r.due_at <= CURRENT_DATE + 45)
+               OR
+               (r.due_mileage IS NOT NULL
+                AND v.current_mileage IS NOT NULL
+                AND r.due_mileage <= v.current_mileage + 3000)
+             )
+         ) due
+         ORDER BY due_at NULLS LAST, due_mileage NULLS LAST
+         LIMIT 5`,
         [req.user.id]
       )
     ]);
 
+    const stats = {
+      active_orders: Number(orders.rows[0].active || 0) + Number(requests.rows[0].active || 0),
+      ready_orders: Number(orders.rows[0].ready || 0),
+      quote_requests: Number(requests.rows[0].active || 0),
+      confirmed_quotes: Number(requests.rows[0].confirmed || 0),
+      vehicles: Number(vehicles.rows[0].count || 0),
+      active_returns: Number(returns.rows[0].active || 0),
+      approved_returns: Number(returns.rows[0].approved || 0),
+      vin_active: Number(vin.rows[0].active || 0),
+      vin_answered: Number(vin.rows[0].answered || 0),
+      support_open: Number(support.rows[0].open || 0),
+      support_waiting_customer: Number(support.rows[0].waiting_customer || 0),
+      unread_notifications: Number(unread.rows[0].count || 0),
+      due_maintenance: due.rowCount
+    };
+
     res.json({
       user: publicUser(req.user),
-      stats: {
-        active_orders: orders.rows[0].active + requests.rows[0].count,
-        ready_orders: orders.rows[0].ready,
-        quote_requests: requests.rows[0].count,
-        vehicles: vehicles.rows[0].count,
-        active_returns: returns.rows[0].count
+      stats,
+      attention: {
+        ready_orders: stats.ready_orders,
+        support_waiting_customer: stats.support_waiting_customer,
+        vin_answered: stats.vin_answered,
+        approved_returns: stats.approved_returns,
+        confirmed_quotes: stats.confirmed_quotes,
+        unread_notifications: stats.unread_notifications,
+        due_maintenance: due.rows
       }
     });
   } catch (error) {
