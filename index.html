@@ -1649,6 +1649,8 @@ async function submitCheckout(e){
       if(status)status.textContent="Выберите или добавьте адрес доставки.";
     }else if(err.message==="recipient_phone_required"){
       if(status)status.textContent="Укажите телефон получателя.";
+    }else if(err.message==="too_many_items"){
+      if(status)status.textContent="В заказе может быть не больше "+MAX_CART_ITEMS+" разных позиций.";
     }else{
       if(status)status.textContent="Не удалось завершить оформление.";
     }
