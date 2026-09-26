@@ -1852,9 +1852,11 @@ async function openNotification(id){
     if(entityType==="vin")return loadVinRequest(entityId);
     if(entityType==="return")return loadReturnRequest(entityId);
     if(entityType==="order")return loadOrder(entityId);
+    if(entityType==="support"){go("support");await loadSupport();return loadSupportRequest(entityId)}
   }
   const type=String(n.type||"");
   if(/quote|vin|return|order|checkout/i.test(type))return go("orders");
+  if(/support/i.test(type))return go("support");
   return renderAccount();
 }
 async function readAllNotifications(){
