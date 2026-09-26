@@ -202,6 +202,17 @@ try {
     await assertNoHorizontalOverflow(page, `${browserName}/${viewport.name}/part/detail`);
 
     await page.evaluate(() => {
+      S.comparedOffers = [...S.currentPartData.offers];
+      renderOfferComparison();
+    });
+    await page.waitForTimeout(50);
+    await assertNoHorizontalOverflow(page, `${browserName}/${viewport.name}/part/compare`);
+    await page.evaluate(() => {
+      S.comparedOffers = [];
+      renderPartDetail();
+    });
+
+    await page.evaluate(() => {
       S.aiOriginalQuery = "передние колодки для моего Focus";
       S.aiResult = {
         ai: true,
