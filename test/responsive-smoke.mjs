@@ -221,12 +221,18 @@ try {
       S.vehicles = [
         {
           id: "v1", brand: "BMW", model: "X3", generation: "F25", year: 2010,
-          engine: "2.0 Diesel N47", vin: "WBA00000000000001", plate_number: "А000АА62",
+          engine: "2.0 Diesel N47", transmission: "АКПП", body_type: "SUV",
+          tire_front: "245/50 R18", tire_rear: "245/50 R18", wheel_size: "8Jx18",
+          oil_spec: "5W-30 · BMW LL-04", coolant_spec: "BMW HT-12",
+          vin: "WBA00000000000001", plate_number: "А000АА62",
           current_mileage: 186420, is_default: true
         },
         {
           id: "v2", brand: "Ford", model: "Focus", generation: "II", year: 2006,
-          engine: "1.8", vin: "X9F5XXEED56R37916", current_mileage: 210000, is_default: false
+          engine: "1.8", transmission: "МКПП", body_type: "хэтчбек",
+          tire_front: "205/55 R16", tire_rear: "205/55 R16", wheel_size: "6.5Jx16",
+          oil_spec: "5W-30", coolant_spec: "Ford spec",
+          vin: "X9F5XXEED56R37916", current_mileage: 210000, is_default: false
         }
       ];
       document.querySelectorAll(".page").forEach(x=>x.classList.toggle("active",x.dataset.page==="garage"));
@@ -247,7 +253,10 @@ try {
       S.vehicleDetail = {
         vehicle: {
           id: "v1", brand: "BMW", model: "X3", generation: "F25", year: 2010,
-          engine: "2.0 Diesel N47", vin: "WBA00000000000001", plate_number: "А000АА62",
+          engine: "2.0 Diesel N47", transmission: "АКПП", body_type: "SUV",
+          tire_front: "245/50 R18", tire_rear: "245/50 R18", wheel_size: "8Jx18",
+          oil_spec: "5W-30 · BMW LL-04", coolant_spec: "BMW HT-12",
+          vin: "WBA00000000000001", plate_number: "А000АА62",
           current_mileage: 186420, is_default: true, updated_at: "2026-09-26T10:00:00Z"
         },
         maintenance: [
