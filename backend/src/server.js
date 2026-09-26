@@ -83,6 +83,13 @@ const aiLimiter = rateLimit({
   legacyHeaders: false
 });
 
+const catalogLimiter = rateLimit({
+  windowMs: 10 * 60 * 1000,
+  limit: Math.max(60, Number(process.env.CATALOG_SEARCH_10M_LIMIT || 240)),
+  standardHeaders: "draft-8",
+  legacyHeaders: false
+});
+
 function requireDatabase(_req, res, next) {
   if (!pool) return res.status(503).json({ error: "database_not_configured" });
   next();
@@ -494,7 +501,7 @@ app.get("/api/supplier/checkout-options", requireInternal, async (_req, res, nex
   }
 });
 
-app.get("/api/catalog/brands", async (req, res, next) => {
+app.get("/api/catalog/brands", catalogLimiter, async (req, res, next) => {
   try {
     const number = String(req.query?.number || "").trim();
     if (!number) return res.status(400).json({ error: "article_required" });
@@ -835,7 +842,7 @@ async function resolveRequestedOffers(requested = []) {
   return output;
 }
 
-app.get("/api/catalog/part", async (req, res, next) => {
+app.get("/api/catalog/part", catalogLimiter, async (req, res, next) => {
   try {
     const number = String(req.query?.number || "").trim();
     const brand = String(req.query?.brand || "").trim();
@@ -898,7 +905,7 @@ app.get("/api/catalog/part", async (req, res, next) => {
   }
 });
 
-app.get("/api/catalog/offers", async (req, res, next) => {
+app.get("/api/catalog/offers", catalogLimiter, async (req, res, next) => {
   try {
     const number = String(req.query?.number || "").trim();
     const brand = String(req.query?.brand || "").trim();
@@ -922,7 +929,7 @@ app.get("/api/catalog/offers", async (req, res, next) => {
   }
 });
 
-app.post("/api/catalog/recheck", async (req, res, next) => {
+app.post("/api/catalog/recheck", catalogLimiter, async (req, res, next) => {
   try {
     const requested = Array.isArray(req.body?.items) ? req.body.items.slice(0, 30) : [];
     if (!requested.length) return res.status(400).json({ error: "items_required" });
