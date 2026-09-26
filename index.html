@@ -816,7 +816,7 @@ const S={
   cartServerWarning:"",
   checkoutOptions:null,
   checkoutResult:null,
-  checkoutDraft:{fulfillment_method:"",payment_method:"after_confirmation",recipient_name:"",recipient_phone:"",vehicle_id:"",delivery_address_id:"",pickup_point_id:"",comment:""},
+  checkoutDraft:{fulfillment_method:"",payment_method:"after_confirmation",recipient_name:"",recipient_phone:"",vehicle_id:"",delivery_address_id:"",pickup_point_id:"",comment:"",legal_accepted:false},
   checkoutSubmitting:false,
   operatorOverview:null,
   operatorQueue:null,
@@ -1775,6 +1775,8 @@ async function loadCheckout(){
 function renderCheckout(){
   const root=$("#checkoutBody"),o=S.checkoutOptions||{};
   const methods=o.fulfillment_methods||[],addresses=o.addresses||[],points=o.pickup_points||[],vehicles=o.vehicles||[];
+  const legal=o.legal||{},legalLinks=legal.links||{};
+  const legalRequired=Boolean(legalLinks.terms||legalLinks.privacy);
   const activeMethod=S.checkoutDraft.fulfillment_method||methods.find(x=>x.ready)?.code||"confirmation";
   const defaultAddress=addresses.find(x=>x.id===S.checkoutDraft.delivery_address_id)||addresses.find(x=>x.is_default)||addresses[0]||null;
   const defaultVehicle=vehicles.find(x=>x.id===S.checkoutDraft.vehicle_id)||vehicles.find(x=>x.is_default)||vehicles[0]||null;
@@ -1793,6 +1795,14 @@ function renderCheckout(){
   const vehicleChoices=vehicles.length
     ?'<select name="vehicle_id"><option value="">Без привязки к машине</option>'+vehicles.map(v=>'<option value="'+v.id+'" '+(defaultVehicle?.id===v.id?"selected":"")+'>'+esc(v.brand)+' '+esc(v.model)+' '+esc([v.generation,v.year].filter(Boolean).join(" "))+'</option>').join("")+'</select>'
     :'<span class="muted small">Автомобиль можно добавить позже.</span>';
+  const legalItems=[
+    legalLinks.terms?'<a href="'+esc(legalLinks.terms)+'" target="_blank" rel="noopener noreferrer">условиями / офертой</a>':"",
+    legalLinks.privacy?'<a href="'+esc(legalLinks.privacy)+'" target="_blank" rel="noopener noreferrer">политикой конфиденциальности</a>':""
+  ].filter(Boolean);
+  const legalSection=legalRequired
+    ?'<section class="checkout-step"><div class="checkout-step-head"><span class="checkout-step-no">4</span><div><h3>Условия</h3><p>Фиксируем согласие только с реально опубликованными документами.</p></div></div><label class="choice"><input type="checkbox" name="legal_accepted" value="1" '+(S.checkoutDraft.legal_accepted?"checked":"")+' required><span><b>Я согласен с документами</b><small>Ознакомился с '+legalItems.join(" и ")+'. Версии ссылок сохраняются вместе с заявкой.</small></span></label></section>'
+    :"";
+  const commentStep=legalRequired?5:4;
 
   root.innerHTML='<form id="checkoutForm"><div class="checkout-grid"><div class="checkout-main">'+
     '<section class="checkout-step"><div class="checkout-step-head"><span class="checkout-step-no">1</span><div><h3>Покупатель</h3><p>Контакт для подтверждения заявки.</p></div></div><div class="form-grid"><div class="field"><label>Получатель</label><input name="recipient_name" value="'+esc(recipientName)+'" required></div><div class="field"><label>Телефон</label><input name="recipient_phone" value="'+esc(recipientPhone)+'" placeholder="+7 900 000-00-00" required></div><div class="field full"><label>Автомобиль</label>'+vehicleChoices+'</div></div></section>'+
@@ -1801,7 +1811,8 @@ function renderCheckout(){
       '<div id="checkoutPickup" style="margin-top:14px">'+pointChoices+'</div>'+
     '</section>'+
     '<section class="checkout-step"><div class="checkout-step-head"><span class="checkout-step-no">3</span><div><h3>Оплата</h3><p>Онлайн-оплата не имитируется: пока доступно только подтверждение перед оплатой.</p></div></div><label class="choice"><input type="radio" name="payment_method" value="after_confirmation" checked><span><b>После подтверждения</b><small>Сначала проверяем поставщика, цену, наличие и получение. Деньги сейчас не списываются.</small></span></label></section>'+
-    '<section class="checkout-step"><div class="checkout-step-head"><span class="checkout-step-no">4</span><div><h3>Комментарий</h3><p>Необязательно.</p></div></div><div class="field"><textarea name="comment" rows="4" maxlength="1200" placeholder="Например: связаться после 18:00">'+esc(S.checkoutDraft.comment||"")+'</textarea></div></section>'+
+    legalSection+
+    '<section class="checkout-step"><div class="checkout-step-head"><span class="checkout-step-no">'+commentStep+'</span><div><h3>Комментарий</h3><p>Необязательно.</p></div></div><div class="field"><textarea name="comment" rows="4" maxlength="1200" placeholder="Например: связаться после 18:00">'+esc(S.checkoutDraft.comment||"")+'</textarea></div></section>'+
     '</div><aside class="panel panel-pad checkout-summary"><div class="panel-title"><div><h3>Ваш заказ</h3><p>'+S.cart.length+' поз.</p></div></div><div class="checkout-items">'+S.cart.map(x=>'<div class="checkout-item"><span><b>'+esc(x.brand)+' '+esc(x.article)+'</b><small>'+Number(x.qty||1)+' шт. · '+esc(deliveryLabel(x.delivery_hours,x.delivery_hours_max))+'</small></span><strong>'+rub(Number(x.price||0)*Number(x.qty||1))+'</strong></div>').join("")+'</div><div style="margin-top:14px"><div class="total-row"><span>Товары</span><strong>'+rub(total)+'</strong></div><div class="total-row"><span>Доставка</span><span class="muted">после подтверждения</span></div><div class="total-row grand"><span>Предварительно</span><span>'+rub(total)+'</span></div></div><div class="checkout-warning">Перед созданием заявки backend ещё раз проверит каждое предложение. Если цена, срок или остаток изменились, оформление остановится.</div><button class="primary" style="width:100%" '+(S.checkoutSubmitting?"disabled":"")+'>'+(S.checkoutSubmitting?"Проверяем…":"Отправить на подтверждение")+'</button><div id="checkoutStatus" class="small error" style="margin-top:10px"></div></aside></div></form>';
 
   const checkoutForm=$("#checkoutForm");
@@ -1823,7 +1834,8 @@ function syncCheckoutDraft(form=$("#checkoutForm")){
     delivery_address_id:String(f.get("delivery_address_id")||""),
     pickup_point_id:String(f.get("pickup_point_id")||""),
     payment_method:"after_confirmation",
-    comment:String(f.get("comment")||"")
+    comment:String(f.get("comment")||""),
+    legal_accepted:Boolean(f.get("legal_accepted"))
   };
 }
 function updateCheckoutFulfillmentUi(){
@@ -1870,6 +1882,7 @@ async function submitCheckout(e){
       pickup_point_id:f.get("pickup_point_id")||null,
       payment_method:"after_confirmation",
       comment:f.get("comment")||"",
+      legal_accepted:Boolean(f.get("legal_accepted")),
       items:S.cart.map(x=>({
         client_id:x.id,brand:x.brand,article:x.article,offer_ref:x.offer_ref,
         description:x.description,quantity:x.qty
@@ -1877,7 +1890,7 @@ async function submitCheckout(e){
     };
     const d=await api("/api/checkout/submit",{method:"POST",body:JSON.stringify(payload)});
     S.checkoutResult=d;
-    S.checkoutDraft={fulfillment_method:"",payment_method:"after_confirmation",recipient_name:"",recipient_phone:"",vehicle_id:"",delivery_address_id:"",pickup_point_id:"",comment:""};
+    S.checkoutDraft={fulfillment_method:"",payment_method:"after_confirmation",recipient_name:"",recipient_phone:"",vehicle_id:"",delivery_address_id:"",pickup_point_id:"",comment:"",legal_accepted:false};
     S.cart=[];
     writeCart({persist:false});
     renderCheckoutSuccess();
@@ -1890,6 +1903,8 @@ async function submitCheckout(e){
       if(status)status.textContent="Выберите или добавьте адрес доставки.";
     }else if(err.message==="recipient_phone_required"){
       if(status)status.textContent="Укажите телефон получателя.";
+    }else if(err.message==="legal_acceptance_required"){
+      if(status)status.textContent="Подтвердите опубликованные условия и политику конфиденциальности.";
     }else if(err.message==="too_many_items"){
       if(status)status.textContent="В заказе может быть не больше "+MAX_CART_ITEMS+" разных позиций.";
     }else{
