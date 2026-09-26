@@ -1,13 +1,18 @@
-import { chromium } from "playwright";
+import { chromium, webkit } from "playwright";
 
-const browser = await chromium.launch({ headless: true });
-const viewports = [
+const browserName = process.env.BROWSER === "webkit" ? "webkit" : "chromium";
+const browserType = browserName === "webkit" ? webkit : chromium;
+const browser = await browserType.launch({ headless: true });
+const allViewports = [
   { name: "desktop", width: 1440, height: 900 },
   { name: "ipad", width: 1024, height: 1366 },
   { name: "ipad-pro-11-portrait", width: 834, height: 1194 },
   { name: "ipad-pro-11-landscape", width: 1194, height: 834 },
   { name: "iphone", width: 390, height: 844 }
 ];
+const viewports = process.env.MOBILE_ONLY === "1"
+  ? allViewports.filter(x => ["ipad-pro-11-portrait", "iphone"].includes(x.name))
+  : allViewports;
 
 async function assertNoHorizontalOverflow(page, label) {
   const metrics = await page.evaluate(() => {
@@ -57,7 +62,7 @@ try {
     for (const screen of ["home", "catalogs", "garage", "orders", "cart", "checkout", "account", "operator"]) {
       await page.evaluate((name) => window.go(name, false), screen);
       await page.waitForTimeout(50);
-      await assertNoHorizontalOverflow(page, `${viewport.name}/${screen}/guest`);
+      await assertNoHorizontalOverflow(page, `${browserName}/${viewport.name}/${screen}/guest`);
     }
 
     await page.evaluate(() => {
@@ -79,7 +84,7 @@ try {
     });
     await page.evaluate(() => window.renderAccount());
     await page.waitForTimeout(120);
-    await assertNoHorizontalOverflow(page, `${viewport.name}/account/authenticated`);
+    await assertNoHorizontalOverflow(page, `${browserName}/${viewport.name}/account/authenticated`);
 
     await page.evaluate(() => {
       S.offers = [
@@ -102,7 +107,7 @@ try {
       renderOfferTable();
     });
     await page.waitForTimeout(50);
-    await assertNoHorizontalOverflow(page, `${viewport.name}/catalog/offers`);
+    await assertNoHorizontalOverflow(page, `${browserName}/${viewport.name}/catalog/offers`);
 
     await page.evaluate(() => {
       S.activeVehicle = { id: "v2", brand: "Ford", model: "Focus", generation: "II", year: 2006, engine: "1.8" };
@@ -124,7 +129,7 @@ try {
       renderPartDetail();
     });
     await page.waitForTimeout(50);
-    await assertNoHorizontalOverflow(page, `${viewport.name}/part/detail`);
+    await assertNoHorizontalOverflow(page, `${browserName}/${viewport.name}/part/detail`);
 
     await page.evaluate(() => {
       S.aiOriginalQuery = "передние колодки для моего Focus";
@@ -152,7 +157,7 @@ try {
       renderAiResult();
     });
     await page.waitForTimeout(50);
-    await assertNoHorizontalOverflow(page, `${viewport.name}/catalog/ai`);
+    await assertNoHorizontalOverflow(page, `${browserName}/${viewport.name}/catalog/ai`);
 
     await page.evaluate(() => {
       S.cart = [
@@ -170,7 +175,7 @@ try {
       renderCart();
     });
     await page.waitForTimeout(50);
-    await assertNoHorizontalOverflow(page, `${viewport.name}/cart/mixed`);
+    await assertNoHorizontalOverflow(page, `${browserName}/${viewport.name}/cart/mixed`);
 
     await page.evaluate(() => {
       S.cart = [{
@@ -205,7 +210,7 @@ try {
       renderCheckout();
     });
     await page.waitForTimeout(50);
-    await assertNoHorizontalOverflow(page, `${viewport.name}/checkout/form`);
+    await assertNoHorizontalOverflow(page, `${browserName}/${viewport.name}/checkout/form`);
 
     await page.evaluate(() => {
       S.checkoutResult = {
@@ -217,7 +222,7 @@ try {
       renderCheckoutSuccess();
     });
     await page.waitForTimeout(50);
-    await assertNoHorizontalOverflow(page, `${viewport.name}/checkout/success`);
+    await assertNoHorizontalOverflow(page, `${browserName}/${viewport.name}/checkout/success`);
 
     await page.evaluate(() => {
       S.vehicles = [
@@ -241,7 +246,7 @@ try {
       renderGarage();
     });
     await page.waitForTimeout(50);
-    await assertNoHorizontalOverflow(page, `${viewport.name}/garage/cards`);
+    await assertNoHorizontalOverflow(page, `${browserName}/${viewport.name}/garage/cards`);
 
     await page.evaluate(() => {
       S.activeVehicle = S.vehicles[1];
@@ -249,7 +254,7 @@ try {
       renderCatalogs();
     });
     await page.waitForTimeout(50);
-    await assertNoHorizontalOverflow(page, `${viewport.name}/catalogs/vehicle`);
+    await assertNoHorizontalOverflow(page, `${browserName}/${viewport.name}/catalogs/vehicle`);
 
     await page.evaluate(() => {
       S.vehicleDetail = {
@@ -277,7 +282,7 @@ try {
       renderVehicleDetail();
     });
     await page.waitForTimeout(50);
-    await assertNoHorizontalOverflow(page, `${viewport.name}/garage/detail`);
+    await assertNoHorizontalOverflow(page, `${browserName}/${viewport.name}/garage/detail`);
 
     await page.evaluate(() => {
       S.quoteRequests = [{
@@ -300,7 +305,7 @@ try {
       renderOrders();
     });
     await page.waitForTimeout(50);
-    await assertNoHorizontalOverflow(page, `${viewport.name}/orders/data`);
+    await assertNoHorizontalOverflow(page, `${browserName}/${viewport.name}/orders/data`);
 
     await page.evaluate(() => {
       S.quoteDetail = {
@@ -323,7 +328,7 @@ try {
       renderQuoteDetail();
     });
     await page.waitForTimeout(50);
-    await assertNoHorizontalOverflow(page, `${viewport.name}/orders/quote-detail`);
+    await assertNoHorizontalOverflow(page, `${browserName}/${viewport.name}/orders/quote-detail`);
 
     await page.evaluate(() => {
       S.vinDetail = {
@@ -342,7 +347,7 @@ try {
       renderVinDetail();
     });
     await page.waitForTimeout(50);
-    await assertNoHorizontalOverflow(page, `${viewport.name}/orders/vin-detail`);
+    await assertNoHorizontalOverflow(page, `${browserName}/${viewport.name}/orders/vin-detail`);
 
     await page.evaluate(() => {
       S.returnDetail = {
@@ -361,7 +366,7 @@ try {
       renderReturnDetail();
     });
     await page.waitForTimeout(50);
-    await assertNoHorizontalOverflow(page, `${viewport.name}/orders/return-detail`);
+    await assertNoHorizontalOverflow(page, `${browserName}/${viewport.name}/orders/return-detail`);
 
     await page.evaluate(() => {
       S.user.role = "admin";
@@ -414,7 +419,7 @@ try {
       renderOperator();
     });
     await page.waitForTimeout(50);
-    await assertNoHorizontalOverflow(page, `${viewport.name}/operator/data`);
+    await assertNoHorizontalOverflow(page, `${browserName}/${viewport.name}/operator/data`);
 
     for (const dialog of [
       ["#authDialog", () => window.openAuth("login")],
