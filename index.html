@@ -2347,7 +2347,7 @@ function openReturnDialog(itemId){
   const item=S.orderDetail?.items?.find(x=>x.id===itemId);if(!item)return;
   S.selectedReturnItem=item;
   $("#returnItemSummary").innerHTML='<b>'+esc(item.brand)+' '+esc(item.article)+'</b><br><span class="small">Заказано '+Number(item.quantity||1)+' шт. · '+rub(item.unit_price)+'</span>';
-  const f=$("#returnForm");f.reset();f.elements.quantity.max=Number(item.quantity||1);f.elements.quantity.value=1;
+  const f=$("#returnForm");f.reset();f.elements.quantity.max=Math.min(999,Number(item.quantity||1));f.elements.quantity.value=1;
   $("#returnStatus").textContent="";
   $("#returnDialog").showModal();
 }
@@ -2363,7 +2363,13 @@ async function submitReturn(e){
     })});
     $("#returnDialog").close();S.selectedReturnItem=null;toast("Запрос на возврат создан");await loadOrders();
   }catch(err){
-    status.textContent=err.message==="item_not_returnable"?"Эта позиция не подлежит возврату.":err.message==="return_quantity_exceeded"?"Количество превышает доступное для возврата.":"Не удалось создать возврат.";
+    status.textContent=err.message==="item_not_returnable"
+      ?"Эта позиция не подлежит возврату."
+      :err.message==="return_quantity_exceeded"
+        ?"Количество превышает доступное для возврата."
+        :err.message==="invalid_return_quantity"
+          ?"Укажите количество от 1 до 999."
+          :"Не удалось создать возврат.";
   }
 }
 
