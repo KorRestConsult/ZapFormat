@@ -668,6 +668,7 @@ const S={
   vehicleDetail:null,
   activeVehicle:null,
   orders:[],
+  orderFilter:"all",
   quoteRequests:[],
   vinRequests:[],
   quoteDetail:null,
@@ -2159,6 +2160,13 @@ async function loadOrders(){
 }
 function renderOrders(){
   const root=$("#ordersBody");
+  const filteredOrders=(S.orders||[]).filter(o=>{
+    if(S.orderFilter==="active")return !["completed","cancelled","returned"].includes(o.status);
+    if(S.orderFilter==="ready")return o.status==="ready";
+    if(S.orderFilter==="completed")return ["completed","returned"].includes(o.status);
+    if(S.orderFilter==="cancelled")return o.status==="cancelled";
+    return true;
+  });
   const pending=S.quoteRequests.length
     ?'<div class="panel panel-pad" style="margin-bottom:16px"><div class="panel-title"><div><h3>Заявки на подтверждение</h3><p>Ещё не заказ: мы перепроверяем цену и наличие.</p></div><span class="status">'+S.quoteRequests.length+'</span></div><div class="order-list">'+S.quoteRequests.map(q=>'<button class="order-row" data-quote-id="'+esc(q.id)+'"><b>'+esc(q.id)+'</b><span><b>'+date(q.created_at)+'</b><span class="small muted">'+q.item_count+' поз.</span></span><span class="status">'+esc(q.status==="new"?"На подтверждении":statusLabel(q.status))+'</span><strong>'+rub(q.quoted_total)+'</strong><span>→</span></button>').join("")+'</div></div>'
     :'';
@@ -2168,11 +2176,11 @@ function renderOrders(){
   const returnsPanel=S.returns.length
     ?'<div class="panel panel-pad" style="margin-bottom:16px"><div class="panel-title"><div><h3>Возвраты</h3><p>Запросы по уже купленным позициям.</p></div><span class="status neutral">'+S.returns.length+'</span></div><div class="order-list">'+S.returns.map(r=>'<button class="order-row" data-return-id="'+r.id+'"><b>Возврат № '+esc(r.return_number)+'</b><span><b>'+esc(r.brand)+' '+esc(r.article)+'</b><span class="small muted">Заказ № '+esc(r.order_number)+' · '+r.quantity+' шт.</span></span><span class="status '+statusClass(r.status)+'">'+esc(statusLabel(r.status))+'</span><strong>'+rub(Number(r.unit_price||0)*Number(r.quantity||1))+'</strong><span class="small muted">'+date(r.created_at)+(r.manager_note?' · '+esc(r.manager_note):' · открыть →')+'</span></button>').join("")+'</div></div>'
     :'';
-  root.innerHTML='<div class="orders-toolbar"><span class="muted">'+S.orders.length+' заказов · '+S.quoteRequests.length+' заявок · '+S.vinRequests.length+' VIN-запросов</span><div style="display:flex;gap:8px"><button class="secondary" data-vin-open>Подбор по VIN</button><button class="secondary" data-go="home">Найти деталь</button></div></div>'+
+  root.innerHTML='<div class="orders-toolbar"><span class="muted">'+S.orders.length+' заказов · '+S.quoteRequests.length+' заявок · '+S.vinRequests.length+' VIN-запросов</span><div style="display:flex;gap:8px;flex-wrap:wrap"><select class="secondary" data-order-filter><option value="all" '+(S.orderFilter==="all"?"selected":"")+'>Все заказы</option><option value="active" '+(S.orderFilter==="active"?"selected":"")+'>В работе</option><option value="ready" '+(S.orderFilter==="ready"?"selected":"")+'>Готовы</option><option value="completed" '+(S.orderFilter==="completed"?"selected":"")+'>Завершены</option><option value="cancelled" '+(S.orderFilter==="cancelled"?"selected":"")+'>Отменены</option></select><button class="secondary" data-vin-open>Подбор по VIN</button><button class="secondary" data-go="home">Найти деталь</button></div></div>'+
   vinPanel+
   pending+
   returnsPanel+
-  (S.orders.length?'<div class="order-list">'+S.orders.map(o=>'<button class="order-row" data-order-id="'+o.id+'"><b>№ '+esc(o.order_number)+'</b><span><b>'+date(o.created_at)+'</b><span class="small muted">'+o.item_count+' поз.</span></span><span class="status '+statusClass(o.status)+'">'+esc(statusLabel(o.status))+'</span><strong>'+rub(o.total_amount)+'</strong><span>→</span></button>').join("")+'</div>':'<div class="empty"><div><b>Подтверждённых заказов пока нет</b><p>'+(S.quoteRequests.length?'Заявки выше появятся здесь после создания реального заказа.':'Здесь появятся только реально созданные заказы ZapFormat.')+'</p><button class="primary" data-go="home">К поиску</button></div></div>')+
+  (filteredOrders.length?'<div class="order-list">'+filteredOrders.map(o=>'<button class="order-row" data-order-id="'+o.id+'"><b>№ '+esc(o.order_number)+'</b><span><b>'+date(o.created_at)+'</b><span class="small muted">'+o.item_count+' поз.</span></span><span class="status '+statusClass(o.status)+'">'+esc(statusLabel(o.status))+'</span><strong>'+rub(o.total_amount)+'</strong><span>→</span></button>').join("")+'</div>':'<div class="empty"><div><b>'+(S.orders.length?'Нет заказов под этим фильтром':'Подтверждённых заказов пока нет')+'</b><p>'+(S.orders.length?'Выберите другой статус.':(S.quoteRequests.length?'Заявки выше появятся здесь после создания реального заказа.':'Здесь появятся только реально созданные заказы ZapFormat.'))+'</p>'+(S.orders.length?'<button class="secondary" data-reset-order-filter>Показать все</button>':'<button class="primary" data-go="home">К поиску</button>')+'</div></div>')+
   '<div id="orderDetailRoot"></div>';
 }
 async function loadQuoteRequest(id){
@@ -2424,6 +2432,8 @@ document.addEventListener("click",async e=>{
     toast("Позиции добавлены для актуализации");
     return go("cart");
   }
+  x=e.target.closest("[data-order-filter]");if(x){S.orderFilter=x.value;return renderOrders()}
+  if(e.target.closest("[data-reset-order-filter]")){S.orderFilter="all";return renderOrders()}
   if(e.target.closest("[data-reload-orders]"))return loadOrders();
   x=e.target.closest("[data-check-supplier]");if(x)return checkOperatorSupplier(x.dataset.checkSupplier);
   x=e.target.closest("[data-toggle-pickup]");if(x)return togglePickupPoint(x.dataset.togglePickup,x.dataset.active==="1");
