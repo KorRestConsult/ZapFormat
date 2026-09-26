@@ -2160,7 +2160,7 @@ function renderQuoteDetail(){
   const total=items.reduce((a,x)=>a+Number(x.quoted_price||0)*Number(x.quantity||1),0);
   const fulfillment=({delivery:"Доставка",pickup:"Самовывоз",confirmation:"Получение согласуем"})[q.fulfillment_method]||"Получение уточняется";
   const cancellable=["new","in_progress"].includes(q.status);
-  root.innerHTML='<div class="order-detail"><div><div class="panel panel-pad"><div class="detail-title"><div><span class="kicker">ЗАЯВКА '+esc(q.id)+'</span><h3>'+(q.status==="new"?"На подтверждении":esc(statusLabel(q.status)))+'</h3><p>Отправлена '+datetime(q.created_at)+'</p></div><span class="status">'+(q.status==="new"?"На подтверждении":esc(statusLabel(q.status)))+'</span></div>'+(q.manager_note?'<div class="notice" style="margin-top:14px"><b>Комментарий ZapFormat:</b> '+esc(q.manager_note)+'</div>':'')+(cancellable?'<div class="form-actions"><button class="danger" data-cancel-quote="'+esc(q.id)+'">Отменить заявку</button><span class="small muted">Доступно до подтверждения.</span></div>':'')+'</div><div class="order-items" style="margin-top:12px">'+(items.length?items.map(x=>'<div class="order-item"><span><b>'+esc(x.brand||"")+' '+esc(x.article)+'</b><span class="offer-desc">'+esc(x.description||"Автозапчасть")+'</span>'+(x.brand?'<button class="ghost-btn small" style="margin-top:5px" data-open-saved-part data-brand="'+esc(x.brand)+'" data-article="'+esc(x.article)+'">Текущие предложения</button>':'')+'</span><span>'+x.quantity+' шт.</span><strong>'+(x.quoted_price===null?"На проверке":rub(Number(x.quoted_price)*Number(x.quantity)))+'</strong><span class="status">'+(x.needs_confirmation?"Проверяем":"Подтверждено")+'</span></div>').join(""):'<div class="empty">Позиции не найдены.</div>')+'</div></div><aside class="order-side"><div class="panel panel-pad"><div class="panel-title"><div><h3>Предварительно</h3><p>По цене последнего поиска</p></div></div><div style="font-size:32px;font-weight:900">'+rub(total)+'</div><div class="summary-note">Это ещё не заказ. После проверки цены и наличия заявка может перейти в реальный заказ.</div></div><div class="panel panel-pad"><div class="panel-title"><div><h3>Получение</h3><p>'+esc(fulfillment)+'</p></div></div><b>'+esc(q.recipient_name||q.name||S.user?.name||"")+'</b><p class="muted">'+esc(q.recipient_phone||q.phone||S.user?.phone||"")+'</p><div class="summary-note">Оплата: после подтверждения.</div></div><div class="panel panel-pad"><div class="panel-title"><div><h3>История заявки</h3><p>Что происходило после оформления</p></div></div>'+caseTimelineHtml(d.history,q.status,q.created_at)+'</div></aside></div>';
+  root.innerHTML='<div class="order-detail"><div><div class="panel panel-pad"><div class="detail-title"><div><span class="kicker">ЗАЯВКА '+esc(q.id)+'</span><h3>'+(q.status==="new"?"На подтверждении":esc(statusLabel(q.status)))+'</h3><p>Отправлена '+datetime(q.created_at)+'</p></div><span class="status">'+(q.status==="new"?"На подтверждении":esc(statusLabel(q.status)))+'</span></div>'+(q.manager_note?'<div class="notice" style="margin-top:14px"><b>Комментарий ZapFormat:</b> '+esc(q.manager_note)+'</div>':'')+(cancellable?'<div class="form-actions"><button class="danger" data-cancel-quote="'+esc(q.id)+'">Отменить заявку</button><span class="small muted">Доступно до подтверждения.</span></div>':'')+'</div><div class="order-items" style="margin-top:12px">'+(items.length?items.map(x=>'<div class="order-item"><span><b>'+esc(x.brand||"")+' '+esc(x.article)+'</b><span class="offer-desc">'+esc(x.description||"Автозапчасть")+'</span>'+(x.brand?'<button class="ghost-btn small" style="margin-top:5px" data-open-saved-part data-brand="'+esc(x.brand)+'" data-article="'+esc(x.article)+'">Текущие предложения</button>':'')+'</span><span>'+x.quantity+' шт.</span><strong>'+(x.quoted_price===null?"На проверке":rub(Number(x.quoted_price)*Number(x.quantity)))+'</strong><span class="status">'+(x.needs_confirmation?"Проверяем":"Подтверждено")+'</span></div>').join(""):'<div class="empty">Позиции не найдены.</div>')+'</div></div><aside class="order-side"><div class="panel panel-pad"><div class="panel-title"><div><h3>Предварительно</h3><p>По цене последнего поиска</p></div></div><div style="font-size:32px;font-weight:900">'+rub(total)+'</div><div class="summary-note">Это ещё не заказ. После проверки цены и наличия заявка может перейти в реальный заказ.</div>'+(items.length?'<button class="secondary" style="width:100%;margin-top:12px" data-repeat-quote>Повторить позиции</button>':'')+'</div><div class="panel panel-pad"><div class="panel-title"><div><h3>Получение</h3><p>'+esc(fulfillment)+'</p></div></div><b>'+esc(q.recipient_name||q.name||S.user?.name||"")+'</b><p class="muted">'+esc(q.recipient_phone||q.phone||S.user?.phone||"")+'</p><div class="summary-note">Оплата: после подтверждения.</div></div><div class="panel panel-pad"><div class="panel-title"><div><h3>История заявки</h3><p>Что происходило после оформления</p></div></div>'+caseTimelineHtml(d.history,q.status,q.created_at)+'</div></aside></div>';
 }
 async function cancelQuoteRequest(id){
   if(!confirm("Отменить заявку "+id+"?"))return;
@@ -2226,6 +2226,21 @@ async function cancelReturnRequest(id){
   }
 }
 
+function addHistoricalItems(items,source="history"){
+  for(const item of items||[]){
+    if(!item?.article||!item?.brand)continue;
+    const unit=Number(item.unit_price??item.quoted_price??0);
+    const id=[source,item.brand,item.article,unit].join("|");
+    const qty=Math.max(1,Number(item.quantity||1));
+    const existing=S.cart.find(z=>z.id===id);
+    if(existing)existing.qty+=qty;
+    else S.cart.push({
+      id,brand:item.brand,article:item.article,description:item.description,
+      price:unit,qty,availability:0,delivery_hours:0,historical:true
+    });
+  }
+  writeCart();
+}
 async function loadOrder(id){
   const root=$("#orderDetailRoot");root.innerHTML='<div class="state-card" style="margin-top:18px"><div class="spinner"></div></div>';
   try{S.orderDetail=await api("/api/orders/"+id);renderOrderDetail()}catch{root.innerHTML='<div class="notice" style="margin-top:18px">Не удалось открыть заказ.</div>'}
@@ -2367,15 +2382,15 @@ document.addEventListener("click",async e=>{
   x=e.target.closest("[data-return-id]");if(x)return loadReturnRequest(x.dataset.returnId);
   x=e.target.closest("[data-return-item]");if(x)return openReturnDialog(x.dataset.returnItem);
   x=e.target.closest("[data-order-id]");if(x)return loadOrder(x.dataset.orderId);
+  if(e.target.closest("[data-repeat-quote]")){
+    addHistoricalItems(S.quoteDetail?.items||[],"quote-repeat");
+    toast("Позиции добавлены для актуализации");
+    return go("cart");
+  }
   if(e.target.closest("[data-repeat-order]")){
-    const items=S.orderDetail?.items||[];
-    for(const item of items){
-      const id=["repeat",item.brand,item.article,item.unit_price].join("|");
-      const existing=S.cart.find(z=>z.id===id);
-      if(existing)existing.qty+=Number(item.quantity||1);
-      else S.cart.push({id,brand:item.brand,article:item.article,description:item.description,price:Number(item.unit_price||0),qty:Number(item.quantity||1),availability:0,delivery_hours:0,historical:true});
-    }
-    writeCart();toast("Позиции добавлены в корзину");return go("cart");
+    addHistoricalItems(S.orderDetail?.items||[],"order-repeat");
+    toast("Позиции добавлены для актуализации");
+    return go("cart");
   }
   if(e.target.closest("[data-reload-orders]"))return loadOrders();
   x=e.target.closest("[data-check-supplier]");if(x)return checkOperatorSupplier(x.dataset.checkSupplier);
