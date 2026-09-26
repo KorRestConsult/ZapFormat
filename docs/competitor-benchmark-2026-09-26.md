@@ -85,33 +85,38 @@ Rules:
 ## Rebuild functionality now
 
 ### Storefront
-- single smart search for article or natural language;
-- AI search layer;
+- one smart search for article, brand + article, supplier-backed suggestions or natural language;
+- AI search layer with VIN/plate excluded from OpenAI context;
 - persistent vehicle context;
-- quick category entry points;
-- dedicated Catalogs page;
-- dense brand and offer results;
-- sort by price / speed / stock;
+- quick category entry points and a dedicated Catalogs page;
+- deep-linkable part detail pages;
+- dense manufacturer and offer results;
+- sort/filter by price, speed, stock, delivery probability and returnability;
 - availability, packing, delivery probability and returnability;
 - delivery window labels;
-- cart with live recheck.
+- saved parts and recent searches;
+- cart with live supplier-offer recheck;
+- verified checkout that creates a confirmation request rather than a fake supplier order;
+- public Help page describing where confirmation is required.
 
 ### Account
-- registration/login;
-- profile;
-- saved addresses;
-- notification preferences;
+- registration/login and active-session management;
+- profile and saved addresses;
+- in-app notification feed and notification preferences;
 - password change and logout-other-sessions;
 - cross-device verified cart;
-- quote requests;
-- orders and status history;
-- returns;
-- VIN selection requests.
+- quote requests with customer-visible history;
+- real orders and status history;
+- returns with history and customer cancellation where allowed;
+- VIN selection requests with history;
+- saved parts and recent search history;
+- threaded support tickets linked to orders/quotes/VIN/returns;
+- printable/save-as-PDF customer summaries.
 
 ### Garage
-- multiple vehicles;
-- primary vehicle;
+- multiple vehicles and primary/active vehicle;
 - VIN, engine, generation, year, plate and mileage;
+- transmission, body, tyres, wheels, oil and coolant context;
 - measurements;
 - service history;
 - maintenance plans;
@@ -119,28 +124,34 @@ Rules:
 - quick part search;
 - expert VIN request.
 
-### Operational backend
-- internal VIN-request queue;
-- safe supplier endpoints;
+### Operations
+- operator UI for quote requests, VIN requests, returns and support tickets;
+- operator search and status/comment workflows;
+- active pickup-point administration;
+- supplier readiness checks that do not create an order;
+- supplier write code kept behind an explicit disabled-by-default flag;
+- safe supplier endpoints and opaque offer references;
 - backend-only pricing;
-- opaque offer references;
 - PartGrade verification script;
-- pre-deploy snapshot and rollback scripts.
+- public catalog rate limiting and short browse cache;
+- PostgreSQL included in deployment snapshots plus explicit restore tooling;
+- Chromium and WebKit responsive smoke, including iPad Pro 11-inch viewports;
+- factual release-readiness diagnostics in the operator dashboard.
 
 ## Next parity gaps
 
 Do not fake these. Implement only when the underlying system is ready:
 
-1. Real VIN/EPC catalog provider.
-2. Supplier write flow: basket/order creation and supplier order sync.
-3. Payment methods and payment state.
-4. Real delivery/pickup methods and calculated logistics.
-5. Operator UI for quote/VIN queues.
-6. Push/email/SMS notification dispatcher.
-7. Loyalty/referral balances and accounting.
-8. Product imagery and ratings from a legitimate data source.
-9. Cancellation rules synced to supplier state.
-10. Production domain with frontend and API same-origin.
+1. Real VIN/EPC catalog provider for automatic fitment.
+2. Verified PartGrade search/articles access in production.
+3. Safe PartGrade basket/order write enablement plus supplier order/status synchronization.
+4. Real payment provider and payment state.
+5. Calculated delivery/courier integration; pickup points already support real configured locations.
+6. Email/SMS/push notification dispatcher; in-app notifications already work.
+7. Seller identity, terms, privacy and returns-policy publication before public commerce.
+8. Production domain/TLS and same-origin deployment smoke.
+9. Loyalty/referral balances and accounting.
+10. Product imagery and ratings from a legitimate licensed source.
 
 ## Design direction
 
