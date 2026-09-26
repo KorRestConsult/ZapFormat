@@ -111,7 +111,8 @@ Rules:
 - VIN selection requests with history;
 - saved parts and recent search history;
 - threaded support tickets linked to orders/quotes/VIN/returns;
-- printable/save-as-PDF customer summaries.
+- printable/save-as-PDF customer summaries;
+- direct referral links with registration attribution; reward rules are intentionally not active yet.
 
 ### Garage
 - multiple vehicles and primary/active vehicle;
@@ -150,7 +151,7 @@ Do not fake these. Implement only when the underlying system is ready:
 6. Email/SMS/push notification dispatcher; in-app notifications already work.
 7. Seller identity, terms, privacy and returns-policy publication before public commerce.
 8. Production domain/TLS and same-origin deployment smoke.
-9. Loyalty/referral balances and accounting.
+9. Referral attribution and ledger are in place; reward rules, anti-abuse, accounting and redemption still need an approved production policy.
 10. Product imagery and ratings from a legitimate licensed source.
 
 ## Design direction
