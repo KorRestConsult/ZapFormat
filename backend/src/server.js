@@ -1126,6 +1126,75 @@ app.post("/api/garage/vehicles/:vehicleId/measurements", requireUser, async (req
   }
 });
 
+app.post("/api/garage/vehicles/:vehicleId/plans", requireUser, async (req, res, next) => {
+  try {
+    const owned = await pool.query(
+      "SELECT id FROM vehicles WHERE id = $1 AND user_id = $2 LIMIT 1",
+      [req.params.vehicleId, req.user.id]
+    );
+    if (!owned.rowCount) return res.status(404).json({ error: "vehicle_not_found" });
+
+    const title = String(req.body?.title || "").trim();
+    if (!title) return res.status(400).json({ error: "maintenance_title_required" });
+
+    const intervalKm = req.body?.interval_km === "" || req.body?.interval_km == null
+      ? null
+      : Number(req.body.interval_km);
+    const intervalMonths = req.body?.interval_months === "" || req.body?.interval_months == null
+      ? null
+      : Number(req.body.interval_months);
+    const nextMileage = req.body?.next_service_mileage === "" || req.body?.next_service_mileage == null
+      ? null
+      : Number(req.body.next_service_mileage);
+
+    if (
+      (intervalKm !== null && (!Number.isInteger(intervalKm) || intervalKm <= 0)) ||
+      (intervalMonths !== null && (!Number.isInteger(intervalMonths) || intervalMonths <= 0)) ||
+      (nextMileage !== null && (!Number.isInteger(nextMileage) || nextMileage < 0))
+    ) {
+      return res.status(400).json({ error: "invalid_maintenance_plan" });
+    }
+
+    const result = await pool.query(
+      `INSERT INTO vehicle_maintenance_plans
+        (vehicle_id, user_id, code, title, interval_km, interval_months,
+         next_service_mileage, next_service_at, part_search_query)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)
+       RETURNING *`,
+      [
+        req.params.vehicleId,
+        req.user.id,
+        String(req.body?.code || "").trim() || null,
+        title,
+        intervalKm,
+        intervalMonths,
+        nextMileage,
+        req.body?.next_service_at || null,
+        String(req.body?.part_search_query || "").trim() || null
+      ]
+    );
+
+    res.status(201).json({ plan: result.rows[0] });
+  } catch (error) {
+    next(error);
+  }
+});
+
+app.delete("/api/garage/vehicles/:vehicleId/plans/:planId", requireUser, async (req, res, next) => {
+  try {
+    const result = await pool.query(
+      `DELETE FROM vehicle_maintenance_plans
+        WHERE id = $1 AND vehicle_id = $2 AND user_id = $3
+        RETURNING id`,
+      [req.params.planId, req.params.vehicleId, req.user.id]
+    );
+    if (!result.rowCount) return res.status(404).json({ error: "maintenance_plan_not_found" });
+    res.status(204).end();
+  } catch (error) {
+    next(error);
+  }
+});
+
 app.post("/api/garage/vehicles/:vehicleId/maintenance", requireUser, async (req, res, next) => {
   try {
     const owned = await pool.query(
