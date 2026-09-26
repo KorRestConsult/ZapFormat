@@ -32,7 +32,7 @@ try {
     await page.goto("http://127.0.0.1:4173/index.html", { waitUntil: "domcontentloaded" });
     await page.waitForTimeout(150);
 
-    for (const screen of ["home", "garage", "orders", "cart", "account"]) {
+    for (const screen of ["home", "catalogs", "garage", "orders", "cart", "account"]) {
       await page.evaluate((name) => window.go(name, false), screen);
       await page.waitForTimeout(50);
       await assertNoHorizontalOverflow(page, `${viewport.name}/${screen}/guest`);
@@ -191,6 +191,15 @@ try {
     for (const dialog of [
       ["#authDialog", () => window.openAuth("login")],
       ["#vehicleDialog", () => window.openVehicleDialog()],
+      ["#vinDialog", async () => {
+        S.user = S.user || { id: "u1", name: "Илья", phone: "+79000000000" };
+        S.vehicles = [{
+          id: "v2", brand: "Ford", model: "Focus", generation: "II", year: 2006,
+          engine: "1.8", vin: "X9F5XXEED56R37916", current_mileage: 210000, is_default: true
+        }];
+        S.activeVehicle = S.vehicles[0];
+        await window.openVinRequest("передние тормозные колодки");
+      }],
       ["#returnDialog", () => {
         S.orderDetail = { items: [{ id: "oi1", brand: "PATRON", article: "PRS3420", quantity: 2, unit_price: 5284.25 }] };
         window.openReturnDialog("oi1");
