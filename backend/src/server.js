@@ -2633,6 +2633,50 @@ app.post("/api/returns", requireUser, async (req, res, next) => {
   }
 });
 
+app.patch("/api/returns/:returnId/cancel", requireUser, async (req, res, next) => {
+  try {
+    const current = await pool.query(
+      `SELECT id, status
+         FROM returns
+        WHERE id = $1 AND user_id = $2
+        LIMIT 1`,
+      [req.params.returnId, req.user.id]
+    );
+    const request = current.rows[0];
+    if (!request) return res.status(404).json({ error: "return_not_found" });
+    if (!["created", "in_progress"].includes(request.status)) {
+      return res.status(409).json({ error: "return_cannot_be_cancelled" });
+    }
+
+    const result = await pool.query(
+      `UPDATE returns
+          SET status = 'cancelled', updated_at = now()
+        WHERE id = $1 AND user_id = $2
+        RETURNING id, status, updated_at`,
+      [req.params.returnId, req.user.id]
+    );
+
+    await appendCaseHistory({
+      userId: req.user.id,
+      caseType: "return",
+      caseId: req.params.returnId,
+      status: "cancelled",
+      actorType: "customer",
+      note: "Возврат отменён клиентом."
+    });
+
+    await pool.query(
+      `INSERT INTO notifications (user_id, type, title, body)
+       VALUES ($1,'return_status','Возврат отменён','Запрос на возврат отменён по вашему запросу.')`,
+      [req.user.id]
+    );
+
+    res.json({ return: result.rows[0] });
+  } catch (error) {
+    next(error);
+  }
+});
+
 app.get("/api/admin/overview", requireStaff, async (req, res, next) => {
   try {
     const [quotes, vin, returns, orders] = await Promise.all([
@@ -3209,6 +3253,50 @@ app.post("/api/vin-requests", requireUser, async (req, res, next) => {
           : null
       }
     });
+  } catch (error) {
+    next(error);
+  }
+});
+
+app.patch("/api/vin-requests/:requestId/cancel", requireUser, async (req, res, next) => {
+  try {
+    const current = await pool.query(
+      `SELECT id, status
+         FROM vin_requests
+        WHERE id = $1 AND user_id = $2
+        LIMIT 1`,
+      [req.params.requestId, req.user.id]
+    );
+    const request = current.rows[0];
+    if (!request) return res.status(404).json({ error: "vin_request_not_found" });
+    if (!["new", "in_progress"].includes(request.status)) {
+      return res.status(409).json({ error: "vin_request_cannot_be_cancelled" });
+    }
+
+    const result = await pool.query(
+      `UPDATE vin_requests
+          SET status = 'cancelled', updated_at = now()
+        WHERE id = $1 AND user_id = $2
+        RETURNING id, status, updated_at`,
+      [req.params.requestId, req.user.id]
+    );
+
+    await appendCaseHistory({
+      userId: req.user.id,
+      caseType: "vin",
+      caseId: req.params.requestId,
+      status: "cancelled",
+      actorType: "customer",
+      note: "Запрос отменён клиентом."
+    });
+
+    await pool.query(
+      `INSERT INTO notifications (user_id, type, title, body)
+       VALUES ($1,'vin_status','VIN-запрос отменён','Запрос отменён по вашему запросу.')`,
+      [req.user.id]
+    );
+
+    res.json({ request: result.rows[0] });
   } catch (error) {
     next(error);
   }
