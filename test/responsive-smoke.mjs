@@ -81,6 +81,15 @@ try {
     await page.evaluate(() => document.querySelectorAll("[data-search-form]").forEach(clearSearchSuggestions));
 
     await page.evaluate(() => {
+      S.publicConfig = {
+        seller: { legal_name: "ООО «ЗапФормат» · длинное юридическое наименование для проверки адаптивности" },
+        links: {
+          privacy: "https://example.com/privacy",
+          terms: "https://example.com/terms",
+          returns: "https://example.com/returns"
+        }
+      };
+      renderPublicConfig();
       S.user = {
         id: "u1",
         name: "Илья",
