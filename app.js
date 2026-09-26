@@ -362,6 +362,8 @@ const API_BASE = (() => {
 })();
 let sessionUser=null;
 let pendingAccountRoute="profile";
+let liveAccountRequests=[];
+let accountDataHydrated=false;
 
 function backendConfigured(){ return Boolean(API_BASE); }
 
@@ -455,6 +457,182 @@ function applySessionUser(){
   }
 }
 
+function formatDateRu(value){
+  const d=new Date(value);
+  if(Number.isNaN(d.getTime())) return "—";
+  return d.toLocaleDateString("ru-RU");
+}
+
+function requestStatusLabel(status){
+  const map={
+    new:"Принят",
+    received:"Принят",
+    confirmed:"Подтверждён",
+    processing:"В работе",
+    ready:"Готов",
+    completed:"Завершён",
+    cancelled:"Отменён"
+  };
+  return map[String(status||"").toLowerCase()] || String(status||"Принят");
+}
+
+function renderLiveAccount(overview,requests,garage){
+  const stats=document.getElementById("accountLiveStats");
+  if(stats){
+    stats.innerHTML=`
+      <article><span>Активные заказы</span><b>${overview?.stats?.active_orders ?? 0}</b><small>заказы и запросы</small></article>
+      <article><span>Готово к получению</span><b>${overview?.stats?.ready_orders ?? 0}</b><small>можно забирать</small></article>
+      <article><span>Автомобили</span><b>${overview?.stats?.vehicles ?? 0}</b><small>в гараже</small></article>
+      <article><span>Возвраты</span><b>${overview?.stats?.active_returns ?? 0}</b><small>активные заявки</small></article>`;
+  }
+
+  const recent=document.getElementById("accountRecentRequests");
+  if(recent){
+    const rows=(requests||[]).slice(0,3);
+    recent.innerHTML=rows.length ? rows.map(r=>`
+      <article class="account-order" data-live-request-detail="${r.id}" tabindex="0">
+        <div><small>#${r.id} · ${formatDateRu(r.created_at)}</small><b>Запрос на запчасти</b><span>${r.items_count} поз.</span></div>
+        <div class="order-progress"><i class="done"></i><i></i><i></i><i></i></div>
+        <strong class="status">${requestStatusLabel(r.status)}</strong>
+      </article>`).join("") : '<div class="account-empty"><p>Пока нет заказов. Найдите запчасть и отправьте первый запрос.</p></div>';
+  }
+
+  const table=document.getElementById("accountOrdersTable");
+  if(table){
+    const head='<div class="account-table-head"><span>Заказ</span><span>Дата</span><span>Позиций</span><span>Сумма</span><span>Статус</span><span></span></div>';
+    const rows=(requests||[]).map(r=>{
+      const total=Number(r.quoted_total||0);
+      const totalText=r.needs_confirmation && total===0 ? "уточняется" : rub(total);
+      return `<div class="account-table-row">
+        <b>#${r.id}</b><span>${formatDateRu(r.created_at)}</span><span>${r.items_count}</span>
+        <span>${totalText}</span><strong class="status">${requestStatusLabel(r.status)}</strong>
+        <button data-live-request-detail="${r.id}">Подробнее</button>
+      </div>`;
+    }).join("");
+    table.innerHTML=head+(rows||'<div class="account-empty"><p>Реальных заказов пока нет.</p></div>');
+  }
+
+  const garagePreview=document.getElementById("accountGaragePreview");
+  if(garagePreview){
+    const vehicle=garage?.vehicles?.[0];
+    garagePreview.innerHTML=vehicle
+      ? `<div class="account-car"><div class="car-mark">${vehicle.brand}</div><div><b>${vehicle.brand} ${vehicle.model}</b><span>${vehicle.year||"—"} · ${vehicle.engine||""}</span><small>${vehicle.vin||"VIN не указан"}</small></div></div>`
+      : "Добавьте автомобиль в гараж.";
+  }
+}
+
+async function hydrateRealGarage(garage){
+  if(!sessionUser) return;
+  const vehicle=garage?.vehicles?.[0];
+  if(!vehicle){
+    garageState={
+      vehicle:{id:null,brand:"",model:"",year:new Date().getFullYear(),engine:"",vin:"",plate:"",mileage:0},
+      maintenance:[],
+      measurements:[],
+      history:[]
+    };
+    renderGarageApp();
+    return;
+  }
+  try{
+    const detail=await apiRequest("/api/garage/vehicles/"+encodeURIComponent(vehicle.id));
+    garageState={
+      vehicle:{
+        id:detail.vehicle.id,
+        brand:detail.vehicle.brand||"",
+        model:detail.vehicle.model||"",
+        year:detail.vehicle.year||"",
+        engine:detail.vehicle.engine||"",
+        vin:detail.vehicle.vin||"",
+        plate:detail.vehicle.plate_number||"",
+        mileage:detail.vehicle.current_mileage||0
+      },
+      maintenance:(detail.maintenance||[]).map(x=>({
+        id:x.code||x.id,
+        title:x.title,
+        intervalKm:x.interval_km,
+        lastKm:x.last_service_mileage,
+        nextKm:x.next_service_mileage,
+        status:"ok",
+        query:x.part_search_query||""
+      })),
+      measurements:(detail.measurements||[]).map(x=>({
+        id:x.id,
+        type:x.measurement_type,
+        value:x.value ?? x.value_text ?? "",
+        unit:x.unit||"",
+        note:x.note||"",
+        date:formatDateRu(x.measured_at)
+      })),
+      history:(detail.history||[]).map(x=>({
+        id:x.id,
+        date:formatDateRu(x.service_date),
+        mileage:x.mileage||0,
+        title:x.title,
+        note:x.note||""
+      }))
+    };
+    renderGarageApp();
+  }catch(error){
+    console.warn("Garage hydration failed",error);
+  }
+}
+
+async function hydrateAccountData(){
+  if(!backendConfigured() || !sessionUser) return;
+  try{
+    const [overview,requests,garage]=await Promise.all([
+      apiRequest("/api/account/overview"),
+      apiRequest("/api/account/requests"),
+      apiRequest("/api/garage")
+    ]);
+    liveAccountRequests=requests.requests||[];
+    renderLiveAccount(overview,liveAccountRequests,garage);
+    await hydrateRealGarage(garage);
+    accountDataHydrated=true;
+  }catch(error){
+    console.warn("Account hydration failed",error);
+  }
+}
+
+async function openLiveRequestDetail(id){
+  try{
+    const data=await apiRequest("/api/account/requests/"+encodeURIComponent(id));
+    const mount=document.getElementById("orderDetailMount");
+    if(!mount) return;
+    const req=data.request;
+    const items=data.items||[];
+    mount.innerHTML=`
+      <div class="order-detail-head">
+        <div class="order-detail-toolbar"><button class="order-detail-back" data-account-tab="orders">← Заказы</button></div>
+        <div class="order-detail-title">
+          <div><span class="eyebrow">ЗАПРОС</span><h2>#${req.id}</h2><p>${formatDateRu(req.created_at)}</p></div>
+          <div class="order-detail-state"><strong class="status">${requestStatusLabel(req.status)}</strong></div>
+        </div>
+      </div>
+      <section class="order-detail-block positions-block">
+        <div class="order-detail-block-head"><span class="eyebrow">ПОЗИЦИИ</span><h3>Состав запроса</h3></div>
+        <div class="order-positions">
+          ${items.map((item,index)=>`
+            <article class="order-position">
+              <div class="position-top">
+                <span class="position-index">${index+1}</span>
+                <div class="position-title"><h3>${item.brand||""} ${item.article}</h3><p>${item.description||""}</p></div>
+                <strong class="status">${item.needs_confirmation?"Цена уточняется":"Цена подтверждена"}</strong>
+              </div>
+              <div class="position-meta">
+                <div><small>Количество</small><b>${item.quantity} шт.</b></div>
+                <div><small>Цена</small><b>${item.quoted_price===null?"после подтверждения":rub(Number(item.quoted_price))}</b></div>
+              </div>
+            </article>`).join("")}
+        </div>
+      </section>`;
+    showAccountTab("order-detail");
+  }catch(error){
+    showToast("Не удалось открыть запрос.","warn");
+  }
+}
+
 async function hydrateSession(){
   if(!backendConfigured()){
     applySessionUser();
@@ -464,6 +642,7 @@ async function hydrateSession(){
     const data=await apiRequest("/api/auth/me");
     sessionUser=data.user;
     applySessionUser();
+    await hydrateAccountData();
     if(document.getElementById("view-auth")?.classList.contains("active")){
       showRoute(pendingAccountRoute||"profile");
     }
@@ -983,6 +1162,10 @@ async function checkoutCart(){
     localStorage.setItem("zapformat-quote-name",name);
     localStorage.setItem("zapformat-quote-phone",phone);
     showToast("Запрос "+result.request_id+" принят. Подтвердим цену и наличие.");
+    if(sessionUser){
+      accountDataHydrated=false;
+      await hydrateAccountData();
+    }
   }catch(error){
     console.error(error);
     showToast("Не удалось отправить запрос. Попробуйте ещё раз.","warn");
@@ -1728,7 +1911,7 @@ function openGarageVehicleEditor(){
   root.querySelector('input[name="brand"]')?.focus();
 }
 
-function saveGarageVehicleForm(form){
+async function saveGarageVehicleForm(form){
   const data=Object.fromEntries(new FormData(form).entries());
   const vin=String(data.vin||"").trim().toUpperCase().replace(/[^A-HJ-NPR-Z0-9]/g,"");
   if(vin && vin.length!==17){
@@ -1749,6 +1932,37 @@ function saveGarageVehicleForm(form){
   };
   saveGarageState();
   renderGarageApp();
+
+  if(backendConfigured() && sessionUser){
+    try{
+      const payload={
+        brand:garageState.vehicle.brand,
+        model:garageState.vehicle.model,
+        year:garageState.vehicle.year,
+        engine:garageState.vehicle.engine,
+        vin:garageState.vehicle.vin||null,
+        current_mileage:garageState.vehicle.mileage||null
+      };
+      let result;
+      if(garageState.vehicle.id){
+        result=await apiRequest("/api/garage/vehicles/"+encodeURIComponent(garageState.vehicle.id),{
+          method:"PATCH",
+          body:JSON.stringify(payload)
+        });
+      }else{
+        result=await apiRequest("/api/garage/vehicles",{
+          method:"POST",
+          body:JSON.stringify(payload)
+        });
+      }
+      if(result?.vehicle?.id) garageState.vehicle.id=result.vehicle.id;
+      accountDataHydrated=false;
+      await hydrateAccountData();
+    }catch(error){
+      showToast("Автомобиль сохранён локально, но сервер не ответил.","warn");
+    }
+  }
+
   closeGarageVehicleEditor();
   showToast("Автомобиль сохранён.");
 }
@@ -1775,6 +1989,9 @@ function showAccountTab(tab){
     requestAnimationFrame(()=>activeNav.scrollIntoView({behavior:"auto",block:"nearest",inline:"center"}));
   }
   if(tab==="garage") renderGarageApp();
+  if(sessionUser && (tab==="overview" || tab==="orders" || tab==="garage") && !accountDataHydrated){
+    hydrateAccountData();
+  }
   const profileViewActive=document.getElementById("view-profile")?.classList.contains("active");
   if(profileViewActive){
     if(tab==="orders" || tab==="order-detail") syncMobileNav("orders");
@@ -1851,6 +2068,12 @@ document.addEventListener("click",e=>{
   const tab=e.target.closest("[data-account-tab]");
   if(tab){ showAccountTab(tab.dataset.accountTab); return; }
 
+  const liveDetail=e.target.closest("[data-live-request-detail]");
+  if(liveDetail){
+    openLiveRequestDetail(liveDetail.dataset.liveRequestDetail);
+    return;
+  }
+
   const detail=e.target.closest("[data-order-detail]");
   if(detail){
     openOrderDetail(detail.dataset.orderDetail);
@@ -1889,6 +2112,7 @@ document.getElementById("loginForm")?.addEventListener("submit",async e=>{
     });
     sessionUser=result.user;
     applySessionUser();
+    await hydrateAccountData();
     setAuthStatus("Готово.","success");
     navigate(pendingAccountRoute||"profile");
   }catch(error){
@@ -1922,6 +2146,7 @@ document.getElementById("registerForm")?.addEventListener("submit",async e=>{
     });
     sessionUser=result.user;
     applySessionUser();
+    await hydrateAccountData();
     setAuthStatus("Аккаунт создан.","success");
     navigate(pendingAccountRoute||"profile");
   }catch(error){
@@ -1944,7 +2169,7 @@ document.getElementById("logoutButton")?.addEventListener("click",async()=>{
   }
 });
 
-document.addEventListener("submit",e=>{
+document.addEventListener("submit",async e=>{
   const garageMeasureForm=e.target.closest("#garageMeasurementForm");
   if(garageMeasureForm){
     e.preventDefault();
