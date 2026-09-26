@@ -503,7 +503,12 @@ try {
         generated_at: "2026-09-26T12:00:00Z",
         core: { database: true, ai: true, supplier_credentials: true, active_pickup_points: 1 },
         external: {
-          supplier_search_live: { checked: true, user_info_ok: true, search_articles_ok: false, search_articles_denied: true, http_status: 403, upstream_code: 103 },
+          supplier_search_live: {
+            checked: true, user_info_ok: true,
+            search_articles_ok: false, search_articles_denied: true,
+            search_batch_ok: true, search_ok: true, search_mode: "batch",
+            http_status: 403, upstream_code: 103
+          },
           supplier_order_write_enabled: false,
           payment_provider: false,
           calculated_delivery: false,
