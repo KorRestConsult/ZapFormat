@@ -89,7 +89,26 @@ try {
         email: "test@example.com",
         created_at: "2026-09-01T10:00:00Z"
       };
-      S.overview = { stats: { active_orders: 2, ready_orders: 1, vehicles: 2, active_returns: 1 } };
+      S.overview = {
+        stats: {
+          active_orders: 2, ready_orders: 1, vehicles: 2, active_returns: 1,
+          quote_requests: 1, confirmed_quotes: 1, vin_active: 1, vin_answered: 1,
+          support_open: 1, support_waiting_customer: 1, unread_notifications: 3,
+          due_maintenance: 1
+        },
+        attention: {
+          ready_orders: 1,
+          support_waiting_customer: 1,
+          vin_answered: 1,
+          approved_returns: 0,
+          confirmed_quotes: 1,
+          unread_notifications: 3,
+          due_maintenance: [{
+            id: "p1", vehicle_id: "v2", title: "Масло двигателя + фильтр",
+            brand: "Ford", model: "Focus", due_mileage: 214000, current_mileage: 210000
+          }]
+        }
+      };
       S.notifications = { order_status: true, item_changes: true, returns: true, marketing: false };
       S.addresses = [{
         id: "a1", label: "Дом", city: "Рязань",
@@ -129,6 +148,13 @@ try {
     await page.evaluate(() => window.renderAccount());
     await page.waitForTimeout(120);
     await assertNoHorizontalOverflow(page, `${browserName}/${viewport.name}/account/authenticated`);
+
+    await page.evaluate(() => {
+      document.querySelectorAll(".page").forEach(x=>x.classList.toggle("active",x.dataset.page==="home"));
+      renderHomeOverview();
+    });
+    await page.waitForTimeout(50);
+    await assertNoHorizontalOverflow(page, `${browserName}/${viewport.name}/home/attention`);
 
     await page.evaluate(() => {
       S.offers = [
