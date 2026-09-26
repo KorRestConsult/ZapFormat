@@ -81,6 +81,35 @@ try {
         address: "Очень длинное тестовое название улицы, дом 123, квартира 456",
         recipient_name: "Илья", recipient_phone: "+79000000000", is_default: true
       }];
+      S.savedParts = [
+        { id: "sp1", brand: "PATRON", article: "PRS3420", description: "Передние тормозные колодки" },
+        { id: "sp2", brand: "BREMBO", article: "P24061", description: "Длинное описание сохранённой детали для проверки интерфейса" }
+      ];
+      S.recentSearches = [
+        { id: "rs1", query: "передние колодки для моего Focus", use_count: 3 },
+        { id: "rs2", query: "PRS3420", use_count: 2 }
+      ];
+      S.notificationFeed = [
+        { id: "n1", type: "quote_status", title: "Заявка в работе", body: "Проверяем цену и срок.", read_at: null, created_at: "2026-09-26T12:00:00Z" },
+        { id: "n2", type: "vin_status", title: "Подбор готов", body: "Есть ответ оператора.", read_at: "2026-09-26T12:30:00Z", created_at: "2026-09-26T12:20:00Z" }
+      ];
+      S.notificationUnread = 1;
+      S.sessions = [
+        {
+          id: "s1",
+          user_agent: "Mozilla/5.0 (iPhone; CPU iPhone OS 26_2 like Mac OS X) AppleWebKit/605.1.15 Version/26.0 Mobile/15E148 Safari/604.1",
+          current: true,
+          created_at: "2026-09-26T09:00:00Z",
+          expires_at: "2026-10-26T09:00:00Z"
+        },
+        {
+          id: "s2",
+          user_agent: "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 Version/26.0 Safari/605.1.15",
+          current: false,
+          created_at: "2026-09-25T18:00:00Z",
+          expires_at: "2026-10-25T18:00:00Z"
+        }
+      ];
     });
     await page.evaluate(() => window.renderAccount());
     await page.waitForTimeout(120);
