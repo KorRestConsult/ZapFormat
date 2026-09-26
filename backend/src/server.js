@@ -12,6 +12,15 @@ const { rateLimit } = require("express-rate-limit");
 const { Pool } = require("pg");
 const { PartGradeError, createPartGradeClient } = require("./partgrade");
 const { customerPrice } = require("./pricing");
+const {
+  ZapFormatAIError,
+  configured: aiConfigured,
+  interpretSearch,
+  looksLikeArticle,
+  looksLikeVin,
+  modelName,
+  safeVehicleContext
+} = require("./ai");
 
 const app = express();
 const isProduction = process.env.NODE_ENV === "production";
@@ -63,6 +72,13 @@ const authLimiter = rateLimit({
 const quoteLimiter = rateLimit({
   windowMs: 60 * 60 * 1000,
   limit: 20,
+  standardHeaders: "draft-8",
+  legacyHeaders: false
+});
+
+const aiLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000,
+  limit: Math.max(10, Number(process.env.AI_SEARCH_HOURLY_LIMIT || 60)),
   standardHeaders: "draft-8",
   legacyHeaders: false
 });
@@ -203,6 +219,7 @@ app.get("/api/health", async (_req, res, next) => {
       service: "zapformat-api",
       db,
       supplier_configured: partGrade.configured(),
+      ai_configured: aiConfigured(),
       time
     });
   } catch (error) {
@@ -499,6 +516,133 @@ app.get("/api/catalog/brands", async (req, res, next) => {
       });
 
     res.json({ query: { number }, brands });
+  } catch (error) {
+    next(error);
+  }
+});
+
+function publicSearchTipCandidates(value) {
+  const seen = new Set();
+  return normalizeSupplierRows(value)
+    .filter((row) => row && typeof row === "object")
+    .map((row) => ({
+      brand: row.brand || null,
+      article: row.number || row.code || null,
+      description: row.description || null
+    }))
+    .filter((row) => row.article)
+    .filter((row) => {
+      const key = [row.brand, row.article].map((x) => String(x || "").trim().toUpperCase()).join("|");
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+}
+
+async function supplierCandidatesForTerms(terms) {
+  const candidates = [];
+  const seen = new Set();
+
+  for (const term of [...new Set(terms)].slice(0, 4)) {
+    try {
+      const rows = publicSearchTipCandidates(await partGrade.searchTips(term));
+      for (const row of rows) {
+        const key = [row.brand, row.article].map((x) => String(x || "").trim().toUpperCase()).join("|");
+        if (seen.has(key)) continue;
+        seen.add(key);
+        candidates.push(row);
+        if (candidates.length >= 20) return candidates;
+      }
+    } catch (_error) {
+      // AI search must stay usable even when supplier tips do not support a natural-language term.
+    }
+  }
+
+  return candidates;
+}
+
+app.post("/api/ai/search", aiLimiter, async (req, res, next) => {
+  try {
+    const query = String(req.body?.query || "").trim().slice(0, 500);
+    const vehicle = safeVehicleContext(req.body?.vehicle);
+
+    if (!query) return res.status(400).json({ error: "search_query_required" });
+
+    if (looksLikeVin(query)) {
+      return res.json({
+        ai: false,
+        mode: "vin",
+        query,
+        vehicle,
+        intent: {
+          kind: "vin",
+          article: "",
+          normalized_query: query.toUpperCase(),
+          part_name: "",
+          position: "",
+          search_terms: [],
+          assistant_text: "VIN распознан. ZapFormat не будет придумывать совместимость: выберите автомобиль в гараже и укажите нужную деталь.",
+          needs_article: true,
+          confidence: 1
+        },
+        candidates: []
+      });
+    }
+
+    if (looksLikeArticle(query)) {
+      return res.json({
+        ai: false,
+        mode: "article",
+        query,
+        vehicle,
+        intent: {
+          kind: "article",
+          article: query,
+          normalized_query: query,
+          part_name: "",
+          position: "",
+          search_terms: [],
+          assistant_text: "",
+          needs_article: false,
+          confidence: 1
+        },
+        candidates: []
+      });
+    }
+
+    if (!aiConfigured()) {
+      return res.status(503).json({ error: "ai_not_configured" });
+    }
+
+    const intent = await interpretSearch({ query, vehicle });
+
+    if (intent.article) {
+      return res.json({
+        ai: true,
+        mode: "article",
+        query,
+        vehicle,
+        intent,
+        candidates: []
+      });
+    }
+
+    const terms = [
+      intent.part_name,
+      intent.normalized_query,
+      ...intent.search_terms
+    ].map((x) => String(x || "").trim()).filter(Boolean);
+
+    const candidates = await supplierCandidatesForTerms(terms);
+
+    res.json({
+      ai: true,
+      mode: candidates.length ? "candidates" : intent.kind,
+      query,
+      vehicle,
+      intent,
+      candidates
+    });
   } catch (error) {
     next(error);
   }
@@ -1936,6 +2080,18 @@ app.delete("/api/garage/vehicles/:vehicleId", requireUser, async (req, res, next
 });
 
 app.use((error, _req, res, _next) => {
+  if (error instanceof ZapFormatAIError) {
+    console.error("[ZapFormat AI]", error.code, error.status || "");
+    const status = error.code === "ai_not_configured"
+      ? 503
+      : error.code === "ai_timeout"
+        ? 504
+        : (error.status && error.status >= 400 && error.status < 500 ? 400 : 502);
+    return res.status(status).json({
+      error: error.code === "ai_not_configured" ? "ai_not_configured" : "ai_unavailable"
+    });
+  }
+
   if (error instanceof PartGradeError) {
     console.error("[PartGrade]", error.code, error.status || "");
     const status = error.code === "partgrade_not_configured" ? 503 : 502;
@@ -1970,5 +2126,7 @@ module.exports = {
   app,
   normalizeSupplierRows,
   supplierOfferRef,
-  publicSupplierOffer
+  publicSupplierOffer,
+  publicSearchTipCandidates,
+  supplierCandidatesForTerms
 };
