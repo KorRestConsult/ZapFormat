@@ -1,6 +1,8 @@
 require("dotenv").config();
 
 const crypto = require("node:crypto");
+const fs = require("node:fs/promises");
+const path = require("node:path");
 const express = require("express");
 const helmet = require("helmet");
 const cors = require("cors");
@@ -52,6 +54,13 @@ app.use(cors({
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   limit: 30,
+  standardHeaders: "draft-8",
+  legacyHeaders: false
+});
+
+const quoteLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000,
+  limit: 20,
   standardHeaders: "draft-8",
   legacyHeaders: false
 });
@@ -177,6 +186,67 @@ app.get("/api/health", async (_req, res, next) => {
       db,
       supplier_configured: partGrade.configured(),
       time
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+app.post("/api/quote-requests", quoteLimiter, async (req, res, next) => {
+  try {
+    const name = String(req.body?.name || "").trim().slice(0, 120);
+    const phone = normalizePhone(req.body?.phone);
+    const rawItems = Array.isArray(req.body?.items) ? req.body.items : [];
+
+    if (!phone || phone.replace(/\D/g, "").length < 10) {
+      return res.status(400).json({ error: "phone_required" });
+    }
+    if (!rawItems.length || rawItems.length > 50) {
+      return res.status(400).json({ error: "items_required" });
+    }
+
+    const items = rawItems.map((item) => ({
+      brand: String(item?.brand || "").trim().slice(0, 80),
+      article: String(item?.article || "").trim().slice(0, 120),
+      description: String(item?.description || "").trim().slice(0, 300),
+      quantity: Math.max(1, Math.min(999, Number(item?.quantity || 1))),
+      comment: String(item?.comment || "").trim().slice(0, 500),
+      quoted_price: Number.isFinite(Number(item?.quoted_price))
+        ? Math.max(0, Math.round(Number(item.quoted_price) * 100) / 100)
+        : null,
+      needs_confirmation: Boolean(item?.needs_confirmation)
+    })).filter((item) => item.article);
+
+    if (!items.length) {
+      return res.status(400).json({ error: "items_required" });
+    }
+
+    const now = new Date();
+    const requestId =
+      "Q-" +
+      now.toISOString().slice(0, 10).replace(/-/g, "") +
+      "-" +
+      crypto.randomBytes(3).toString("hex").toUpperCase();
+
+    const record = {
+      id: requestId,
+      created_at: now.toISOString(),
+      name: name || null,
+      phone,
+      items,
+      source: "zapformat-web",
+      status: "new"
+    };
+
+    const file = process.env.QUOTE_REQUESTS_FILE || "/var/lib/zapformat/quote-requests.jsonl";
+    await fs.mkdir(path.dirname(file), { recursive: true });
+    await fs.appendFile(file, JSON.stringify(record) + "\n", { encoding: "utf8", mode: 0o600 });
+
+    res.status(201).json({
+      ok: true,
+      request_id: requestId,
+      status: "received",
+      items: items.length
     });
   } catch (error) {
     next(error);
