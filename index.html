@@ -58,6 +58,7 @@ button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-vis
 .hero{display:grid;grid-template-columns:minmax(0,1.45fr) minmax(310px,.65fr);gap:72px;align-items:center;min-height:640px;padding:68px 0}
 .hero h1{font-size:clamp(54px,7vw,92px);line-height:.92;letter-spacing:-.065em;margin:22px 0}
 .hero h1 em{font-style:normal;color:var(--green)}
+.hero-copy{min-width:0;max-width:100%}
 .hero-copy>p{max-width:660px;font-size:19px;color:var(--muted)}
 .search{display:flex;gap:8px;max-width:760px;margin-top:30px;padding:7px;background:#fff;border:1px solid var(--line);border-radius:15px;box-shadow:var(--shadow)}
 .search input{flex:1;min-width:0;border:0;outline:0;background:transparent;padding:12px 13px;font-size:17px}
@@ -136,7 +137,7 @@ button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-vis
 
 .vin-row{display:grid;grid-template-columns:minmax(0,1.5fr) minmax(120px,.6fr) auto;gap:12px;align-items:center;padding:14px 16px;border:1px solid var(--line);border-radius:12px;background:#fff}
 .vin-row small{display:block;color:var(--muted);margin-top:3px}
-.search-mode{display:flex;gap:6px;margin-top:18px}
+.search-mode{display:flex;gap:6px;margin-top:18px;flex-wrap:wrap;min-width:0;max-width:100%}
 .search-mode span{display:inline-flex;align-items:center;padding:6px 9px;border-radius:999px;background:#edf2ee;color:var(--green2);font-size:11px;font-weight:850}
 .recent-searches{display:flex;gap:7px;flex-wrap:wrap;margin-top:12px;align-items:center}
 .recent-searches>span{font-size:11px;color:var(--muted);font-weight:800}
