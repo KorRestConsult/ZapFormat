@@ -170,6 +170,30 @@ function normalizeReferralCode(value) {
   return code.length >= 6 ? code : null;
 }
 
+function safePublicUrl(value) {
+  const raw = String(value || "").trim();
+  if (!raw) return null;
+  try {
+    const url = new URL(raw);
+    return ["http:", "https:"].includes(url.protocol) ? url.toString() : null;
+  } catch {
+    return null;
+  }
+}
+
+function publicPublicationConfig(env = process.env) {
+  return {
+    seller: {
+      legal_name: String(env.SELLER_LEGAL_NAME || "").trim() || null
+    },
+    links: {
+      privacy: safePublicUrl(env.PRIVACY_POLICY_URL),
+      terms: safePublicUrl(env.TERMS_URL),
+      returns: safePublicUrl(env.RETURNS_POLICY_URL)
+    }
+  };
+}
+
 async function ensureReferralCode(db, userId) {
   const existing = await db.query(
     "SELECT code FROM referral_codes WHERE user_id = $1 LIMIT 1",
@@ -402,6 +426,10 @@ async function requireStaff(req, res, next) {
     next(error);
   }
 }
+
+app.get("/api/public/config", (_req, res) => {
+  res.json(publicPublicationConfig());
+});
 
 app.get("/api/health", async (_req, res, next) => {
   try {
@@ -3337,11 +3365,12 @@ app.get("/api/admin/release-readiness", requireStaff, async (req, res, next) => 
       }
     }
 
+    const publication = publicPublicationConfig();
     const legal = {
-      seller_identity: Boolean(String(process.env.SELLER_LEGAL_NAME || "").trim()),
-      privacy_policy: Boolean(String(process.env.PRIVACY_POLICY_URL || "").trim()),
-      terms: Boolean(String(process.env.TERMS_URL || "").trim()),
-      returns_policy: Boolean(String(process.env.RETURNS_POLICY_URL || "").trim())
+      seller_identity: Boolean(publication.seller.legal_name),
+      privacy_policy: Boolean(publication.links.privacy),
+      terms: Boolean(publication.links.terms),
+      returns_policy: Boolean(publication.links.returns)
     };
 
     res.json({
@@ -5060,5 +5089,7 @@ module.exports = {
   validVehicleYear,
   validMileage,
   normalizeReferralCode,
+  safePublicUrl,
+  publicPublicationConfig,
   MAX_CART_ITEMS
 };
