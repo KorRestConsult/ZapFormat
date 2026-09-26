@@ -168,6 +168,15 @@ button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-vis
 .saved-part-row{display:grid;grid-template-columns:minmax(0,1fr) auto auto;gap:9px;align-items:center;padding:11px 0;border-top:1px solid var(--line)}
 .saved-part-row:first-child{border-top:0}
 .saved-part-row small{display:block;color:var(--muted);margin-top:2px}
+.attention-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px}
+.attention-card{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;border:1px solid var(--line);background:#fff;border-radius:13px;padding:14px;text-align:left;min-width:0}
+.attention-card:hover{border-color:#8da99f}
+.attention-card strong{display:block;font-size:15px}
+.attention-card small{display:block;color:var(--muted);margin-top:3px;overflow-wrap:anywhere}
+.attention-card i{font-style:normal;color:var(--green);font-weight:900}
+.home-overview{margin-top:14px}
+.home-overview .attention-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+
 
 
 .catalog,.section-page{padding:34px 0 100px}
@@ -490,7 +499,7 @@ dialog::backdrop{background:rgba(13,41,56,.56);backdrop-filter:blur(5px)}
   .trust{gap:8px 14px}
   .catalog,.section-page{padding-top:24px}
   .catalog-head h2,.section-head h2{font-size:42px}
-  .dashboard-actions,.stat-grid,.vehicle-grid,.form-grid,.order-side,.category-grid,.catalog-action-grid,.operator-columns,.operator-stats{grid-template-columns:1fr}
+  .dashboard-actions,.stat-grid,.vehicle-grid,.form-grid,.order-side,.category-grid,.catalog-action-grid,.operator-columns,.operator-stats,.attention-grid,.home-overview .attention-grid{grid-template-columns:1fr}
   .expert-card{grid-template-columns:1fr}
   .vehicle-strip{align-items:flex-start;flex-wrap:wrap}
   .vehicle-strip-main{width:100%;min-width:0}
@@ -562,6 +571,7 @@ dialog::backdrop{background:rgba(13,41,56,.56);backdrop-filter:blur(5px)}
       <div class="trust"><span>Поиск с ИИ</span><span>Реальные остатки</span><span>Актуальная цена</span><span>Личный гараж</span></div><div id="vehicleContext" style="margin-top:14px"></div>
       <div class="search-mode"><span>АРТИКУЛ</span><span>НАЗВАНИЕ</span><span>VIN-ПОДБОР</span><span>АНАЛОГИ</span></div>
       <div id="recentSearchesHome"></div>
+      <div id="homeOverview" class="home-overview"></div>
     </div>
     <aside class="hero-panel">
       <small>ZAPFORMAT</small>
@@ -966,7 +976,8 @@ function go(page,push=true){
   if(push) history.pushState({page},"",routeUrl(page));
   scrollTo(0,0);
   if(push) $("#mainContent")?.focus({preventScroll:true});
-  if(page==="catalogs") renderCatalogs();
+  if(page==="home") renderHomeOverview();
+    if(page==="catalogs") renderCatalogs();
   if(page==="cart") renderCart();
   if(page==="checkout") loadCheckout();
   if(page==="account") renderAccount();
@@ -1114,6 +1125,44 @@ async function submitVinRequest(e){
 }
 function vinStatusLabel(s){
   return ({new:"Новый",in_progress:"В подборе",answered:"Ответ готов",closed:"Закрыт",cancelled:"Отменён"})[s]||String(s||"Статус");
+}
+
+function customerAttentionItems(){
+  const a=S.overview?.attention||{},items=[];
+  const add=(count,title,sub,page)=>{if(Number(count||0)>0)items.push({count:Number(count),title,sub,page})};
+  add(a.ready_orders,"Заказ готов","Можно открыть заказ и проверить получение.","orders");
+  add(a.support_waiting_customer,"Поддержка ждёт ответа","Есть обращение, где нужен ваш ответ.","support");
+  add(a.vin_answered,"VIN-подбор готов","Оператор оставил результат подбора.","orders");
+  add(a.approved_returns,"Возврат одобрен","Проверьте дальнейшие действия по возврату.","orders");
+  add(a.confirmed_quotes,"Заявка подтверждена","Условия заявки подтверждены ZapFormat.","orders");
+  const due=Array.isArray(a.due_maintenance)?a.due_maintenance:[];
+  if(due.length){
+    const first=due[0];
+    items.push({
+      count:due.length,
+      title:"Скоро обслуживание",
+      sub:[first.title,[first.brand,first.model].filter(Boolean).join(" ")].filter(Boolean).join(" · "),
+      page:"garage"
+    });
+  }
+  add(a.unread_notifications,"Новые события","Есть непрочитанные изменения в кабинете.","account");
+  return items.slice(0,6);
+}
+function attentionGridHtml(limit=6){
+  const items=customerAttentionItems().slice(0,limit);
+  return items.length
+    ?'<div class="attention-grid">'+items.map(x=>'<button class="attention-card" data-go="'+esc(x.page)+'"><span><strong>'+esc(x.title)+(x.count>1?' · '+x.count:'')+'</strong><small>'+esc(x.sub)+'</small></span><i>→</i></button>').join("")+'</div>'
+    :"";
+}
+function accountAttentionPanel(){
+  const html=attentionGridHtml(6);
+  return html?'<div class="panel panel-pad" style="margin-top:16px"><div class="panel-title"><div><h3>Требует внимания</h3><p>Только события, где есть следующий шаг.</p></div></div>'+html+'</div>':"";
+}
+function renderHomeOverview(){
+  const root=$("#homeOverview");if(!root)return;
+  if(!S.user){root.innerHTML="";return}
+  const html=attentionGridHtml(4);
+  root.innerHTML=html?'<div class="small muted" style="margin-bottom:7px;font-weight:800">ВАШ ZAPFORMAT</div>'+html:"";
 }
 
 function renderRecentSearches(){
@@ -1810,6 +1859,7 @@ async function hydrate(){
   }
   renderVehicleContext();
   renderRecentSearches();
+  renderHomeOverview();
 }
 function authUi(){
   $$("[data-auth-tab]").forEach(x=>x.classList.toggle("active",x.dataset.authTab===S.authMode));
@@ -1896,7 +1946,7 @@ async function renderAccount(){
     notificationRow("returns","Возвраты","Изменения по возвратам",n.returns)+
     notificationRow("marketing","Предложения","Новости и акции ZapFormat",n.marketing)+
     '</div></div><div class="panel panel-pad" style="margin-top:16px"><div class="panel-title"><div><h3>Безопасность</h3><p>Пароль и активные устройства.</p></div></div><div class="measurements">'+(S.sessions.length?S.sessions.map(s=>'<div class="measurement"><span><b>'+esc(sessionDeviceLabel(s.user_agent))+(s.current?' · это устройство':'')+'</b><span class="small muted">Вход '+datetime(s.created_at)+' · действует до '+date(s.expires_at)+'</span></span>'+(s.current?'<span class="status neutral">Текущий</span>':'<button class="ghost-btn small" data-revoke-session="'+s.id+'">Завершить</button>')+'</div>').join(""):'<p class="muted">Активные сеансы не найдены.</p>')+'</div><div class="mini-form"><form id="passwordForm"><div class="field"><label>Текущий пароль</label><input name="current_password" type="password" autocomplete="current-password" required></div><div class="field" style="margin-top:9px"><label>Новый пароль</label><input name="new_password" type="password" minlength="8" autocomplete="new-password" required></div><div class="form-actions"><button class="secondary">Сменить пароль</button></div></form><div class="form-actions"><button class="secondary" data-logout-others>Выйти на других устройствах</button><button class="danger" data-logout>Выйти</button></div></div></div>';
-  $("#accountPrimary").insertAdjacentHTML("beforeend",accountAddressPanel()+accountSavedPanel());
+  $("#accountPrimary").insertAdjacentHTML("beforeend",accountAttentionPanel()+accountAddressPanel()+accountSavedPanel());
   $("#profileForm")?.addEventListener("submit",saveProfile);
   $("#passwordForm")?.addEventListener("submit",changePassword);
   $("#addressForm")?.addEventListener("submit",saveAddress);
