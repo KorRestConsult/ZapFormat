@@ -104,6 +104,22 @@ a{color:inherit}
 .expert-card p{margin:0;color:#c9d4d8}
 .expert-card .secondary{border-color:#49606b;background:#fff}
 .vin-list{display:grid;gap:8px}
+.operator-stats{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:18px}
+.operator-stat{padding:17px;border:1px solid var(--line);border-radius:14px;background:#fff}
+.operator-stat b{display:block;font-size:30px;letter-spacing:-.05em}
+.operator-stat span{font-size:12px;color:var(--muted)}
+.operator-columns{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px;align-items:start}
+.operator-column{display:grid;gap:10px}
+.operator-column>h3{margin:0 0 3px;font-size:21px}
+.operator-card{border:1px solid var(--line);background:#fff;border-radius:15px;padding:16px;min-width:0}
+.operator-card .op-top{display:flex;align-items:start;justify-content:space-between;gap:10px}
+.operator-card h4{font-size:16px;margin:0;overflow-wrap:anywhere}
+.operator-card p{margin:6px 0;color:var(--muted);font-size:13px;overflow-wrap:anywhere}
+.operator-card .op-meta{display:flex;gap:6px;flex-wrap:wrap;margin:10px 0}
+.operator-card textarea,.operator-card select{width:100%;border:1px solid var(--line);border-radius:9px;padding:9px;background:#fff}
+.operator-card textarea{min-height:72px;resize:vertical;margin-top:8px}
+.operator-card .form-actions{justify-content:space-between}
+
 .vin-row{display:grid;grid-template-columns:minmax(0,1.5fr) minmax(120px,.6fr) auto;gap:12px;align-items:center;padding:14px 16px;border:1px solid var(--line);border-radius:12px;background:#fff}
 .vin-row small{display:block;color:var(--muted);margin-top:3px}
 .search-mode{display:flex;gap:6px;margin-top:18px}
@@ -278,6 +294,7 @@ dialog::backdrop{background:rgba(13,41,56,.56);backdrop-filter:blur(5px)}
   .category-grid{grid-template-columns:repeat(2,1fr)}
   .catalog-action-grid{grid-template-columns:repeat(2,1fr)}
   .dashboard-grid,.vehicle-detail,.order-detail{grid-template-columns:1fr}
+  .operator-columns{grid-template-columns:1fr 1fr}
   .order-side{display:grid;grid-template-columns:1fr 1fr;gap:12px}.order-side .panel+.panel{margin-top:0}
 }
 @media(max-width:820px){
@@ -317,7 +334,7 @@ dialog::backdrop{background:rgba(13,41,56,.56);backdrop-filter:blur(5px)}
   .trust{gap:8px 14px}
   .catalog,.section-page{padding-top:24px}
   .catalog-head h2,.section-head h2{font-size:42px}
-  .dashboard-actions,.stat-grid,.vehicle-grid,.form-grid,.order-side,.category-grid,.catalog-action-grid{grid-template-columns:1fr}
+  .dashboard-actions,.stat-grid,.vehicle-grid,.form-grid,.order-side,.category-grid,.catalog-action-grid,.operator-columns,.operator-stats{grid-template-columns:1fr}
   .expert-card{grid-template-columns:1fr}
   .vehicle-strip{align-items:flex-start;flex-wrap:wrap}
   .vehicle-strip-main{width:100%;min-width:0}
@@ -344,6 +361,7 @@ dialog::backdrop{background:rgba(13,41,56,.56);backdrop-filter:blur(5px)}
       <button data-go="catalogs">Каталоги</button>
       <button data-go="garage">Гараж</button>
       <button data-go="orders">Заказы</button>
+      <button data-go="operator" id="operatorNav" hidden>Оператор</button>
     </nav>
     <div class="header-actions">
       <button class="header-expert" data-vin-open>Подбор по VIN</button>
@@ -437,6 +455,11 @@ dialog::backdrop{background:rgba(13,41,56,.56);backdrop-filter:blur(5px)}
   <div class="section-head"><span class="kicker">ЛИЧНЫЙ КАБИНЕТ</span><h2>Заказы и подбор</h2><p>Реальные заказы, заявки на подтверждение, возвраты и запросы по VIN — каждый процесс отдельно.</p></div>
   <div id="ordersBody"></div>
 </section>
+
+<section class="page shell section-page" data-page="operator">
+  <div class="section-head"><span class="kicker">СЛУЖЕБНЫЙ КАБИНЕТ</span><h2>Оператор ZapFormat</h2><p>Заявки покупателей, подбор по VIN и возвраты в одной очереди.</p></div>
+  <div id="operatorBody"></div>
+</section>
 </main>
 
 <nav class="mobile-nav" style="grid-template-columns:repeat(5,1fr)">
@@ -528,6 +551,8 @@ const S={
   checkoutResult:null,
   checkoutDraft:{fulfillment_method:"",payment_method:"after_confirmation"},
   checkoutSubmitting:false,
+  operatorOverview:null,
+  operatorQueue:null,
   vehicles:[],
   vehicleDetail:null,
   activeVehicle:null,
@@ -667,6 +692,7 @@ function go(page,push=true){
   if(page==="account") renderAccount();
   if(page==="garage") loadGarage();
   if(page==="orders") loadOrders();
+  if(page==="operator") loadOperator();
 }
 function route(){
   const p=new URLSearchParams(location.search),q=p.get("q"),view=p.get("view");
@@ -681,9 +707,10 @@ function badges(){
   $("#mobileCartBadge").textContent=n;
 }
 function updateHeader(){
-  const chip=$("#userChipText"),av=$("#userChip .avatar");
+  const chip=$("#userChipText"),av=$("#userChip .avatar"),op=$("#operatorNav");
   chip.textContent=S.user?S.user.name:"Войти";
   av.textContent=initials(S.user);
+  if(op)op.hidden=!["admin","owner"].includes(S.user?.role);
 }
 function requireAuth(){
   if(S.user)return true;
@@ -1208,7 +1235,7 @@ async function renderAccount(){
   }catch{}
   const stats=S.overview?.stats||{active_orders:0,ready_orders:0,vehicles:0,active_returns:0};
   $("#accountPrimary").innerHTML=
-    '<div class="panel panel-pad"><div class="profile-hero"><div class="profile-avatar">'+esc(initials(S.user))+'</div><div><h3>'+esc([S.user.name,S.user.surname].filter(Boolean).join(" "))+'</h3><p>'+esc(S.user.phone||S.user.email||"Контакт не указан")+'</p><span class="small muted">Клиент ZapFormat с '+date(S.user.created_at)+'</span></div></div><div class="stat-grid"><div class="stat"><b>'+stats.active_orders+'</b><span>активных заказов</span></div><div class="stat"><b>'+stats.ready_orders+'</b><span>готовы к выдаче</span></div><div class="stat"><b>'+stats.vehicles+'</b><span>автомобилей</span></div></div><div class="dashboard-actions"><button class="action-card" data-go="garage"><b>Гараж</b><span>Автомобили и обслуживание</span></button><button class="action-card" data-go="orders"><b>Заказы</b><span>История и статусы</span></button><button class="action-card" data-go="cart"><b>Корзина</b><span>'+S.cart.length+' позиций</span></button><button class="action-card" data-vin-open><b>Подбор по VIN</b><span>Запрос эксперту по вашей машине</span></button></div></div>'+
+    '<div class="panel panel-pad"><div class="profile-hero"><div class="profile-avatar">'+esc(initials(S.user))+'</div><div><h3>'+esc([S.user.name,S.user.surname].filter(Boolean).join(" "))+'</h3><p>'+esc(S.user.phone||S.user.email||"Контакт не указан")+'</p><span class="small muted">Клиент ZapFormat с '+date(S.user.created_at)+'</span></div></div><div class="stat-grid"><div class="stat"><b>'+stats.active_orders+'</b><span>активных заказов</span></div><div class="stat"><b>'+stats.ready_orders+'</b><span>готовы к выдаче</span></div><div class="stat"><b>'+stats.vehicles+'</b><span>автомобилей</span></div></div><div class="dashboard-actions"><button class="action-card" data-go="garage"><b>Гараж</b><span>Автомобили и обслуживание</span></button><button class="action-card" data-go="orders"><b>Заказы</b><span>История и статусы</span></button><button class="action-card" data-go="cart"><b>Корзина</b><span>'+S.cart.length+' позиций</span></button><button class="action-card" data-vin-open><b>Подбор по VIN</b><span>Запрос эксперту по вашей машине</span></button>'+(["admin","owner"].includes(S.user.role)?'<button class="action-card" data-go="operator"><b>Оператор</b><span>Очередь заявок и возвратов</span></button>':'')+'</div></div>'+
     '<div class="panel panel-pad" style="margin-top:16px"><div class="panel-title"><div><h3>Профиль</h3><p>Эти данные используем для связи и оформления.</p></div></div><form id="profileForm"><div class="form-grid"><div class="field"><label>Имя</label><input name="name" value="'+esc(S.user.name||"")+'" required></div><div class="field"><label>Фамилия</label><input name="surname" value="'+esc(S.user.surname||"")+'"></div><div class="field"><label>Телефон</label><input name="phone" value="'+esc(S.user.phone||"")+'"></div><div class="field"><label>Email</label><input name="email" type="email" value="'+esc(S.user.email||"")+'"></div></div><div class="form-actions"><button class="primary">Сохранить</button><span id="profileStatus" class="small"></span></div></form></div>';
   const n=S.notifications||{order_status:true,item_changes:true,returns:true,marketing:false};
   $("#accountSide").innerHTML=
@@ -1414,6 +1441,81 @@ async function deleteVehicle(){
   try{await api("/api/garage/vehicles/"+v.id,{method:"DELETE"});S.vehicleDetail=null;toast("Автомобиль удалён");await loadGarage()}catch{toast("Не удалось удалить")}
 }
 
+function operatorStatusOptions(kind,current){
+  const map={
+    quote:[["new","Новая"],["in_progress","В работе"],["confirmed","Подтверждена"],["completed","Завершена"],["cancelled","Отменена"]],
+    vin:[["new","Новый"],["in_progress","В подборе"],["answered","Ответ готов"],["closed","Закрыт"],["cancelled","Отменён"]],
+    return:[["created","Создан"],["in_progress","В работе"],["approved","Одобрен"],["rejected","Отклонён"],["completed","Завершён"],["cancelled","Отменён"]]
+  };
+  return (map[kind]||[]).map(([v,l])=>'<option value="'+v+'" '+(v===current?"selected":"")+'>'+l+'</option>').join("");
+}
+async function loadOperator(){
+  const root=$("#operatorBody");if(!root)return;
+  if(!S.user){
+    root.innerHTML='<div class="empty"><div><b>Требуется вход</b><button class="primary" data-auth-open>Войти</button></div></div>';
+    return;
+  }
+  if(!["admin","owner"].includes(S.user.role)){
+    root.innerHTML='<div class="empty"><div><b>Нет доступа</b><p>Этот раздел доступен только сотрудникам ZapFormat.</p><button class="secondary" data-go="account">В кабинет</button></div></div>';
+    return;
+  }
+  root.innerHTML='<div class="state-card"><div><div class="spinner" style="margin:auto"></div><p>Загружаем очередь…</p></div></div>';
+  try{
+    const [overview,queue]=await Promise.all([api("/api/admin/overview"),api("/api/admin/queue")]);
+    S.operatorOverview=overview;S.operatorQueue=queue;renderOperator();
+  }catch{
+    root.innerHTML='<div class="empty"><div><b>Не удалось загрузить очередь</b><button class="secondary" data-reload-operator>Повторить</button></div></div>';
+  }
+}
+function renderOperator(){
+  const root=$("#operatorBody"),o=S.operatorOverview||{},q=S.operatorQueue||{quotes:[],vin:[],returns:[]};
+  const stats=[
+    ["Новые заявки",Number(o.quotes?.new||0)],
+    ["VIN в очереди",Number(o.vin?.new||0)+Number(o.vin?.in_progress||0)],
+    ["Возвраты",Number(o.returns?.created||0)+Number(o.returns?.in_progress||0)],
+    ["Активные заказы",Number(o.orders?.active||0)]
+  ];
+  root.innerHTML='<div class="operator-stats">'+stats.map(x=>'<div class="operator-stat"><b>'+x[1]+'</b><span>'+esc(x[0])+'</span></div>').join("")+'</div>'+
+    '<div class="operator-columns">'+
+      operatorColumn("Заявки",q.quotes||[],"quote")+
+      operatorColumn("VIN-подбор",q.vin||[],"vin")+
+      operatorColumn("Возвраты",q.returns||[],"return")+
+    '</div>';
+}
+function operatorColumn(title,rows,kind){
+  return '<section class="operator-column"><h3>'+esc(title)+' <span class="status neutral">'+rows.length+'</span></h3>'+
+    (rows.length?rows.map(r=>operatorCard(r,kind)).join(""):'<div class="panel panel-pad muted">Очередь пуста.</div>')+'</section>';
+}
+function operatorCard(r,kind){
+  const id=kind==="quote"?r.id:(kind==="vin"?r.id:r.id);
+  const title=kind==="quote"
+    ?r.id
+    :kind==="vin"
+      ?r.request_text
+      :"Возврат № "+r.return_number+" · "+r.brand+" "+r.article;
+  const contact=kind==="quote"
+    ?[r.recipient_name,r.recipient_phone].filter(Boolean).join(" · ")
+    :[r.user_name,r.user_phone||r.user_email].filter(Boolean).join(" · ");
+  const details=kind==="quote"
+    ?[r.item_count+" поз.",r.verified_total!==null?rub(r.verified_total):null,r.fulfillment_method].filter(Boolean).join(" · ")
+    :kind==="vin"
+      ?[[r.brand,r.model,r.generation,r.year].filter(Boolean).join(" "),r.vin].filter(Boolean).join(" · ")
+      :["Заказ № "+r.order_number,r.quantity+" шт.",rub(Number(r.unit_price||0)*Number(r.quantity||1))].join(" · ");
+  return '<form class="operator-card" data-operator-form="'+kind+'" data-id="'+id+'"><div class="op-top"><div><h4>'+esc(title)+'</h4><p>'+esc(contact||"Контакт не указан")+'</p></div><span class="status">'+esc(r.status)+'</span></div><div class="op-meta"><span class="ai-chip">'+esc(details)+'</span><span class="ai-chip">'+datetime(r.created_at)+'</span></div>'+(kind==="quote"&&r.customer_comment?'<p><b>Комментарий клиента:</b> '+esc(r.customer_comment)+'</p>':"")+(kind==="return"&&r.reason?'<p><b>Причина:</b> '+esc(r.reason)+'</p>':"")+'<select name="status">'+operatorStatusOptions(kind,r.status)+'</select><textarea name="manager_note" placeholder="Комментарий сотрудника">'+esc(r.manager_note||"")+'</textarea><div class="form-actions"><button class="secondary">Сохранить</button><span class="small muted">ID '+esc(String(id).slice(0,14))+'</span></div></form>';
+}
+async function saveOperatorItem(form){
+  const kind=form.dataset.operatorForm,id=form.dataset.id,f=new FormData(form);
+  const path=kind==="quote"
+    ?"/api/admin/quote-requests/"+encodeURIComponent(id)
+    :kind==="vin"
+      ?"/api/admin/vin-requests/"+encodeURIComponent(id)
+      :"/api/admin/returns/"+encodeURIComponent(id);
+  try{
+    await api(path,{method:"PATCH",body:JSON.stringify({status:f.get("status"),manager_note:f.get("manager_note")})});
+    toast("Очередь обновлена");await loadOperator();
+  }catch{toast("Не удалось обновить")}
+}
+
 const statusNames={new:"Новый",confirmed:"Подтверждён",processing:"В обработке",in_transit:"В пути",ready:"Готов к выдаче",completed:"Завершён",cancelled:"Отменён",returned:"Возврат"};
 function statusLabel(s){return statusNames[s]||String(s||"Статус")}
 function statusClass(s){return s==="ready"?"ready":(["cancelled","problem","rejected"].includes(s)?"problem":(["completed","returned"].includes(s)?"neutral":""))}
@@ -1576,6 +1678,11 @@ document.addEventListener("click",async e=>{
     writeCart();toast("Позиции добавлены в корзину");return go("cart");
   }
   if(e.target.closest("[data-reload-orders]"))return loadOrders();
+  if(e.target.closest("[data-reload-operator]"))return loadOperator();
+});
+document.addEventListener("submit",e=>{
+  const form=e.target.closest("[data-operator-form]");
+  if(form){e.preventDefault();saveOperatorItem(form)}
 });
 document.addEventListener("change",e=>{
   const x=e.target.closest("[data-notification]");if(x)saveNotification(x);
