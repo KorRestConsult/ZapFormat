@@ -519,12 +519,20 @@ try {
       };
       S.operatorQueue = {
         quotes: [{
-          id: "Q-20260926-ABCDEF", status: "new", fulfillment_method: "delivery",
+          id: "Q-20260926-ABCDEF", status: "confirmed", fulfillment_method: "delivery",
           payment_method: "after_confirmation", verified_total: 10568.5,
           customer_comment: "Связаться вечером", manager_note: "",
           recipient_name: "Илья Коробицин", recipient_phone: "+79000000000",
           item_count: 2, created_at: "2026-09-26T12:00:00Z",
           brand: "Ford", model: "Focus", generation: "II", year: 2006
+        }],
+        orders: [{
+          id: "o-live-1", order_number: 102, status: "in_transit", total_amount: 10568.5,
+          fulfillment_method: "delivery", payment_method: "after_confirmation",
+          source_quote_id: "Q-20260925-OLD001",
+          recipient_name: "Илья Коробицин", recipient_phone: "+79000000000",
+          user_name: "Илья", user_phone: "+79000000000",
+          item_count: 2, created_at: "2026-09-26T11:40:00Z"
         }],
         vin: [{
           id: "vin1", status: "in_progress", request_text: "Передние тормозные колодки",
