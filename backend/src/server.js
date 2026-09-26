@@ -230,7 +230,9 @@ app.post("/api/quote-requests", quoteLimiter, async (req, res, next) => {
     );
 
     const unavailable = verified.filter((item) =>
-      !item.found || Number(item.availability || 0) < Number(item.quantity || 1)
+      !item.found ||
+      Number(item.availability || 0) < Number(item.quantity || 1) ||
+      Number(item.quantity || 1) % Math.max(1, Number(item.packing || 1)) !== 0
     );
     if (unavailable.length) {
       return res.status(409).json({
@@ -260,6 +262,7 @@ app.post("/api/quote-requests", quoteLimiter, async (req, res, next) => {
         returnable: offer.returnable,
         delivery_hours: offer.delivery_hours,
         availability: offer.availability,
+        packing: offer.packing,
         needs_confirmation: false
       };
     });
@@ -1182,7 +1185,7 @@ app.get("/api/cart", requireUser, async (req, res, next) => {
     const cartId = await userCartId(req.user.id);
     const result = await pool.query(
       `SELECT id, article, brand, description, delivery_days, delivery_hours, quantity,
-              available_quantity, unit_price, offer_ref, delivery_hours_max,
+              available_quantity, unit_price, offer_ref, delivery_hours_max, packing,
               returnable, price_checked_at, created_at, updated_at
          FROM cart_items
         WHERE cart_id = $1
@@ -1201,6 +1204,7 @@ app.get("/api/cart", requireUser, async (req, res, next) => {
         availability: Number(row.available_quantity || 0),
         price: Number(row.unit_price || 0),
         offer_ref: row.offer_ref,
+        packing: Math.max(1, Number(row.packing || 1)),
         returnable: row.returnable,
         checked_at: row.price_checked_at
       }))
@@ -1230,7 +1234,9 @@ app.put("/api/cart", requireUser, async (req, res, next) => {
       }))
     );
     const unavailable = verified.filter((item) =>
-      !item.found || Number(item.availability || 0) < Number(item.quantity || 1)
+      !item.found ||
+      Number(item.availability || 0) < Number(item.quantity || 1) ||
+      Number(item.quantity || 1) % Math.max(1, Number(item.packing || 1)) !== 0
     );
     if (unavailable.length) {
       return res.status(409).json({ error: "cart_changed", items: verified });
@@ -1245,9 +1251,9 @@ app.put("/api/cart", requireUser, async (req, res, next) => {
       await client.query(
         `INSERT INTO cart_items
           (cart_id, article, brand, description, delivery_days, delivery_hours, quantity,
-           available_quantity, unit_price, offer_ref, delivery_hours_max,
+           available_quantity, unit_price, offer_ref, delivery_hours_max, packing,
            returnable, price_checked_at, checked_at)
-         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$13)`,
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$14)`,
         [
           cartId,
           item.article,
@@ -1260,6 +1266,7 @@ app.put("/api/cart", requireUser, async (req, res, next) => {
           item.price,
           item.offer_ref,
           item.delivery_hours_max,
+          Math.max(1, Number(item.packing || 1)),
           item.returnable,
           now
         ]
@@ -1282,6 +1289,7 @@ app.put("/api/cart", requireUser, async (req, res, next) => {
         offer_ref: item.offer_ref,
         delivery_hours: item.delivery_hours,
         delivery_hours_max: item.delivery_hours_max,
+        packing: Math.max(1, Number(item.packing || 1)),
         returnable: item.returnable
       }))
     });
