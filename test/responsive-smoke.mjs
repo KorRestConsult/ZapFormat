@@ -447,6 +447,22 @@ try {
         support: { new: 1, in_progress: 1, waiting_customer: 0 },
         orders: { active: 3, ready: 1 }
       };
+      S.operatorReleaseReadiness = {
+        generated_at: "2026-09-26T12:00:00Z",
+        core: { database: true, ai: true, supplier_credentials: true, active_pickup_points: 1 },
+        external: {
+          supplier_search_live: { checked: true, user_info_ok: true, search_articles_ok: false, search_articles_denied: true, http_status: 403, upstream_code: 103 },
+          supplier_order_write_enabled: false,
+          payment_provider: false,
+          calculated_delivery: false,
+          vin_epc: false,
+          outbound_notifications: false,
+          production_domain: false
+        },
+        legal: { seller_identity: false, privacy_policy: false, terms: false, returns_policy: false },
+        ready_for_supplier_smoke: true,
+        ready_for_public_commerce: false
+      };
       S.operatorPickupPoints = [{
         id: "pp1", code: "P-TEST0001", city: "Рязань",
         name: "ZapFormat · тестовая геометрия", address: "Очень длинное название улицы для проверки адаптивности, дом 123",
