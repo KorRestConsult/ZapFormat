@@ -165,6 +165,27 @@ function createPartGradeClient(options = {}) {
         params[`search[${index}][brand]`] = String(item?.brand || "").trim();
       });
       return request("search/batch", params, { method: "POST" });
+    },
+    basketContent() {
+      return request("basket/content");
+    },
+    paymentMethods() {
+      return request("basket/paymentMethods");
+    },
+    shipmentMethods() {
+      return request("basket/shipmentMethods");
+    },
+    shipmentAddresses() {
+      return request("basket/shipmentAddresses");
+    },
+    orderStatuses() {
+      return request("orders/statuses");
+    },
+    orders(params = {}) {
+      return request("orders/", {
+        skip: params.skip ?? 0,
+        limit: params.limit ?? 50
+      });
     }
   };
 }
