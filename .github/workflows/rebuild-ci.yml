@@ -19,14 +19,27 @@ jobs:
       - name: Backend dependencies
         working-directory: backend
         run: npm install --ignore-scripts --package-lock=false
+      - name: Backend syntax
+        working-directory: backend
+        run: node --check src/server.js && node --check src/partgrade.js && node --check src/pricing.js
       - name: Backend unit tests
         working-directory: backend
         run: npm test
-      - name: Frontend integrity
+      - name: Frontend integrity and syntax
         shell: bash
         run: |
           test -f index.html
           test ! -e app.js
           test ! -e styles.css
           test ! -e config.js
-          ! grep -Eqi 'demoOrders|datasets[[:space:]]*=|purchase[[:space:]]*:' index.html
+          ! grep -Eqi 'demoOrders|datasets[[:space:]]*=|purchase[[:space:]]*:|PartGrade|ABCP' index.html
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+          html=Path("index.html").read_text(encoding="utf-8")
+          scripts=re.findall(r"<script>(.*?)</script>",html,re.S)
+          if len(scripts) != 1:
+              raise SystemExit(f"expected one inline script, found {len(scripts)}")
+          Path("/tmp/zapformat-inline.js").write_text(scripts[0],encoding="utf-8")
+          PY
+          node --check /tmp/zapformat-inline.js
