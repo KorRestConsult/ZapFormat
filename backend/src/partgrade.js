@@ -1,102 +1,196 @@
 "use strict";
 
 const DEFAULT_BASE = "https://auto-complekt.public.api.abcp.ru";
+const DEFAULT_TIMEOUT_MS = 12000;
 
 class PartGradeError extends Error {
-  constructor(message, details = {}) {
+  constructor(message, options = {}) {
     super(message);
     this.name = "PartGradeError";
-    Object.assign(this, details);
+    this.code = options.code || "partgrade_error";
+    this.status = options.status || null;
+    this.upstreamCode = options.upstreamCode ?? null;
+    this.upstreamMessage = options.upstreamMessage ?? null;
+    this.cause = options.cause;
   }
 }
 
-function rows(value) {
-  if (Array.isArray(value)) return value;
-  return value && typeof value === "object" ? Object.values(value) : [];
+function cleanBase(value) {
+  return String(value || DEFAULT_BASE).trim().replace(/\/+$/, "");
 }
 
-function createPartGradeClient({ env = process.env, fetchImpl = globalThis.fetch } = {}) {
-  const baseUrl = String(env.PARTGRADE_API_BASE || DEFAULT_BASE).trim().replace(/\/+$/, "");
+function createPartGradeClient(options = {}) {
+  const env = options.env || process.env;
+  const fetchImpl = options.fetchImpl || globalThis.fetch;
+  const baseUrl = cleanBase(env.PARTGRADE_API_BASE);
   const userlogin = String(env.PARTGRADE_API_LOGIN || "").trim();
   const userpsw = String(env.PARTGRADE_API_PASSWORD_MD5 || "").trim().toLowerCase();
-  const timeoutMs = Math.max(1000, Number(env.PARTGRADE_API_TIMEOUT_MS || 12000));
+  const timeoutMs = Math.max(1000, Number(env.PARTGRADE_API_TIMEOUT_MS || DEFAULT_TIMEOUT_MS));
 
-  function configured() {
-    return Boolean(userlogin && /^[a-f0-9]{32}$/.test(userpsw));
+  if (typeof fetchImpl !== "function") {
+    throw new Error("A fetch implementation is required");
   }
 
-  async function get(path, params = {}) {
+  function configured() {
+    return Boolean(baseUrl && userlogin && /^[a-f0-9]{32}$/i.test(userpsw));
+  }
+
+  function assertConfigured() {
     if (!configured()) {
-      throw new PartGradeError("PartGrade credentials are not configured", {
+      throw new PartGradeError("PartGrade API credentials are not configured", {
         code: "partgrade_not_configured"
       });
     }
+  }
 
-    const url = new URL(path.replace(/^\/+/, ""), baseUrl + "/");
-    url.searchParams.set("userlogin", userlogin);
-    url.searchParams.set("userpsw", userpsw);
-    for (const [key, value] of Object.entries(params)) {
-      if (value !== undefined && value !== null && value !== "") {
+  async function request(path, params = {}, options = {}) {
+    assertConfigured();
+
+    const method = String(options.method || "GET").toUpperCase();
+    const url = new URL(path, baseUrl + "/");
+    const allParams = {
+      userlogin,
+      userpsw,
+      ...params
+    };
+
+    const headers = {
+      Accept: "application/json"
+    };
+    const fetchOptions = {
+      method,
+      headers
+    };
+
+    if (method === "GET") {
+      for (const [key, value] of Object.entries(allParams)) {
+        if (value === undefined || value === null || value === "") continue;
         url.searchParams.set(key, String(value));
       }
+    } else {
+      const body = new URLSearchParams();
+      for (const [key, value] of Object.entries(allParams)) {
+        if (value === undefined || value === null || value === "") continue;
+        body.append(key, String(value));
+      }
+      headers["Content-Type"] = "application/x-www-form-urlencoded";
+      fetchOptions.body = body.toString();
     }
 
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), timeoutMs);
+    fetchOptions.signal = controller.signal;
+
     let response;
     try {
-      response = await fetchImpl(url, {
-        headers: { Accept: "application/json" },
-        signal: controller.signal
-      });
-    } catch (cause) {
-      throw new PartGradeError(cause?.name === "AbortError" ? "PartGrade timeout" : "PartGrade network error", {
-        code: cause?.name === "AbortError" ? "partgrade_timeout" : "partgrade_network_error",
-        cause
+      response = await fetchImpl(url, fetchOptions);
+    } catch (error) {
+      if (error?.name === "AbortError") {
+        throw new PartGradeError("PartGrade API timeout", {
+          code: "partgrade_timeout",
+          cause: error
+        });
+      }
+      throw new PartGradeError("PartGrade API network error", {
+        code: "partgrade_network_error",
+        cause: error
       });
     } finally {
       clearTimeout(timer);
     }
 
-    const text = await response.text();
+    const body = await response.text();
     let data;
     try {
-      data = text ? JSON.parse(text) : null;
-    } catch (cause) {
-      throw new PartGradeError("PartGrade returned invalid JSON", {
+      data = body ? JSON.parse(body) : null;
+    } catch (error) {
+      throw new PartGradeError("PartGrade API returned invalid JSON", {
         code: "partgrade_invalid_json",
         status: response.status,
-        cause
+        cause: error
       });
     }
 
     if (!response.ok) {
-      throw new PartGradeError("PartGrade request failed", {
+      const upstreamCode =
+        data && typeof data === "object"
+          ? (data.errorCode ?? data.code ?? null)
+          : null;
+      const upstreamMessage =
+        data && typeof data === "object"
+          ? (data.errorMessage ?? data.message ?? null)
+          : null;
+
+      throw new PartGradeError("PartGrade API request failed", {
         code: "partgrade_http_error",
         status: response.status,
-        upstreamCode: data?.errorCode ?? data?.code ?? null
+        upstreamCode,
+        upstreamMessage
       });
     }
+
     return data;
   }
 
   return {
     baseUrl,
     configured,
-    userInfo: () => get("user/info"),
-    async searchBrands(number) {
-      const data = await get("search/brands/", { number: String(number || "").trim(), useOnlineStocks: 1 });
-      return rows(data);
+    userInfo() {
+      return request("user/info");
     },
-    async searchArticles(number, brand) {
-      const data = await get("search/articles/", {
+    searchBrands(number, options = {}) {
+      return request("search/brands/", {
+        number: String(number || "").trim(),
+        locale: "ru_RU",
+        useOnlineStocks: options.useOnlineStocks === false ? 0 : 1
+      });
+    },
+    searchTips(number) {
+      return request("search/tips", {
+        number: String(number || "").trim(),
+        locale: "ru_RU"
+      });
+    },
+    searchArticles(number, brand) {
+      return request("search/articles/", {
         number: String(number || "").trim(),
         brand: String(brand || "").trim(),
-        useOnlineStocks: 1
+        locale: "ru_RU"
       });
-      return rows(data);
+    },
+    searchBatch(items) {
+      const params = {};
+      (Array.isArray(items) ? items : []).slice(0, 100).forEach((item, index) => {
+        params[`search[${index}][number]`] = String(item?.number || "").trim();
+        params[`search[${index}][brand]`] = String(item?.brand || "").trim();
+      });
+      return request("search/batch", params, { method: "POST" });
+    },
+    basketContent() {
+      return request("basket/content");
+    },
+    paymentMethods() {
+      return request("basket/paymentMethods");
+    },
+    shipmentMethods() {
+      return request("basket/shipmentMethods");
+    },
+    shipmentAddresses() {
+      return request("basket/shipmentAddresses");
+    },
+    orderStatuses() {
+      return request("orders/statuses");
+    },
+    orders(params = {}) {
+      return request("orders/", {
+        skip: params.skip ?? 0,
+        limit: params.limit ?? 50
+      });
     }
   };
 }
 
-module.exports = { PartGradeError, createPartGradeClient };
+module.exports = {
+  PartGradeError,
+  createPartGradeClient
+};
