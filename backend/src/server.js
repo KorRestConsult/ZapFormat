@@ -3986,5 +3986,7 @@ module.exports = {
   summarizePublicOffers,
   catalogCacheGet,
   catalogCacheSet,
-  resolveSupplierWriteItems
+  resolveSupplierWriteItems,
+  validVehicleYear,
+  validMileage
 };
