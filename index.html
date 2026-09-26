@@ -654,6 +654,8 @@ const S={
   quoteRequests:[],
   vinRequests:[],
   quoteDetail:null,
+  vinDetail:null,
+  returnDetail:null,
   orderDetail:null,
   offerSort:"price",
   offerOnlyAvailable:false,
@@ -1528,7 +1530,7 @@ async function renderAccount(){
 function accountSavedPanel(){
   const saved=S.savedParts||[],recent=S.recentSearches||[];
   return '<div class="panel panel-pad" style="margin-top:16px"><div class="panel-title"><div><h3>Сохранённые детали</h3><p>Артикулы без сохранения старой цены.</p></div><span class="status neutral">'+saved.length+'</span></div>'+
-    (saved.length?'<div>'+saved.slice(0,20).map(x=>'<div class="saved-part-row"><span><b>'+esc(x.brand)+' '+esc(x.article)+'</b><small>'+esc(x.description||"")+'</small></span><button class="ghost-btn small" data-search-saved="'+esc(x.article)+'">Найти</button><button class="ghost-btn small" data-delete-saved="'+x.id+'">×</button></div>').join("")+'</div>':'<p class="muted">Нажмите ☆ рядом с предложением, чтобы сохранить артикул.</p>')+
+    (saved.length?'<div>'+saved.slice(0,20).map(x=>'<div class="saved-part-row"><span><b>'+esc(x.brand)+' '+esc(x.article)+'</b><small>'+esc(x.description||"")+'</small></span><button class="ghost-btn small" data-open-saved-part data-brand="'+esc(x.brand)+'" data-article="'+esc(x.article)+'">Открыть</button><button class="ghost-btn small" data-delete-saved="'+x.id+'">×</button></div>').join("")+'</div>':'<p class="muted">Нажмите ☆ рядом с предложением, чтобы сохранить артикул.</p>')+
     '<div class="mini-form"><div class="panel-title" style="margin-bottom:8px"><div><h3 style="font-size:16px">История поиска</h3><p>'+recent.length+' последних запросов</p></div>'+(recent.length?'<button class="ghost-btn small" data-clear-recent>Очистить</button>':'')+'</div>'+(recent.length?'<div class="recent-searches">'+recent.slice(0,8).map(x=>'<button class="recent-search" data-recent-search="'+esc(x.query)+'">'+esc(x.query)+'</button>').join("")+'</div>':'<p class="muted">История пока пуста.</p>')+'</div></div>';
 }
 
@@ -1886,6 +1888,14 @@ async function saveOperatorItem(form){
   }catch{toast("Не удалось обновить")}
 }
 
+function caseTimelineHtml(history,currentStatus,createdAt){
+  const rows=[...(history||[])];
+  if(!rows.length&&createdAt)rows.push({status:currentStatus||"new",actor_type:"system",note:"Текущее состояние",created_at:createdAt});
+  return rows.length
+    ?'<div class="timeline-list">'+rows.map(x=>'<div class="timeline-row"><span class="dot"></span><p><b>'+esc(statusLabel(x.status))+'</b><small>'+datetime(x.created_at)+(x.note?' · '+esc(x.note):'')+(x.actor_type==="customer"?' · вы':x.actor_type==="staff"?' · ZapFormat':'')+'</small></p></div>').join("")+'</div>'
+    :'<p class="muted">История пока пуста.</p>';
+}
+
 const statusNames={new:"Новый",created:"Создан",in_progress:"В работе",confirmed:"Подтверждён",processing:"В обработке",approved:"Одобрен",answered:"Ответ готов",closed:"Закрыт",rejected:"Отклонён",in_transit:"В пути",ready:"Готов к выдаче",completed:"Завершён",cancelled:"Отменён",returned:"Возврат"};
 function statusLabel(s){return statusNames[s]||String(s||"Статус")}
 function statusClass(s){return s==="ready"?"ready":(["cancelled","problem","rejected"].includes(s)?"problem":(["completed","returned"].includes(s)?"neutral":""))}
@@ -1913,10 +1923,10 @@ function renderOrders(){
     ?'<div class="panel panel-pad" style="margin-bottom:16px"><div class="panel-title"><div><h3>Заявки на подтверждение</h3><p>Ещё не заказ: мы перепроверяем цену и наличие.</p></div><span class="status">'+S.quoteRequests.length+'</span></div><div class="order-list">'+S.quoteRequests.map(q=>'<button class="order-row" data-quote-id="'+esc(q.id)+'"><b>'+esc(q.id)+'</b><span><b>'+date(q.created_at)+'</b><span class="small muted">'+q.item_count+' поз.</span></span><span class="status">'+esc(q.status==="new"?"На подтверждении":statusLabel(q.status))+'</span><strong>'+rub(q.quoted_total)+'</strong><span>→</span></button>').join("")+'</div></div>'
     :'';
   const vinPanel=S.vinRequests.length
-    ?'<div class="panel panel-pad" style="margin-bottom:16px"><div class="panel-title"><div><h3>Подбор по VIN</h3><p>Запросы на точный подбор по автомобилю.</p></div><button class="secondary" data-vin-open>Новый запрос</button></div><div class="vin-list">'+S.vinRequests.map(r=>'<div class="vin-row"><span><b>'+esc(r.request_text)+'</b><small>'+esc([r.brand,r.model,r.generation,r.year].filter(Boolean).join(" · "))+' · '+date(r.created_at)+'</small></span><span class="status '+(r.status==="answered"?"ready":"")+'">'+esc(vinStatusLabel(r.status))+'</span><span class="small muted">'+(r.manager_note?esc(r.manager_note):"")+'</span></div>').join("")+'</div></div>'
+    ?'<div class="panel panel-pad" style="margin-bottom:16px"><div class="panel-title"><div><h3>Подбор по VIN</h3><p>Запросы на точный подбор по автомобилю.</p></div><button class="secondary" data-vin-open>Новый запрос</button></div><div class="vin-list">'+S.vinRequests.map(r=>'<button class="vin-row" style="width:100%;text-align:left" data-vin-id="'+r.id+'"><span><b>'+esc(r.request_text)+'</b><small>'+esc([r.brand,r.model,r.generation,r.year].filter(Boolean).join(" · "))+' · '+date(r.created_at)+'</small></span><span class="status '+(r.status==="answered"?"ready":"")+'">'+esc(vinStatusLabel(r.status))+'</span><span class="small muted">'+(r.manager_note?esc(r.manager_note):"Открыть →")+'</span></button>').join("")+'</div></div>'
     :'';
   const returnsPanel=S.returns.length
-    ?'<div class="panel panel-pad" style="margin-bottom:16px"><div class="panel-title"><div><h3>Возвраты</h3><p>Запросы по уже купленным позициям.</p></div><span class="status neutral">'+S.returns.length+'</span></div><div class="order-list">'+S.returns.map(r=>'<div class="order-row" style="cursor:default"><b>Возврат № '+esc(r.return_number)+'</b><span><b>'+esc(r.brand)+' '+esc(r.article)+'</b><span class="small muted">Заказ № '+esc(r.order_number)+' · '+r.quantity+' шт.</span></span><span class="status '+statusClass(r.status)+'">'+esc(statusLabel(r.status))+'</span><strong>'+rub(Number(r.unit_price||0)*Number(r.quantity||1))+'</strong><span class="small muted">'+date(r.created_at)+(r.manager_note?' · '+esc(r.manager_note):'')+'</span></div>').join("")+'</div></div>'
+    ?'<div class="panel panel-pad" style="margin-bottom:16px"><div class="panel-title"><div><h3>Возвраты</h3><p>Запросы по уже купленным позициям.</p></div><span class="status neutral">'+S.returns.length+'</span></div><div class="order-list">'+S.returns.map(r=>'<button class="order-row" data-return-id="'+r.id+'"><b>Возврат № '+esc(r.return_number)+'</b><span><b>'+esc(r.brand)+' '+esc(r.article)+'</b><span class="small muted">Заказ № '+esc(r.order_number)+' · '+r.quantity+' шт.</span></span><span class="status '+statusClass(r.status)+'">'+esc(statusLabel(r.status))+'</span><strong>'+rub(Number(r.unit_price||0)*Number(r.quantity||1))+'</strong><span class="small muted">'+date(r.created_at)+(r.manager_note?' · '+esc(r.manager_note):' · открыть →')+'</span></button>').join("")+'</div></div>'
     :'';
   root.innerHTML='<div class="orders-toolbar"><span class="muted">'+S.orders.length+' заказов · '+S.quoteRequests.length+' заявок · '+S.vinRequests.length+' VIN-запросов</span><div style="display:flex;gap:8px"><button class="secondary" data-vin-open>Подбор по VIN</button><button class="secondary" data-go="home">Найти деталь</button></div></div>'+
   vinPanel+
@@ -1940,7 +1950,7 @@ function renderQuoteDetail(){
   const total=items.reduce((a,x)=>a+Number(x.quoted_price||0)*Number(x.quantity||1),0);
   const fulfillment=({delivery:"Доставка",pickup:"Самовывоз",confirmation:"Получение согласуем"})[q.fulfillment_method]||"Получение уточняется";
   const cancellable=["new","in_progress"].includes(q.status);
-  root.innerHTML='<div class="order-detail"><div><div class="panel panel-pad"><div class="detail-title"><div><span class="kicker">ЗАЯВКА '+esc(q.id)+'</span><h3>'+(q.status==="new"?"На подтверждении":esc(statusLabel(q.status)))+'</h3><p>Отправлена '+datetime(q.created_at)+'</p></div><span class="status">'+(q.status==="new"?"На подтверждении":esc(statusLabel(q.status)))+'</span></div>'+(q.manager_note?'<div class="notice" style="margin-top:14px"><b>Комментарий ZapFormat:</b> '+esc(q.manager_note)+'</div>':'')+(cancellable?'<div class="form-actions"><button class="danger" data-cancel-quote="'+esc(q.id)+'">Отменить заявку</button><span class="small muted">Доступно до подтверждения.</span></div>':'')+'</div><div class="order-items" style="margin-top:12px">'+(items.length?items.map(x=>'<div class="order-item"><span><b>'+esc(x.brand||"")+' '+esc(x.article)+'</b><span class="offer-desc">'+esc(x.description||"Автозапчасть")+'</span></span><span>'+x.quantity+' шт.</span><strong>'+(x.quoted_price===null?"На проверке":rub(Number(x.quoted_price)*Number(x.quantity)))+'</strong><span class="status">'+(x.needs_confirmation?"Проверяем":"Подтверждено")+'</span></div>').join(""):'<div class="empty">Позиции не найдены.</div>')+'</div></div><aside class="order-side"><div class="panel panel-pad"><div class="panel-title"><div><h3>Предварительно</h3><p>По цене последнего поиска</p></div></div><div style="font-size:32px;font-weight:900">'+rub(total)+'</div><div class="summary-note">Это ещё не заказ. После проверки цены и наличия заявка может перейти в реальный заказ.</div></div><div class="panel panel-pad"><div class="panel-title"><div><h3>Получение</h3><p>'+esc(fulfillment)+'</p></div></div><b>'+esc(q.recipient_name||q.name||S.user?.name||"")+'</b><p class="muted">'+esc(q.recipient_phone||q.phone||S.user?.phone||"")+'</p><div class="summary-note">Оплата: после подтверждения.</div></div></aside></div>';
+  root.innerHTML='<div class="order-detail"><div><div class="panel panel-pad"><div class="detail-title"><div><span class="kicker">ЗАЯВКА '+esc(q.id)+'</span><h3>'+(q.status==="new"?"На подтверждении":esc(statusLabel(q.status)))+'</h3><p>Отправлена '+datetime(q.created_at)+'</p></div><span class="status">'+(q.status==="new"?"На подтверждении":esc(statusLabel(q.status)))+'</span></div>'+(q.manager_note?'<div class="notice" style="margin-top:14px"><b>Комментарий ZapFormat:</b> '+esc(q.manager_note)+'</div>':'')+(cancellable?'<div class="form-actions"><button class="danger" data-cancel-quote="'+esc(q.id)+'">Отменить заявку</button><span class="small muted">Доступно до подтверждения.</span></div>':'')+'</div><div class="order-items" style="margin-top:12px">'+(items.length?items.map(x=>'<div class="order-item"><span><b>'+esc(x.brand||"")+' '+esc(x.article)+'</b><span class="offer-desc">'+esc(x.description||"Автозапчасть")+'</span></span><span>'+x.quantity+' шт.</span><strong>'+(x.quoted_price===null?"На проверке":rub(Number(x.quoted_price)*Number(x.quantity)))+'</strong><span class="status">'+(x.needs_confirmation?"Проверяем":"Подтверждено")+'</span></div>').join(""):'<div class="empty">Позиции не найдены.</div>')+'</div></div><aside class="order-side"><div class="panel panel-pad"><div class="panel-title"><div><h3>Предварительно</h3><p>По цене последнего поиска</p></div></div><div style="font-size:32px;font-weight:900">'+rub(total)+'</div><div class="summary-note">Это ещё не заказ. После проверки цены и наличия заявка может перейти в реальный заказ.</div></div><div class="panel panel-pad"><div class="panel-title"><div><h3>Получение</h3><p>'+esc(fulfillment)+'</p></div></div><b>'+esc(q.recipient_name||q.name||S.user?.name||"")+'</b><p class="muted">'+esc(q.recipient_phone||q.phone||S.user?.phone||"")+'</p><div class="summary-note">Оплата: после подтверждения.</div></div><div class="panel panel-pad"><div class="panel-title"><div><h3>История заявки</h3><p>Что происходило после оформления</p></div></div>'+caseTimelineHtml(d.history,q.status,q.created_at)+'</div></aside></div>';
 }
 async function cancelQuoteRequest(id){
   if(!confirm("Отменить заявку "+id+"?"))return;
@@ -1952,6 +1962,35 @@ async function cancelQuoteRequest(id){
   }catch(err){
     toast(err.status===409?"Заявку уже нельзя отменить":"Не удалось отменить заявку");
   }
+}
+
+async function loadVinRequest(id){
+  const root=$("#orderDetailRoot");
+  root.innerHTML='<div class="state-card" style="margin-top:18px"><div class="spinner"></div></div>';
+  try{
+    S.vinDetail=await api("/api/vin-requests/"+encodeURIComponent(id));
+    renderVinDetail();
+  }catch{
+    root.innerHTML='<div class="notice" style="margin-top:18px">Не удалось открыть запрос по VIN.</div>';
+  }
+}
+function renderVinDetail(){
+  const d=S.vinDetail,r=d.request,root=$("#orderDetailRoot");
+  root.innerHTML='<div class="order-detail"><div><div class="panel panel-pad"><div class="detail-title"><div><span class="kicker">ПОДБОР ПО VIN</span><h3>'+esc(r.request_text)+'</h3><p>'+esc([r.brand,r.model,r.generation,r.year,r.engine].filter(Boolean).join(" · "))+'</p></div><span class="status '+(r.status==="answered"?"ready":"")+'">'+esc(vinStatusLabel(r.status))+'</span></div><div class="info-grid"><div class="info"><span>VIN</span><b>'+esc(r.vin||"—")+'</b></div><div class="info"><span>Создан</span><b>'+date(r.created_at)+'</b></div></div>'+(r.manager_note?'<div class="notice" style="margin-top:14px"><b>Ответ ZapFormat:</b> '+esc(r.manager_note)+'</div>':'')+'</div></div><aside class="order-side"><div class="panel panel-pad"><div class="panel-title"><div><h3>История подбора</h3><p>Все изменения запроса</p></div></div>'+caseTimelineHtml(d.history,r.status,r.created_at)+'</div><div class="panel panel-pad"><h3 style="margin-top:0">Новая деталь?</h3><p class="muted">Для этой же машины создайте отдельный запрос — статусы не смешиваются.</p><button class="secondary" data-vin-open style="width:100%">Новый VIN-запрос</button></div></aside></div>';
+}
+async function loadReturnRequest(id){
+  const root=$("#orderDetailRoot");
+  root.innerHTML='<div class="state-card" style="margin-top:18px"><div class="spinner"></div></div>';
+  try{
+    S.returnDetail=await api("/api/returns/"+encodeURIComponent(id));
+    renderReturnDetail();
+  }catch{
+    root.innerHTML='<div class="notice" style="margin-top:18px">Не удалось открыть возврат.</div>';
+  }
+}
+function renderReturnDetail(){
+  const d=S.returnDetail,r=d.return,root=$("#orderDetailRoot");
+  root.innerHTML='<div class="order-detail"><div><div class="panel panel-pad"><div class="detail-title"><div><span class="kicker">ВОЗВРАТ № '+esc(r.return_number)+'</span><h3>'+esc(r.brand)+' '+esc(r.article)+'</h3><p>Заказ № '+esc(r.order_number)+' · '+Number(r.quantity||1)+' шт.</p></div><span class="status '+statusClass(r.status)+'">'+esc(statusLabel(r.status))+'</span></div><div class="info-grid"><div class="info"><span>Причина</span><b>'+esc(r.reason||"—")+'</b></div><div class="info"><span>Сумма позиции</span><b>'+rub(Number(r.unit_price||0)*Number(r.quantity||1))+'</b></div></div>'+(r.comment?'<div class="notice" style="margin-top:14px"><b>Ваш комментарий:</b> '+esc(r.comment)+'</div>':'')+(r.manager_note?'<div class="notice" style="margin-top:10px"><b>Комментарий ZapFormat:</b> '+esc(r.manager_note)+'</div>':'')+'</div></div><aside class="order-side"><div class="panel panel-pad"><div class="panel-title"><div><h3>История возврата</h3><p>Статусы и комментарии</p></div></div>'+caseTimelineHtml(d.history,r.status,r.created_at)+'</div><div class="panel panel-pad"><h3 style="margin-top:0">Исходный заказ</h3><p class="muted">Откройте заказ, чтобы увидеть все позиции.</p><button class="secondary" data-order-id="'+r.order_id+'" style="width:100%">Заказ № '+esc(r.order_number)+'</button></div></aside></div>';
 }
 
 async function loadOrder(id){
@@ -1995,7 +2034,7 @@ document.addEventListener("click",async e=>{
   let x=e.target.closest("[data-go]");if(x)return go(x.dataset.go);
   x=e.target.closest("[data-smart-query]");if(x)return search(x.dataset.smartQuery);
   x=e.target.closest("[data-recent-search]");if(x)return search(x.dataset.recentSearch);
-  x=e.target.closest("[data-search-saved]");if(x)return search(x.dataset.searchSaved);
+  x=e.target.closest("[data-open-saved-part]");if(x)return openPart(x.dataset.brand,x.dataset.article);
   x=e.target.closest("[data-delete-saved]");if(x)return deleteSavedPart(x.dataset.deleteSaved);
   if(e.target.closest("[data-clear-recent]"))return clearRecentSearches();
   x=e.target.closest("[data-vin-prefill]");if(x)return openVinRequest(x.dataset.vinPrefill||"");
@@ -2079,6 +2118,8 @@ document.addEventListener("click",async e=>{
   if(e.target.closest("[data-reload-garage]"))return loadGarage();
   x=e.target.closest("[data-cancel-quote]");if(x)return cancelQuoteRequest(x.dataset.cancelQuote);
   x=e.target.closest("[data-quote-id]");if(x)return loadQuoteRequest(x.dataset.quoteId);
+  x=e.target.closest("[data-vin-id]");if(x)return loadVinRequest(x.dataset.vinId);
+  x=e.target.closest("[data-return-id]");if(x)return loadReturnRequest(x.dataset.returnId);
   x=e.target.closest("[data-return-item]");if(x)return openReturnDialog(x.dataset.returnItem);
   x=e.target.closest("[data-order-id]");if(x)return loadOrder(x.dataset.orderId);
   if(e.target.closest("[data-repeat-order]")){
