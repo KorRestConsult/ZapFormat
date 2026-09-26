@@ -298,6 +298,21 @@ button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-vis
 .order-item{display:grid;grid-template-columns:minmax(0,1fr) 80px 120px 110px;gap:12px;align-items:center;padding:15px 17px;border-top:1px solid var(--line)}
 .order-item:first-child{border-top:0}
 .order-side .panel+.panel{margin-top:12px}
+.support-layout{display:grid;grid-template-columns:minmax(0,1fr) 360px;gap:18px;align-items:start}
+.support-list{display:grid;gap:9px}
+.support-row{display:grid;grid-template-columns:110px minmax(0,1fr) 130px auto;gap:12px;align-items:center;width:100%;padding:15px 17px;border:1px solid var(--line);background:#fff;border-radius:13px;text-align:left}
+.support-row:hover{border-color:#90aaa1}
+.support-row small{display:block;color:var(--muted);margin-top:3px}
+.support-thread{display:grid;gap:10px}
+.support-message{max-width:min(82%,720px);padding:12px 14px;border-radius:14px;background:#fff;border:1px solid var(--line)}
+.support-message.customer{margin-left:auto;background:#eef5f1;border-color:#d4e4dc}
+.support-message.staff{margin-right:auto}
+.support-message.system{margin:0 auto;background:#f3f4f2;color:var(--muted);font-size:12px}
+.support-message b{display:block;font-size:12px;margin-bottom:4px}
+.support-message p{margin:0;white-space:pre-wrap;overflow-wrap:anywhere}
+.support-message small{display:block;color:var(--muted);margin-top:6px}
+.support-compose{position:sticky;top:92px}
+
 .cart-layout{display:grid;grid-template-columns:minmax(0,1fr) 340px;gap:20px}
 .cart-lines{border:1px solid var(--line);background:#fff;border-radius:16px;overflow:hidden}
 .cart-line{display:grid;grid-template-columns:minmax(0,1fr) auto 125px 34px;align-items:center;gap:16px;padding:17px;border-top:1px solid var(--line)}
@@ -368,8 +383,8 @@ dialog::backdrop{background:rgba(13,41,56,.56);backdrop-filter:blur(5px)}
   .vehicle-grid{grid-template-columns:repeat(2,1fr)}
   .category-grid{grid-template-columns:repeat(2,1fr)}
   .catalog-action-grid{grid-template-columns:repeat(2,1fr)}
-  .dashboard-grid,.vehicle-detail,.order-detail,.checkout-grid,.part-shell{grid-template-columns:1fr}
-  .part-aside{position:static}
+  .dashboard-grid,.vehicle-detail,.order-detail,.checkout-grid,.part-shell,.support-layout{grid-template-columns:1fr}
+  .part-aside,.support-compose{position:static}
   .checkout-summary{position:static}
   .operator-columns{grid-template-columns:1fr 1fr}
   .order-side{display:grid;grid-template-columns:1fr 1fr;gap:12px}.order-side .panel+.panel{margin-top:0}
@@ -430,6 +445,9 @@ dialog::backdrop{background:rgba(13,41,56,.56);backdrop-filter:blur(5px)}
   .action-card{padding:14px}
   .info-grid{grid-template-columns:1fr}
   .order-row{grid-template-columns:1fr auto}.order-row>*:nth-child(3),.order-row>*:nth-child(4){display:none}
+  .support-row{grid-template-columns:1fr auto}
+  .support-row>*:nth-child(3){grid-column:1}
+  .support-message{max-width:94%}
   .order-item{grid-template-columns:1fr auto}.order-item>*:nth-child(2){display:none}.order-item>*:nth-child(3){grid-column:1}
   .cart-line{grid-template-columns:1fr auto}.cart-line>strong{grid-column:1}.cart-line>.remove{grid-column:2;grid-row:1}
   .checkout-step,.checkout-summary{padding:16px}
@@ -554,6 +572,11 @@ dialog::backdrop{background:rgba(13,41,56,.56);backdrop-filter:blur(5px)}
   <div id="ordersBody"></div>
 </section>
 
+<section class="page shell section-page" data-page="support">
+  <div class="section-head"><span class="kicker">ПОМОЩЬ ZAPFORMAT</span><h2>Поддержка</h2><p>Вопросы по заказам, подбору, доставке, возвратам и аккаунту — с историей переписки в кабинете.</p></div>
+  <div id="supportBody"></div>
+</section>
+
 <section class="page shell section-page" data-page="operator">
   <div class="section-head"><span class="kicker">СЛУЖЕБНЫЙ КАБИНЕТ</span><h2>Оператор ZapFormat</h2><p>Заявки покупателей, подбор по VIN и возвраты в одной очереди.</p></div>
   <div id="operatorBody"></div>
@@ -637,7 +660,7 @@ dialog::backdrop{background:rgba(13,41,56,.56);backdrop-filter:blur(5px)}
 
 const API=location.origin;
 const MAX_CART_ITEMS=50;
-const PAGE_NAMES=new Set(["home","catalog","part","catalogs","cart","checkout","account","garage","orders","operator"]);
+const PAGE_NAMES=new Set(["home","catalog","part","catalogs","cart","checkout","account","garage","orders","support","operator"]);
 const S={
   user:null,
   cart:readCart(),
@@ -683,6 +706,9 @@ const S={
   vinDetail:null,
   returnDetail:null,
   orderDetail:null,
+  supportRequests:[],
+  supportDetail:null,
+  supportDraft:null,
   offerSort:"price",
   offerOnlyAvailable:false,
   offerOnlyReturnable:false,
@@ -856,6 +882,7 @@ function go(page,push=true){
   if(page==="account") renderAccount();
   if(page==="garage") loadGarage();
   if(page==="orders") loadOrders();
+  if(page==="support") loadSupport();
   if(page==="operator") loadOperator();
   if(page==="part"&&S.currentPartData) renderPartDetail();
 }
@@ -1768,7 +1795,7 @@ async function renderAccount(){
   }catch{}
   const stats=S.overview?.stats||{active_orders:0,ready_orders:0,vehicles:0,active_returns:0};
   $("#accountPrimary").innerHTML=
-    '<div class="panel panel-pad"><div class="profile-hero"><div class="profile-avatar">'+esc(initials(S.user))+'</div><div><h3>'+esc([S.user.name,S.user.surname].filter(Boolean).join(" "))+'</h3><p>'+esc(S.user.phone||S.user.email||"Контакт не указан")+'</p><span class="small muted">Клиент ZapFormat с '+date(S.user.created_at)+'</span></div></div><div class="stat-grid"><div class="stat"><b>'+stats.active_orders+'</b><span>активных заказов</span></div><div class="stat"><b>'+stats.ready_orders+'</b><span>готовы к выдаче</span></div><div class="stat"><b>'+stats.vehicles+'</b><span>автомобилей</span></div></div><div class="dashboard-actions"><button class="action-card" data-go="garage"><b>Гараж</b><span>Автомобили и обслуживание</span></button><button class="action-card" data-go="orders"><b>Заказы</b><span>История и статусы</span></button><button class="action-card" data-go="cart"><b>Корзина</b><span>'+S.cart.length+' позиций</span></button><button class="action-card" data-vin-open><b>Подбор по VIN</b><span>Запрос эксперту по вашей машине</span></button>'+(["admin","owner"].includes(S.user.role)?'<button class="action-card" data-go="operator"><b>Оператор</b><span>Очередь заявок и возвратов</span></button>':'')+'</div></div>'+
+    '<div class="panel panel-pad"><div class="profile-hero"><div class="profile-avatar">'+esc(initials(S.user))+'</div><div><h3>'+esc([S.user.name,S.user.surname].filter(Boolean).join(" "))+'</h3><p>'+esc(S.user.phone||S.user.email||"Контакт не указан")+'</p><span class="small muted">Клиент ZapFormat с '+date(S.user.created_at)+'</span></div></div><div class="stat-grid"><div class="stat"><b>'+stats.active_orders+'</b><span>активных заказов</span></div><div class="stat"><b>'+stats.ready_orders+'</b><span>готовы к выдаче</span></div><div class="stat"><b>'+stats.vehicles+'</b><span>автомобилей</span></div></div><div class="dashboard-actions"><button class="action-card" data-go="garage"><b>Гараж</b><span>Автомобили и обслуживание</span></button><button class="action-card" data-go="orders"><b>Заказы</b><span>История и статусы</span></button><button class="action-card" data-go="cart"><b>Корзина</b><span>'+S.cart.length+' позиций</span></button><button class="action-card" data-vin-open><b>Подбор по VIN</b><span>Запрос эксперту по вашей машине</span></button><button class="action-card" data-go="support"><b>Поддержка</b><span>Вопросы и переписка с ZapFormat</span></button>'+(["admin","owner"].includes(S.user.role)?'<button class="action-card" data-go="operator"><b>Оператор</b><span>Очередь заявок и возвратов</span></button>':'')+'</div></div>'+
     '<div class="panel panel-pad" style="margin-top:16px"><div class="panel-title"><div><h3>Профиль</h3><p>Эти данные используем для связи и оформления.</p></div></div><form id="profileForm"><div class="form-grid"><div class="field"><label>Имя</label><input name="name" value="'+esc(S.user.name||"")+'" required></div><div class="field"><label>Фамилия</label><input name="surname" value="'+esc(S.user.surname||"")+'"></div><div class="field"><label>Телефон</label><input name="phone" value="'+esc(S.user.phone||"")+'"></div><div class="field"><label>Email</label><input name="email" type="email" value="'+esc(S.user.email||"")+'"></div></div><div class="form-actions"><button class="primary">Сохранить</button><span id="profileStatus" class="small"></span></div></form></div>';
   const n=S.notifications||{order_status:true,item_changes:true,returns:true,marketing:false};
   $("#accountSide").innerHTML=
@@ -2224,7 +2251,7 @@ function renderOrders(){
   const returnsPanel=S.returns.length
     ?'<div class="panel panel-pad" style="margin-bottom:16px"><div class="panel-title"><div><h3>Возвраты</h3><p>Запросы по уже купленным позициям.</p></div><span class="status neutral">'+S.returns.length+'</span></div><div class="order-list">'+S.returns.map(r=>'<button class="order-row" data-return-id="'+r.id+'"><b>Возврат № '+esc(r.return_number)+'</b><span><b>'+esc(r.brand)+' '+esc(r.article)+'</b><span class="small muted">Заказ № '+esc(r.order_number)+' · '+r.quantity+' шт.</span></span><span class="status '+statusClass(r.status)+'">'+esc(statusLabel(r.status))+'</span><strong>'+rub(Number(r.unit_price||0)*Number(r.quantity||1))+'</strong><span class="small muted">'+date(r.created_at)+(r.manager_note?' · '+esc(r.manager_note):' · открыть →')+'</span></button>').join("")+'</div></div>'
     :'';
-  root.innerHTML='<div class="orders-toolbar"><span class="muted">'+S.orders.length+' заказов · '+S.quoteRequests.length+' заявок · '+S.vinRequests.length+' VIN-запросов</span><div style="display:flex;gap:8px;flex-wrap:wrap"><select class="secondary" data-order-filter><option value="all" '+(S.orderFilter==="all"?"selected":"")+'>Все заказы</option><option value="active" '+(S.orderFilter==="active"?"selected":"")+'>В работе</option><option value="ready" '+(S.orderFilter==="ready"?"selected":"")+'>Готовы</option><option value="completed" '+(S.orderFilter==="completed"?"selected":"")+'>Завершены</option><option value="cancelled" '+(S.orderFilter==="cancelled"?"selected":"")+'>Отменены</option></select><button class="secondary" data-vin-open>Подбор по VIN</button><button class="secondary" data-go="home">Найти деталь</button></div></div>'+
+  root.innerHTML='<div class="orders-toolbar"><span class="muted">'+S.orders.length+' заказов · '+S.quoteRequests.length+' заявок · '+S.vinRequests.length+' VIN-запросов</span><div style="display:flex;gap:8px;flex-wrap:wrap"><select class="secondary" data-order-filter><option value="all" '+(S.orderFilter==="all"?"selected":"")+'>Все заказы</option><option value="active" '+(S.orderFilter==="active"?"selected":"")+'>В работе</option><option value="ready" '+(S.orderFilter==="ready"?"selected":"")+'>Готовы</option><option value="completed" '+(S.orderFilter==="completed"?"selected":"")+'>Завершены</option><option value="cancelled" '+(S.orderFilter==="cancelled"?"selected":"")+'>Отменены</option></select><button class="secondary" data-vin-open>Подбор по VIN</button><button class="secondary" data-go="support">Поддержка</button><button class="secondary" data-go="home">Найти деталь</button></div></div>'+
   vinPanel+
   pending+
   returnsPanel+
