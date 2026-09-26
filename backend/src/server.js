@@ -748,11 +748,11 @@ function summarizePublicOffers(offers = []) {
     const stockScore = Math.min(1, Number(offer.availability || 0) / 10);
 
     const score =
-      priceScore * 0.40 +
-      deliveryScore * 0.28 +
-      probability * 0.14 +
+      priceScore * 0.34 +
+      deliveryScore * 0.36 +
+      probability * 0.15 +
       returnScore * 0.10 +
-      stockScore * 0.08;
+      stockScore * 0.05;
 
     if (!best || score > best.score) best = { score, offer_ref: offer.offer_ref };
   }
