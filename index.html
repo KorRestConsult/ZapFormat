@@ -385,7 +385,9 @@ dialog::backdrop{background:rgba(13,41,56,.56);backdrop-filter:blur(5px)}
   .category-grid{grid-template-columns:repeat(2,1fr)}
   .catalog-action-grid{grid-template-columns:repeat(2,1fr)}
   .mobile-nav{position:fixed;z-index:55;left:0;right:0;bottom:0;display:grid;grid-template-columns:repeat(4,1fr);background:#fff;border-top:1px solid var(--line);padding:7px max(8px,env(safe-area-inset-right)) calc(7px + env(safe-area-inset-bottom)) max(8px,env(safe-area-inset-left))}
-  .mobile-nav button{border:0;background:none;padding:7px 2px;font-size:11px;font-weight:700}
+  .mobile-nav button{border:0;background:none;padding:5px 2px;font-size:10px;font-weight:750;display:grid;justify-items:center;gap:2px;color:var(--muted)}
+  .mobile-nav button.active{color:var(--green)}
+  .mobile-nav-icon{font-size:19px;line-height:1;font-weight:500}
 }
 @media(max-width:600px){
   .shell{width:min(100% - 22px,1240px)}
@@ -540,11 +542,11 @@ dialog::backdrop{background:rgba(13,41,56,.56);backdrop-filter:blur(5px)}
 </main>
 
 <nav class="mobile-nav" style="grid-template-columns:repeat(5,1fr)">
-  <button data-go="home">Поиск</button>
-  <button data-go="catalogs">Каталог</button>
-  <button data-go="garage">Гараж</button>
-  <button data-go="orders">Заказы</button>
-  <button data-go="cart">Корзина <b id="mobileCartBadge">0</b></button>
+  <button data-go="home"><span class="mobile-nav-icon">⌕</span><span>Поиск</span></button>
+  <button data-go="catalogs"><span class="mobile-nav-icon">▦</span><span>Каталог</span></button>
+  <button data-go="garage"><span class="mobile-nav-icon">◇</span><span>Гараж</span></button>
+  <button data-go="orders"><span class="mobile-nav-icon">≡</span><span>Заказы</span></button>
+  <button data-go="account"><span class="mobile-nav-icon">○</span><span>Кабинет</span></button>
 </nav>
 
 <dialog id="authDialog">
@@ -838,7 +840,7 @@ window.onpopstate=route;
 function badges(){
   const n=S.cart.reduce((a,x)=>a+Number(x.qty||0),0);
   $("#cartBadge").textContent=n;
-  $("#mobileCartBadge").textContent=n;
+  const mobileBadge=$("#mobileCartBadge");if(mobileBadge)mobileBadge.textContent=n;
 }
 function updateHeader(){
   const chip=$("#userChipText"),av=$("#userChip .avatar"),op=$("#operatorNav");
