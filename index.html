@@ -390,6 +390,7 @@ const S={
   cartServerWarning:"",
   vehicles:[],
   vehicleDetail:null,
+  activeVehicle:null,
   orders:[],
   quoteRequests:[],
   quoteDetail:null,
@@ -869,7 +870,7 @@ async function loadGarage(){
 function renderGarage(){
   const root=$("#garageBody");
   root.innerHTML='<div class="garage-toolbar"><span class="muted">'+S.vehicles.length+' авто</span><button class="primary" data-add-vehicle>+ Добавить автомобиль</button></div>'+
-  (S.vehicles.length?'<div class="vehicle-grid">'+S.vehicles.map(v=>'<button class="vehicle-card" data-vehicle-id="'+v.id+'"><span class="car-mark">'+esc(String(v.brand||"?").slice(0,2).toUpperCase())+'</span><h3>'+esc(v.brand)+' '+esc(v.model)+'</h3><p>'+esc([v.generation,v.year,v.engine].filter(Boolean).join(" · ")||"Данные автомобиля")+'</p><footer><span>'+esc(v.vin||"VIN не указан")+'</span><span>'+(v.current_mileage?new Intl.NumberFormat("ru-RU").format(v.current_mileage)+" км":"Пробег —")+'</span></footer></button>').join("")+'</div>':'<div class="empty"><div><b>Гараж пока пуст</b><p>Добавьте автомобиль — VIN и пробег будут доступны в одном месте.</p><button class="primary" data-add-vehicle>Добавить автомобиль</button></div></div>')+
+  (S.vehicles.length?'<div class="vehicle-grid">'+S.vehicles.map(v=>'<button class="vehicle-card" data-vehicle-id="'+v.id+'"><span style="display:flex;justify-content:space-between;align-items:start"><span class="car-mark">'+esc(String(v.brand||"?").slice(0,2).toUpperCase())+'</span>'+(v.is_default?'<span class="status">Основной</span>':'')+'</span><h3>'+esc(v.brand)+' '+esc(v.model)+'</h3><p>'+esc([v.generation,v.year,v.engine].filter(Boolean).join(" · ")||"Данные автомобиля")+'</p><footer><span>'+esc(v.vin||"VIN не указан")+'</span><span>'+(v.current_mileage?new Intl.NumberFormat("ru-RU").format(v.current_mileage)+" км":"Пробег —")+'</span></footer></button>').join("")+'</div>':'<div class="empty"><div><b>Гараж пока пуст</b><p>Добавьте автомобиль — VIN и пробег будут доступны в одном месте.</p><button class="primary" data-add-vehicle>Добавить автомобиль</button></div></div>')+
   '<div id="vehicleDetailRoot"></div>';
 }
 function openVehicleDialog(v=null){
@@ -902,15 +903,20 @@ async function loadVehicle(id){
 }
 function renderVehicleDetail(){
   const d=S.vehicleDetail,v=d.vehicle,root=$("#vehicleDetailRoot");
-  const maintenance=d.maintenance||[],measurements=d.measurements||[],history=d.history||[];
-  root.innerHTML='<div class="vehicle-detail"><div class="panel panel-pad"><div class="detail-title"><div><h3>'+esc(v.brand)+' '+esc(v.model)+'</h3><p>'+esc([v.generation,v.year,v.engine].filter(Boolean).join(" · "))+'</p></div><div><button class="secondary" data-edit-current-vehicle>Изменить</button></div></div><div class="info-grid"><div class="info"><span>VIN</span><b>'+esc(v.vin||"Не указан")+'</b></div><div class="info"><span>Пробег</span><b>'+(v.current_mileage?new Intl.NumberFormat("ru-RU").format(v.current_mileage)+" км":"Не указан")+'</b></div><div class="info"><span>Госномер</span><b>'+esc(v.plate_number||"Не указан")+'</b></div><div class="info"><span>Обновлено</span><b>'+date(v.updated_at||v.created_at)+'</b></div></div><div class="dashboard-actions"><button class="action-card" data-search-vin><b>Найти детали</b><span>Перейти к поиску с контекстом авто</span></button><button class="action-card" data-edit-mileage><b>Пробег</b><span>Обновить текущее значение</span></button><button class="action-card" data-delete-vehicle><b>Удалить</b><span>Убрать автомобиль из гаража</span></button></div><div class="mini-form"><h4>Замер</h4><form id="measurementForm"><div class="form-grid"><div class="field"><label>Что измерили</label><input name="measurement_type" placeholder="Передние колодки" required></div><div class="field"><label>Значение</label><input name="value" placeholder="6" required></div><div class="field"><label>Единица</label><input name="unit" placeholder="мм"></div><div class="field"><label>Комментарий</label><input name="note" placeholder="Левая / правая"></div></div><div class="form-actions"><button class="secondary">Добавить замер</button></div></form></div><div class="mini-form"><h4>Работа / обслуживание</h4><form id="maintenanceForm"><div class="form-grid"><div class="field full"><label>Работа</label><input name="title" placeholder="Замена масла и фильтра" required></div><div class="field"><label>Пробег</label><input name="mileage" type="number" min="0"></div><div class="field"><label>Дата</label><input name="service_date" type="date"></div><div class="field full"><label>Комментарий</label><input name="note" placeholder="Что было сделано"></div></div><div class="form-actions"><button class="secondary">Добавить запись</button></div></form></div></div><aside><div class="panel panel-pad"><div class="panel-title"><div><h3>Контроль</h3><p>Планы обслуживания</p></div></div>'+(maintenance.length?'<div class="timeline-list">'+maintenance.map(x=>'<div class="timeline-row"><span class="dot"></span><p><b>'+esc(x.title)+'</b><small>'+([x.next_service_mileage?new Intl.NumberFormat("ru-RU").format(x.next_service_mileage)+" км":null,x.next_service_at?date(x.next_service_at):null].filter(Boolean).join(" · ")||"Без срока")+'</small></p><button class="ghost-btn small" data-delete-plan="'+x.id+'" title="Удалить контроль">×</button></div>').join("")+'</div>':'<p class="muted">Планы обслуживания пока не добавлены.</p>')+'</div><div class="panel panel-pad" style="margin-top:14px"><div class="panel-title"><div><h3>Последние замеры</h3><p>Фактические значения</p></div></div>'+(measurements.length?'<div class="measurements">'+measurements.slice(0,8).map(x=>'<div class="measurement"><span><b>'+esc(x.measurement_type)+'</b><span class="small muted">'+datetime(x.measured_at)+'</span></span><strong>'+esc(x.value??x.value_text??"")+' '+esc(x.unit||"")+'</strong></div>').join("")+'</div>':'<p class="muted">Замеров пока нет.</p>')+'</div><div class="panel panel-pad" style="margin-top:14px"><div class="panel-title"><div><h3>История</h3><p>Что уже делали</p></div></div>'+(history.length?'<div class="timeline-list">'+history.slice(0,8).map(x=>'<div class="timeline-row"><span class="dot"></span><p><b>'+esc(x.title)+'</b><small>'+date(x.service_date)+(x.mileage?" · "+new Intl.NumberFormat("ru-RU").format(x.mileage)+" км":"")+'</small></p></div>').join("")+'</div>':'<p class="muted">История обслуживания пока пуста.</p>')+'</div></aside></div>';
+  const maintenance=d.maintenance||[],measurements=d.measurements||[],history=d.history||[],reminders=d.reminders||[];
+  root.innerHTML='<div class="vehicle-detail"><div class="panel panel-pad"><div class="detail-title"><div><h3>'+esc(v.brand)+' '+esc(v.model)+'</h3><p>'+esc([v.generation,v.year,v.engine].filter(Boolean).join(" · "))+'</p></div><div style="display:flex;gap:7px;flex-wrap:wrap">'+(v.is_default?'':'<button class="secondary" data-set-default-vehicle>Сделать основным</button>')+'<button class="secondary" data-edit-current-vehicle>Изменить</button></div></div><div class="info-grid"><div class="info"><span>VIN</span><b>'+esc(v.vin||"Не указан")+'</b></div><div class="info"><span>Пробег</span><b>'+(v.current_mileage?new Intl.NumberFormat("ru-RU").format(v.current_mileage)+" км":"Не указан")+'</b></div><div class="info"><span>Госномер</span><b>'+esc(v.plate_number||"Не указан")+'</b></div><div class="info"><span>Обновлено</span><b>'+date(v.updated_at||v.created_at)+'</b></div></div><div class="dashboard-actions"><button class="action-card" data-search-for-vehicle><b>Найти детали</b><span>Выбрать автомобиль и перейти к поиску артикула</span></button><button class="action-card" data-edit-mileage><b>Пробег</b><span>Обновить текущее значение</span></button><button class="action-card" data-delete-vehicle><b>Удалить</b><span>Убрать автомобиль из гаража</span></button></div><div class="mini-form"><h4>Замер</h4><form id="measurementForm"><div class="form-grid"><div class="field"><label>Что измерили</label><input name="measurement_type" placeholder="Передние колодки" required></div><div class="field"><label>Значение</label><input name="value" placeholder="6" required></div><div class="field"><label>Единица</label><input name="unit" placeholder="мм"></div><div class="field"><label>Комментарий</label><input name="note" placeholder="Левая / правая"></div></div><div class="form-actions"><button class="secondary">Добавить замер</button></div></form></div><div class="mini-form"><h4>Работа / обслуживание</h4><form id="maintenanceForm"><div class="form-grid"><div class="field full"><label>Работа</label><input name="title" placeholder="Замена масла и фильтра" required></div><div class="field"><label>Пробег</label><input name="mileage" type="number" min="0"></div><div class="field"><label>Дата</label><input name="service_date" type="date"></div><div class="field full"><label>Комментарий</label><input name="note" placeholder="Что было сделано"></div></div><div class="form-actions"><button class="secondary">Добавить запись</button></div></form></div></div><aside><div class="panel panel-pad"><div class="panel-title"><div><h3>Контроль</h3><p>Планы обслуживания</p></div></div>'+(maintenance.length?'<div class="timeline-list">'+maintenance.map(x=>'<div class="timeline-row"><span class="dot"></span><p><b>'+esc(x.title)+'</b><small>'+([x.next_service_mileage?new Intl.NumberFormat("ru-RU").format(x.next_service_mileage)+" км":null,x.next_service_at?date(x.next_service_at):null].filter(Boolean).join(" · ")||"Без срока")+'</small></p><button class="ghost-btn small" data-delete-plan="'+x.id+'" title="Удалить контроль">×</button></div>').join("")+'</div>':'<p class="muted">Планы обслуживания пока не добавлены.</p>')+'</div><div class="panel panel-pad" style="margin-top:14px"><div class="panel-title"><div><h3>Последние замеры</h3><p>Фактические значения</p></div></div>'+(measurements.length?'<div class="measurements">'+measurements.slice(0,8).map(x=>'<div class="measurement"><span><b>'+esc(x.measurement_type)+'</b><span class="small muted">'+datetime(x.measured_at)+'</span></span><strong>'+esc(x.value??x.value_text??"")+' '+esc(x.unit||"")+'</strong></div>').join("")+'</div>':'<p class="muted">Замеров пока нет.</p>')+'</div><div class="panel panel-pad" style="margin-top:14px"><div class="panel-title"><div><h3>История</h3><p>Что уже делали</p></div></div>'+(history.length?'<div class="timeline-list">'+history.slice(0,8).map(x=>'<div class="timeline-row"><span class="dot"></span><p><b>'+esc(x.title)+'</b><small>'+date(x.service_date)+(x.mileage?" · "+new Intl.NumberFormat("ru-RU").format(x.mileage)+" км":"")+'</small></p></div>').join("")+'</div>':'<p class="muted">История обслуживания пока пуста.</p>')+'</div></aside></div>';
   const controlPanel=root.querySelector("aside .panel");
   if(controlPanel){
     controlPanel.insertAdjacentHTML("beforeend",'<div class="mini-form"><h4>Добавить контроль</h4><form id="planForm"><div class="form-grid"><div class="field full"><label>Что контролируем</label><input name="title" placeholder="Масло двигателя + фильтр" required></div><div class="field"><label>Следующий пробег</label><input name="next_service_mileage" type="number" min="0" placeholder="190000"></div><div class="field"><label>Дата</label><input name="next_service_at" type="date"></div><div class="field"><label>Интервал, км</label><input name="interval_km" type="number" min="1" placeholder="10000"></div><div class="field"><label>Интервал, мес.</label><input name="interval_months" type="number" min="1" placeholder="12"></div></div><div class="form-actions"><button class="secondary">Добавить контроль</button></div></form></div>');
   }
+  const aside=root.querySelector("aside");
+  if(aside){
+    aside.insertAdjacentHTML("afterbegin",'<div class="panel panel-pad"><div class="panel-title"><div><h3>Напоминания</h3><p>Конкретные задачи по машине</p></div><span class="status neutral">'+reminders.filter(x=>!x.is_done).length+'</span></div>'+(reminders.length?'<div class="timeline-list">'+reminders.map(r=>'<div class="timeline-row"><span class="dot" style="'+(r.is_done?'opacity:.25':'')+'"></span><p style="'+(r.is_done?'opacity:.55':'')+'"><b>'+esc(r.title)+'</b><small>'+([r.due_mileage?new Intl.NumberFormat("ru-RU").format(r.due_mileage)+" км":null,r.due_at?date(r.due_at):null].filter(Boolean).join(" · ")||"Без срока")+'</small></p><span style="display:flex;gap:4px"><button class="ghost-btn small" data-toggle-reminder="'+r.id+'" data-done="'+(r.is_done?'1':'0')+'">'+(r.is_done?'Вернуть':'Готово')+'</button><button class="ghost-btn small" data-delete-reminder="'+r.id+'">×</button></span></div>').join("")+'</div>':'<p class="muted">Напоминаний пока нет.</p>')+'<div class="mini-form"><form id="reminderForm"><div class="form-grid"><div class="field full"><label>Напомнить</label><input name="title" placeholder="Проверить тормозные колодки" required></div><div class="field"><label>На пробеге</label><input name="due_mileage" type="number" min="0"></div><div class="field"><label>К дате</label><input name="due_at" type="date"></div></div><div class="form-actions"><button class="secondary">Добавить напоминание</button></div></form></div></div>');
+  }
   $("#measurementForm")?.addEventListener("submit",saveMeasurement);
   $("#maintenanceForm")?.addEventListener("submit",saveMaintenance);
   $("#planForm")?.addEventListener("submit",savePlan);
+  $("#reminderForm")?.addEventListener("submit",saveReminder);
 }
 async function saveMeasurement(e){
   e.preventDefault();const v=S.vehicleDetail?.vehicle;if(!v)return;
@@ -935,6 +941,37 @@ async function savePlan(e){
     })});
     toast("Контроль добавлен");await loadVehicle(v.id);
   }catch{toast("Не удалось добавить контроль")}
+}
+async function saveReminder(e){
+  e.preventDefault();const v=S.vehicleDetail?.vehicle;if(!v)return;
+  const f=new FormData(e.currentTarget);
+  try{
+    await api("/api/garage/vehicles/"+v.id+"/reminders",{method:"POST",body:JSON.stringify({
+      title:f.get("title"),due_mileage:f.get("due_mileage")||null,due_at:f.get("due_at")||null,reminder_type:"service"
+    })});
+    toast("Напоминание добавлено");await loadVehicle(v.id);
+  }catch{toast("Не удалось добавить напоминание")}
+}
+async function setDefaultVehicle(){
+  const v=S.vehicleDetail?.vehicle;if(!v)return;
+  try{
+    await api("/api/garage/vehicles/"+v.id+"/default",{method:"PATCH",body:"{}"});
+    toast("Основной автомобиль изменён");await loadGarage();await loadVehicle(v.id);
+  }catch{toast("Не удалось изменить основной автомобиль")}
+}
+async function toggleReminder(id,done){
+  const v=S.vehicleDetail?.vehicle;if(!v)return;
+  try{
+    await api("/api/garage/vehicles/"+v.id+"/reminders/"+id,{method:"PATCH",body:JSON.stringify({is_done:!done})});
+    await loadVehicle(v.id);
+  }catch{toast("Не удалось изменить напоминание")}
+}
+async function deleteReminder(id){
+  const v=S.vehicleDetail?.vehicle;if(!v)return;
+  try{
+    await api("/api/garage/vehicles/"+v.id+"/reminders/"+id,{method:"DELETE"});
+    toast("Напоминание удалено");await loadVehicle(v.id);
+  }catch{toast("Не удалось удалить напоминание")}
 }
 async function updateMileage(){
   const v=S.vehicleDetail?.vehicle;if(!v)return;
@@ -1070,7 +1107,15 @@ document.addEventListener("click",async e=>{
     if(!confirm("Удалить этот контроль?"))return;
     try{await api("/api/garage/vehicles/"+v.id+"/plans/"+x.dataset.deletePlan,{method:"DELETE"});toast("Контроль удалён");return loadVehicle(v.id)}catch{toast("Не удалось удалить контроль");return}
   }
-  if(e.target.closest("[data-search-vin]")){const v=S.vehicleDetail?.vehicle;go("home");const input=$('[data-search-form] input');if(input){input.value=v?.vin||"";input.focus()}return}
+  if(e.target.closest("[data-set-default-vehicle]"))return setDefaultVehicle();
+  x=e.target.closest("[data-toggle-reminder]");if(x)return toggleReminder(x.dataset.toggleReminder,x.dataset.done==="1");
+  x=e.target.closest("[data-delete-reminder]");if(x)return deleteReminder(x.dataset.deleteReminder);
+  if(e.target.closest("[data-search-for-vehicle]")){
+    S.activeVehicle=S.vehicleDetail?.vehicle||null;go("home");
+    const input=$('[data-search-form] input');if(input)input.focus();
+    if(S.activeVehicle)toast("Выбран "+S.activeVehicle.brand+" "+S.activeVehicle.model+". Введите артикул.");
+    return;
+  }
   if(e.target.closest("[data-reload-garage]"))return loadGarage();
   x=e.target.closest("[data-quote-id]");if(x)return loadQuoteRequest(x.dataset.quoteId);
   x=e.target.closest("[data-return-item]");if(x)return openReturnDialog(x.dataset.returnItem);
