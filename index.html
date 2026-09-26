@@ -41,6 +41,8 @@ button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-vis
 .header-vehicle small{color:var(--muted);font-size:10px}
 .header-actions{margin-left:auto;display:flex;align-items:center;gap:8px}
 .user-chip{display:flex;align-items:center;gap:9px;border:0;background:#fff;padding:7px 11px 7px 7px;border-radius:12px;box-shadow:inset 0 0 0 1px var(--line)}
+.account-badge{display:inline-grid;place-items:center;min-width:19px;height:19px;padding:0 5px;border-radius:99px;background:var(--lime);color:var(--ink);font-size:10px;font-weight:900}
+.account-badge[hidden]{display:none}
 .header-expert{border:0;background:var(--soft);color:var(--green2);padding:10px 12px;border-radius:10px;font-weight:800}
 .avatar{display:grid;place-items:center;width:31px;height:31px;border-radius:9px;background:var(--ink);color:#fff;font-weight:900;font-size:12px}
 .cart-btn,.primary,.search button,.cta,.small-primary{border:0;background:var(--ink);color:#fff;border-radius:11px;font-weight:800}
@@ -438,7 +440,7 @@ dialog::backdrop{background:rgba(13,41,56,.56);backdrop-filter:blur(5px)}
     <div class="header-actions">
       <button class="header-vehicle" data-go="garage" id="headerVehicle" hidden><span class="car-dot" id="headerVehicleMark">A</span><span><b id="headerVehicleName">Автомобиль</b><small id="headerVehicleMeta">Гараж</small></span></button>
       <button class="header-expert" data-vin-open>Подбор по VIN</button>
-      <button class="user-chip" data-go="account" id="userChip"><span class="avatar">Я</span><span id="userChipText">Войти</span></button>
+      <button class="user-chip" data-go="account" id="userChip"><span class="avatar">Я</span><span id="userChipText">Войти</span><b class="account-badge" id="accountBadge" hidden>0</b></button>
       <button class="cart-btn" data-go="cart">Корзина <b id="cartBadge">0</b></button>
     </div>
   </div>
@@ -546,7 +548,7 @@ dialog::backdrop{background:rgba(13,41,56,.56);backdrop-filter:blur(5px)}
   <button data-go="catalogs"><span class="mobile-nav-icon">▦</span><span>Каталог</span></button>
   <button data-go="garage"><span class="mobile-nav-icon">◇</span><span>Гараж</span></button>
   <button data-go="orders"><span class="mobile-nav-icon">≡</span><span>Заказы</span></button>
-  <button data-go="account"><span class="mobile-nav-icon">○</span><span>Кабинет</span></button>
+  <button data-go="account"><span class="mobile-nav-icon">○</span><span>Кабинет</span><b class="account-badge" id="mobileAccountBadge" hidden>0</b></button>
 </nav>
 
 <dialog id="authDialog">
@@ -845,11 +847,20 @@ function badges(){
   $("#cartBadge").textContent=n;
   const mobileBadge=$("#mobileCartBadge");if(mobileBadge)mobileBadge.textContent=n;
 }
+function accountBadges(){
+  const n=Math.max(0,Number(S.notificationUnread||0));
+  for(const el of [$("#accountBadge"),$("#mobileAccountBadge")]){
+    if(!el)continue;
+    el.textContent=n>99?"99+":String(n);
+    el.hidden=!n;
+  }
+}
 function updateHeader(){
   const chip=$("#userChipText"),av=$("#userChip .avatar"),op=$("#operatorNav");
   chip.textContent=S.user?S.user.name:"Войти";
   av.textContent=initials(S.user);
   if(op)op.hidden=!["admin","owner"].includes(S.user?.role);
+  accountBadges();
 }
 function requireAuth(){
   if(S.user)return true;
@@ -1459,12 +1470,16 @@ async function hydrate(){
       S.activeVehicle=S.vehicles.find(v=>v.is_default)||S.vehicles[0]||null;
     }catch{}
     try{
-      const [saved,recent]=await Promise.all([
+      const [saved,recent,feed]=await Promise.all([
         api("/api/account/saved-parts").catch(()=>({parts:[]})),
-        api("/api/account/recent-searches").catch(()=>({searches:[]}))
+        api("/api/account/recent-searches").catch(()=>({searches:[]})),
+        api("/api/account/notifications/feed").catch(()=>({notifications:[],unread:0}))
       ]);
       S.savedParts=saved.parts||[];
       S.recentSearches=recent.searches||[];
+      S.notificationFeed=feed.notifications||[];
+      S.notificationUnread=Number(feed.unread||0);
+      accountBadges();
     }catch{}
     await mergeServerCart();
   }
@@ -1530,7 +1545,7 @@ async function renderAccount(){
       api("/api/account/recent-searches").catch(()=>({searches:[]})),
       api("/api/account/sessions").catch(()=>({sessions:[]}))
     ]);
-    S.overview=overview;S.notifications=notif.settings;S.notificationFeed=feed.notifications||[];S.notificationUnread=Number(feed.unread||0);S.addresses=addresses.addresses||[];S.savedParts=saved.parts||[];S.recentSearches=recent.searches||[];S.sessions=sessions.sessions||[];
+    S.overview=overview;S.notifications=notif.settings;S.notificationFeed=feed.notifications||[];S.notificationUnread=Number(feed.unread||0);S.addresses=addresses.addresses||[];S.savedParts=saved.parts||[];S.recentSearches=recent.searches||[];S.sessions=sessions.sessions||[];accountBadges();
   }catch{}
   const stats=S.overview?.stats||{active_orders:0,ready_orders:0,vehicles:0,active_returns:0};
   $("#accountPrimary").innerHTML=
@@ -1568,6 +1583,7 @@ async function readNotification(id){
     await api("/api/account/notifications/"+encodeURIComponent(id)+"/read",{method:"PATCH"});
     const n=S.notificationFeed.find(x=>x.id===id);if(n)n.read_at=new Date().toISOString();
     S.notificationUnread=Math.max(0,S.notificationUnread-1);
+    accountBadges();
     renderAccount();
   }catch{toast("Не удалось отметить уведомление")}
 }
@@ -1579,6 +1595,7 @@ async function openNotification(id){
       await api("/api/account/notifications/"+encodeURIComponent(id)+"/read",{method:"PATCH"});
       n.read_at=new Date().toISOString();
       S.notificationUnread=Math.max(0,S.notificationUnread-1);
+      accountBadges();
     }catch{}
   }
   const type=String(n.type||"");
@@ -1589,7 +1606,7 @@ async function readAllNotifications(){
   try{
     await api("/api/account/notifications/read-all",{method:"POST"});
     S.notificationFeed.forEach(n=>{if(!n.read_at)n.read_at=new Date().toISOString()});
-    S.notificationUnread=0;renderAccount();
+    S.notificationUnread=0;accountBadges();renderAccount();
   }catch{toast("Не удалось обновить уведомления")}
 }
 
