@@ -35,7 +35,7 @@ function looksLikeArticle(value) {
 function safeVehicleContext(vehicle) {
   if (!vehicle || typeof vehicle !== "object") return null;
   const clean = {};
-  for (const key of ["brand", "model", "generation", "year", "engine"]) {
+  for (const key of ["brand", "model", "generation", "year", "engine", "transmission", "body_type"]) {
     const value = vehicle[key];
     if (value === undefined || value === null || value === "") continue;
     clean[key] = String(value).trim().slice(0, 120);
