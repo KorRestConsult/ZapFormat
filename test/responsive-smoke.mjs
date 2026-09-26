@@ -277,6 +277,11 @@ try {
         returns: { created: 1, in_progress: 0, approved: 0 },
         orders: { active: 3, ready: 1 }
       };
+      S.operatorPickupPoints = [{
+        id: "pp1", code: "P-TEST0001", city: "Рязань",
+        name: "ZapFormat · тестовая геометрия", address: "Очень длинное название улицы для проверки адаптивности, дом 123",
+        is_active: true, created_at: "2026-09-26T12:00:00Z"
+      }];
       S.operatorQueue = {
         quotes: [{
           id: "Q-20260926-ABCDEF", status: "new", fulfillment_method: "delivery",
