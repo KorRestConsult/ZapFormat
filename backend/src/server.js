@@ -86,6 +86,7 @@ function requireInternal(req, res, next) {
 app.use("/api/auth", requireDatabase);
 app.use("/api/account", requireDatabase);
 app.use("/api/garage", requireDatabase);
+app.use("/api/cart", requireDatabase);
 app.use("/api/orders", requireDatabase);
 app.use("/api/returns", requireDatabase);
 
@@ -211,30 +212,57 @@ app.post("/api/quote-requests", quoteLimiter, async (req, res, next) => {
   try {
     const name = String(req.body?.name || "").trim().slice(0, 120);
     const phone = normalizePhone(req.body?.phone);
-    const rawItems = Array.isArray(req.body?.items) ? req.body.items : [];
+    const rawItems = Array.isArray(req.body?.items) ? req.body.items.slice(0, 50) : [];
 
     if (!phone || phone.replace(/\D/g, "").length < 10) {
       return res.status(400).json({ error: "phone_required" });
     }
-    if (!rawItems.length || rawItems.length > 50) {
-      return res.status(400).json({ error: "items_required" });
+    if (!rawItems.length) return res.status(400).json({ error: "items_required" });
+
+    const verified = await resolveRequestedOffers(
+      rawItems.map((item, index) => ({
+        client_id: String(item?.client_id || index),
+        brand: item?.brand,
+        article: item?.article,
+        offer_ref: item?.offer_ref,
+        quantity: item?.quantity
+      }))
+    );
+
+    const unavailable = verified.filter((item) =>
+      !item.found || Number(item.availability || 0) < Number(item.quantity || 1)
+    );
+    if (unavailable.length) {
+      return res.status(409).json({
+        error: "cart_changed",
+        unavailable: unavailable.map((item) => ({
+          client_id: item.client_id,
+          found: item.found,
+          availability: Number(item.availability || 0)
+        }))
+      });
     }
 
-    const items = rawItems.map((item) => ({
-      brand: String(item?.brand || "").trim().slice(0, 80),
-      article: String(item?.article || "").trim().slice(0, 120),
-      description: String(item?.description || "").trim().slice(0, 300),
-      quantity: Math.max(1, Math.min(999, Number(item?.quantity || 1))),
-      comment: String(item?.comment || "").trim().slice(0, 500),
-      quoted_price: Number.isFinite(Number(item?.quoted_price))
-        ? Math.max(0, Math.round(Number(item.quoted_price) * 100) / 100)
-        : null,
-      needs_confirmation: Boolean(item?.needs_confirmation)
-    })).filter((item) => item.article);
-
-    if (!items.length) {
-      return res.status(400).json({ error: "items_required" });
-    }
+    const rawById = new Map(
+      rawItems.map((item, index) => [String(item?.client_id || index), item])
+    );
+    const items = verified.map((offer) => {
+      const raw = rawById.get(offer.client_id) || {};
+      return {
+        client_id: offer.client_id,
+        brand: offer.brand,
+        article: offer.article,
+        description: String(raw.description || offer.description || "").trim().slice(0, 300) || null,
+        quantity: offer.quantity,
+        comment: String(raw.comment || "").trim().slice(0, 500) || null,
+        quoted_price: offer.price,
+        offer_ref: offer.offer_ref,
+        returnable: offer.returnable,
+        delivery_hours: offer.delivery_hours,
+        availability: offer.availability,
+        needs_confirmation: false
+      };
+    });
 
     const now = new Date();
     const requestId =
@@ -267,17 +295,24 @@ app.post("/api/quote-requests", quoteLimiter, async (req, res, next) => {
         for (const item of items) {
           await client.query(
             `INSERT INTO quote_request_items
-              (request_id, brand, article, description, quantity, comment, quoted_price, needs_confirmation)
-             VALUES ($1,$2,$3,$4,$5,$6,$7,$8)`,
+              (request_id, brand, article, description, quantity, comment,
+               quoted_price, needs_confirmation, offer_ref, returnable,
+               delivery_hours, availability, price_checked_at)
+             VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)`,
             [
               requestId,
               item.brand || null,
               item.article,
-              item.description || null,
+              item.description,
               item.quantity,
-              item.comment || null,
+              item.comment,
               item.quoted_price,
-              item.needs_confirmation
+              item.needs_confirmation,
+              item.offer_ref,
+              item.returnable,
+              item.delivery_hours,
+              item.availability,
+              now
             ]
           );
         }
@@ -298,7 +333,8 @@ app.post("/api/quote-requests", quoteLimiter, async (req, res, next) => {
       ok: true,
       request_id: requestId,
       status: "received",
-      items: items.length
+      items: items.length,
+      checked_at: now.toISOString()
     });
   } catch (error) {
     next(error);
@@ -515,6 +551,58 @@ async function supplierRowsForOffer(number, brand) {
   }
 }
 
+async function resolveRequestedOffers(requested = []) {
+  const groups = new Map();
+  const normalized = [];
+
+  for (const [index, item] of requested.entries()) {
+    const article = String(item?.article || "").trim();
+    const brand = String(item?.brand || "").trim();
+    const offerRef = String(item?.offer_ref || "").trim();
+    const clientId = String(item?.client_id || index).slice(0, 160);
+    const quantity = Math.max(1, Math.min(999, Number(item?.quantity || 1)));
+
+    if (!article || !brand || !offerRef) {
+      normalized.push({ client_id: clientId, found: false, reason: "invalid_item" });
+      continue;
+    }
+
+    const key = (brand + "|" + article).toUpperCase();
+    if (!groups.has(key)) groups.set(key, { article, brand, items: [] });
+    groups.get(key).items.push({ clientId, offerRef, quantity });
+  }
+
+  const output = [...normalized];
+
+  for (const group of groups.values()) {
+    const supplier = await supplierRowsForOffer(group.article, group.brand);
+    const offers = supplier.rows
+      .map((row) => publicSupplierOffer(row, { number: group.article, brand: group.brand }))
+      .filter(Boolean);
+    const byRef = new Map(offers.map((offer) => [offer.offer_ref, offer]));
+
+    for (const item of group.items) {
+      const match = byRef.get(item.offerRef);
+      output.push(match
+        ? {
+            client_id: item.clientId,
+            found: true,
+            quantity: item.quantity,
+            ...match
+          }
+        : {
+            client_id: item.clientId,
+            found: false,
+            quantity: item.quantity,
+            offer_ref: item.offerRef,
+            reason: "offer_missing"
+          });
+    }
+  }
+
+  return output;
+}
+
 app.get("/api/catalog/offers", async (req, res, next) => {
   try {
     const number = String(req.query?.number || "").trim();
@@ -546,36 +634,8 @@ app.post("/api/catalog/recheck", async (req, res, next) => {
     const requested = Array.isArray(req.body?.items) ? req.body.items.slice(0, 30) : [];
     if (!requested.length) return res.status(400).json({ error: "items_required" });
 
-    const groups = new Map();
-    for (const item of requested) {
-      const number = String(item?.article || "").trim();
-      const brand = String(item?.brand || "").trim();
-      const clientId = String(item?.client_id || "").slice(0, 160);
-      const offerRef = String(item?.offer_ref || "").trim();
-      if (!number || !brand || !clientId || !offerRef) continue;
-      const key = (brand + "|" + number).toUpperCase();
-      if (!groups.has(key)) groups.set(key, { number, brand, items: [] });
-      groups.get(key).items.push({ clientId, offerRef });
-    }
-    if (!groups.size) return res.status(400).json({ error: "valid_items_required" });
-
-    const output = [];
-    for (const group of groups.values()) {
-      const supplier = await supplierRowsForOffer(group.number, group.brand);
-      const offers = supplier.rows
-        .map((row) => publicSupplierOffer(row, { number: group.number, brand: group.brand }))
-        .filter(Boolean);
-      const byRef = new Map(offers.map((offer) => [offer.offer_ref, offer]));
-
-      for (const item of group.items) {
-        const match = byRef.get(item.offerRef);
-        output.push(match
-          ? { client_id: item.clientId, found: true, ...match }
-          : { client_id: item.clientId, found: false, offer_ref: item.offerRef });
-      }
-    }
-
-    res.json({ checked_at: new Date().toISOString(), items: output });
+    const items = await resolveRequestedOffers(requested);
+    res.json({ checked_at: new Date().toISOString(), items });
   } catch (error) {
     next(error);
   }
@@ -942,6 +1002,241 @@ app.patch("/api/account/notifications", requireUser, async (req, res, next) => {
   }
 });
 
+app.get("/api/account/addresses", requireUser, async (req, res, next) => {
+  try {
+    const result = await pool.query(
+      `SELECT id, label, city, address, recipient_name, recipient_phone,
+              is_default, created_at, updated_at
+         FROM user_addresses
+        WHERE user_id = $1
+        ORDER BY is_default DESC, created_at DESC`,
+      [req.user.id]
+    );
+    res.json({ addresses: result.rows });
+  } catch (error) {
+    next(error);
+  }
+});
+
+app.post("/api/account/addresses", requireUser, async (req, res, next) => {
+  const client = await pool.connect();
+  try {
+    const city = String(req.body?.city || "").trim();
+    const address = String(req.body?.address || "").trim();
+    const label = String(req.body?.label || "").trim() || null;
+    const recipientName = String(req.body?.recipient_name || "").trim() || null;
+    const recipientPhone = normalizePhone(req.body?.recipient_phone);
+    const isDefault = Boolean(req.body?.is_default);
+
+    if (!city || !address) return res.status(400).json({ error: "city_and_address_required" });
+
+    await client.query("BEGIN");
+    if (isDefault) {
+      await client.query("UPDATE user_addresses SET is_default = false WHERE user_id = $1", [req.user.id]);
+    }
+    const result = await client.query(
+      `INSERT INTO user_addresses
+        (user_id, label, city, address, recipient_name, recipient_phone, is_default)
+       VALUES ($1,$2,$3,$4,$5,$6,$7)
+       RETURNING *`,
+      [req.user.id, label, city, address, recipientName, recipientPhone, isDefault]
+    );
+    await client.query("COMMIT");
+    res.status(201).json({ address: result.rows[0] });
+  } catch (error) {
+    await client.query("ROLLBACK").catch(() => {});
+    next(error);
+  } finally {
+    client.release();
+  }
+});
+
+app.patch("/api/account/addresses/:addressId", requireUser, async (req, res, next) => {
+  const client = await pool.connect();
+  try {
+    const current = await client.query(
+      "SELECT * FROM user_addresses WHERE id = $1 AND user_id = $2 LIMIT 1",
+      [req.params.addressId, req.user.id]
+    );
+    const row = current.rows[0];
+    if (!row) return res.status(404).json({ error: "address_not_found" });
+
+    const city = req.body?.city === undefined ? row.city : String(req.body.city || "").trim();
+    const address = req.body?.address === undefined ? row.address : String(req.body.address || "").trim();
+    const label = req.body?.label === undefined ? row.label : String(req.body.label || "").trim() || null;
+    const recipientName = req.body?.recipient_name === undefined
+      ? row.recipient_name
+      : String(req.body.recipient_name || "").trim() || null;
+    const recipientPhone = req.body?.recipient_phone === undefined
+      ? row.recipient_phone
+      : normalizePhone(req.body.recipient_phone);
+    const isDefault = req.body?.is_default === undefined ? row.is_default : Boolean(req.body.is_default);
+
+    if (!city || !address) return res.status(400).json({ error: "city_and_address_required" });
+
+    await client.query("BEGIN");
+    if (isDefault) {
+      await client.query(
+        "UPDATE user_addresses SET is_default = false WHERE user_id = $1 AND id <> $2",
+        [req.user.id, req.params.addressId]
+      );
+    }
+    const result = await client.query(
+      `UPDATE user_addresses
+          SET label = $3, city = $4, address = $5, recipient_name = $6,
+              recipient_phone = $7, is_default = $8, updated_at = now()
+        WHERE id = $1 AND user_id = $2
+        RETURNING *`,
+      [req.params.addressId, req.user.id, label, city, address, recipientName, recipientPhone, isDefault]
+    );
+    await client.query("COMMIT");
+    res.json({ address: result.rows[0] });
+  } catch (error) {
+    await client.query("ROLLBACK").catch(() => {});
+    next(error);
+  } finally {
+    client.release();
+  }
+});
+
+app.delete("/api/account/addresses/:addressId", requireUser, async (req, res, next) => {
+  try {
+    const result = await pool.query(
+      "DELETE FROM user_addresses WHERE id = $1 AND user_id = $2 RETURNING id",
+      [req.params.addressId, req.user.id]
+    );
+    if (!result.rowCount) return res.status(404).json({ error: "address_not_found" });
+    res.status(204).end();
+  } catch (error) {
+    next(error);
+  }
+});
+
+async function userCartId(userId, client = pool) {
+  const result = await client.query(
+    `INSERT INTO carts (user_id) VALUES ($1)
+     ON CONFLICT (user_id) DO UPDATE SET updated_at = carts.updated_at
+     RETURNING id`,
+    [userId]
+  );
+  return result.rows[0].id;
+}
+
+app.get("/api/cart", requireUser, async (req, res, next) => {
+  try {
+    const cartId = await userCartId(req.user.id);
+    const result = await pool.query(
+      `SELECT id, article, brand, description, delivery_days, quantity,
+              available_quantity, unit_price, offer_ref, delivery_hours_max,
+              returnable, price_checked_at, created_at, updated_at
+         FROM cart_items
+        WHERE cart_id = $1
+        ORDER BY created_at, id`,
+      [cartId]
+    );
+    res.json({
+      items: result.rows.map((row) => ({
+        id: row.id,
+        article: row.article,
+        brand: row.brand,
+        description: row.description,
+        delivery_hours: Number(row.delivery_days || 0) * 24,
+        delivery_hours_max: Number(row.delivery_hours_max || 0),
+        quantity: row.quantity,
+        availability: Number(row.available_quantity || 0),
+        price: Number(row.unit_price || 0),
+        offer_ref: row.offer_ref,
+        returnable: row.returnable,
+        checked_at: row.price_checked_at
+      }))
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+app.put("/api/cart", requireUser, async (req, res, next) => {
+  const client = await pool.connect();
+  try {
+    const requested = Array.isArray(req.body?.items) ? req.body.items.slice(0, 50) : [];
+    if (!requested.length) {
+      const cartId = await userCartId(req.user.id, client);
+      await client.query("DELETE FROM cart_items WHERE cart_id = $1", [cartId]);
+      return res.json({ items: [], checked_at: new Date().toISOString() });
+    }
+
+    const verified = await resolveRequestedOffers(
+      requested.map((item, index) => ({
+        client_id: String(item?.client_id || index),
+        brand: item?.brand,
+        article: item?.article,
+        offer_ref: item?.offer_ref,
+        quantity: item?.quantity
+      }))
+    );
+    const unavailable = verified.filter((item) =>
+      !item.found || Number(item.availability || 0) < Number(item.quantity || 1)
+    );
+    if (unavailable.length) {
+      return res.status(409).json({ error: "cart_changed", items: verified });
+    }
+
+    const now = new Date();
+    await client.query("BEGIN");
+    const cartId = await userCartId(req.user.id, client);
+    await client.query("DELETE FROM cart_items WHERE cart_id = $1", [cartId]);
+
+    for (const item of verified) {
+      await client.query(
+        `INSERT INTO cart_items
+          (cart_id, article, brand, description, delivery_days, quantity,
+           available_quantity, unit_price, offer_ref, delivery_hours_max,
+           returnable, price_checked_at, checked_at)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$12)`,
+        [
+          cartId,
+          item.article,
+          item.brand,
+          item.description,
+          Math.max(0, Math.ceil(Number(item.delivery_hours || 0) / 24)),
+          item.quantity,
+          item.availability,
+          item.price,
+          item.offer_ref,
+          item.delivery_hours_max,
+          item.returnable,
+          now
+        ]
+      );
+    }
+
+    await client.query("UPDATE carts SET updated_at = now() WHERE id = $1", [cartId]);
+    await client.query("COMMIT");
+
+    res.json({
+      checked_at: now.toISOString(),
+      items: verified.map((item) => ({
+        client_id: item.client_id,
+        article: item.article,
+        brand: item.brand,
+        description: item.description,
+        quantity: item.quantity,
+        availability: item.availability,
+        price: item.price,
+        offer_ref: item.offer_ref,
+        delivery_hours: item.delivery_hours,
+        delivery_hours_max: item.delivery_hours_max,
+        returnable: item.returnable
+      }))
+    });
+  } catch (error) {
+    await client.query("ROLLBACK").catch(() => {});
+    next(error);
+  } finally {
+    client.release();
+  }
+});
+
 app.get("/api/orders", requireUser, async (req, res, next) => {
   try {
     const result = await pool.query(
@@ -1101,7 +1396,7 @@ app.get("/api/garage/vehicles/:vehicleId", requireUser, async (req, res, next) =
     const vehicle = vehicleResult.rows[0];
     if (!vehicle) return res.status(404).json({ error: "vehicle_not_found" });
 
-    const [plans, measurements, history] = await Promise.all([
+    const [plans, measurements, history, reminders] = await Promise.all([
       pool.query(
         `SELECT * FROM vehicle_maintenance_plans
           WHERE vehicle_id = $1 AND user_id = $2 AND is_active = true
@@ -1119,6 +1414,12 @@ app.get("/api/garage/vehicles/:vehicleId", requireUser, async (req, res, next) =
           WHERE vehicle_id = $1 AND user_id = $2
           ORDER BY service_date DESC, created_at DESC LIMIT 100`,
         [vehicle.id, req.user.id]
+      ),
+      pool.query(
+        `SELECT * FROM vehicle_reminders
+          WHERE vehicle_id = $1 AND user_id = $2
+          ORDER BY is_done, due_at NULLS LAST, due_mileage NULLS LAST, created_at`,
+        [vehicle.id, req.user.id]
       )
     ]);
 
@@ -1126,7 +1427,8 @@ app.get("/api/garage/vehicles/:vehicleId", requireUser, async (req, res, next) =
       vehicle,
       maintenance: plans.rows,
       measurements: measurements.rows,
-      history: history.rows
+      history: history.rows,
+      reminders: reminders.rows
     });
   } catch (error) {
     next(error);
@@ -1171,6 +1473,107 @@ app.patch("/api/garage/vehicles/:vehicleId", requireUser, async (req, res, next)
     );
 
     res.json({ vehicle: result.rows[0] });
+  } catch (error) {
+    next(error);
+  }
+});
+
+app.patch("/api/garage/vehicles/:vehicleId/default", requireUser, async (req, res, next) => {
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+    const owned = await client.query(
+      "SELECT id FROM vehicles WHERE id = $1 AND user_id = $2 LIMIT 1",
+      [req.params.vehicleId, req.user.id]
+    );
+    if (!owned.rowCount) {
+      await client.query("ROLLBACK");
+      return res.status(404).json({ error: "vehicle_not_found" });
+    }
+    await client.query("UPDATE vehicles SET is_default = false WHERE user_id = $1", [req.user.id]);
+    const result = await client.query(
+      "UPDATE vehicles SET is_default = true, updated_at = now() WHERE id = $1 AND user_id = $2 RETURNING *",
+      [req.params.vehicleId, req.user.id]
+    );
+    await client.query("COMMIT");
+    res.json({ vehicle: result.rows[0] });
+  } catch (error) {
+    await client.query("ROLLBACK").catch(() => {});
+    next(error);
+  } finally {
+    client.release();
+  }
+});
+
+app.post("/api/garage/vehicles/:vehicleId/reminders", requireUser, async (req, res, next) => {
+  try {
+    const owned = await pool.query(
+      "SELECT id FROM vehicles WHERE id = $1 AND user_id = $2 LIMIT 1",
+      [req.params.vehicleId, req.user.id]
+    );
+    if (!owned.rowCount) return res.status(404).json({ error: "vehicle_not_found" });
+
+    const title = String(req.body?.title || "").trim();
+    const reminderType = String(req.body?.reminder_type || "service").trim() || "service";
+    const dueMileage = req.body?.due_mileage === "" || req.body?.due_mileage == null
+      ? null
+      : Number(req.body.due_mileage);
+
+    if (!title) return res.status(400).json({ error: "reminder_title_required" });
+    if (dueMileage !== null && (!Number.isInteger(dueMileage) || dueMileage < 0)) {
+      return res.status(400).json({ error: "invalid_due_mileage" });
+    }
+
+    const result = await pool.query(
+      `INSERT INTO vehicle_reminders
+        (vehicle_id, user_id, reminder_type, title, due_mileage, due_at)
+       VALUES ($1,$2,$3,$4,$5,$6)
+       RETURNING *`,
+      [
+        req.params.vehicleId,
+        req.user.id,
+        reminderType,
+        title,
+        dueMileage,
+        req.body?.due_at || null
+      ]
+    );
+    res.status(201).json({ reminder: result.rows[0] });
+  } catch (error) {
+    next(error);
+  }
+});
+
+app.patch("/api/garage/vehicles/:vehicleId/reminders/:reminderId", requireUser, async (req, res, next) => {
+  try {
+    const result = await pool.query(
+      `UPDATE vehicle_reminders
+          SET is_done = COALESCE($4::boolean, is_done),
+              updated_at = now()
+        WHERE id = $1 AND vehicle_id = $2 AND user_id = $3
+        RETURNING *`,
+      [
+        req.params.reminderId,
+        req.params.vehicleId,
+        req.user.id,
+        req.body?.is_done === undefined ? null : Boolean(req.body.is_done)
+      ]
+    );
+    if (!result.rowCount) return res.status(404).json({ error: "reminder_not_found" });
+    res.json({ reminder: result.rows[0] });
+  } catch (error) {
+    next(error);
+  }
+});
+
+app.delete("/api/garage/vehicles/:vehicleId/reminders/:reminderId", requireUser, async (req, res, next) => {
+  try {
+    const result = await pool.query(
+      "DELETE FROM vehicle_reminders WHERE id = $1 AND vehicle_id = $2 AND user_id = $3 RETURNING id",
+      [req.params.reminderId, req.params.vehicleId, req.user.id]
+    );
+    if (!result.rowCount) return res.status(404).json({ error: "reminder_not_found" });
+    res.status(204).end();
   } catch (error) {
     next(error);
   }
@@ -1377,6 +1780,9 @@ app.use((error, _req, res, _next) => {
   console.error(error);
   if (error?.code === "23505") {
     return res.status(409).json({ error: "conflict" });
+  }
+  if (error?.code === "offer_unavailable") {
+    return res.status(409).json({ error: "cart_changed" });
   }
   res.status(500).json({ error: "internal_error" });
 });
