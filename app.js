@@ -311,6 +311,11 @@ function saveGarageState(){
 
 
 function retail(p){ return Math.round(p * (1 + MARKUP/100)); }
+function itemPrice(item){
+  const live=Number(item?.retailPrice);
+  if(Number.isFinite(live) && live>=0) return Math.round(live);
+  return retail(Number(item?.purchase||0));
+}
 function rub(n){ return new Intl.NumberFormat("ru-RU").format(n) + " ₽"; }
 
 function showToast(message,type=""){
@@ -530,8 +535,110 @@ function navigate(route, push=true){
   }
 }
 
-function search(query){
-  const raw=(query||"").trim();
+function looksLikeArticle(value){
+  const raw=String(value||"").trim();
+  if(raw.length<3 || raw.length>40) return false;
+  if(/\s/.test(raw)) return false;
+  return /^[A-Za-zА-Яа-я0-9._\/-]+$/.test(raw);
+}
+
+function setSearchHead(titleText,subtitleText,query){
+  const title=document.getElementById("resultTitle");
+  const subtitle=document.getElementById("resultSubtitle");
+  const heading=document.getElementById("exactHeading");
+  const secondary=document.getElementById("searchInput2");
+  if(title) title.textContent=titleText;
+  if(subtitle) subtitle.textContent=subtitleText;
+  if(heading) heading.textContent=titleText;
+  if(secondary) secondary.value=query;
+}
+
+function renderBrandChoices(query,brands){
+  const exactRoot=document.getElementById("exactResults");
+  const analogRoot=document.getElementById("analogResults");
+  const analogSection=document.getElementById("analogSection");
+  const countEl=document.getElementById("offerCount");
+  if(countEl) countEl.textContent=brands.length;
+  if(analogSection) analogSection.style.display="none";
+  if(analogRoot) analogRoot.innerHTML="";
+  if(!exactRoot) return;
+
+  if(!brands.length){
+    exactRoot.innerHTML='<div class="product-group"><div class="product-group-head"><div class="product-title"><b>Артикул не найден</b><small>Проверьте написание номера.</small></div></div></div>';
+    return;
+  }
+
+  exactRoot.innerHTML=brands.map((row,index)=>`
+    <article class="product-group live-brand-card">
+      <button class="product-group-head live-brand-button" type="button"
+        data-live-brand="${String(row.brand||"").replace(/"/g,"&quot;")}"
+        data-live-number="${String(row.article||query).replace(/"/g,"&quot;")}">
+        <div class="product-thumb">${String(row.brand||"—").slice(0,5)}</div>
+        <div class="product-title">
+          <div class="product-title-line">
+            <span class="live-article">${row.article||query}</span>
+            <b>${row.brand||"—"}</b>
+          </div>
+          <small>${row.description||"Открыть предложения"}</small>
+        </div>
+        <span class="live-brand-action">Показать цены →</span>
+      </button>
+    </article>
+  `).join("");
+}
+
+async function loadLiveOffers(number,brand){
+  setSearchHead(brand+" "+number,"Загружаем реальные предложения PartGrade…",number);
+  const exactRoot=document.getElementById("exactResults");
+  if(exactRoot) exactRoot.innerHTML='<div class="product-group"><div class="product-group-head"><div class="product-title"><b>Загрузка предложений…</b></div></div></div>';
+
+  try{
+    const data=await apiRequest(
+      "/api/catalog/offers?number="+encodeURIComponent(number)+"&brand="+encodeURIComponent(brand)
+    );
+    const offers=Array.isArray(data?.offers)?data.offers:[];
+    currentKey="live:"+brand+":"+number;
+    datasets[currentKey]={
+      title:brand+" "+number,
+      subtitle:offers[0]?.description||"Предложения",
+      exact:offers.map((x,index)=>({
+        id:"live-"+index+"-"+String(x.id||"").replace(/[^A-Za-z0-9_-]/g,""),
+        type:"exact",
+        brand:x.brand||brand,
+        article:x.article||number,
+        name:x.description||"Запчасть",
+        warehouse:x.supplier_route||"Склад",
+        source:"PartGrade",
+        purchase:0,
+        retailPrice:Number(x.price||0),
+        qty:Number(x.availability||0),
+        days:Math.ceil(Number(x.delivery_hours||0)/24),
+        supplierRoute:x.supplier_route||null,
+        itemKey:x.item_key||null,
+        returnable:x.returnable!==false
+      })),
+      analogs:[]
+    };
+    setSearchHead(
+      brand+" "+number,
+      (offers[0]?.description||"Запчасть")+" · реальные цена, наличие и срок",
+      number
+    );
+    const analogSection=document.getElementById("analogSection");
+    if(analogSection) analogSection.style.display="none";
+    renderCatalog();
+  }catch(error){
+    const countEl=document.getElementById("offerCount");
+    if(countEl) countEl.textContent="0";
+    if(exactRoot){
+      exactRoot.innerHTML='<div class="product-group supplier-error-card"><div class="product-group-head"><div class="product-title"><b>Предложения не загрузились</b><small>Backend получил ошибку от API поставщика. Демо-цен мы не показываем.</small></div></div></div>';
+    }
+    setSearchHead(brand+" "+number,"Не удалось получить реальные предложения.",number);
+  }
+}
+
+async function search(query){
+  const raw=String(query||"").trim();
   if(!raw) return;
 
   document.querySelector(".compact-filters")?.classList.remove("open");
@@ -541,22 +648,41 @@ function search(query){
     filtersToggle.setAttribute("aria-expanded","false");
   }
 
-  currentKey=resolveDataset(raw);
-  const data=datasets[currentKey];
-
-  const title=document.getElementById("resultTitle");
-  const subtitle=document.getElementById("resultSubtitle");
-  const heading=document.getElementById("exactHeading");
-  const secondary=document.getElementById("searchInput2");
-
-  if(title) title.textContent=data.title;
-  if(subtitle) subtitle.textContent=data.subtitle+" · точные предложения и аналоги";
-  if(heading) heading.textContent=data.subtitle;
-  if(secondary) secondary.value=raw;
-
   showRoute("search");
-  renderCatalog();
+  setSearchHead(raw,"Ищем реальные данные у поставщика…",raw);
+  const exactRoot=document.getElementById("exactResults");
+  const analogRoot=document.getElementById("analogResults");
+  const analogSection=document.getElementById("analogSection");
+  const countEl=document.getElementById("offerCount");
+  if(countEl) countEl.textContent="—";
+  if(analogRoot) analogRoot.innerHTML="";
+  if(analogSection) analogSection.style.display="none";
+
   history.pushState({route:"search",query:raw}, "", location.pathname+"?q="+encodeURIComponent(raw));
+
+  if(!backendConfigured()){
+    if(exactRoot) exactRoot.innerHTML='<div class="product-group supplier-error-card"><div class="product-group-head"><div class="product-title"><b>Сервер каталога не подключён</b></div></div></div>';
+    return;
+  }
+
+  if(!looksLikeArticle(raw)){
+    if(exactRoot) exactRoot.innerHTML='<div class="product-group"><div class="product-group-head"><div class="product-title"><b>Сейчас нужен артикул</b><small>Поиск по VIN и названию будет подключён отдельно. Фиктивные результаты не показываем.</small></div></div></div>';
+    if(countEl) countEl.textContent="0";
+    setSearchHead(raw,"Введите точный артикул запчасти.",raw);
+    return;
+  }
+
+  if(exactRoot) exactRoot.innerHTML='<div class="product-group"><div class="product-group-head"><div class="product-title"><b>Ищем бренды…</b></div></div></div>';
+  try{
+    const result=await apiRequest("/api/catalog/brands?number="+encodeURIComponent(raw));
+    const brands=Array.isArray(result?.brands)?result.brands:[];
+    setSearchHead(raw,"Выберите производителя, затем откроются реальные предложения.",raw);
+    renderBrandChoices(raw,brands);
+  }catch(error){
+    if(exactRoot) exactRoot.innerHTML='<div class="product-group supplier-error-card"><div class="product-group-head"><div class="product-title"><b>Поиск поставщика недоступен</b><small>Демо-выдача отключена.</small></div></div></div>';
+    if(countEl) countEl.textContent="0";
+    setSearchHead(raw,"Не удалось получить данные поставщика.",raw);
+  }
 }
 
 function baseList(type){
@@ -566,8 +692,8 @@ function baseList(type){
   if(currentFilter==="analog" && type!=="analog") return [];
   if(currentFilter==="fast") list=list.filter(x=>x.days<=2);
   if(currentFilter==="stock") list=list.filter(x=>x.qty>0);
-  if(currentSort==="price") list.sort((a,b)=>retail(a.purchase)-retail(b.purchase));
-  if(currentSort==="speed") list.sort((a,b)=>a.days-b.days || retail(a.purchase)-retail(b.purchase));
+  if(currentSort==="price") list.sort((a,b)=>itemPrice(a)-itemPrice(b));
+  if(currentSort==="speed") list.sort((a,b)=>a.days-b.days || itemPrice(a)-itemPrice(b));
   if(currentSort==="stock") list.sort((a,b)=>b.qty-a.qty);
   if(currentSort==="warehouse") list.sort((a,b)=>{
     const an=Number(String(a.warehouse).replace(/\D/g,""));
@@ -593,7 +719,7 @@ function supplyRowHtml(x){
         </div>
         <span class="supply-warehouse">${x.source}</span>
       </div>
-      <div class="supply-price">${rub(retail(x.purchase))}</div>
+      <div class="supply-price">${rub(itemPrice(x))}</div>
       <div class="supply-stock">${x.qty} шт.</div>
       <button class="cart-icon-btn" data-add="${x.id}" aria-label="В корзину">${cartSvg()}</button>
     </div>`;
@@ -666,7 +792,7 @@ function changeQty(id,delta){
 function addToCart(id,btn){
   const item=findItem(id); if(!item) return;
   const orderQty=quantities[id]||1;
-  const price=retail(item.purchase);
+  const price=itemPrice(item);
   const existing=cart.find(x=>x.id===id);
   if(existing){
     existing.orderQty+=orderQty;
@@ -713,7 +839,7 @@ function refreshCartOffers(){
     const live=findItem(item.id);
     if(!live) return;
 
-    const nextPrice=retail(live.purchase);
+    const nextPrice=itemPrice(live);
     const nextAvailable=live.qty;
 
     item.previousPrice=item.price;
@@ -841,6 +967,12 @@ function checkoutCart(){
 
 
 document.addEventListener("click",e=>{
+  const liveBrand=e.target.closest("[data-live-brand]");
+  if(liveBrand){
+    loadLiveOffers(liveBrand.dataset.liveNumber,liveBrand.dataset.liveBrand);
+    return;
+  }
+
   const cartAction=e.target.closest("[data-cart-action]");
   if(cartAction){
     const action=cartAction.dataset.cartAction;
@@ -920,14 +1052,7 @@ function restoreFromUrl(){
   const q=params.get("q");
   const view=params.get("view");
   if(q){
-    currentKey=resolveDataset(q);
-    const data=datasets[currentKey];
-    document.getElementById("resultTitle") && (document.getElementById("resultTitle").textContent=data.title);
-    document.getElementById("resultSubtitle") && (document.getElementById("resultSubtitle").textContent=data.subtitle+" · точные предложения и аналоги");
-    document.getElementById("exactHeading") && (document.getElementById("exactHeading").textContent=data.subtitle);
-    document.getElementById("searchInput2") && (document.getElementById("searchInput2").value=q);
-    showRoute("search");
-    renderCatalog();
+    search(q);
   } else if(view){
     showRoute(view);
   } else {
