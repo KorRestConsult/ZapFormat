@@ -1036,10 +1036,20 @@ async function resolveRequestedOffers(requested = []) {
     const brand = String(item?.brand || "").trim();
     const offerRef = String(item?.offer_ref || "").trim();
     const clientId = String(item?.client_id || index).slice(0, 160);
-    const quantity = Math.max(1, Math.min(999, Number(item?.quantity || 1)));
+    const quantity = Number(item?.quantity ?? 1);
 
     if (!article || !brand || !offerRef) {
       normalized.push({ client_id: clientId, found: false, reason: "invalid_item" });
+      continue;
+    }
+    if (!Number.isInteger(quantity) || quantity < 1 || quantity > 999) {
+      normalized.push({
+        client_id: clientId,
+        found: false,
+        quantity,
+        offer_ref: offerRef,
+        reason: "invalid_quantity"
+      });
       continue;
     }
 
