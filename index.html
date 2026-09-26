@@ -1029,10 +1029,10 @@ async function searchArticle(article,push=true,urlQuery=article,aiResult=null){
   const q=String(article||"").trim();
   if(!q)return;
   S.query=q;
-  setPageMeta("Поиск "+q,"Предложения и производители по артикулу "+q+". Цена и наличие из подключённого каталога.");
   S.aiResult=aiResult;
   S.aiCandidates=[];
   go("catalog",push);
+  setPageMeta("Поиск "+q,"Предложения и производители по артикулу "+q+". Цена и наличие из подключённого каталога.");
   history.replaceState({page:"catalog"},"","?q="+encodeURIComponent(urlQuery||q));
   catalogState(q,aiResult?"ИИ нашёл явный артикул. Проверяем каталог…":"Ищем производителей…");
   try{
@@ -1051,11 +1051,10 @@ async function searchArticle(article,push=true,urlQuery=article,aiResult=null){
 async function searchWithAI(q,push=true){
   S.aiOriginalQuery=q;
   S.query=q;
-  setPageMeta("Поиск "+q,"Умный поиск ZapFormat по запросу «"+q+"» с проверкой реального каталога.");
-
   S.aiResult=null;
   S.aiCandidates=[];
   go("catalog",push);
+  setPageMeta("Поиск "+q,"Умный поиск ZapFormat по запросу «"+q+"» с проверкой реального каталога.");
   history.replaceState({page:"catalog"},"","?q="+encodeURIComponent(q));
   catalogState(q,"ИИ разбирает запрос…");
   try{
