@@ -1355,7 +1355,16 @@ async function start() {
   });
 }
 
-start().catch((error) => {
-  console.error("Failed to start ZAPFORMAT API", error);
-  process.exit(1);
-});
+if (require.main === module) {
+  start().catch((error) => {
+    console.error("Failed to start ZAPFORMAT API", error);
+    process.exit(1);
+  });
+}
+
+module.exports = {
+  app,
+  normalizeSupplierRows,
+  supplierOfferRef,
+  publicSupplierOffer
+};
