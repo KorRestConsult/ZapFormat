@@ -832,7 +832,7 @@ async function saveAddress(e){
   const payload={
     label:f.get("label"),city:f.get("city"),address:f.get("address"),
     recipient_name:f.get("recipient_name"),recipient_phone:f.get("recipient_phone"),
-    is_default:f.get("is_default")==="on"
+    is_default:f.get("is_default")==="on"||S.addresses.length===0
   };
   try{
     await api(id?"/api/account/addresses/"+id:"/api/account/addresses",{method:id?"PATCH":"POST",body:JSON.stringify(payload)});
@@ -888,7 +888,7 @@ async function loadGarage(){
   if(!S.user){root.innerHTML='<div class="empty"><div><b>Войдите, чтобы открыть гараж</b><p>Автомобили хранятся только в вашем аккаунте.</p><button class="primary" data-auth-open>Войти</button></div></div>';return}
   root.innerHTML='<div class="state-card"><div class="spinner"></div></div>';
   try{
-    const d=await api("/api/garage");S.vehicles=d.vehicles||[];S.activeVehicle=S.vehicles.find(v=>v.is_default)||S.activeVehicle||S.vehicles[0]||null;renderVehicleContext();renderGarage();
+    const d=await api("/api/garage");S.vehicles=d.vehicles||[];const defaultVehicle=S.vehicles.find(v=>v.is_default);const existingActive=S.vehicles.find(v=>v.id===S.activeVehicle?.id);S.activeVehicle=defaultVehicle||existingActive||S.vehicles[0]||null;renderVehicleContext();renderGarage();
   }catch{root.innerHTML='<div class="empty"><div><b>Не удалось загрузить гараж</b><p>Попробуйте ещё раз.</p><button class="secondary" data-reload-garage>Повторить</button></div></div>'}
 }
 function renderGarage(){
@@ -1121,7 +1121,7 @@ document.addEventListener("click",async e=>{
   x=e.target.closest("[data-edit-address]");if(x)return editAddress(x.dataset.editAddress);
   x=e.target.closest("[data-delete-address]");if(x)return deleteAddress(x.dataset.deleteAddress);
   if(e.target.closest("[data-reset-address]")){const f=$("#addressForm");if(f)f.reset();return}
-  if(e.target.closest("[data-logout]")){try{await api("/api/auth/logout",{method:"POST"})}catch{}S.user=null;S.overview=null;S.addresses=[];clearTimeout(S.cartPersistTimer);updateHeader();toast("Вы вышли");return go("home")}
+  if(e.target.closest("[data-logout]")){try{await api("/api/auth/logout",{method:"POST"})}catch{}S.user=null;S.overview=null;S.addresses=[];S.vehicles=[];S.activeVehicle=null;clearTimeout(S.cartPersistTimer);updateHeader();renderVehicleContext();toast("Вы вышли");return go("home")}
   if(e.target.closest("[data-add-vehicle]"))return openVehicleDialog();
   x=e.target.closest("[data-vehicle-id]");if(x)return loadVehicle(x.dataset.vehicleId);
   if(e.target.closest("[data-edit-current-vehicle]"))return openVehicleDialog(S.vehicleDetail?.vehicle);
