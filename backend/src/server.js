@@ -2856,9 +2856,9 @@ app.post("/api/support-requests", requireUser, quoteLimiter, async (req, res, ne
     );
 
     await client.query(
-      `INSERT INTO notifications (user_id, type, title, body)
-       VALUES ($1,'support','Обращение в поддержку создано',$2)`,
-      [req.user.id, "Обращение S-" + request.ticket_number + " принято."]
+      `INSERT INTO notifications (user_id, type, title, body, entity_type, entity_id)
+       VALUES ($1,'support','Обращение в поддержку создано',$2,'support',$3)`,
+      [req.user.id, "Обращение S-" + request.ticket_number + " принято.", request.id]
     );
 
     await client.query("COMMIT");
@@ -3181,9 +3181,9 @@ app.patch("/api/admin/support-requests/:requestId", requireStaff, async (req, re
     if (message || nextStatus !== request.status) {
       const body = message || "Статус обращения изменён.";
       await client.query(
-        `INSERT INTO notifications (user_id, type, title, body)
-         VALUES ($1,'support',$2,$3)`,
-        [request.user_id, "Поддержка S-" + request.ticket_number, body.slice(0, 500)]
+        `INSERT INTO notifications (user_id, type, title, body, entity_type, entity_id)
+         VALUES ($1,'support',$2,$3,'support',$4)`,
+        [request.user_id, "Поддержка S-" + request.ticket_number, body.slice(0, 500), request.id]
       );
     }
 
