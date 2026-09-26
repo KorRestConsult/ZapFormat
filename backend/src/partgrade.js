@@ -186,6 +186,54 @@ function createPartGradeClient(options = {}) {
         skip: params.skip ?? 0,
         limit: params.limit ?? 50
       });
+    },
+    tsCartCreate(item = {}) {
+      return request("ts/cart/create", {
+        brand: String(item.brand || "").trim(),
+        number: String(item.number || "").trim(),
+        quantity: Number(item.quantity || 1),
+        supplierCode: String(item.supplierCode || "").trim(),
+        itemKey: String(item.itemKey || "").trim()
+      }, { method: "POST" });
+    },
+    tsCartList(params = {}) {
+      return request("ts/cart/list", {
+        positionIds: params.positionIds || null,
+        skip: params.skip ?? 0,
+        limit: params.limit ?? 100
+      });
+    },
+    tsCartDeletePositions(positionIds = []) {
+      const params = {};
+      (Array.isArray(positionIds) ? positionIds : []).slice(0, 100).forEach((id, index) => {
+        params[`positionIds[${index}]`] = id;
+      });
+      return request("ts/cart/deletePositions", params, { method: "POST" });
+    },
+    tsCartClear() {
+      return request("ts/cart/clear", {}, { method: "POST" });
+    },
+    tsOrdersCreateByCart({ positionIds = [], number = null, externalId = null, delivery = null } = {}) {
+      const params = {};
+      (Array.isArray(positionIds) ? positionIds : []).slice(0, 100).forEach((id, index) => {
+        params[`positions[${index}]`] = id;
+      });
+      if (number) params.number = String(number);
+      if (externalId) params.externalId = String(externalId);
+      if (delivery && typeof delivery === "object") {
+        if (delivery.methodId) params["delivery[methodId]"] = delivery.methodId;
+        if (delivery.address) params["delivery[meetData][address]"] = delivery.address;
+        if (delivery.person) params["delivery[meetData][person]"] = delivery.person;
+        if (delivery.contact) params["delivery[meetData][contact]"] = delivery.contact;
+        if (delivery.comment) params["delivery[meetData][comment]"] = delivery.comment;
+      }
+      return request("ts/orders/createByCart", params, { method: "POST" });
+    },
+    tsOrderGet(orderId) {
+      return request("ts/orders/get", { orderId });
+    },
+    tsOrderRefuse(orderId) {
+      return request("ts/orders/refuse", { orderId }, { method: "POST" });
     }
   };
 }
