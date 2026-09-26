@@ -43,3 +43,21 @@ jobs:
           Path("/tmp/zapformat-inline.js").write_text(scripts[0],encoding="utf-8")
           PY
           node --check /tmp/zapformat-inline.js
+
+  responsive:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - name: Install browser smoke dependency
+        run: |
+          npm install --no-save --package-lock=false playwright@1.55.0
+          npx playwright install chromium
+      - name: Serve rebuild frontend
+        run: |
+          python3 -m http.server 4173 --bind 127.0.0.1 >/tmp/zf-http.log 2>&1 &
+          echo $! >/tmp/zf-http.pid
+      - name: Desktop iPad iPhone smoke
+        run: node test/responsive-smoke.mjs
