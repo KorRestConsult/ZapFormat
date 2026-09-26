@@ -72,9 +72,11 @@ API host:
 - закупочную цену;
 - внутренние supplier/item identifiers.
 
-После включения прав на `search/articles` / `search/batch` выполнить:
+Для проверки реального поиска выполнить:
 
 `backend/deploy/verify-after-partgrade-access.sh`
+
+Сначала проверяется `search/articles`. Если ABCP явно запрещает этот метод (HTTP 403 / errorCode 103), скрипт и backend проверяют документированный `search/batch` и используют его только при успешном live-ответе.
 
 ABCP TS basket/order methods are prepared in the backend client, but real supplier order writes stay disabled with `SUPPLIER_ORDER_WRITE_ENABLED=false`. An internal supplier order readiness endpoint re-resolves every quote offer and reports whether required route fields are present without returning those fields to the customer or creating an order.
 
