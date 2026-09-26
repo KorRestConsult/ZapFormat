@@ -702,6 +702,74 @@ function publicSupplierOffer(row, fallback = {}) {
   };
 }
 
+function summarizePublicOffers(offers = []) {
+  const live = (Array.isArray(offers) ? offers : []).filter((x) => Number(x?.price || 0) > 0);
+  if (!live.length) {
+    return {
+      count: 0,
+      available_count: 0,
+      price_min: null,
+      price_max: null,
+      stock_total: 0,
+      fastest_hours: null,
+      returnable_offers: 0,
+      high_probability_offers: 0,
+      balance_offer_ref: null
+    };
+  }
+
+  const available = live.filter((x) => Number(x.availability || 0) > 0);
+  const base = available.length ? available : live;
+  const prices = base.map((x) => Number(x.price || 0)).filter((x) => x > 0);
+  const deliveries = base.map((x) => Number(x.delivery_hours || 0)).filter((x) => x > 0);
+  const minPrice = prices.length ? Math.min(...prices) : null;
+  const maxPrice = prices.length ? Math.max(...prices) : null;
+  const minDelivery = deliveries.length ? Math.min(...deliveries) : null;
+  const maxDelivery = deliveries.length ? Math.max(...deliveries) : null;
+
+  const norm = (value, min, max, inverse = false) => {
+    if (value === null || value === undefined || min === null || max === null) return 0.5;
+    if (max === min) return 1;
+    const n = (Number(value) - min) / (max - min);
+    return inverse ? 1 - n : n;
+  };
+
+  let best = null;
+  for (const offer of available) {
+    const priceScore = norm(Number(offer.price), minPrice, maxPrice, true);
+    const deliveryValue = Number(offer.delivery_hours || 0);
+    const deliveryScore = deliveryValue > 0
+      ? norm(deliveryValue, minDelivery, maxDelivery, true)
+      : 0.25;
+    const probability = offer.delivery_probability === null || offer.delivery_probability === undefined
+      ? 0.5
+      : Math.max(0, Math.min(1, Number(offer.delivery_probability) / 100));
+    const returnScore = offer.returnable === false ? 0 : 1;
+    const stockScore = Math.min(1, Number(offer.availability || 0) / 10);
+
+    const score =
+      priceScore * 0.40 +
+      deliveryScore * 0.28 +
+      probability * 0.14 +
+      returnScore * 0.10 +
+      stockScore * 0.08;
+
+    if (!best || score > best.score) best = { score, offer_ref: offer.offer_ref };
+  }
+
+  return {
+    count: live.length,
+    available_count: available.length,
+    price_min: minPrice,
+    price_max: maxPrice,
+    stock_total: available.reduce((sum, x) => sum + Number(x.availability || 0), 0),
+    fastest_hours: minDelivery,
+    returnable_offers: available.filter((x) => x.returnable !== false).length,
+    high_probability_offers: available.filter((x) => Number(x.delivery_probability || 0) >= 90).length,
+    balance_offer_ref: best?.offer_ref || null
+  };
+}
+
 async function supplierRowsForOffer(number, brand) {
   try {
     const rows = await partGrade.searchArticles(number, brand);
@@ -766,6 +834,69 @@ async function resolveRequestedOffers(requested = []) {
 
   return output;
 }
+
+app.get("/api/catalog/part", async (req, res, next) => {
+  try {
+    const number = String(req.query?.number || "").trim();
+    const brand = String(req.query?.brand || "").trim();
+
+    if (!number || !brand) {
+      return res.status(400).json({ error: "article_and_brand_required" });
+    }
+
+    const [supplier, brandRows] = await Promise.all([
+      supplierRowsForOffer(number, brand),
+      partGrade.searchBrands(number, { useOnlineStocks: true }).catch(() => [])
+    ]);
+
+    const offers = supplier.rows
+      .map((row) => publicSupplierOffer(row, { number, brand }))
+      .filter(Boolean)
+      .sort((a, b) => a.price - b.price || a.delivery_hours - b.delivery_hours);
+
+    const alternatives = normalizeSupplierRows(brandRows)
+      .filter((row) => row && typeof row === "object")
+      .map((row) => ({
+        brand: row.brand || null,
+        article: row.number || number,
+        description: row.description || null,
+        available: Boolean(row.availability)
+      }))
+      .filter((row, index, list) => {
+        const key = [row.brand, row.article].map((x) => String(x || "").trim().toUpperCase()).join("|");
+        return key && list.findIndex((x) =>
+          [x.brand, x.article].map((v) => String(v || "").trim().toUpperCase()).join("|") === key
+        ) === index;
+      })
+      .filter((row) =>
+        !(
+          String(row.brand || "").trim().toUpperCase() === brand.toUpperCase() &&
+          String(row.article || "").trim().toUpperCase() === number.toUpperCase()
+        )
+      )
+      .slice(0, 24);
+
+    const description =
+      offers.find((x) => x.description)?.description ||
+      normalizeSupplierRows(brandRows).find((x) =>
+        String(x?.brand || "").trim().toUpperCase() === brand.toUpperCase()
+      )?.description ||
+      null;
+
+    res.json({
+      part: {
+        brand,
+        article: number,
+        description
+      },
+      summary: summarizePublicOffers(offers),
+      offers,
+      alternatives
+    });
+  } catch (error) {
+    next(error);
+  }
+});
 
 app.get("/api/catalog/offers", async (req, res, next) => {
   try {
@@ -3263,5 +3394,6 @@ module.exports = {
   publicSearchTipCandidates,
   supplierCandidatesForTerms,
   checkoutPaymentMethods,
-  checkoutFulfillmentMethods
+  checkoutFulfillmentMethods,
+  summarizePublicOffers
 };
