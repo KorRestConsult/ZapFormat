@@ -594,29 +594,45 @@ function renderCart(){
     root.innerHTML='<div class="empty"><div><b>Корзина пуста</b><p>Найдите деталь по артикулу и добавьте предложение.</p><button class="primary" data-go="home">К поиску</button></div></div>';
     return;
   }
-  const total=S.cart.reduce((a,x)=>a+Number(x.price||0)*Number(x.qty||1),0);
-  const checked=S.cart.map(x=>x.checked_at).filter(Boolean).sort().at(-1);
-  root.innerHTML='<div class="cart-layout"><div><div class="cart-lines">'+S.cart.map((x,i)=>{
-    const state=x.found===false
-      ?'<span class="small error">Это предложение больше не найдено — нужна новая проверка.</span>'
-      :(x.change_note?'<span class="small" style="color:var(--amber)">'+esc(x.change_note)+'</span>':'');
-    const meta=x.historical
-      ?'Повтор из истории · цену и срок перепроверим'
-      :'Срок: '+Math.max(1,Math.ceil(Number(x.delivery_hours||0)/24))+' дн. · наличие: '+Number(x.availability||0)+' шт.';
-    return '<div class="cart-line"><div><b>'+esc(x.brand)+' '+esc(x.article)+'</b><p>'+esc(x.description||"")+'</p><span class="small muted">'+meta+'</span>'+state+'</div><div class="qty"><button data-cart-qty="'+i+'" data-delta="-1">−</button><b>'+x.qty+'</b><button data-cart-qty="'+i+'" data-delta="1">+</button></div><strong>'+rub(Number(x.price)*x.qty)+'</strong><button class="remove" data-cart-remove="'+i+'">×</button></div>';
-  }).join("")+'</div><div class="form-actions"><button class="secondary" data-refresh-cart '+(S.cartRefreshing?"disabled":"")+'>'+(S.cartRefreshing?"Проверяем…":"Обновить цены и наличие")+'</button><span class="small muted">'+(checked?"Проверено "+datetime(checked):"Ещё не перепроверено")+'</span></div></div><aside class="panel summary"><div class="total"><span>Итого</span><b>'+rub(total)+'</b></div><p>Цена и наличие привязаны к конкретному предложению поставщика. Перед подтверждением ZapFormat перепроверяет их на backend.</p><button class="primary" data-checkout>'+((S.user&&S.user.phone)?"Отправить на подтверждение":"Продолжить")+'</button><div class="summary-note">Если цена, срок или остаток изменятся, корзина покажет это отдельно. Закупочная цена в браузер не передаётся.</div></aside></div>';
 
-  const recheckable=S.cart.filter(x=>x.offer_ref&&!x.historical);
+  const historical=S.cart.filter(x=>x.historical||!x.offer_ref);
+  const active=S.cart.filter(x=>x.offer_ref&&!x.historical);
+  const invalid=active.filter(x=>x.found===false||Number(x.availability||0)<Number(x.qty||1));
+  const payable=active.filter(x=>x.found!==false&&Number(x.availability||0)>=Number(x.qty||1));
+  const total=payable.reduce((a,x)=>a+Number(x.price||0)*Number(x.qty||1),0);
+  const checked=active.map(x=>x.checked_at).filter(Boolean).sort().at(-1);
+  const blocked=historical.length>0||invalid.length>0||S.cartRefreshing;
+  const warning=S.cartServerWarning?'<div class="notice" style="margin-top:10px">'+esc(S.cartServerWarning)+'</div>':'';
+
+  root.innerHTML='<div class="cart-layout"><div><div class="cart-lines">'+S.cart.map((x,i)=>{
+    const isHistorical=x.historical||!x.offer_ref;
+    const insufficient=!isHistorical&&x.found!==false&&Number(x.availability||0)<Number(x.qty||1);
+    const state=x.found===false
+      ?'<span class="small error">Предложение исчезло. Выберите актуальное предложение заново.</span>'
+      :insufficient
+        ?'<span class="small error">Доступно '+Number(x.availability||0)+' шт., в корзине '+Number(x.qty||1)+' шт.</span>'
+        :(x.change_note?'<span class="small" style="color:var(--amber)">'+esc(x.change_note)+'</span>':'');
+    const meta=isHistorical
+      ?'Позиция из истории · старая цена не используется'
+      :'Срок: '+Math.max(1,Math.ceil(Number(x.delivery_hours||0)/24))+' дн. · наличие: '+Number(x.availability||0)+' шт.';
+    const action=isHistorical
+      ?'<button class="secondary" data-refresh-historical="'+i+'">Актуализировать</button>'
+      :'<strong>'+rub(Number(x.price||0)*Number(x.qty||1))+'</strong>';
+    return '<div class="cart-line"><div><b>'+esc(x.brand)+' '+esc(x.article)+'</b><p>'+esc(x.description||"")+'</p><span class="small muted">'+meta+'</span>'+state+'</div><div class="qty"><button data-cart-qty="'+i+'" data-delta="-1">−</button><b>'+x.qty+'</b><button data-cart-qty="'+i+'" data-delta="1">+</button></div>'+action+'<button class="remove" data-cart-remove="'+i+'">×</button></div>';
+  }).join("")+'</div><div class="form-actions"><button class="secondary" data-refresh-cart '+(S.cartRefreshing?"disabled":"")+'>'+(S.cartRefreshing?"Проверяем…":"Обновить цены и наличие")+'</button><span class="small muted">'+(checked?"Проверено "+datetime(checked):"Ещё не перепроверено")+'</span></div>'+warning+'</div><aside class="panel summary"><div class="total"><span>Итого по актуальным позициям</span><b>'+rub(total)+'</b></div><p>Итог считается только по предложениям, которые можно перепроверить на backend. Старые позиции и исчезнувшие предложения не участвуют в сумме.</p><button class="primary" data-checkout '+(blocked?"disabled":"")+'>'+((S.user&&S.user.phone)?"Отправить на подтверждение":"Продолжить")+'</button><div class="summary-note">'+(historical.length?'Актуализируйте '+historical.length+' поз. из истории. ': '')+(invalid.length?'Исправьте '+invalid.length+' недоступн. поз. ': '')+'Перед созданием заявки backend ещё раз проверит конкретные предложения, цены и остатки.</div></aside></div>';
+
+  const recheckable=active;
   const stale=recheckable.some(x=>!x.checked_at||(Date.now()-new Date(x.checked_at).getTime())>120000);
   if(stale&&!S.cartRefreshing&&(Date.now()-S.lastCartRefreshAttempt)>120000) setTimeout(()=>refreshCart(false),0);
 }
+
 async function refreshCart(showToast=true){
   const items=S.cart.filter(x=>x.offer_ref&&!x.historical);
-  if(!items.length){if(showToast)toast("Нет позиций для автоматической проверки");return}
+  if(!items.length){if(showToast)toast("Нет актуальных предложений для проверки");return}
   if(S.cartRefreshing)return;
   S.cartRefreshing=true;S.lastCartRefreshAttempt=Date.now();renderCart();
   try{
-    const payload={items:items.map(x=>({client_id:x.id,brand:x.brand,article:x.article,offer_ref:x.offer_ref}))};
+    const payload={items:items.map(x=>({client_id:x.id,brand:x.brand,article:x.article,offer_ref:x.offer_ref,quantity:x.qty}))};
     const d=await api("/api/catalog/recheck",{method:"POST",body:JSON.stringify(payload)});
     const byId=new Map((d.items||[]).map(x=>[x.client_id,x]));
     for(const item of S.cart){
@@ -641,11 +657,13 @@ async function refreshCart(showToast=true){
     writeCart();
     if(showToast)toast("Корзина перепроверена");
   }catch(e){
+    S.cartServerWarning="Не удалось перепроверить предложения. Оформление заблокировано до успешной проверки.";
     if(showToast)toast("Не удалось обновить корзину");
   }finally{
     S.cartRefreshing=false;renderCart();
   }
 }
+
 async function checkout(){
   if(!requireAuth())return;
   if(!S.user.phone){
@@ -653,18 +671,47 @@ async function checkout(){
     go("account");
     return;
   }
+  const live=S.cart.filter(x=>x.offer_ref&&!x.historical);
+  if(live.length!==S.cart.length){
+    toast("Сначала актуализируйте позиции из истории");
+    return;
+  }
+
+  await refreshCart(false);
+  const blocked=S.cart.some(x=>x.found===false||Number(x.availability||0)<Number(x.qty||1));
+  if(blocked){
+    toast("Корзина изменилась — исправьте позиции");
+    return;
+  }
+
   const btn=$("[data-checkout]"); if(btn)btn.disabled=true;
   try{
     const items=S.cart.map(x=>({
-      brand:x.brand,article:x.article,description:x.description,quantity:x.qty,
-      quoted_price:Number(x.price),needs_confirmation:true
+      client_id:x.id,
+      brand:x.brand,
+      article:x.article,
+      offer_ref:x.offer_ref,
+      description:x.description,
+      quantity:x.qty
     }));
-    const d=await api("/api/quote-requests",{method:"POST",body:JSON.stringify({name:S.user.name,phone:S.user.phone,items})});
-    S.cart=[];writeCart();renderCart();
+    const d=await api("/api/quote-requests",{method:"POST",body:JSON.stringify({
+      name:S.user.name,
+      phone:S.user.phone,
+      items
+    })});
+    S.cart=[];
+    writeCart();
+    renderCart();
     toast("Заявка "+d.request_id+" отправлена");
     setTimeout(()=>go("orders"),350);
   }catch(e){
-    toast("Не удалось отправить заявку");
+    if(e.status===409){
+      S.cartServerWarning="Цена, срок или наличие изменились. Обновите корзину.";
+      await refreshCart(false);
+      toast("Корзина изменилась");
+    }else{
+      toast("Не удалось отправить заявку");
+    }
   }finally{if(btn)btn.disabled=false}
 }
 
@@ -903,6 +950,12 @@ document.addEventListener("click",async e=>{
   if(e.target.closest("[data-retry-search]"))return search(S.query,false);
   x=e.target.closest("[data-cart-qty]");if(x){const i=Number(x.dataset.cartQty),d=Number(x.dataset.delta);S.cart[i].qty=Math.max(1,Number(S.cart[i].qty)+d);writeCart();return renderCart()}
   x=e.target.closest("[data-cart-remove]");if(x){S.cart.splice(Number(x.dataset.cartRemove),1);writeCart();return renderCart()}
+  x=e.target.closest("[data-refresh-historical]");if(x){
+    const item=S.cart[Number(x.dataset.refreshHistorical)];
+    if(!item)return;
+    S.query=item.article;
+    return search(item.article);
+  }
   if(e.target.closest("[data-refresh-cart]"))return refreshCart(true);
   if(e.target.closest("[data-checkout]"))return checkout();
   if(e.target.closest("[data-auth-open]"))return openAuth();
