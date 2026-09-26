@@ -1700,6 +1700,15 @@ async function openNotification(id){
       accountBadges();
     }catch{}
   }
+  const entityType=String(n.entity_type||""),entityId=String(n.entity_id||"");
+  if(entityType&&entityId){
+    go("orders");
+    await loadOrders();
+    if(entityType==="quote")return loadQuoteRequest(entityId);
+    if(entityType==="vin")return loadVinRequest(entityId);
+    if(entityType==="return")return loadReturnRequest(entityId);
+    if(entityType==="order")return loadOrder(entityId);
+  }
   const type=String(n.type||"");
   if(/quote|vin|return|order|checkout/i.test(type))return go("orders");
   return renderAccount();
