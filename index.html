@@ -617,6 +617,7 @@ dialog::backdrop{background:rgba(13,41,56,.56);backdrop-filter:blur(5px)}
 "use strict";
 
 const API=location.origin;
+const PAGE_NAMES=new Set(["home","catalog","part","catalogs","cart","checkout","account","garage","orders","operator"]);
 const S={
   user:null,
   cart:readCart(),
@@ -796,6 +797,7 @@ function routeUrl(page){
   return "?view="+encodeURIComponent(page);
 }
 function go(page,push=true){
+  page=PAGE_NAMES.has(page)?page:"home";
   const meta={
     home:["Автозапчасти","Поиск по артикулу и обычным запросом, реальные предложения и личный гараж."],
     catalog:["Поиск","Реальные предложения автозапчастей по цене, сроку и наличию."],
