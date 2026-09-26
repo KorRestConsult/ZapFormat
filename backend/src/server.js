@@ -1,6 +1,8 @@
 require("dotenv").config();
 
 const crypto = require("node:crypto");
+const fs = require("node:fs/promises");
+const path = require("node:path");
 const express = require("express");
 const helmet = require("helmet");
 const cors = require("cors");
@@ -21,18 +23,18 @@ const FRONTEND_ORIGINS = String(process.env.FRONTEND_ORIGINS || "")
   .split(",")
   .map((x) => x.trim())
   .filter(Boolean);
+
 const partGrade = createPartGradeClient();
 
-if (!process.env.DATABASE_URL) {
-  throw new Error("DATABASE_URL is required");
-}
-
-const pool = new Pool({
-  connectionString: process.env.DATABASE_URL,
-  ssl: String(process.env.PGSSL || "false") === "true"
-    ? { rejectUnauthorized: false }
-    : false
-});
+const hasDatabase = Boolean(process.env.DATABASE_URL);
+const pool = hasDatabase
+  ? new Pool({
+      connectionString: process.env.DATABASE_URL,
+      ssl: String(process.env.PGSSL || "false") === "true"
+        ? { rejectUnauthorized: false }
+        : false
+    })
+  : null;
 
 app.set("trust proxy", 1);
 app.use(helmet());
@@ -55,6 +57,35 @@ const authLimiter = rateLimit({
   standardHeaders: "draft-8",
   legacyHeaders: false
 });
+
+const quoteLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000,
+  limit: 20,
+  standardHeaders: "draft-8",
+  legacyHeaders: false
+});
+
+function requireDatabase(_req, res, next) {
+  if (!pool) return res.status(503).json({ error: "database_not_configured" });
+  next();
+}
+
+function requireInternal(req, res, next) {
+  const ip = String(req.ip || "").replace("::ffff:", "");
+  const direct = ip === "127.0.0.1" || ip === "::1";
+  const configured = String(process.env.INTERNAL_API_TOKEN || "");
+  const provided = String(req.get("x-zapformat-internal") || "");
+  const sameLength = configured && provided && Buffer.byteLength(provided) === Buffer.byteLength(configured);
+  if (direct || (sameLength && crypto.timingSafeEqual(
+    Buffer.from(provided),
+    Buffer.from(configured)
+  ))) return next();
+  return res.status(404).json({ error: "not_found" });
+}
+
+app.use("/api/auth", requireDatabase);
+app.use("/api/account", requireDatabase);
+app.use("/api/garage", requireDatabase);
 
 function normalizeEmail(value) {
   const email = String(value || "").trim().toLowerCase();
@@ -153,12 +184,235 @@ async function requireUser(req, res, next) {
 
 app.get("/api/health", async (_req, res, next) => {
   try {
-    const db = await pool.query("SELECT now() AS now");
+    let db = false;
+    let time = new Date().toISOString();
+
+    if (pool) {
+      const result = await pool.query("SELECT now() AS now");
+      db = true;
+      time = result.rows[0].now;
+    }
+
     res.json({
       ok: true,
       service: "zapformat-api",
-      db: true,
-      time: db.rows[0].now
+      db,
+      supplier_configured: partGrade.configured(),
+      time
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+app.post("/api/quote-requests", quoteLimiter, async (req, res, next) => {
+  try {
+    const name = String(req.body?.name || "").trim().slice(0, 120);
+    const phone = normalizePhone(req.body?.phone);
+    const rawItems = Array.isArray(req.body?.items) ? req.body.items : [];
+
+    if (!phone || phone.replace(/\D/g, "").length < 10) {
+      return res.status(400).json({ error: "phone_required" });
+    }
+    if (!rawItems.length || rawItems.length > 50) {
+      return res.status(400).json({ error: "items_required" });
+    }
+
+    const items = rawItems.map((item) => ({
+      brand: String(item?.brand || "").trim().slice(0, 80),
+      article: String(item?.article || "").trim().slice(0, 120),
+      description: String(item?.description || "").trim().slice(0, 300),
+      quantity: Math.max(1, Math.min(999, Number(item?.quantity || 1))),
+      comment: String(item?.comment || "").trim().slice(0, 500),
+      quoted_price: Number.isFinite(Number(item?.quoted_price))
+        ? Math.max(0, Math.round(Number(item.quoted_price) * 100) / 100)
+        : null,
+      needs_confirmation: Boolean(item?.needs_confirmation)
+    })).filter((item) => item.article);
+
+    if (!items.length) {
+      return res.status(400).json({ error: "items_required" });
+    }
+
+    const now = new Date();
+    const requestId =
+      "Q-" +
+      now.toISOString().slice(0, 10).replace(/-/g, "") +
+      "-" +
+      crypto.randomBytes(3).toString("hex").toUpperCase();
+
+    const requestUser = pool ? await currentUser(req) : null;
+    const record = {
+      id: requestId,
+      created_at: now.toISOString(),
+      name: name || requestUser?.name || null,
+      phone,
+      items,
+      source: "zapformat-web",
+      status: "new"
+    };
+
+    if (pool) {
+      const client = await pool.connect();
+      try {
+        await client.query("BEGIN");
+        await client.query(
+          `INSERT INTO quote_requests (id, user_id, name, phone, status, source, created_at)
+           VALUES ($1,$2,$3,$4,'new','zapformat-web',$5)`,
+          [requestId, requestUser?.id || null, record.name, phone, now]
+        );
+
+        for (const item of items) {
+          await client.query(
+            `INSERT INTO quote_request_items
+              (request_id, brand, article, description, quantity, comment, quoted_price, needs_confirmation)
+             VALUES ($1,$2,$3,$4,$5,$6,$7,$8)`,
+            [
+              requestId,
+              item.brand || null,
+              item.article,
+              item.description || null,
+              item.quantity,
+              item.comment || null,
+              item.quoted_price,
+              item.needs_confirmation
+            ]
+          );
+        }
+        await client.query("COMMIT");
+      } catch (error) {
+        await client.query("ROLLBACK").catch(() => {});
+        throw error;
+      } finally {
+        client.release();
+      }
+    } else {
+      const file = process.env.QUOTE_REQUESTS_FILE || "/var/lib/zapformat/quote-requests.jsonl";
+      await fs.mkdir(path.dirname(file), { recursive: true });
+      await fs.appendFile(file, JSON.stringify(record) + "\n", { encoding: "utf8", mode: 0o600 });
+    }
+
+    res.status(201).json({
+      ok: true,
+      request_id: requestId,
+      status: "received",
+      items: items.length
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+app.get("/api/supplier/health", async (_req, res, next) => {
+  try {
+    if (!partGrade.configured()) {
+      return res.status(503).json({
+        ok: false,
+        configured: false,
+        provider: "PartGrade"
+      });
+    }
+
+    await partGrade.userInfo();
+    res.json({
+      ok: true,
+      configured: true,
+      provider: "PartGrade",
+      api_host: new URL(partGrade.baseUrl).hostname
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+app.get("/api/supplier/capabilities", requireInternal, async (_req, res, next) => {
+  try {
+    const [basket, payments, shipments, addresses, statuses, orders] = await Promise.allSettled([
+      partGrade.basketContent(),
+      partGrade.paymentMethods(),
+      partGrade.shipmentMethods(),
+      partGrade.shipmentAddresses(),
+      partGrade.orderStatuses(),
+      partGrade.orders({ limit: 20 })
+    ]);
+
+    const count = (result) => {
+      if (result.status !== "fulfilled") return null;
+      const value = result.value;
+      if (Array.isArray(value)) return value.length;
+      if (value && Array.isArray(value.items)) return value.items.length;
+      return value && typeof value === "object" ? Object.keys(value).length : 0;
+    };
+
+    res.json({
+      ok: true,
+      provider: "PartGrade",
+      read_access: {
+        basket_content: count(basket),
+        payment_methods: count(payments),
+        shipment_methods: count(shipments),
+        shipment_addresses: count(addresses),
+        order_statuses: count(statuses),
+        orders: count(orders)
+      }
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+app.get("/api/supplier/basket", requireInternal, async (_req, res, next) => {
+  try {
+    const rows = await partGrade.basketContent();
+    const items = (Array.isArray(rows) ? rows : []).map((row) => ({
+      brand: row.brand ?? null,
+      article: row.number ?? row.code ?? null,
+      description: row.description ?? null,
+      quantity: Number(row.quantity || 0),
+      price: row.priceInSiteCurrency ?? row.price ?? null,
+      delivery_hours: row.deadline ?? null,
+      delivery_hours_max: row.deadlineMax ?? null,
+      position_id: row.positionId ?? null,
+      status: row.status ?? null
+    }));
+    res.json({ source: "PartGrade", items });
+  } catch (error) {
+    next(error);
+  }
+});
+
+app.get("/api/supplier/order-statuses", requireInternal, async (_req, res, next) => {
+  try {
+    const rows = await partGrade.orderStatuses();
+    res.json({ source: "PartGrade", statuses: Array.isArray(rows) ? rows : [] });
+  } catch (error) {
+    next(error);
+  }
+});
+
+app.get("/api/supplier/orders", requireInternal, async (req, res, next) => {
+  try {
+    const limit = Math.max(1, Math.min(100, Number(req.query?.limit || 20)));
+    const skip = Math.max(0, Number(req.query?.skip || 0));
+    const data = await partGrade.orders({ limit, skip });
+    res.json({ source: "PartGrade", data });
+  } catch (error) {
+    next(error);
+  }
+});
+
+app.get("/api/supplier/checkout-options", requireInternal, async (_req, res, next) => {
+  try {
+    const [paymentMethods, shipmentMethods, shipmentAddresses] = await Promise.all([
+      partGrade.paymentMethods(),
+      partGrade.shipmentMethods(),
+      partGrade.shipmentAddresses()
+    ]);
+    res.json({
+      source: "PartGrade",
+      payment_methods: paymentMethods,
+      shipment_methods: shipmentMethods,
+      shipment_addresses: shipmentAddresses
     });
   } catch (error) {
     next(error);
@@ -167,23 +421,42 @@ app.get("/api/health", async (_req, res, next) => {
 
 app.get("/api/catalog/brands", async (req, res, next) => {
   try {
-    const number = String(req.query.number || "").trim();
+    const number = String(req.query?.number || "").trim();
     if (!number) return res.status(400).json({ error: "article_required" });
+
+    let rows = await partGrade.searchBrands(number, { useOnlineStocks: true });
+    let normalizedRows = Array.isArray(rows)
+      ? rows
+      : (rows && typeof rows === "object" ? Object.values(rows) : []);
+
+    if (!normalizedRows.length) {
+      try {
+        rows = await partGrade.searchTips(number);
+        normalizedRows = Array.isArray(rows)
+          ? rows
+          : (rows && typeof rows === "object" ? Object.values(rows) : []);
+      } catch (_error) {
+        normalizedRows = [];
+      }
+    }
+
     const seen = new Set();
-    const brands = (await partGrade.searchBrands(number))
-      .filter(row => row && typeof row === "object" && row.brand)
-      .map(row => ({
-        brand: String(row.brand),
-        article: String(row.number || number),
+    const brands = normalizedRows
+      .filter((row) => row && typeof row === "object")
+      .map((row) => ({
+        brand: row.brand || null,
+        article: row.number || number,
+        article_normalized: row.numberFix || null,
         description: row.description || null,
         available: Boolean(row.availability)
       }))
-      .filter(row => {
-        const key = `${row.brand}|${row.article}`.toUpperCase();
+      .filter((row) => {
+        const key = [row.brand, row.article, row.description].map((x) => String(x || "").trim().toUpperCase()).join("|");
         if (seen.has(key)) return false;
         seen.add(key);
         return true;
       });
+
     res.json({ query: { number }, brands });
   } catch (error) {
     next(error);
@@ -192,27 +465,55 @@ app.get("/api/catalog/brands", async (req, res, next) => {
 
 app.get("/api/catalog/offers", async (req, res, next) => {
   try {
-    const number = String(req.query.number || "").trim();
-    const brand = String(req.query.brand || "").trim();
-    if (!number || !brand) return res.status(400).json({ error: "article_and_brand_required" });
-    const offers = (await partGrade.searchArticles(number, brand)).map(row => {
-      const price = customerPrice(row.price);
-      if (price === null) return null;
-      return {
-        brand: row.brand || brand,
-        article: row.number || number,
-        description: row.description || null,
-        availability: Number(row.availability || 0),
-        packing: Math.max(1, Number(row.packing || 1)),
-        delivery_hours: Number(row.deliveryPeriod || 0),
-        delivery_hours_max: Number(row.deliveryPeriodMax || row.deliveryPeriod || 0),
-        returnable: !row.noReturn,
-        price,
-        currency: "RUB"
-      };
-    }).filter(Boolean);
-    offers.sort((a, b) => a.price - b.price || a.delivery_hours - b.delivery_hours);
-    res.json({ source: "PartGrade", query: { number, brand }, offers });
+    const number = String(req.query?.number || "").trim();
+    const brand = String(req.query?.brand || "").trim();
+
+    if (!number || !brand) {
+      return res.status(400).json({ error: "article_and_brand_required" });
+    }
+
+    let rows;
+    let mode = "articles";
+    try {
+      rows = await partGrade.searchArticles(number, brand);
+    } catch (error) {
+      if (error instanceof PartGradeError && Number(error.upstreamCode) === 103) {
+        rows = await partGrade.searchBatch([{ number, brand }]);
+        mode = "batch";
+      } else {
+        throw error;
+      }
+    }
+
+    const offers = (Array.isArray(rows) ? rows : [])
+      .map((row) => {
+        const price = customerPrice(row.price);
+        if (price === null) return null;
+
+        return {
+          brand: row.brand || brand,
+          article: row.number || number,
+          article_normalized: row.numberFix || null,
+          description: row.description || null,
+          availability: Number(row.availability || 0),
+          packing: Number(row.packing || 1),
+          delivery_hours: Number(row.deliveryPeriod || 0),
+          delivery_hours_max: Number(row.deliveryPeriodMax || row.deliveryPeriod || 0),
+          delivery_probability: row.deliveryProbability ?? null,
+          returnable: row.noReturn ? false : true,
+          price,
+          currency: "RUB"
+        };
+      })
+      .filter(Boolean)
+      .sort((a, b) => a.price - b.price || a.delivery_hours - b.delivery_hours);
+
+    res.json({
+      source: "PartGrade",
+      mode,
+      query: { number, brand },
+      offers
+    });
   } catch (error) {
     next(error);
   }
@@ -376,7 +677,7 @@ app.patch("/api/account/profile", requireUser, async (req, res, next) => {
 
 app.get("/api/account/overview", requireUser, async (req, res, next) => {
   try {
-    const [orders, vehicles, returns] = await Promise.all([
+    const [orders, vehicles, returns, requests] = await Promise.all([
       pool.query(
         `SELECT count(*) FILTER (WHERE status NOT IN ('completed','cancelled'))::int AS active,
                 count(*) FILTER (WHERE status = 'ready')::int AS ready
@@ -387,18 +688,65 @@ app.get("/api/account/overview", requireUser, async (req, res, next) => {
       pool.query(
         "SELECT count(*)::int AS count FROM returns WHERE user_id = $1 AND status NOT IN ('completed','rejected')",
         [req.user.id]
+      ),
+      pool.query(
+        "SELECT count(*)::int AS count FROM quote_requests WHERE user_id = $1 AND status NOT IN ('completed','cancelled')",
+        [req.user.id]
       )
     ]);
 
     res.json({
       user: publicUser(req.user),
       stats: {
-        active_orders: orders.rows[0].active,
+        active_orders: orders.rows[0].active + requests.rows[0].count,
         ready_orders: orders.rows[0].ready,
+        quote_requests: requests.rows[0].count,
         vehicles: vehicles.rows[0].count,
         active_returns: returns.rows[0].count
       }
     });
+  } catch (error) {
+    next(error);
+  }
+});
+
+app.get("/api/account/requests", requireUser, async (req, res, next) => {
+  try {
+    const result = await pool.query(
+      `SELECT q.id, q.status, q.name, q.phone, q.created_at,
+              count(i.id)::int AS items_count,
+              COALESCE(sum(CASE WHEN i.quoted_price IS NULL THEN 0 ELSE i.quoted_price * i.quantity END),0)::numeric(14,2) AS quoted_total,
+              bool_or(i.needs_confirmation) AS needs_confirmation
+         FROM quote_requests q
+         LEFT JOIN quote_request_items i ON i.request_id = q.id
+        WHERE q.user_id = $1
+        GROUP BY q.id
+        ORDER BY q.created_at DESC
+        LIMIT 100`,
+      [req.user.id]
+    );
+    res.json({ requests: result.rows });
+  } catch (error) {
+    next(error);
+  }
+});
+
+app.get("/api/account/requests/:requestId", requireUser, async (req, res, next) => {
+  try {
+    const request = await pool.query(
+      `SELECT * FROM quote_requests WHERE id = $1 AND user_id = $2 LIMIT 1`,
+      [req.params.requestId, req.user.id]
+    );
+    if (!request.rowCount) return res.status(404).json({ error: "request_not_found" });
+
+    const items = await pool.query(
+      `SELECT brand, article, description, quantity, comment, quoted_price, needs_confirmation
+         FROM quote_request_items
+        WHERE request_id = $1
+        ORDER BY created_at ASC`,
+      [req.params.requestId]
+    );
+    res.json({ request: request.rows[0], items: items.rows });
   } catch (error) {
     next(error);
   }
@@ -652,11 +1000,11 @@ app.post("/api/garage/vehicles/:vehicleId/maintenance", requireUser, async (req,
 
 app.use((error, _req, res, _next) => {
   if (error instanceof PartGradeError) {
-    console.error("[PartGrade]", error.code, error.status || "", error.upstreamCode || "");
-    return res.status(error.code === "partgrade_not_configured" ? 503 : 502).json({
-      error: "supplier_unavailable"
-    });
+    console.error("[PartGrade]", error.code, error.status || "");
+    const status = error.code === "partgrade_not_configured" ? 503 : 502;
+    return res.status(status).json({ error: "supplier_unavailable" });
   }
+
   console.error(error);
   if (error?.code === "23505") {
     return res.status(409).json({ error: "conflict" });
@@ -665,7 +1013,7 @@ app.use((error, _req, res, _next) => {
 });
 
 async function start() {
-  await pool.query("SELECT 1");
+  if (pool) await pool.query("SELECT 1");
   app.listen(PORT, HOST, () => {
     console.log(`ZAPFORMAT API listening on http://${HOST}:${PORT}`);
   });
