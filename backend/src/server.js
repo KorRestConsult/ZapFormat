@@ -1167,6 +1167,47 @@ app.get("/api/account/quote-requests/:requestId", requireUser, async (req, res, 
   }
 });
 
+app.patch("/api/account/quote-requests/:requestId/cancel", requireUser, async (req, res, next) => {
+  try {
+    const current = await pool.query(
+      `SELECT id, status
+         FROM quote_requests
+        WHERE id = $1 AND user_id = $2
+        LIMIT 1`,
+      [req.params.requestId, req.user.id]
+    );
+    const request = current.rows[0];
+    if (!request) return res.status(404).json({ error: "quote_request_not_found" });
+
+    if (!["new", "in_progress"].includes(request.status)) {
+      return res.status(409).json({ error: "quote_request_cannot_be_cancelled" });
+    }
+
+    const result = await pool.query(
+      `UPDATE quote_requests
+          SET status = 'cancelled',
+              customer_comment = CASE
+                WHEN customer_comment IS NULL OR customer_comment = '' THEN 'Отменено клиентом'
+                ELSE customer_comment
+              END,
+              updated_at = now()
+        WHERE id = $1 AND user_id = $2
+        RETURNING id, status, updated_at`,
+      [req.params.requestId, req.user.id]
+    );
+
+    await pool.query(
+      `INSERT INTO notifications (user_id, type, title, body)
+       VALUES ($1,'quote_status',$2,'Заявка отменена по вашему запросу.')`,
+      [req.user.id, "Заявка " + req.params.requestId + " отменена"]
+    );
+
+    res.json({ request: result.rows[0] });
+  } catch (error) {
+    next(error);
+  }
+});
+
 app.get("/api/account/notifications/feed", requireUser, async (req, res, next) => {
   try {
     const result = await pool.query(
