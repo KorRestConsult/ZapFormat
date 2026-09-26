@@ -43,30 +43,47 @@ function createPartGradeClient(options = {}) {
     }
   }
 
-  async function request(path, params = {}) {
+  async function request(path, params = {}, options = {}) {
     assertConfigured();
 
+    const method = String(options.method || "GET").toUpperCase();
     const url = new URL(path, baseUrl + "/");
-    url.searchParams.set("userlogin", userlogin);
-    url.searchParams.set("userpsw", userpsw);
+    const allParams = {
+      userlogin,
+      userpsw,
+      ...params
+    };
 
-    for (const [key, value] of Object.entries(params)) {
-      if (value === undefined || value === null || value === "") continue;
-      url.searchParams.set(key, String(value));
+    const headers = {
+      Accept: "application/json"
+    };
+    const fetchOptions = {
+      method,
+      headers
+    };
+
+    if (method === "GET") {
+      for (const [key, value] of Object.entries(allParams)) {
+        if (value === undefined || value === null || value === "") continue;
+        url.searchParams.set(key, String(value));
+      }
+    } else {
+      const body = new URLSearchParams();
+      for (const [key, value] of Object.entries(allParams)) {
+        if (value === undefined || value === null || value === "") continue;
+        body.append(key, String(value));
+      }
+      headers["Content-Type"] = "application/x-www-form-urlencoded";
+      fetchOptions.body = body.toString();
     }
 
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), timeoutMs);
+    fetchOptions.signal = controller.signal;
 
     let response;
     try {
-      response = await fetchImpl(url, {
-        method: "GET",
-        headers: {
-          Accept: "application/json"
-        },
-        signal: controller.signal
-      });
+      response = await fetchImpl(url, fetchOptions);
     } catch (error) {
       if (error?.name === "AbortError") {
         throw new PartGradeError("PartGrade API timeout", {
@@ -121,8 +138,15 @@ function createPartGradeClient(options = {}) {
     userInfo() {
       return request("user/info");
     },
-    searchBrands(number) {
+    searchBrands(number, options = {}) {
       return request("search/brands/", {
+        number: String(number || "").trim(),
+        locale: "ru_RU",
+        useOnlineStocks: options.useOnlineStocks === false ? 0 : 1
+      });
+    },
+    searchTips(number) {
+      return request("search/tips", {
         number: String(number || "").trim(),
         locale: "ru_RU"
       });
@@ -133,6 +157,14 @@ function createPartGradeClient(options = {}) {
         brand: String(brand || "").trim(),
         locale: "ru_RU"
       });
+    },
+    searchBatch(items) {
+      const params = {};
+      (Array.isArray(items) ? items : []).slice(0, 100).forEach((item, index) => {
+        params[`search[${index}][number]`] = String(item?.number || "").trim();
+        params[`search[${index}][brand]`] = String(item?.brand || "").trim();
+      });
+      return request("search/batch", params, { method: "POST" });
     }
   };
 }
