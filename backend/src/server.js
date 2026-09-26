@@ -1233,6 +1233,59 @@ app.get("/api/auth/me", async (req, res, next) => {
   }
 });
 
+app.get("/api/account/sessions", requireUser, async (req, res, next) => {
+  try {
+    const token = req.cookies?.[COOKIE_NAME];
+    const currentHash = token ? tokenHash(token) : "";
+    const result = await pool.query(
+      `SELECT id, token_hash, user_agent, expires_at, created_at
+         FROM user_sessions
+        WHERE user_id = $1
+          AND expires_at > now()
+        ORDER BY created_at DESC
+        LIMIT 50`,
+      [req.user.id]
+    );
+    res.json({
+      sessions: result.rows.map((row) => ({
+        id: row.id,
+        user_agent: row.user_agent,
+        expires_at: row.expires_at,
+        created_at: row.created_at,
+        current: row.token_hash === currentHash
+      }))
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+app.delete("/api/account/sessions/:sessionId", requireUser, async (req, res, next) => {
+  try {
+    const token = req.cookies?.[COOKIE_NAME];
+    const currentHash = token ? tokenHash(token) : "";
+    const session = await pool.query(
+      `SELECT id, token_hash
+         FROM user_sessions
+        WHERE id = $1 AND user_id = $2
+        LIMIT 1`,
+      [req.params.sessionId, req.user.id]
+    );
+    const row = session.rows[0];
+    if (!row) return res.status(404).json({ error: "session_not_found" });
+    if (row.token_hash === currentHash) {
+      return res.status(409).json({ error: "current_session_use_logout" });
+    }
+    await pool.query(
+      "DELETE FROM user_sessions WHERE id = $1 AND user_id = $2",
+      [req.params.sessionId, req.user.id]
+    );
+    res.status(204).end();
+  } catch (error) {
+    next(error);
+  }
+});
+
 app.post("/api/auth/logout-others", requireUser, async (req, res, next) => {
   try {
     const token = req.cookies?.[COOKIE_NAME];
