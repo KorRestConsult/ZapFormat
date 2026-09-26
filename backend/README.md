@@ -4,7 +4,8 @@ Backend responsibilities:
 - authentication and sessions;
 - PostgreSQL customer data;
 - carts, orders, returns and notifications;
-- direct referral attribution and loyalty ledger foundation;
+- direct referral attribution, first-completed-order qualification and loyalty ledger foundation;
+- confirmed quote → local ZapFormat order lifecycle;
 - supplier API access and secret credentials;
 - final customer pricing.
 
@@ -35,6 +36,14 @@ PATCH /api/account/profile
 GET  /api/account/overview
 GET  /api/account/referrals
 ```
+
+Operator workflow:
+
+```text
+confirmed quote -> local ZapFormat order -> processing -> in_transit -> ready -> completed
+```
+
+Creating the local order does not submit anything to PartGrade. Supplier writes remain separately guarded by `SUPPLIER_ORDER_WRITE_ENABLED`.
 
 Production process files are in `deploy/`.
 
