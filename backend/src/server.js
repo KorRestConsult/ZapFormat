@@ -1627,9 +1627,9 @@ app.patch("/api/account/quote-requests/:requestId/cancel", requireUser, async (r
     });
 
     await pool.query(
-      `INSERT INTO notifications (user_id, type, title, body)
-       VALUES ($1,'quote_status',$2,'Заявка отменена по вашему запросу.')`,
-      [req.user.id, "Заявка " + req.params.requestId + " отменена"]
+      `INSERT INTO notifications (user_id, type, title, body, entity_type, entity_id)
+       VALUES ($1,'quote_status',$2,'Заявка отменена по вашему запросу.','quote',$3)`,
+      [req.user.id, "Заявка " + req.params.requestId + " отменена", req.params.requestId]
     );
 
     res.json({ request: result.rows[0] });
@@ -1641,7 +1641,7 @@ app.patch("/api/account/quote-requests/:requestId/cancel", requireUser, async (r
 app.get("/api/account/notifications/feed", requireUser, async (req, res, next) => {
   try {
     const result = await pool.query(
-      `SELECT id, type, title, body, read_at, created_at
+      `SELECT id, type, title, body, entity_type, entity_id, read_at, created_at
          FROM notifications
         WHERE user_id = $1
         ORDER BY created_at DESC
@@ -1663,7 +1663,7 @@ app.patch("/api/account/notifications/:notificationId/read", requireUser, async 
       `UPDATE notifications
           SET read_at = COALESCE(read_at, now())
         WHERE id = $1 AND user_id = $2
-        RETURNING id, type, title, body, read_at, created_at`,
+        RETURNING id, type, title, body, entity_type, entity_id, read_at, created_at`,
       [req.params.notificationId, req.user.id]
     );
     if (!result.rowCount) return res.status(404).json({ error: "notification_not_found" });
@@ -2384,9 +2384,9 @@ app.post("/api/checkout/submit", requireUser, quoteLimiter, async (req, res, nex
     }
 
     await client.query(
-      `INSERT INTO notifications (user_id, type, title, body)
-       VALUES ($1,'checkout','Заявка принята',$2)`,
-      [req.user.id, "Заявка " + requestId + " создана после повторной проверки цены и наличия."]
+      `INSERT INTO notifications (user_id, type, title, body, entity_type, entity_id)
+       VALUES ($1,'checkout','Заявка принята',$2,'quote',$3)`,
+      [req.user.id, "Заявка " + requestId + " создана после повторной проверки цены и наличия.", requestId]
     );
 
     await client.query("COMMIT");
@@ -2710,9 +2710,9 @@ app.patch("/api/returns/:returnId/cancel", requireUser, async (req, res, next) =
     });
 
     await pool.query(
-      `INSERT INTO notifications (user_id, type, title, body)
-       VALUES ($1,'return_status','Возврат отменён','Запрос на возврат отменён по вашему запросу.')`,
-      [req.user.id]
+      `INSERT INTO notifications (user_id, type, title, body, entity_type, entity_id)
+       VALUES ($1,'return_status','Возврат отменён','Запрос на возврат отменён по вашему запросу.','return',$2)`,
+      [req.user.id, req.params.returnId]
     );
 
     res.json({ return: result.rows[0] });
@@ -2993,12 +2993,13 @@ app.patch("/api/admin/quote-requests/:requestId", requireStaff, async (req, res,
 
     if (current.rows[0].user_id) {
       await pool.query(
-        `INSERT INTO notifications (user_id, type, title, body)
-         VALUES ($1,'quote_status',$2,$3)`,
+        `INSERT INTO notifications (user_id, type, title, body, entity_type, entity_id)
+         VALUES ($1,'quote_status',$2,$3,'quote',$4)`,
         [
           current.rows[0].user_id,
           "Заявка " + req.params.requestId + ": " + nextStatus,
-          result.rows[0].manager_note || "Статус заявки обновлён."
+          result.rows[0].manager_note || "Статус заявки обновлён.",
+          req.params.requestId
         ]
       );
     }
@@ -3053,12 +3054,13 @@ app.patch("/api/admin/vin-requests/:requestId", requireStaff, async (req, res, n
       });
     }
     await pool.query(
-      `INSERT INTO notifications (user_id, type, title, body)
-       VALUES ($1,'vin_status',$2,$3)`,
+      `INSERT INTO notifications (user_id, type, title, body, entity_type, entity_id)
+       VALUES ($1,'vin_status',$2,$3,'vin',$4)`,
       [
         current.rows[0].user_id,
         "Подбор по VIN: " + (status ?? current.rows[0].status),
-        result.rows[0].manager_note || "Статус подбора обновлён."
+        result.rows[0].manager_note || "Статус подбора обновлён.",
+        req.params.requestId
       ]
     );
     res.json({ request: result.rows[0] });
@@ -3114,12 +3116,13 @@ app.patch("/api/admin/returns/:returnId", requireStaff, async (req, res, next) =
       });
     }
     await pool.query(
-      `INSERT INTO notifications (user_id, type, title, body)
-       VALUES ($1,'return_status',$2,$3)`,
+      `INSERT INTO notifications (user_id, type, title, body, entity_type, entity_id)
+       VALUES ($1,'return_status',$2,$3,'return',$4)`,
       [
         current.rows[0].user_id,
         "Возврат № " + req.params.returnId + ": " + (status ?? current.rows[0].status),
-        result.rows[0].manager_note || "Статус возврата обновлён."
+        result.rows[0].manager_note || "Статус возврата обновлён.",
+        req.params.returnId
       ]
     );
     res.json({ return: result.rows[0] });
@@ -3278,9 +3281,9 @@ app.post("/api/vin-requests", requireUser, async (req, res, next) => {
     });
 
     await pool.query(
-      `INSERT INTO notifications (user_id, type, title, body)
-       VALUES ($1,'vin_request','Запрос по VIN создан',$2)`,
-      [req.user.id, "Запрос принят: " + requestText.slice(0, 180)]
+      `INSERT INTO notifications (user_id, type, title, body, entity_type, entity_id)
+       VALUES ($1,'vin_request','Запрос по VIN создан',$2,'vin',$3)`,
+      [req.user.id, "Запрос принят: " + requestText.slice(0, 180), result.rows[0].id]
     );
 
     res.status(201).json({
@@ -3335,9 +3338,9 @@ app.patch("/api/vin-requests/:requestId/cancel", requireUser, async (req, res, n
     });
 
     await pool.query(
-      `INSERT INTO notifications (user_id, type, title, body)
-       VALUES ($1,'vin_status','VIN-запрос отменён','Запрос отменён по вашему запросу.')`,
-      [req.user.id]
+      `INSERT INTO notifications (user_id, type, title, body, entity_type, entity_id)
+       VALUES ($1,'vin_status','VIN-запрос отменён','Запрос отменён по вашему запросу.','vin',$2)`,
+      [req.user.id, req.params.requestId]
     );
 
     res.json({ request: result.rows[0] });
