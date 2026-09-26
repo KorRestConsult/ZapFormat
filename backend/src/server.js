@@ -1644,6 +1644,78 @@ app.post("/api/returns", requireUser, async (req, res, next) => {
   }
 });
 
+app.get("/api/internal/vin-requests", requireInternal, requireDatabase, async (req, res, next) => {
+  try {
+    const status = String(req.query?.status || "").trim();
+    const limit = Math.max(1, Math.min(200, Number(req.query?.limit || 100)));
+    const params = [];
+    let where = "";
+    if (status) {
+      params.push(status);
+      where = "WHERE vr.status = $1";
+    }
+    params.push(limit);
+    const limitParam = "$" + params.length;
+
+    const result = await pool.query(
+      `SELECT
+          vr.id, vr.user_id, vr.vehicle_id, vr.vin, vr.request_text,
+          vr.status, vr.manager_note, vr.created_at, vr.updated_at,
+          v.brand, v.model, v.generation, v.year, v.engine,
+          u.name AS user_name, u.phone AS user_phone, u.email AS user_email
+       FROM vin_requests vr
+       LEFT JOIN vehicles v ON v.id = vr.vehicle_id
+       JOIN users u ON u.id = vr.user_id
+       ${where}
+       ORDER BY
+         CASE vr.status WHEN 'new' THEN 0 WHEN 'in_progress' THEN 1 ELSE 2 END,
+         vr.created_at ASC
+       LIMIT ${limitParam}`,
+      params
+    );
+    res.json({ requests: result.rows });
+  } catch (error) {
+    next(error);
+  }
+});
+
+app.patch("/api/internal/vin-requests/:requestId", requireInternal, requireDatabase, async (req, res, next) => {
+  try {
+    const allowed = new Set(["new", "in_progress", "answered", "closed", "cancelled"]);
+    const status = req.body?.status === undefined ? null : String(req.body.status);
+    const managerNote = req.body?.manager_note === undefined
+      ? undefined
+      : String(req.body.manager_note || "").trim().slice(0, 3000) || null;
+
+    if (status !== null && !allowed.has(status)) {
+      return res.status(400).json({ error: "invalid_vin_request_status" });
+    }
+
+    const current = await pool.query(
+      "SELECT status, manager_note FROM vin_requests WHERE id = $1 LIMIT 1",
+      [req.params.requestId]
+    );
+    if (!current.rowCount) return res.status(404).json({ error: "vin_request_not_found" });
+
+    const result = await pool.query(
+      `UPDATE vin_requests
+          SET status = $2,
+              manager_note = $3,
+              updated_at = now()
+        WHERE id = $1
+        RETURNING *`,
+      [
+        req.params.requestId,
+        status ?? current.rows[0].status,
+        managerNote === undefined ? current.rows[0].manager_note : managerNote
+      ]
+    );
+    res.json({ request: result.rows[0] });
+  } catch (error) {
+    next(error);
+  }
+});
+
 app.get("/api/vin-requests", requireUser, async (req, res, next) => {
   try {
     const result = await pool.query(
