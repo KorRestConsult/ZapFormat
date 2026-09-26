@@ -3122,3 +3122,14 @@ html{scroll-padding-bottom:calc(88px + env(safe-area-inset-bottom))}
     min-height:40px
   }
 }
+
+
+/* Weekend live mode: real PartGrade identification + manual price confirmation */
+.quote-contact{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:16px 0}
+.quote-contact label{display:grid;gap:6px;color:#6f7e89;font-size:12px}
+.quote-contact input{width:100%;box-sizing:border-box;border:1px solid #d6dee4;border-radius:10px;background:#fff;padding:12px 13px;font:inherit;color:#263843}
+.quote-contact input:focus{outline:2px solid rgba(38,56,67,.12);border-color:#82939f}
+.quote-only-label{font-weight:800;color:#7a8792;white-space:nowrap}
+.quote-request-btn{border:0;background:#263843;color:#fff;border-radius:9px;padding:10px 12px;font-weight:800}
+.quote-request-btn.added{background:#2b7d53}
+@media(max-width:680px){.quote-contact{grid-template-columns:1fr}}
