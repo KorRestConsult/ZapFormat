@@ -59,7 +59,7 @@ try {
     await page.goto("http://127.0.0.1:4173/index.html", { waitUntil: "domcontentloaded" });
     await page.waitForTimeout(150);
 
-    for (const screen of ["home", "catalogs", "garage", "orders", "cart", "checkout", "account", "operator"]) {
+    for (const screen of ["home", "catalogs", "garage", "orders", "support", "cart", "checkout", "account", "operator"]) {
       await page.evaluate((name) => window.go(name, false), screen);
       await page.waitForTimeout(50);
       await assertNoHorizontalOverflow(page, `${browserName}/${viewport.name}/${screen}/guest`);
@@ -413,11 +413,38 @@ try {
     await assertNoHorizontalOverflow(page, `${browserName}/${viewport.name}/orders/return-detail`);
 
     await page.evaluate(() => {
+      S.supportRequests = [{
+        id: "sup1", ticket_number: 17, category: "order", subject: "Когда будет готов заказ",
+        status: "in_progress", linked_type: "order", linked_id: "o1",
+        message_count: 2, last_message: "Проверяем фактический срок поставщика.",
+        created_at: "2026-09-26T12:00:00Z", updated_at: "2026-09-26T12:20:00Z"
+      }];
+      S.supportDraft = null;
+      document.querySelectorAll(".page").forEach(x=>x.classList.toggle("active",x.dataset.page==="support"));
+      renderSupport();
+      S.supportDetail = {
+        request: {
+          id: "sup1", ticket_number: 17, category: "order", subject: "Когда будет готов заказ",
+          status: "in_progress", linked_type: "order", linked_id: "o1",
+          created_at: "2026-09-26T12:00:00Z"
+        },
+        messages: [
+          { id: 1, actor_type: "customer", message: "Подскажите фактический срок по моему заказу.", created_at: "2026-09-26T12:00:00Z" },
+          { id: 2, actor_type: "staff", message: "Проверяем фактический срок поставщика.", created_at: "2026-09-26T12:20:00Z" }
+        ]
+      };
+      renderSupportDetail();
+    });
+    await page.waitForTimeout(50);
+    await assertNoHorizontalOverflow(page, `${browserName}/${viewport.name}/support/thread`);
+
+    await page.evaluate(() => {
       S.user.role = "admin";
       S.operatorOverview = {
         quotes: { new: 2, in_progress: 1, confirmed: 0 },
         vin: { new: 1, in_progress: 1, answered: 0 },
         returns: { created: 1, in_progress: 0, approved: 0 },
+        support: { new: 1, in_progress: 1, waiting_customer: 0 },
         orders: { active: 3, ready: 1 }
       };
       S.operatorPickupPoints = [{
@@ -456,6 +483,13 @@ try {
           id: "ret1", return_number: 7, quantity: 1, reason: "Не подошла деталь",
           status: "created", manager_note: "", created_at: "2026-09-26T12:20:00Z",
           brand: "PATRON", article: "PRS3420", unit_price: 5284.25, order_number: 101,
+          user_name: "Илья", user_phone: "+79000000000"
+        }],
+        support: [{
+          id: "sup1", ticket_number: 17, category: "order", subject: "Когда будет готов заказ",
+          status: "new", linked_type: "order", linked_id: "o1", message_count: 2,
+          last_message: "Подскажите фактический срок по моему заказу.",
+          created_at: "2026-09-26T12:25:00Z",
           user_name: "Илья", user_phone: "+79000000000"
         }]
       };
