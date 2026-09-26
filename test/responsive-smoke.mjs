@@ -167,6 +167,14 @@ try {
     await assertNoHorizontalOverflow(page, `${viewport.name}/garage/cards`);
 
     await page.evaluate(() => {
+      S.activeVehicle = S.vehicles[1];
+      document.querySelectorAll(".page").forEach(x=>x.classList.toggle("active",x.dataset.page==="catalogs"));
+      renderCatalogs();
+    });
+    await page.waitForTimeout(50);
+    await assertNoHorizontalOverflow(page, `${viewport.name}/catalogs/vehicle`);
+
+    await page.evaluate(() => {
       S.vehicleDetail = {
         vehicle: {
           id: "v1", brand: "BMW", model: "X3", generation: "F25", year: 2010,
@@ -194,6 +202,12 @@ try {
     await page.evaluate(() => {
       S.quoteRequests = [{
         id: "Q-20260926-ABCDEF", status: "new", item_count: 2, quoted_total: 12000, created_at: "2026-09-26T10:00:00Z"
+      }];
+      S.vinRequests = [{
+        id: "vr1", vehicle_id: "v2", vin: "X9F5XXEED56R37916",
+        request_text: "Передние тормозные колодки среднего ценового сегмента",
+        status: "in_progress", manager_note: "", created_at: "2026-09-26T11:00:00Z",
+        brand: "Ford", model: "Focus", generation: "II", year: 2006, engine: "1.8"
       }];
       S.returns = [{
         id: "ret1", return_number: 1, quantity: 1, reason: "Не подошла деталь", status: "created",
