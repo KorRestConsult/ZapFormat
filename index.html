@@ -71,6 +71,41 @@ a{color:inherit}
 .home-strips article+article{border-left:1px solid var(--line);padding-left:34px}
 .home-strips h3{font-size:20px;margin:9px 0 5px}
 .home-strips p{color:var(--muted);margin:0}
+.market-section{padding:12px 0 64px}
+.market-head{display:flex;align-items:end;justify-content:space-between;gap:24px;margin-bottom:18px}
+.market-head h2{font-size:34px;letter-spacing:-.04em;margin:5px 0 0}
+.market-head p{margin:0;color:var(--muted);max-width:620px}
+.category-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}
+.category-card{position:relative;min-height:155px;border:1px solid var(--line);background:#fff;border-radius:17px;padding:20px;text-align:left;overflow:hidden;transition:.16s}
+.category-card:hover{border-color:#8da99f;transform:translateY(-2px);box-shadow:var(--shadow)}
+.category-card b{display:block;font-size:19px;letter-spacing:-.025em;max-width:180px}
+.category-card p{margin:7px 0 0;color:var(--muted);font-size:13px;max-width:210px}
+.category-card .cat-no{position:absolute;right:14px;bottom:4px;font-size:54px;line-height:1;font-weight:950;color:#eff3f0;letter-spacing:-.07em}
+.vehicle-strip{display:flex;align-items:center;justify-content:space-between;gap:14px;padding:16px 18px;background:#fff;border:1px solid var(--line);border-radius:15px;margin:18px 0}
+.vehicle-strip-main{display:flex;align-items:center;gap:12px;min-width:0}
+.vehicle-strip .car-mark{display:grid;place-items:center;width:42px;height:42px;flex:0 0 auto;border-radius:11px;background:var(--soft);font-weight:950}
+.vehicle-strip b{display:block}
+.vehicle-strip small{display:block;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.catalog-groups{display:grid;gap:24px}
+.catalog-group h3{font-size:24px;letter-spacing:-.03em;margin:0 0 12px}
+.catalog-group p{margin:0 0 14px;color:var(--muted)}
+.catalog-action-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
+.catalog-action{min-height:155px;border:1px solid var(--line);background:#fff;border-radius:17px;padding:18px;text-align:left;display:flex;flex-direction:column}
+.catalog-action:hover{border-color:#8da99f}
+.catalog-action span:first-child{font-size:11px;font-weight:900;letter-spacing:.12em;color:var(--green)}
+.catalog-action b{font-size:20px;letter-spacing:-.025em;margin-top:9px}
+.catalog-action p{color:var(--muted);font-size:13px;margin:6px 0}
+.catalog-action i{font-style:normal;color:var(--green);font-weight:850;margin-top:auto;padding-top:18px}
+.expert-card{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:22px;align-items:center;background:var(--ink);color:#fff;border-radius:22px;padding:26px;margin-top:20px}
+.expert-card h3{font-size:28px;letter-spacing:-.04em;margin:3px 0 7px}
+.expert-card p{margin:0;color:#c9d4d8}
+.expert-card .secondary{border-color:#49606b;background:#fff}
+.vin-list{display:grid;gap:8px}
+.vin-row{display:grid;grid-template-columns:minmax(0,1.5fr) minmax(120px,.6fr) auto;gap:12px;align-items:center;padding:14px 16px;border:1px solid var(--line);border-radius:12px;background:#fff}
+.vin-row small{display:block;color:var(--muted);margin-top:3px}
+.search-mode{display:flex;gap:6px;margin-top:18px}
+.search-mode span{display:inline-flex;align-items:center;padding:6px 9px;border-radius:999px;background:#edf2ee;color:var(--green2);font-size:11px;font-weight:850}
+
 .catalog,.section-page{padding:34px 0 100px}
 .back{border:0;background:none;padding:8px 0;color:var(--green);font-weight:800}
 .catalog-head,.section-head{margin:24px 0 26px}
@@ -209,6 +244,8 @@ dialog::backdrop{background:rgba(13,41,56,.56);backdrop-filter:blur(5px)}
 @media(max-width:1050px){
   .hero{grid-template-columns:1fr .55fr;gap:38px}
   .vehicle-grid{grid-template-columns:repeat(2,1fr)}
+  .category-grid{grid-template-columns:repeat(2,1fr)}
+  .catalog-action-grid{grid-template-columns:repeat(2,1fr)}
   .dashboard-grid,.vehicle-detail,.order-detail{grid-template-columns:1fr}
   .order-side{display:grid;grid-template-columns:1fr 1fr;gap:12px}.order-side .panel+.panel{margin-top:0}
 }
@@ -232,6 +269,8 @@ dialog::backdrop{background:rgba(13,41,56,.56);backdrop-filter:blur(5px)}
   .brand-row{grid-template-columns:44px 1fr auto}.brand-row code{display:none}.brand-row i{grid-column:3;grid-row:1}
   .cart-layout{grid-template-columns:1fr}
   .dashboard-actions,.stat-grid{grid-template-columns:1fr 1fr 1fr}
+  .category-grid{grid-template-columns:repeat(2,1fr)}
+  .catalog-action-grid{grid-template-columns:repeat(2,1fr)}
   .mobile-nav{position:fixed;z-index:55;left:0;right:0;bottom:0;display:grid;grid-template-columns:repeat(4,1fr);background:#fff;border-top:1px solid var(--line);padding:7px max(8px,env(safe-area-inset-right)) calc(7px + env(safe-area-inset-bottom)) max(8px,env(safe-area-inset-left))}
   .mobile-nav button{border:0;background:none;padding:7px 2px;font-size:11px;font-weight:700}
 }
@@ -246,7 +285,10 @@ dialog::backdrop{background:rgba(13,41,56,.56);backdrop-filter:blur(5px)}
   .trust{gap:8px 14px}
   .catalog,.section-page{padding-top:24px}
   .catalog-head h2,.section-head h2{font-size:42px}
-  .dashboard-actions,.stat-grid,.vehicle-grid,.form-grid,.order-side{grid-template-columns:1fr}
+  .dashboard-actions,.stat-grid,.vehicle-grid,.form-grid,.order-side,.category-grid,.catalog-action-grid{grid-template-columns:1fr}
+  .expert-card{grid-template-columns:1fr}
+  .vin-row{grid-template-columns:1fr auto}
+  .vin-row>*:nth-child(2){grid-column:1}
   .profile-hero{align-items:flex-start}.profile-avatar{width:58px;height:58px;border-radius:16px}
   .action-card{padding:14px}
   .info-grid{grid-template-columns:1fr}
@@ -263,6 +305,7 @@ dialog::backdrop{background:rgba(13,41,56,.56);backdrop-filter:blur(5px)}
     <button class="brand" data-go="home"><b>ZAP</b><span>FORMAT</span></button>
     <nav class="main-nav">
       <button data-go="home">Поиск</button>
+      <button data-go="catalogs">Каталоги</button>
       <button data-go="garage">Гараж</button>
       <button data-go="orders">Заказы</button>
     </nav>
@@ -286,6 +329,7 @@ dialog::backdrop{background:rgba(13,41,56,.56);backdrop-filter:blur(5px)}
         <button>Найти</button>
       </form>
       <div class="trust"><span>Поиск с ИИ</span><span>Реальные остатки</span><span>Актуальная цена</span><span>Личный гараж</span></div><div id="vehicleContext" style="margin-top:14px"></div>
+      <div class="search-mode"><span>АРТИКУЛ</span><span>НАЗВАНИЕ</span><span>VIN-ПОДБОР</span><span>АНАЛОГИ</span></div>
     </div>
     <aside class="hero-panel">
       <small>ZAPFORMAT</small>
@@ -295,6 +339,22 @@ dialog::backdrop{background:rgba(13,41,56,.56);backdrop-filter:blur(5px)}
         <li><b>03</b><span>Заказы, автомобиль и обслуживание — в одном кабинете.</span></li>
       </ul>
     </aside>
+  </div>
+  <div class="shell market-section">
+    <div class="market-head">
+      <div><span class="kicker">БЫСТРЫЙ ПОДБОР</span><h2>Что ищем?</h2></div>
+      <p>Категории работают через умный поиск и выбранный автомобиль. Если каталогу не хватает данных — отправим подбор по VIN, а не подставим сомнительную деталь.</p>
+    </div>
+    <div class="category-grid">
+      <button class="category-card" data-smart-query="тормозные колодки"><b>Тормозная система</b><p>Колодки, диски, датчики, суппорты.</p><span class="cat-no">01</span></button>
+      <button class="category-card" data-smart-query="фильтры для технического обслуживания"><b>Фильтры и ТО</b><p>Масляные, воздушные, салонные, топливные.</p><span class="cat-no">02</span></button>
+      <button class="category-card" data-smart-query="детали подвески"><b>Подвеска</b><p>Рычаги, стойки, втулки, опоры, ступицы.</p><span class="cat-no">03</span></button>
+      <button class="category-card" data-smart-query="масло и технические жидкости"><b>Масла и жидкости</b><p>Для двигателя, коробки, тормозной системы и охлаждения.</p><span class="cat-no">04</span></button>
+      <button class="category-card" data-smart-query="щетки стеклоочистителя"><b>Щётки</b><p>Передние, задние и комплектами.</p><span class="cat-no">05</span></button>
+      <button class="category-card" data-smart-query="детали двигателя"><b>Двигатель</b><p>Опоры, ремни, ролики, прокладки и навесное.</p><span class="cat-no">06</span></button>
+      <button class="category-card" data-smart-query="автоэлектрика и лампы"><b>Электрика и свет</b><p>Лампы, датчики, реле, генератор, стартер.</p><span class="cat-no">07</span></button>
+      <button class="category-card" data-vin-open><b>Подбор по VIN</b><p>Когда важна точная применимость и нужен человек.</p><span class="cat-no">VIN</span></button>
+    </div>
   </div>
   <div class="shell home-strips">
     <article><span class="kicker">AI-ПОИСК</span><h3>Можно писать словами</h3><p>ИИ понимает деталь и позицию, но не выдумывает артикулы, цены или совместимость.</p></article>
@@ -310,6 +370,11 @@ dialog::backdrop{background:rgba(13,41,56,.56);backdrop-filter:blur(5px)}
     <form class="search compact" data-search-form><input name="query" placeholder="Артикул или запрос словами"><span class="ai-badge">AI</span><button>Найти</button></form>
   </div>
   <div id="catalogBody" class="results" aria-live="polite"></div>
+</section>
+
+<section class="page shell section-page" data-page="catalogs">
+  <div class="section-head"><span class="kicker">КАТАЛОГИ ZAPFORMAT</span><h2>Всё вокруг автомобиля</h2><p>Логика крупных магазинов — автомобиль, каталог, аналоги, ТО и помощь эксперта. Данные о цене и наличии остаются только реальными.</p></div>
+  <div id="catalogsBody"></div>
 </section>
 
 <section class="page shell section-page" data-page="cart">
@@ -332,8 +397,9 @@ dialog::backdrop{background:rgba(13,41,56,.56);backdrop-filter:blur(5px)}
 </section>
 </main>
 
-<nav class="mobile-nav">
+<nav class="mobile-nav" style="grid-template-columns:repeat(5,1fr)">
   <button data-go="home">Поиск</button>
+  <button data-go="catalogs">Каталог</button>
   <button data-go="garage">Гараж</button>
   <button data-go="orders">Заказы</button>
   <button data-go="cart">Корзина <b id="mobileCartBadge">0</b></button>
@@ -366,6 +432,18 @@ dialog::backdrop{background:rgba(13,41,56,.56);backdrop-filter:blur(5px)}
       <div class="field"><label>Пробег, км</label><input name="current_mileage" type="number" min="0" placeholder="186420"></div>
     </div>
     <div class="form-actions"><button class="primary">Сохранить</button><span id="vehicleFormStatus" class="small error"></span></div>
+  </form>
+</dialog>
+
+<dialog id="vinDialog">
+  <div class="dialog-head"><div><span class="kicker">ПОДБОР ПО VIN</span><h2>Найдём точно</h2></div><button class="dialog-close" data-close-dialog="vinDialog">×</button></div>
+  <p class="muted">Выберите автомобиль и опишите нужную деталь. Запрос сохраняется в кабинете; ZapFormat не будет угадывать совместимость.</p>
+  <form id="vinForm">
+    <div class="form-grid">
+      <div class="field full"><label>Автомобиль</label><select name="vehicle_id" id="vinVehicleSelect" required></select></div>
+      <div class="field full"><label>Что подобрать</label><textarea name="request_text" rows="5" maxlength="1200" placeholder="Например: передние тормозные колодки, желательно средний ценовой сегмент" required></textarea></div>
+    </div>
+    <div class="form-actions"><button class="primary">Отправить на подбор</button><span id="vinFormStatus" class="small error"></span></div>
   </form>
 </dialog>
 
@@ -409,6 +487,7 @@ const S={
   activeVehicle:null,
   orders:[],
   quoteRequests:[],
+  vinRequests:[],
   quoteDetail:null,
   orderDetail:null,
   offerSort:"price",
