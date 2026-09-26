@@ -6,6 +6,11 @@
 <meta name="theme-color" content="#0d2938">
 <title>ZapFormat — автозапчасти</title>
 <meta name="description" content="Автозапчасти в Рязани: поиск по артикулу, реальные предложения, гараж, заказы и личный кабинет.">
+<meta property="og:type" content="website">
+<meta property="og:title" content="ZapFormat — автозапчасти">
+<meta property="og:description" content="Поиск автозапчастей по артикулу и обычным запросом, реальные предложения и личный гараж.">
+<meta name="twitter:card" content="summary">
+
 <style>
 :root{
   --ink:#0d2938;--ink2:#173947;--muted:#667780;--paper:#f5f4ef;--card:#fff;--line:#dde3e1;
@@ -666,6 +671,18 @@ const rub=n=>new Intl.NumberFormat("ru-RU",{maximumFractionDigits:2}).format(Num
 const date=v=>v?new Intl.DateTimeFormat("ru-RU",{day:"2-digit",month:"short",year:"numeric"}).format(new Date(v)):"—";
 const datetime=v=>v?new Intl.DateTimeFormat("ru-RU",{day:"2-digit",month:"short",hour:"2-digit",minute:"2-digit"}).format(new Date(v)):"—";
 const initials=u=>((u?.name?.[0]||"")+(u?.surname?.[0]||"")).toUpperCase()||"Я";
+function setPageMeta(title,description){
+  const pageTitle=title?title+" — ZapFormat":"ZapFormat — автозапчасти";
+  const pageDescription=description||"Автозапчасти в Рязани: поиск по артикулу, реальные предложения, гараж, заказы и личный кабинет.";
+  document.title=pageTitle;
+  const descriptionMeta=$('meta[name="description"]');
+  const ogTitle=$('meta[property="og:title"]');
+  const ogDescription=$('meta[property="og:description"]');
+  if(descriptionMeta)descriptionMeta.content=pageDescription;
+  if(ogTitle)ogTitle.content=pageTitle;
+  if(ogDescription)ogDescription.content=pageDescription;
+}
+
 function deliveryLabel(hours,maxHours=hours){
   const h=Number(hours||0),mh=Math.max(h,Number(maxHours||h));
   if(!h)return "уточняется";
@@ -774,6 +791,21 @@ function routeUrl(page){
   return "?view="+encodeURIComponent(page);
 }
 function go(page,push=true){
+  const meta={
+    home:["Автозапчасти","Поиск по артикулу и обычным запросом, реальные предложения и личный гараж."],
+    catalog:["Поиск","Реальные предложения автозапчастей по цене, сроку и наличию."],
+    catalogs:["Каталоги","Категории автозапчастей, ТО, аналоги и подбор по VIN."],
+    cart:["Корзина","Корзина ZapFormat с повторной проверкой цены и наличия."],
+    checkout:["Оформление","Оформление заявки с повторной серверной проверкой товаров."],
+    account:["Личный кабинет","Профиль, сохранённые детали, уведомления и адреса."],
+    garage:["Гараж","Автомобили, VIN, пробег, характеристики и обслуживание."],
+    orders:["Заказы и подбор","Заказы, заявки, VIN-подбор и возвраты."],
+    operator:["Оператор","Служебная очередь ZapFormat."]
+  };
+  if(page!=="part"){
+    const m=meta[page]||meta.home;
+    setPageMeta(m[0],m[1]);
+  }
   document.querySelectorAll(".page").forEach(x=>x.classList.toggle("active",x.dataset.page===page));
   document.querySelectorAll("[data-go]").forEach(x=>{
     const active=x.dataset.go===page;
@@ -997,6 +1029,7 @@ async function searchArticle(article,push=true,urlQuery=article,aiResult=null){
   const q=String(article||"").trim();
   if(!q)return;
   S.query=q;
+  setPageMeta("Поиск "+q,"Предложения и производители по артикулу "+q+". Цена и наличие из подключённого каталога.");
   S.aiResult=aiResult;
   S.aiCandidates=[];
   go("catalog",push);
@@ -1018,6 +1051,8 @@ async function searchArticle(article,push=true,urlQuery=article,aiResult=null){
 async function searchWithAI(q,push=true){
   S.aiOriginalQuery=q;
   S.query=q;
+  setPageMeta("Поиск "+q,"Умный поиск ZapFormat по запросу «"+q+"» с проверкой реального каталога.");
+
   S.aiResult=null;
   S.aiCandidates=[];
   go("catalog",push);
@@ -1139,6 +1174,10 @@ function partSortedOffers(){
 function renderPartDetail(){
   const root=$("#partBody"),d=S.currentPartData;if(!root||!d)return;
   const p=d.part||{},s=d.summary||{},offers=partSortedOffers(),alts=d.alternatives||[];
+  setPageMeta(
+    [p.brand,p.article].filter(Boolean).join(" "),
+    [p.description,"Реальные предложения, цена, срок и наличие в ZapFormat."].filter(Boolean).join(" — ").slice(0,300)
+  );
   const vehicle=S.activeVehicle;
   const stats=[
     ["Цена от",s.price_min===null?"—":rub(s.price_min)],
