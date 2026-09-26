@@ -27,6 +27,13 @@ a{color:inherit}
 .main-nav{display:flex;gap:3px}
 .main-nav button,.ghost-btn{border:0;background:none;padding:10px 13px;border-radius:10px;font-weight:650}
 .main-nav button:hover,.ghost-btn:hover{background:#e8ece8}
+.main-nav button.active,.mobile-nav button.active{color:var(--green);background:var(--soft)}
+button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible{outline:3px solid rgba(18,109,87,.24);outline-offset:2px}
+.header-vehicle{display:flex;align-items:center;gap:8px;border:1px solid var(--line);background:#fff;padding:7px 10px;border-radius:11px;max-width:210px}
+.header-vehicle .car-dot{display:grid;place-items:center;width:29px;height:29px;flex:0 0 auto;border-radius:8px;background:var(--soft);font-size:10px;font-weight:950}
+.header-vehicle span:last-child{min-width:0;text-align:left}
+.header-vehicle b,.header-vehicle small{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.header-vehicle small{color:var(--muted);font-size:10px}
 .header-actions{margin-left:auto;display:flex;align-items:center;gap:8px}
 .user-chip{display:flex;align-items:center;gap:9px;border:0;background:#fff;padding:7px 11px 7px 7px;border-radius:12px;box-shadow:inset 0 0 0 1px var(--line)}
 .header-expert{border:0;background:var(--soft);color:var(--green2);padding:10px 12px;border-radius:10px;font-weight:800}
@@ -319,7 +326,7 @@ dialog::backdrop{background:rgba(13,41,56,.56);backdrop-filter:blur(5px)}
   body{padding-bottom:72px}
   .shell{width:min(100% - 26px,1240px)}
   .header-in{height:62px}
-  .main-nav,.user-chip,.header-expert{display:none}
+  .main-nav,.user-chip,.header-expert,.header-vehicle{display:none}
   .hero{grid-template-columns:1fr;min-height:auto;padding:54px 0}
   .hero-panel{display:none}
   .hero h1{font-size:clamp(50px,12vw,72px)}
@@ -384,6 +391,7 @@ dialog::backdrop{background:rgba(13,41,56,.56);backdrop-filter:blur(5px)}
       <button data-go="operator" id="operatorNav" hidden>Оператор</button>
     </nav>
     <div class="header-actions">
+      <button class="header-vehicle" data-go="garage" id="headerVehicle" hidden><span class="car-dot" id="headerVehicleMark">A</span><span><b id="headerVehicleName">Автомобиль</b><small id="headerVehicleMeta">Гараж</small></span></button>
       <button class="header-expert" data-vin-open>Подбор по VIN</button>
       <button class="user-chip" data-go="account" id="userChip"><span class="avatar">Я</span><span id="userChipText">Войти</span></button>
       <button class="cart-btn" data-go="cart">Корзина <b id="cartBadge">0</b></button>
@@ -709,7 +717,12 @@ function routeUrl(page){
   return "?view="+encodeURIComponent(page);
 }
 function go(page,push=true){
-  $$(".page").forEach(x=>x.classList.toggle("active",x.dataset.page===page));
+  $(".page").forEach(x=>x.classList.toggle("active",x.dataset.page===page));
+  $("[data-go]").forEach(x=>{
+    const active=x.dataset.go===page;
+    x.classList.toggle("active",active);
+    if(active)x.setAttribute("aria-current","page");else x.removeAttribute("aria-current");
+  });
   if(push) history.pushState({page},"",routeUrl(page));
   scrollTo(0,0);
   if(page==="catalogs") renderCatalogs();
@@ -745,17 +758,25 @@ function requireAuth(){
 }
 
 function renderVehicleContext(){
-  const root=$("#vehicleContext");if(!root)return;
+  const root=$("#vehicleContext"),chip=$("#headerVehicle"),name=$("#headerVehicleName"),meta=$("#headerVehicleMeta"),mark=$("#headerVehicleMark");
   if(!S.user){
-    root.innerHTML='<button class="ghost-btn small" data-go="garage">Гараж доступен после входа</button>';
+    if(chip)chip.hidden=true;
+    if(root)root.innerHTML='<button class="ghost-btn small" data-go="garage">Гараж доступен после входа</button>';
     return;
   }
   if(!S.activeVehicle){
-    root.innerHTML='<button class="ghost-btn small" data-go="garage">+ Добавить автомобиль в гараж</button>';
+    if(chip)chip.hidden=true;
+    if(root)root.innerHTML='<button class="ghost-btn small" data-go="garage">+ Добавить автомобиль в гараж</button>';
     return;
   }
   const v=S.activeVehicle;
-  root.innerHTML='<button class="secondary" data-go="garage"><b>'+esc(v.brand)+' '+esc(v.model)+'</b><span class="small muted"> · '+esc([v.generation,v.year].filter(Boolean).join(" ")||"основной автомобиль")+'</span></button><span class="small muted" style="margin-left:9px">ИИ учитывает автомобиль как контекст, но не объявляет совместимость без подтверждения каталога.</span>';
+  if(chip){
+    chip.hidden=false;
+    name.textContent=[v.brand,v.model].filter(Boolean).join(" ");
+    meta.textContent=[v.generation,v.year].filter(Boolean).join(" ")||"Основной автомобиль";
+    mark.textContent=String(v.brand||"A").slice(0,2).toUpperCase();
+  }
+  if(root)root.innerHTML='<button class="secondary" data-go="garage"><b>'+esc(v.brand)+' '+esc(v.model)+'</b><span class="small muted"> · '+esc([v.generation,v.year].filter(Boolean).join(" ")||"основной автомобиль")+'</span></button><span class="small muted" style="margin-left:9px">ИИ учитывает автомобиль как контекст, но не объявляет совместимость без подтверждения каталога.</span>';
 }
 
 function renderCatalogs(){
