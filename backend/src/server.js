@@ -1181,7 +1181,7 @@ app.get("/api/cart", requireUser, async (req, res, next) => {
   try {
     const cartId = await userCartId(req.user.id);
     const result = await pool.query(
-      `SELECT id, article, brand, description, delivery_days, quantity,
+      `SELECT id, article, brand, description, delivery_days, delivery_hours, quantity,
               available_quantity, unit_price, offer_ref, delivery_hours_max,
               returnable, price_checked_at, created_at, updated_at
          FROM cart_items
@@ -1195,7 +1195,7 @@ app.get("/api/cart", requireUser, async (req, res, next) => {
         article: row.article,
         brand: row.brand,
         description: row.description,
-        delivery_hours: Number(row.delivery_days || 0) * 24,
+        delivery_hours: Number(row.delivery_hours ?? (Number(row.delivery_days || 0) * 24)),
         delivery_hours_max: Number(row.delivery_hours_max || 0),
         quantity: row.quantity,
         availability: Number(row.available_quantity || 0),
@@ -1244,16 +1244,17 @@ app.put("/api/cart", requireUser, async (req, res, next) => {
     for (const item of verified) {
       await client.query(
         `INSERT INTO cart_items
-          (cart_id, article, brand, description, delivery_days, quantity,
+          (cart_id, article, brand, description, delivery_days, delivery_hours, quantity,
            available_quantity, unit_price, offer_ref, delivery_hours_max,
            returnable, price_checked_at, checked_at)
-         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$12)`,
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$13)`,
         [
           cartId,
           item.article,
           item.brand,
           item.description,
           Math.max(0, Math.ceil(Number(item.delivery_hours || 0) / 24)),
+          item.delivery_hours,
           item.quantity,
           item.availability,
           item.price,
