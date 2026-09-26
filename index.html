@@ -226,6 +226,34 @@ a{color:inherit}
 .summary p{color:var(--muted);font-size:13px}
 .summary .primary{width:100%}
 .summary-note{margin-top:12px;padding:12px;border-radius:10px;background:#f1f4f1;color:var(--muted);font-size:12px}
+.checkout-grid{display:grid;grid-template-columns:minmax(0,1fr) 360px;gap:20px;align-items:start}
+.checkout-main{display:grid;gap:14px}
+.checkout-step{background:#fff;border:1px solid var(--line);border-radius:16px;padding:20px}
+.checkout-step-head{display:flex;align-items:flex-start;gap:12px;margin-bottom:16px}
+.checkout-step-no{display:grid;place-items:center;width:30px;height:30px;flex:0 0 auto;border-radius:9px;background:var(--ink);color:#fff;font-size:12px;font-weight:900}
+.checkout-step h3{margin:0;font-size:20px}
+.checkout-step p{margin:3px 0 0;color:var(--muted);font-size:13px}
+.choice-list{display:grid;gap:8px}
+.choice{display:grid;grid-template-columns:auto minmax(0,1fr);gap:11px;align-items:start;border:1px solid var(--line);border-radius:12px;padding:13px;background:#fff}
+.choice:has(input:checked){border-color:#8ba89e;box-shadow:0 0 0 2px rgba(18,109,87,.08)}
+.choice input{margin-top:4px}
+.choice b{display:block}
+.choice small{display:block;color:var(--muted);margin-top:3px}
+.checkout-items{display:grid;gap:8px}
+.checkout-item{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:12px;padding:11px 0;border-top:1px solid var(--line)}
+.checkout-item:first-child{border-top:0}
+.checkout-item small{display:block;color:var(--muted);margin-top:2px}
+.checkout-summary{position:sticky;top:92px}
+.checkout-summary .total-row{display:flex;justify-content:space-between;gap:12px;padding:9px 0;border-top:1px solid var(--line)}
+.checkout-summary .total-row:first-child{border-top:0}
+.checkout-summary .grand{font-size:24px;font-weight:900}
+.checkout-warning{padding:12px;border-radius:11px;background:#fff7e9;border:1px solid #ead7b7;color:#7d571d;font-size:12px;margin:12px 0}
+.checkout-success{max-width:760px;margin:30px auto;background:#fff;border:1px solid var(--line);border-radius:22px;padding:32px;text-align:center;box-shadow:var(--shadow)}
+.checkout-success .success-mark{display:grid;place-items:center;width:58px;height:58px;margin:0 auto 18px;border-radius:18px;background:var(--soft);color:var(--green);font-size:28px;font-weight:950}
+.checkout-success h2{font-size:38px;letter-spacing:-.04em;margin:0 0 9px}
+.checkout-success p{color:var(--muted)}
+.checkout-success .request-code{display:inline-block;margin:10px 0;padding:9px 13px;border-radius:10px;background:#f1f4f1;font-weight:900}
+
 .notice{padding:12px 14px;border:1px solid #d8e2dd;background:#f0f5f1;border-radius:11px;color:var(--green2);font-size:13px}
 .error{color:var(--red)}
 dialog{width:min(520px,calc(100% - 28px));max-height:min(88vh,780px);overflow:auto;border:0;border-radius:21px;padding:28px;color:var(--ink);box-shadow:0 30px 110px rgba(13,41,56,.34)}
@@ -270,7 +298,8 @@ dialog::backdrop{background:rgba(13,41,56,.56);backdrop-filter:blur(5px)}
   .offer strong{grid-column:1}
   .offer .small-primary{grid-column:2;grid-row:2/4}
   .brand-row{grid-template-columns:44px 1fr auto}.brand-row code{display:none}.brand-row i{grid-column:3;grid-row:1}
-  .cart-layout{grid-template-columns:1fr}
+  .cart-layout,.checkout-grid{grid-template-columns:1fr}
+  .checkout-summary{position:static}
   .dashboard-actions,.stat-grid{grid-template-columns:1fr 1fr 1fr}
   .category-grid{grid-template-columns:repeat(2,1fr)}
   .catalog-action-grid{grid-template-columns:repeat(2,1fr)}
@@ -390,6 +419,11 @@ dialog::backdrop{background:rgba(13,41,56,.56);backdrop-filter:blur(5px)}
   <div id="cartBody"></div>
 </section>
 
+<section class="page shell section-page" data-page="checkout">
+  <div class="section-head"><span class="kicker">ОФОРМЛЕНИЕ</span><h2>Проверяем и оформляем</h2><p>Товары, контакт, получение и итог — на одном экране. Цена и наличие повторно проверяются на сервере.</p></div>
+  <div id="checkoutBody"></div>
+</section>
+
 <section class="page shell section-page" data-page="account">
   <div id="accountBody"></div>
 </section>
@@ -490,6 +524,10 @@ const S={
   selectedReturnItem:null,
   cartPersistTimer:null,
   cartServerWarning:"",
+  checkoutOptions:null,
+  checkoutResult:null,
+  checkoutDraft:{fulfillment_method:"",payment_method:"after_confirmation"},
+  checkoutSubmitting:false,
   vehicles:[],
   vehicleDetail:null,
   activeVehicle:null,
@@ -625,6 +663,7 @@ function go(page,push=true){
   scrollTo(0,0);
   if(page==="catalogs") renderCatalogs();
   if(page==="cart") renderCart();
+  if(page==="checkout") loadCheckout();
   if(page==="account") renderAccount();
   if(page==="garage") loadGarage();
   if(page==="orders") loadOrders();
@@ -924,7 +963,7 @@ function renderCart(){
       ?'<button class="secondary" data-refresh-historical="'+i+'">Актуализировать</button>'
       :'<strong>'+rub(Number(x.price||0)*Number(x.qty||1))+'</strong>';
     return '<div class="cart-line"><div><b>'+esc(x.brand)+' '+esc(x.article)+'</b><p>'+esc(x.description||"")+'</p><span class="small muted">'+meta+'</span>'+state+'</div><div class="qty"><button data-cart-qty="'+i+'" data-delta="-1">−</button><b>'+x.qty+'</b><button data-cart-qty="'+i+'" data-delta="1">+</button></div>'+action+'<button class="remove" data-cart-remove="'+i+'">×</button></div>';
-  }).join("")+'</div><div class="form-actions"><button class="secondary" data-refresh-cart '+(S.cartRefreshing?"disabled":"")+'>'+(S.cartRefreshing?"Проверяем…":"Обновить цены и наличие")+'</button><span class="small muted">'+(checked?"Проверено "+datetime(checked):"Ещё не перепроверено")+'</span></div>'+warning+'</div><aside class="panel summary"><div class="total"><span>Итого по актуальным позициям</span><b>'+rub(total)+'</b></div><p>Итог считается только по предложениям, которые можно перепроверить на backend. Старые позиции и исчезнувшие предложения не участвуют в сумме.</p><button class="primary" data-checkout '+(blocked?"disabled":"")+'>'+((S.user&&S.user.phone)?"Отправить на подтверждение":"Продолжить")+'</button><div class="summary-note">'+(historical.length?'Актуализируйте '+historical.length+' поз. из истории. ': '')+(invalid.length?'Исправьте '+invalid.length+' недоступн. поз. ': '')+'Перед созданием заявки backend ещё раз проверит конкретные предложения, цены и остатки.</div></aside></div>';
+  }).join("")+'</div><div class="form-actions"><button class="secondary" data-refresh-cart '+(S.cartRefreshing?"disabled":"")+'>'+(S.cartRefreshing?"Проверяем…":"Обновить цены и наличие")+'</button><span class="small muted">'+(checked?"Проверено "+datetime(checked):"Ещё не перепроверено")+'</span></div>'+warning+'</div><aside class="panel summary"><div class="total"><span>Итого по актуальным позициям</span><b>'+rub(total)+'</b></div><p>Итог считается только по предложениям, которые можно перепроверить на backend. Старые позиции и исчезнувшие предложения не участвуют в сумме.</p><button class="primary" data-checkout '+(blocked?"disabled":"")+'>'+(S.user?"Перейти к оформлению":"Войти и оформить")+'</button><div class="summary-note">'+(historical.length?'Актуализируйте '+historical.length+' поз. из истории. ': '')+(invalid.length?'Исправьте '+invalid.length+' недоступн. поз. ': '')+'Перед созданием заявки backend ещё раз проверит конкретные предложения, цены и остатки.</div></aside></div>';
 
   const recheckable=active;
   const stale=recheckable.some(x=>!x.checked_at||(Date.now()-new Date(x.checked_at).getTime())>120000);
@@ -972,53 +1011,145 @@ async function refreshCart(showToast=true){
 
 async function checkout(){
   if(!requireAuth())return;
-  if(!S.user.phone){
-    toast("Добавьте телефон в профиле");
-    go("account");
-    return;
-  }
+  if(!S.cart.length){toast("Корзина пуста");return go("cart")}
   const live=S.cart.filter(x=>x.offer_ref&&!x.historical);
   if(live.length!==S.cart.length){
     toast("Сначала актуализируйте позиции из истории");
     return;
   }
-
   await refreshCart(false);
   const blocked=S.cart.some(x=>x.found===false||Number(x.availability||0)<Number(x.qty||1));
   if(blocked){
     toast("Корзина изменилась — исправьте позиции");
+    return go("cart");
+  }
+  go("checkout");
+}
+async function loadCheckout(){
+  const root=$("#checkoutBody");if(!root)return;
+  if(!S.user){
+    root.innerHTML='<div class="empty"><div><b>Войдите для оформления</b><p>Корзина останется на устройстве.</p><button class="primary" data-auth-open>Войти</button></div></div>';
     return;
   }
+  if(!S.cart.length&&!S.checkoutResult){
+    root.innerHTML='<div class="empty"><div><b>Корзина пуста</b><p>Добавьте товары, чтобы перейти к оформлению.</p><button class="primary" data-go="home">К поиску</button></div></div>';
+    return;
+  }
+  if(S.checkoutResult)return renderCheckoutSuccess();
 
-  const btn=$("[data-checkout]"); if(btn)btn.disabled=true;
+  root.innerHTML='<div class="state-card"><div><div class="spinner" style="margin:auto"></div><p>Готовим оформление…</p></div></div>';
   try{
-    const items=S.cart.map(x=>({
-      client_id:x.id,
-      brand:x.brand,
-      article:x.article,
-      offer_ref:x.offer_ref,
-      description:x.description,
-      quantity:x.qty
-    }));
-    const d=await api("/api/quote-requests",{method:"POST",body:JSON.stringify({
-      name:S.user.name,
-      phone:S.user.phone,
-      items
-    })});
-    S.cart=[];
-    writeCart();
-    renderCart();
-    toast("Заявка "+d.request_id+" отправлена");
-    setTimeout(()=>go("orders"),350);
-  }catch(e){
-    if(e.status===409){
-      S.cartServerWarning="Цена, срок или наличие изменились. Обновите корзину.";
-      await refreshCart(false);
-      toast("Корзина изменилась");
-    }else{
-      toast("Не удалось отправить заявку");
+    S.checkoutOptions=await api("/api/checkout/options");
+    if(!S.checkoutDraft.fulfillment_method){
+      const ready=(S.checkoutOptions.fulfillment_methods||[]).find(x=>x.ready);
+      S.checkoutDraft.fulfillment_method=ready?.code||"confirmation";
     }
-  }finally{if(btn)btn.disabled=false}
+    renderCheckout();
+  }catch{
+    root.innerHTML='<div class="empty"><div><b>Не удалось подготовить оформление</b><p>Проверьте соединение и попробуйте ещё раз.</p><button class="secondary" data-reload-checkout>Повторить</button></div></div>';
+  }
+}
+function renderCheckout(){
+  const root=$("#checkoutBody"),o=S.checkoutOptions||{};
+  const methods=o.fulfillment_methods||[],addresses=o.addresses||[],points=o.pickup_points||[],vehicles=o.vehicles||[];
+  const activeMethod=S.checkoutDraft.fulfillment_method||methods.find(x=>x.ready)?.code||"confirmation";
+  const defaultAddress=addresses.find(x=>x.is_default)||addresses[0]||null;
+  const defaultVehicle=vehicles.find(x=>x.is_default)||vehicles[0]||null;
+  const total=S.cart.reduce((sum,x)=>sum+Number(x.price||0)*Number(x.qty||1),0);
+
+  const fulfillmentChoices=methods.map(m=>'<label class="choice"><input type="radio" name="fulfillment_method" value="'+esc(m.code)+'" '+(activeMethod===m.code?"checked":"")+' '+(!m.ready&&m.code!=="delivery"?"disabled":"")+'><span><b>'+esc(m.label)+'</b><small>'+esc(m.description||"")+'</small></span></label>').join("");
+  const addressChoices=addresses.length
+    ?'<div class="choice-list">'+addresses.map(a=>'<label class="choice"><input type="radio" name="delivery_address_id" value="'+a.id+'" '+(defaultAddress?.id===a.id?"checked":"")+'><span><b>'+esc(a.label||"Адрес")+'</b><small>'+esc(a.city)+', '+esc(a.address)+(a.recipient_name?' · '+esc(a.recipient_name):'')+'</small></span></label>').join("")+'</div>'
+    :'<div class="notice">Сохранённых адресов нет. Добавьте адрес ниже или выберите «Согласовать получение».</div>';
+  const pointChoices=points.length
+    ?'<div class="choice-list">'+points.map((p,i)=>'<label class="choice"><input type="radio" name="pickup_point_id" value="'+p.id+'" '+(i===0?"checked":"")+'><span><b>'+esc(p.name)+'</b><small>'+esc([p.city,p.address].filter(Boolean).join(", "))+'</small></span></label>').join("")+'</div>'
+    :'<div class="notice">Пункты выдачи ещё не настроены. Этот вариант станет доступен после подключения реальной логистики.</div>';
+  const vehicleChoices=vehicles.length
+    ?'<select name="vehicle_id"><option value="">Без привязки к машине</option>'+vehicles.map(v=>'<option value="'+v.id+'" '+(defaultVehicle?.id===v.id?"selected":"")+'>'+esc(v.brand)+' '+esc(v.model)+' '+esc([v.generation,v.year].filter(Boolean).join(" "))+'</option>').join("")+'</select>'
+    :'<span class="muted small">Автомобиль можно добавить позже.</span>';
+
+  root.innerHTML='<form id="checkoutForm"><div class="checkout-grid"><div class="checkout-main">'+
+    '<section class="checkout-step"><div class="checkout-step-head"><span class="checkout-step-no">1</span><div><h3>Покупатель</h3><p>Контакт для подтверждения заявки.</p></div></div><div class="form-grid"><div class="field"><label>Получатель</label><input name="recipient_name" value="'+esc([S.user.name,S.user.surname].filter(Boolean).join(" "))+'" required></div><div class="field"><label>Телефон</label><input name="recipient_phone" value="'+esc(S.user.phone||"")+'" placeholder="+7 900 000-00-00" required></div><div class="field full"><label>Автомобиль</label>'+vehicleChoices+'</div></div></section>'+
+    '<section class="checkout-step"><div class="checkout-step-head"><span class="checkout-step-no">2</span><div><h3>Получение</h3><p>Выберите доступный вариант. Никаких вымышленных пунктов выдачи.</p></div></div><div class="choice-list">'+fulfillmentChoices+'</div>'+
+      '<div id="checkoutDelivery" style="margin-top:14px">'+addressChoices+'<div class="mini-form"><h4>Добавить адрес</h4><div class="form-grid"><div class="field"><label>Город</label><input data-new-address-city placeholder="Рязань"></div><div class="field"><label>Название</label><input data-new-address-label placeholder="Дом"></div><div class="field full"><label>Адрес</label><input data-new-address-text placeholder="Улица, дом, квартира"></div></div><div class="form-actions"><button type="button" class="secondary" data-checkout-add-address>Сохранить адрес</button></div></div></div>'+
+      '<div id="checkoutPickup" style="margin-top:14px">'+pointChoices+'</div>'+
+    '</section>'+
+    '<section class="checkout-step"><div class="checkout-step-head"><span class="checkout-step-no">3</span><div><h3>Оплата</h3><p>Онлайн-оплата не имитируется: пока доступно только подтверждение перед оплатой.</p></div></div><label class="choice"><input type="radio" name="payment_method" value="after_confirmation" checked><span><b>После подтверждения</b><small>Сначала проверяем поставщика, цену, наличие и получение. Деньги сейчас не списываются.</small></span></label></section>'+
+    '<section class="checkout-step"><div class="checkout-step-head"><span class="checkout-step-no">4</span><div><h3>Комментарий</h3><p>Необязательно.</p></div></div><div class="field"><textarea name="comment" rows="4" maxlength="1200" placeholder="Например: связаться после 18:00"></textarea></div></section>'+
+    '</div><aside class="panel panel-pad checkout-summary"><div class="panel-title"><div><h3>Ваш заказ</h3><p>'+S.cart.length+' поз.</p></div></div><div class="checkout-items">'+S.cart.map(x=>'<div class="checkout-item"><span><b>'+esc(x.brand)+' '+esc(x.article)+'</b><small>'+Number(x.qty||1)+' шт. · '+esc(deliveryLabel(x.delivery_hours,x.delivery_hours_max))+'</small></span><strong>'+rub(Number(x.price||0)*Number(x.qty||1))+'</strong></div>').join("")+'</div><div style="margin-top:14px"><div class="total-row"><span>Товары</span><strong>'+rub(total)+'</strong></div><div class="total-row"><span>Доставка</span><span class="muted">после подтверждения</span></div><div class="total-row grand"><span>Предварительно</span><span>'+rub(total)+'</span></div></div><div class="checkout-warning">Перед созданием заявки backend ещё раз проверит каждое предложение. Если цена, срок или остаток изменились, оформление остановится.</div><button class="primary" style="width:100%" '+(S.checkoutSubmitting?"disabled":"")+'>'+(S.checkoutSubmitting?"Проверяем…":"Отправить на подтверждение")+'</button><div id="checkoutStatus" class="small error" style="margin-top:10px"></div></aside></div></form>';
+
+  $("#checkoutForm")?.addEventListener("submit",submitCheckout);
+  $$('[name="fulfillment_method"]',root).forEach(x=>x.addEventListener("change",e=>{S.checkoutDraft.fulfillment_method=e.target.value;updateCheckoutFulfillmentUi()}));
+  updateCheckoutFulfillmentUi();
+}
+function updateCheckoutFulfillmentUi(){
+  const method=$('[name="fulfillment_method"]:checked')?.value||S.checkoutDraft.fulfillment_method||"confirmation";
+  const delivery=$("#checkoutDelivery"),pickup=$("#checkoutPickup");
+  if(delivery)delivery.hidden=method!=="delivery";
+  if(pickup)pickup.hidden=method!=="pickup";
+}
+async function addCheckoutAddress(){
+  const city=String($("[data-new-address-city]")?.value||"").trim();
+  const address=String($("[data-new-address-text]")?.value||"").trim();
+  const label=String($("[data-new-address-label]")?.value||"").trim();
+  if(!city||!address){toast("Укажите город и адрес");return}
+  try{
+    await api("/api/account/addresses",{method:"POST",body:JSON.stringify({city,address,label,is_default:true,recipient_name:S.user?.name||"",recipient_phone:S.user?.phone||""})});
+    toast("Адрес сохранён");
+    S.checkoutOptions=await api("/api/checkout/options");
+    S.checkoutDraft.fulfillment_method="delivery";
+    renderCheckout();
+  }catch{toast("Не удалось сохранить адрес")}
+}
+async function submitCheckout(e){
+  e.preventDefault();if(S.checkoutSubmitting)return;
+  const form=e.currentTarget,f=new FormData(form),status=$("#checkoutStatus");
+  S.checkoutSubmitting=true;if(status)status.textContent="Повторно проверяем товары…";
+  const btn=form.querySelector('button[type="submit"],button.primary');if(btn)btn.disabled=true;
+  try{
+    await refreshCart(false);
+    if(S.cart.some(x=>x.historical||!x.offer_ref||x.found===false||Number(x.availability||0)<Number(x.qty||1))){
+      throw Object.assign(new Error("cart_changed"),{status:409});
+    }
+    const payload={
+      recipient_name:f.get("recipient_name"),
+      recipient_phone:f.get("recipient_phone"),
+      vehicle_id:f.get("vehicle_id")||null,
+      fulfillment_method:f.get("fulfillment_method")||"confirmation",
+      delivery_address_id:f.get("delivery_address_id")||null,
+      pickup_point_id:f.get("pickup_point_id")||null,
+      payment_method:"after_confirmation",
+      comment:f.get("comment")||"",
+      items:S.cart.map(x=>({
+        client_id:x.id,brand:x.brand,article:x.article,offer_ref:x.offer_ref,
+        description:x.description,quantity:x.qty
+      }))
+    };
+    const d=await api("/api/checkout/submit",{method:"POST",body:JSON.stringify(payload)});
+    S.checkoutResult=d;
+    S.cart=[];
+    writeCart({persist:false});
+    renderCheckoutSuccess();
+    toast("Заявка "+d.request_id+" создана");
+  }catch(err){
+    if(err.status===409){
+      if(status)status.textContent="Корзина изменилась. Вернитесь и проверьте обновлённые позиции.";
+      toast("Цена или наличие изменились");
+    }else if(err.message==="delivery_address_required"){
+      if(status)status.textContent="Выберите или добавьте адрес доставки.";
+    }else if(err.message==="recipient_phone_required"){
+      if(status)status.textContent="Укажите телефон получателя.";
+    }else{
+      if(status)status.textContent="Не удалось завершить оформление.";
+    }
+  }finally{
+    S.checkoutSubmitting=false;if(btn)btn.disabled=false;
+  }
+}
+function renderCheckoutSuccess(){
+  const root=$("#checkoutBody"),d=S.checkoutResult;if(!root||!d)return;
+  const method=({delivery:"Доставка",pickup:"Самовывоз",confirmation:"Получение согласуем"})[d.fulfillment_method]||"Получение";
+  root.innerHTML='<div class="checkout-success"><div class="success-mark">✓</div><span class="kicker">ЗАЯВКА ПРИНЯТА</span><h2>Товары перепроверены</h2><p>Это заявка на подтверждение, а не автоматически созданный заказ у поставщика. Следующий шаг — подтверждение условий.</p><span class="request-code">'+esc(d.request_id)+'</span><div class="panel panel-pad" style="text-align:left;margin:18px 0"><div class="total-row" style="display:flex;justify-content:space-between;padding:8px 0"><span>Проверенная сумма товаров</span><strong>'+rub(d.verified_total)+'</strong></div><div class="total-row" style="display:flex;justify-content:space-between;padding:8px 0"><span>Получение</span><strong>'+esc(method)+'</strong></div><div class="total-row" style="display:flex;justify-content:space-between;padding:8px 0"><span>Оплата</span><strong>После подтверждения</strong></div></div><div class="form-actions" style="justify-content:center"><button class="primary" data-go="orders">Открыть заявки</button><button class="secondary" data-go="home">Продолжить поиск</button></div></div>';
 }
 
 async function hydrate(){
@@ -1400,6 +1531,8 @@ document.addEventListener("click",async e=>{
   }
   if(e.target.closest("[data-refresh-cart]"))return refreshCart(true);
   if(e.target.closest("[data-checkout]"))return checkout();
+  if(e.target.closest("[data-reload-checkout]"))return loadCheckout();
+  if(e.target.closest("[data-checkout-add-address]"))return addCheckoutAddress();
   if(e.target.closest("[data-auth-open]"))return openAuth();
   x=e.target.closest("[data-close-dialog]");if(x)return $("#"+x.dataset.closeDialog).close();
   x=e.target.closest("[data-auth-tab]");if(x){S.authMode=x.dataset.authTab;return authUi()}
