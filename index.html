@@ -684,7 +684,10 @@ const S={
   offerHighProbability:false,
   cartRefreshing:false,
   lastCartRefreshAttempt:0,
-  authMode:"login"
+  authMode:"login",
+  authReturnPage:"account",
+  authAfter:"",
+  authPayload:null
 };
 
 const $=(s,r=document)=>r.querySelector(s);
@@ -877,9 +880,15 @@ function updateHeader(){
   if(op)op.hidden=!["admin","owner"].includes(S.user?.role);
   accountBadges();
 }
-function requireAuth(){
+function activePage(){
+  return $(".page.active")?.dataset.page||"home";
+}
+function requireAuth(returnPage="account",after="",payload=null){
   if(S.user)return true;
-  openAuth();
+  S.authReturnPage=returnPage||"account";
+  S.authAfter=after||"";
+  S.authPayload=payload;
+  openAuth("login",true);
   return false;
 }
 
@@ -945,7 +954,7 @@ async function ensureVehicles(){
   return S.vehicles;
 }
 async function openVinRequest(prefill=""){
-  if(!requireAuth())return;
+  if(!requireAuth(activePage(),"vin",prefill))return;
   const vehicles=await ensureVehicles();
   const withVin=vehicles.filter(v=>/^[A-HJ-NPR-Z0-9]{17}$/i.test(String(v.vin||"")));
   if(!withVin.length){
@@ -997,7 +1006,7 @@ async function recordSearch(query,type="search"){
   }catch{}
 }
 async function saveCurrentPart(part){
-  if(!requireAuth())return;
+  if(!requireAuth(activePage(),"savePart",part))return;
   try{
     const d=await api("/api/account/saved-parts",{method:"POST",body:JSON.stringify({brand:part.brand,article:part.article,description:part.description})});
     S.savedParts=[d.part,...S.savedParts.filter(x=>x.id!==d.part.id&&!(String(x.brand).toUpperCase()===String(d.part.brand).toUpperCase()&&String(x.article).toUpperCase()===String(d.part.article).toUpperCase()))];
@@ -1470,7 +1479,7 @@ async function refreshCart(showToast=true){
 }
 
 async function checkout(){
-  if(!requireAuth())return;
+  if(!requireAuth("cart","checkout"))return;
   if(!S.cart.length){toast("Корзина пуста");return go("cart")}
   const live=S.cart.filter(x=>x.offer_ref&&!x.historical);
   if(live.length!==S.cart.length){
@@ -1674,7 +1683,12 @@ function authUi(){
   $('#authForm [name="password"]').autocomplete=S.authMode==="login"?"current-password":"new-password";
   $("#authStatus").textContent="";
 }
-function openAuth(mode="login"){
+function openAuth(mode="login",preserveReturn=false){
+  if(!preserveReturn){
+    S.authReturnPage="account";
+    S.authAfter="";
+    S.authPayload=null;
+  }
   S.authMode=mode;authUi();$("#authDialog").showModal();
 }
 async function submitAuth(e){
@@ -1686,7 +1700,13 @@ async function submitAuth(e){
     :{name:f.get("name"),email:login.includes("@")?login:null,phone:login.includes("@")?null:login,password:f.get("password")};
   try{
     const d=await api("/api/auth/"+(S.authMode==="login"?"login":"register"),{method:"POST",body:JSON.stringify(payload)});
-    S.user=d.user;$("#authDialog").close();await hydrate();toast("Готово");go("account");
+    S.user=d.user;$("#authDialog").close();await hydrate();toast("Готово");
+    const after=S.authAfter,page=S.authReturnPage||"account",payload=S.authPayload;
+    S.authReturnPage="account";S.authAfter="";S.authPayload=null;
+    if(after==="checkout"){go("cart");return checkout()}
+    if(after==="vin"){go(page);return openVinRequest(String(payload||""))}
+    if(after==="savePart"){go(page);return saveCurrentPart(payload||{})}
+    go(page);
   }catch(e){
     $("#authStatus").textContent=e.message==="user_already_exists"?"Такой пользователь уже существует.":"Проверьте введённые данные.";
   }
