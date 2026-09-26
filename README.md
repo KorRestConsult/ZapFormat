@@ -89,3 +89,19 @@ GitHub Actions для rebuild-ветки проверяет:
 `backend/deploy/rollback-to-snapshot.sh`
 
 Никакого blind `git pull`. Сначала фиксируется текущий commit и сохраняются ENV, nginx и systemd.
+
+
+## AI search
+
+The rebuild branch contains an AI layer above the supplier catalog.
+
+- Exact article queries bypass AI and go directly to the catalog.
+- Natural-language queries are interpreted on the backend through the OpenAI Responses API with Structured Outputs.
+- Default model: `gpt-5.6-luna`; override it with the backend model setting.
+- Vehicle context sent to AI is limited to make/model/generation/year/engine. VIN and plate are not forwarded from the saved garage context.
+- AI is not allowed to invent part numbers, fitment, prices, stock, or delivery terms.
+- An article returned by AI is accepted only when that exact article was explicitly present in the user's query.
+- Natural-language search terms may be checked against supplier tips, but all price/availability data still comes from the supplier API.
+- The AI credential belongs only in the VPS backend environment and must never be committed or sent to the browser.
+
+The public health endpoint exposes only whether AI is configured, never the credential itself.
