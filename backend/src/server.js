@@ -256,7 +256,7 @@ async function qualifyReferralForCompletedOrder(db, userId, orderId) {
   const rewardPoints = Math.max(0, Math.floor(Number(process.env.REFERRAL_REWARD_POINTS || 0)));
   let rewarded = false;
 
-  if (rewardsEnabled && rewardPoints > 0 && attribution.status === "qualified") {
+  if (newlyQualified && rewardsEnabled && rewardPoints > 0 && attribution.status === "qualified") {
     const reward = await db.query(
       `INSERT INTO loyalty_ledger
         (user_id, points, kind, reference_type, reference_id, note)
