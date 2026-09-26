@@ -215,6 +215,7 @@ async function qualifyReferralForCompletedOrder(db, userId, orderId) {
     return { qualified: false, rewarded: attribution?.status === "rewarded" };
   }
 
+  let newlyQualified = false;
   if (attribution.status === "registered") {
     await db.query(
       `UPDATE referral_attributions
@@ -224,6 +225,7 @@ async function qualifyReferralForCompletedOrder(db, userId, orderId) {
       [attribution.id]
     );
     attribution.status = "qualified";
+    newlyQualified = true;
   }
 
   const rewardsEnabled = String(process.env.REFERRAL_REWARDS_ENABLED || "false").toLowerCase() === "true";
@@ -253,6 +255,17 @@ async function qualifyReferralForCompletedOrder(db, userId, orderId) {
       );
       rewarded = true;
     }
+  }
+
+  if (newlyQualified) {
+    const body = rewarded
+      ? "Приглашённый клиент завершил первый заказ. Начислено " + rewardPoints + " баллов."
+      : "Приглашённый клиент завершил первый заказ.";
+    await db.query(
+      `INSERT INTO notifications (user_id, type, title, body, entity_type, entity_id)
+       VALUES ($1,'referral','Приглашение подтверждено',$2,'referral',$3)`,
+      [attribution.referrer_user_id, body, attribution.id]
+    );
   }
 
   return { qualified: true, rewarded };
