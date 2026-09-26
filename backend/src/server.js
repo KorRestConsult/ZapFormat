@@ -8,6 +8,8 @@ const cookieParser = require("cookie-parser");
 const bcrypt = require("bcryptjs");
 const { rateLimit } = require("express-rate-limit");
 const { Pool } = require("pg");
+const { PartGradeError, createPartGradeClient } = require("./partgrade");
+const { customerPrice } = require("./pricing");
 
 const app = express();
 const isProduction = process.env.NODE_ENV === "production";
@@ -19,6 +21,7 @@ const FRONTEND_ORIGINS = String(process.env.FRONTEND_ORIGINS || "")
   .split(",")
   .map((x) => x.trim())
   .filter(Boolean);
+const partGrade = createPartGradeClient();
 
 if (!process.env.DATABASE_URL) {
   throw new Error("DATABASE_URL is required");
@@ -157,6 +160,59 @@ app.get("/api/health", async (_req, res, next) => {
       db: true,
       time: db.rows[0].now
     });
+  } catch (error) {
+    next(error);
+  }
+});
+
+app.get("/api/catalog/brands", async (req, res, next) => {
+  try {
+    const number = String(req.query.number || "").trim();
+    if (!number) return res.status(400).json({ error: "article_required" });
+    const seen = new Set();
+    const brands = (await partGrade.searchBrands(number))
+      .filter(row => row && typeof row === "object" && row.brand)
+      .map(row => ({
+        brand: String(row.brand),
+        article: String(row.number || number),
+        description: row.description || null,
+        available: Boolean(row.availability)
+      }))
+      .filter(row => {
+        const key = `${row.brand}|${row.article}`.toUpperCase();
+        if (seen.has(key)) return false;
+        seen.add(key);
+        return true;
+      });
+    res.json({ query: { number }, brands });
+  } catch (error) {
+    next(error);
+  }
+});
+
+app.get("/api/catalog/offers", async (req, res, next) => {
+  try {
+    const number = String(req.query.number || "").trim();
+    const brand = String(req.query.brand || "").trim();
+    if (!number || !brand) return res.status(400).json({ error: "article_and_brand_required" });
+    const offers = (await partGrade.searchArticles(number, brand)).map(row => {
+      const price = customerPrice(row.price);
+      if (price === null) return null;
+      return {
+        brand: row.brand || brand,
+        article: row.number || number,
+        description: row.description || null,
+        availability: Number(row.availability || 0),
+        packing: Math.max(1, Number(row.packing || 1)),
+        delivery_hours: Number(row.deliveryPeriod || 0),
+        delivery_hours_max: Number(row.deliveryPeriodMax || row.deliveryPeriod || 0),
+        returnable: !row.noReturn,
+        price,
+        currency: "RUB"
+      };
+    }).filter(Boolean);
+    offers.sort((a, b) => a.price - b.price || a.delivery_hours - b.delivery_hours);
+    res.json({ source: "PartGrade", query: { number, brand }, offers });
   } catch (error) {
     next(error);
   }
@@ -595,6 +651,12 @@ app.post("/api/garage/vehicles/:vehicleId/maintenance", requireUser, async (req,
 });
 
 app.use((error, _req, res, _next) => {
+  if (error instanceof PartGradeError) {
+    console.error("[PartGrade]", error.code, error.status || "", error.upstreamCode || "");
+    return res.status(error.code === "partgrade_not_configured" ? 503 : 502).json({
+      error: "supplier_unavailable"
+    });
+  }
   console.error(error);
   if (error?.code === "23505") {
     return res.status(409).json({ error: "conflict" });
