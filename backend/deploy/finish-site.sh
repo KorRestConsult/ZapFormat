@@ -81,6 +81,7 @@ set +a
 
 psql "${DATABASE_URL}" -f db/001_init.sql
 psql "${DATABASE_URL}" -f db/002_garage_owner_app.sql
+psql "${DATABASE_URL}" -f db/003_quote_requests.sql
 
 mkdir -p /var/lib/zapformat
 chown -R zapformat:zapformat /var/lib/zapformat
