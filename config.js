@@ -1,5 +1,6 @@
 window.ZAPFORMAT_CONFIG = {
-  // Keep empty while GitHub Pages is used without a public HTTPS API hostname.
-  // Example after backend DNS/TLS is ready: "https://api.zapformat.ru"
-  apiBase: "https://api.201.51.28.68.sslip.io"
+  // GitHub Pages talks to the API host. The VPS-hosted frontend uses same-origin /api.
+  apiBase: location.hostname.endsWith("github.io")
+    ? "https://api.201.51.28.68.sslip.io"
+    : location.origin
 };
