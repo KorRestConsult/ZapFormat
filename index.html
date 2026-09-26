@@ -242,7 +242,9 @@ a{color:inherit}
 .summary p{color:var(--muted);font-size:13px}
 .summary .primary{width:100%}
 .summary-note{margin-top:12px;padding:12px;border-radius:10px;background:#f1f4f1;color:var(--muted);font-size:12px}
-.checkout-grid{display:grid;grid-template-columns:minmax(0,1fr) 360px;gap:20px;align-items:start}
+.checkout-grid{display:grid;grid-template-columns:minmax(0,1fr) 360px;gap:20px;align-items:start;width:100%;min-width:0;max-width:100%}
+.checkout-main,.checkout-step,.checkout-summary,.checkout-step .form-grid,.checkout-step .field{min-width:0;max-width:100%}
+.checkout-step input,.checkout-step select,.checkout-step textarea{min-width:0;max-width:100%}
 .checkout-main{display:grid;gap:14px}
 .checkout-step{background:#fff;border:1px solid var(--line);border-radius:16px;padding:20px}
 .checkout-step-head{display:flex;align-items:flex-start;gap:12px;margin-bottom:16px}
