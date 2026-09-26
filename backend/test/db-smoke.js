@@ -19,7 +19,9 @@ async function main() {
       "005_vin_requests.sql",
       "006_checkout.sql",
       "007_operator_queue.sql",
-      "008_customer_personalization.sql"
+      "008_customer_personalization.sql",
+      "009_vehicle_specs.sql",
+      "010_customer_case_history.sql"
     ];
 
     for (const file of migrations) {
@@ -89,6 +91,32 @@ async function main() {
           AND column_name IN ('fulfillment_method','payment_method','verified_total','manager_note')`
     );
     if (columns.rowCount !== 4) throw new Error("checkout/operator quote columns are missing");
+
+    const vehicleColumns = await client.query(
+      `SELECT column_name
+         FROM information_schema.columns
+        WHERE table_name = 'vehicles'
+          AND column_name IN ('transmission','body_type','tire_front','tire_rear','wheel_size','oil_spec','coolant_spec')`
+    );
+    if (vehicleColumns.rowCount !== 7) throw new Error("vehicle specification columns are missing");
+
+    await client.query(
+      `INSERT INTO customer_case_history
+        (user_id, case_type, case_id, status, actor_type, note)
+       VALUES ($1,'quote','Q-CI','new','customer','created'),
+              ($1,'quote','Q-CI','in_progress','staff','checking')`,
+      [userId]
+    );
+    const history = await client.query(
+      `SELECT status, actor_type
+         FROM customer_case_history
+        WHERE user_id = $1 AND case_type = 'quote' AND case_id = 'Q-CI'
+        ORDER BY created_at, id`,
+      [userId]
+    );
+    if (history.rowCount !== 2 || history.rows[1].status !== "in_progress" || history.rows[1].actor_type !== "staff") {
+      throw new Error("customer_case_history insert/order failed");
+    }
 
     console.log("database migrations and critical upserts: ok");
   } finally {
