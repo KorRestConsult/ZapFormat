@@ -280,7 +280,14 @@ app.get("/api/catalog/brands", async (req, res, next) => {
     const number = String(req.query?.number || "").trim();
     if (!number) return res.status(400).json({ error: "article_required" });
 
-    const rows = await partGrade.searchBrands(number);
+    let rows = await partGrade.searchBrands(number, { useOnlineStocks: true });
+    if (!Array.isArray(rows) || !rows.length) {
+      try {
+        rows = await partGrade.searchTips(number);
+      } catch (_error) {
+        rows = [];
+      }
+    }
     const brands = (Array.isArray(rows) ? rows : []).map((row) => ({
       brand: row.brand || null,
       article: row.number || number,
@@ -304,7 +311,19 @@ app.get("/api/catalog/offers", async (req, res, next) => {
       return res.status(400).json({ error: "article_and_brand_required" });
     }
 
-    const rows = await partGrade.searchArticles(number, brand);
+    let rows;
+    let mode = "articles";
+    try {
+      rows = await partGrade.searchArticles(number, brand);
+    } catch (error) {
+      if (error instanceof PartGradeError && Number(error.upstreamCode) === 103) {
+        rows = await partGrade.searchBatch([{ number, brand }]);
+        mode = "batch";
+      } else {
+        throw error;
+      }
+    }
+
     const offers = (Array.isArray(rows) ? rows : [])
       .map((row) => {
         const price = customerPrice(row.price);
@@ -330,6 +349,7 @@ app.get("/api/catalog/offers", async (req, res, next) => {
 
     res.json({
       source: "PartGrade",
+      mode,
       query: { number, brand },
       offers
     });
