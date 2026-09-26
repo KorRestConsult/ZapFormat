@@ -61,3 +61,44 @@ test("customer pricing never returns procurement price when markup is configured
     150
   );
 });
+
+
+test("ABCP TS cart create keeps supplier routing fields backend-only", async () => {
+  let seen = null;
+  const client = createPartGradeClient({
+    env: {
+      PARTGRADE_API_BASE: "https://auto-complekt.public.api.abcp.ru",
+      PARTGRADE_API_LOGIN: "demo@example.com",
+      PARTGRADE_API_PASSWORD_MD5: "0123456789abcdef0123456789abcdef"
+    },
+    fetchImpl: async (url, options) => {
+      seen = { url: new URL(url), options };
+      return {
+        ok: true,
+        status: 200,
+        async text() {
+          return JSON.stringify({ id: 321 });
+        }
+      };
+    }
+  });
+
+  const result = await client.tsCartCreate({
+    brand: "PATRON",
+    number: "PRS3420",
+    quantity: 2,
+    supplierCode: "SUP-1",
+    itemKey: "ITEM-ABC"
+  });
+
+  assert.equal(result.id, 321);
+  assert.equal(seen.url.pathname, "/ts/cart/create");
+  assert.equal(seen.options.method, "POST");
+  const body = new URLSearchParams(seen.options.body);
+  assert.equal(body.get("brand"), "PATRON");
+  assert.equal(body.get("number"), "PRS3420");
+  assert.equal(body.get("quantity"), "2");
+  assert.equal(body.get("supplierCode"), "SUP-1");
+  assert.equal(body.get("itemKey"), "ITEM-ABC");
+  assert.equal(body.get("userlogin"), "demo@example.com");
+});
