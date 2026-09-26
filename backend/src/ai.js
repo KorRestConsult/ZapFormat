@@ -32,6 +32,24 @@ function looksLikeArticle(value) {
   return /^[A-Za-z0-9][A-Za-z0-9._/+\-]{2,47}$/.test(q);
 }
 
+function parseBrandArticle(value) {
+  const q = String(value || "").trim().replace(/\s+/g, " ");
+  if (!q || q.length > 100) return null;
+  const parts = q.split(" ");
+  if (parts.length < 2 || parts.length > 4) return null;
+
+  const article = parts.at(-1);
+  const brand = parts.slice(0, -1).join(" ");
+  if (!looksLikeArticle(article) || !/\d/.test(article)) return null;
+  if (!/[A-Za-z]/.test(brand)) return null;
+  if (!/^[A-Za-z0-9&.+\- ]{2,60}$/.test(brand)) return null;
+
+  return {
+    brand_hint: brand,
+    article
+  };
+}
+
 function safeVehicleContext(vehicle) {
   if (!vehicle || typeof vehicle !== "object") return null;
   const clean = {};
@@ -220,6 +238,7 @@ module.exports = {
   interpretSearch,
   looksLikeArticle,
   looksLikeVin,
+  parseBrandArticle,
   modelName,
   outputText,
   safeVehicleContext,
