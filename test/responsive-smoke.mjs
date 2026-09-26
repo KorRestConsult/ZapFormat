@@ -313,6 +313,18 @@ try {
         name: "ZapFormat · тестовая геометрия", address: "Очень длинное название улицы для проверки адаптивности, дом 123",
         is_active: true, created_at: "2026-09-26T12:00:00Z"
       }];
+      S.operatorReadiness = {
+        "Q-20260926-ABCDEF": {
+          request_id: "Q-20260926-ABCDEF",
+          write_enabled: false,
+          confirmed: false,
+          all_items_ready: false,
+          can_submit: false,
+          items: [
+            { brand: "PATRON", article: "PRS3420", quantity: 2, found: true, write_ready: false, missing: ["item_key"] }
+          ]
+        }
+      };
       S.operatorQueue = {
         quotes: [{
           id: "Q-20260926-ABCDEF", status: "new", fulfillment_method: "delivery",
