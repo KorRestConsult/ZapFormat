@@ -1143,7 +1143,7 @@ function bindSearchSuggestions(form){
 function chooseSearchSuggestion(item){
   const brand=String(item?.brand||"").trim(),article=String(item?.article||"").trim();
   if(!article)return;
-  $("[data-search-form]").forEach(clearSearchSuggestions);
+  $$("[data-search-form]").forEach(clearSearchSuggestions);
   recordSearch([brand,article].filter(Boolean).join(" "),"suggestion");
   if(brand)return openPart(brand,article);
   return searchArticle(article,true,article,null);
@@ -1542,7 +1542,7 @@ function renderCheckout(){
   checkoutForm?.addEventListener("submit",submitCheckout);
   checkoutForm?.addEventListener("input",()=>syncCheckoutDraft(checkoutForm));
   checkoutForm?.addEventListener("change",()=>syncCheckoutDraft(checkoutForm));
-  $('[name="fulfillment_method"]',root).forEach(x=>x.addEventListener("change",e=>{S.checkoutDraft.fulfillment_method=e.target.value;updateCheckoutFulfillmentUi()}));
+  $$('[name="fulfillment_method"]',root).forEach(x=>x.addEventListener("change",e=>{S.checkoutDraft.fulfillment_method=e.target.value;updateCheckoutFulfillmentUi()}));
   updateCheckoutFulfillmentUi();
 }
 function syncCheckoutDraft(form=$("#checkoutForm")){
@@ -2324,7 +2324,7 @@ document.addEventListener("click",async e=>{
     if(form)clearSearchSuggestions(form);
     return chooseSearchSuggestion(item);
   }
-  if(!e.target.closest("[data-search-form]"))$("[data-search-form]").forEach(clearSearchSuggestions);
+  if(!e.target.closest("[data-search-form]"))$$("[data-search-form]").forEach(clearSearchSuggestions);
   x=e.target.closest("[data-go]");if(x)return go(x.dataset.go);
   x=e.target.closest("[data-smart-query]");if(x)return search(x.dataset.smartQuery);
   x=e.target.closest("[data-recent-search]");if(x)return search(x.dataset.recentSearch);
@@ -2448,7 +2448,7 @@ document.addEventListener("submit",e=>{
 document.addEventListener("change",e=>{
   const x=e.target.closest("[data-notification]");if(x)saveNotification(x);
 });
-$("[data-search-form]").forEach(f=>{
+$$("[data-search-form]").forEach(f=>{
   bindSearchSuggestions(f);
   f.addEventListener("submit",e=>{
     e.preventDefault();
