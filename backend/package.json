@@ -8,7 +8,7 @@
     "start": "node src/server.js",
     "dev": "node --watch src/server.js",
     "test": "node --test",
-    "db:migrate": "psql \"$DATABASE_URL\" -f db/001_init.sql && psql \"$DATABASE_URL\" -f db/002_garage_owner_app.sql && psql \"$DATABASE_URL\" -f db/003_quote_requests.sql && psql \"$DATABASE_URL\" -f db/004_customer_workflow.sql && psql \"$DATABASE_URL\" -f db/005_vin_requests.sql && psql \"$DATABASE_URL\" -f db/006_checkout.sql"
+    "db:migrate": "psql \"$DATABASE_URL\" -f db/001_init.sql && psql \"$DATABASE_URL\" -f db/002_garage_owner_app.sql && psql \"$DATABASE_URL\" -f db/003_quote_requests.sql && psql \"$DATABASE_URL\" -f db/004_customer_workflow.sql && psql \"$DATABASE_URL\" -f db/005_vin_requests.sql && psql \"$DATABASE_URL\" -f db/006_checkout.sql && psql \"$DATABASE_URL\" -f db/007_operator_queue.sql"
   },
   "engines": {
     "node": ">=20"
