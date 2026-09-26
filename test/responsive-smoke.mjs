@@ -76,7 +76,7 @@ try {
       ];
       S.offerSort = "price";
       S.offerOnlyAvailable = false;
-      go("catalog", false);
+      document.querySelectorAll(".page").forEach(x=>x.classList.toggle("active",x.dataset.page==="catalog"));
       renderOfferTable();
     });
     await page.waitForTimeout(50);
@@ -94,7 +94,7 @@ try {
           description: "Позиция из старого заказа", qty: 1, historical: true, price: 1000
         }
       ];
-      go("cart", false);
+      document.querySelectorAll(".page").forEach(x=>x.classList.toggle("active",x.dataset.page==="cart"));
       renderCart();
     });
     await page.waitForTimeout(50);
@@ -112,7 +112,7 @@ try {
           engine: "1.8", vin: "X9F5XXEED56R37916", current_mileage: 210000, is_default: false
         }
       ];
-      go("garage", false);
+      document.querySelectorAll(".page").forEach(x=>x.classList.toggle("active",x.dataset.page==="garage"));
       renderGarage();
     });
     await page.waitForTimeout(50);
@@ -154,7 +154,7 @@ try {
       S.orders = [{
         id: "o1", order_number: 101, status: "ready", total_amount: 15284.25, item_count: 2, created_at: "2026-09-24T10:00:00Z"
       }];
-      go("orders", false);
+      document.querySelectorAll(".page").forEach(x=>x.classList.toggle("active",x.dataset.page==="orders"));
       renderOrders();
     });
     await page.waitForTimeout(50);
