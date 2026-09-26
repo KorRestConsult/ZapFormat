@@ -1,0 +1,32 @@
+name: Rebuild branch checks
+
+on:
+  push:
+    branches:
+      - rebuild-from-zero-2026-09-26
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - name: Backend dependencies
+        working-directory: backend
+        run: npm install --ignore-scripts --package-lock=false
+      - name: Backend unit tests
+        working-directory: backend
+        run: npm test
+      - name: Frontend integrity
+        shell: bash
+        run: |
+          test -f index.html
+          test ! -e app.js
+          test ! -e styles.css
+          test ! -e config.js
+          ! grep -Eqi 'demoOrders|datasets[[:space:]]*=|purchase[[:space:]]*:' index.html
