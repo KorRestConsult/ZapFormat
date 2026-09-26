@@ -49,6 +49,18 @@ a{color:inherit}
 .search button{padding:12px 20px}
 .trust{display:flex;flex-wrap:wrap;gap:20px;margin-top:17px;color:var(--muted);font-size:13px}
 .trust span:before{content:"✓";margin-right:7px;color:var(--green);font-weight:900}
+.ai-badge{display:inline-grid;place-items:center;height:27px;padding:0 9px;border-radius:9px;background:var(--soft);color:var(--green2);font-size:10px;font-weight:950;letter-spacing:.08em;white-space:nowrap}
+.ai-card{border:1px solid #cddbd5;background:linear-gradient(135deg,#fff,#f0f5f1);border-radius:16px;padding:18px;margin-bottom:14px}
+.ai-card-head{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:8px}
+.ai-card h3{font-size:20px;margin:0;letter-spacing:-.025em}
+.ai-card p{margin:6px 0;color:var(--muted)}
+.ai-meta{display:flex;gap:7px;flex-wrap:wrap;margin-top:10px}
+.ai-chip{display:inline-flex;padding:6px 9px;border-radius:999px;background:#fff;border:1px solid var(--line);font-size:12px;color:var(--ink)}
+.ai-candidates{display:grid;gap:8px;margin-top:12px}
+.ai-candidate{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:12px;align-items:center;border:1px solid var(--line);background:#fff;border-radius:12px;padding:13px 14px;text-align:left}
+.ai-candidate:hover{border-color:#8da99f}
+.ai-candidate small{display:block;color:var(--muted);margin-top:3px}
+
 .hero-panel{background:var(--ink);color:#fff;border-radius:25px;padding:30px;box-shadow:0 30px 70px rgba(13,41,56,.22)}
 .hero-panel small{color:var(--lime);font-weight:900;letter-spacing:.13em}
 .hero-panel ul{list-style:none;margin:22px 0 0;padding:0}
@@ -267,24 +279,25 @@ dialog::backdrop{background:rgba(13,41,56,.56);backdrop-filter:blur(5px)}
     <div class="hero-copy">
       <span class="kicker">АВТОЗАПЧАСТИ · РЯЗАНЬ</span>
       <h1>Нужная деталь.<br><em>Без лишних кругов.</em></h1>
-      <p>Введите артикул. Сначала покажем производителей, затем реальные предложения по наличию, сроку и цене.</p>
+      <p>Можно ввести артикул или написать обычными словами, что нужно. ИИ разберёт запрос, а цены и наличие всё равно берутся только из реального каталога.</p>
       <form class="search" data-search-form>
-        <input name="query" autocomplete="off" spellcheck="false" placeholder="Например, PRS3420" aria-label="Артикул">
+        <input name="query" autocomplete="off" spellcheck="false" placeholder="PRS3420 или «передние колодки для моего Focus»" aria-label="Артикул или запрос">
+        <span class="ai-badge">AI</span>
         <button>Найти</button>
       </form>
-      <div class="trust"><span>Реальные остатки</span><span>Актуальная цена</span><span>Личный гараж</span></div><div id="vehicleContext" style="margin-top:14px"></div>
+      <div class="trust"><span>Поиск с ИИ</span><span>Реальные остатки</span><span>Актуальная цена</span><span>Личный гараж</span></div><div id="vehicleContext" style="margin-top:14px"></div>
     </div>
     <aside class="hero-panel">
       <small>ZAPFORMAT</small>
       <ul>
-        <li><b>01</b><span>Артикул → производитель → предложения.</span></li>
+        <li><b>01</b><span>Артикул или обычный запрос → ИИ понимает намерение → каталог подтверждает данные.</span></li>
         <li><b>02</b><span>Цена и наличие перепроверяются перед оформлением.</span></li>
         <li><b>03</b><span>Заказы, автомобиль и обслуживание — в одном кабинете.</span></li>
       </ul>
     </aside>
   </div>
   <div class="shell home-strips">
-    <article><span class="kicker">ПОИСК</span><h3>Плотная выдача</h3><p>Без витринной мишуры: бренд, наличие, срок, цена.</p></article>
+    <article><span class="kicker">AI-ПОИСК</span><h3>Можно писать словами</h3><p>ИИ понимает деталь и позицию, но не выдумывает артикулы, цены или совместимость.</p></article>
     <article><span class="kicker">ГАРАЖ</span><h3>Машина как контекст</h3><p>VIN, пробег, замеры, обслуживание и быстрый поиск деталей.</p></article>
     <article><span class="kicker">КАБИНЕТ</span><h3>История под рукой</h3><p>Профиль, заказы, статусы и уведомления.</p></article>
   </div>
@@ -294,7 +307,7 @@ dialog::backdrop{background:rgba(13,41,56,.56);backdrop-filter:blur(5px)}
   <button class="back" data-go="home">← К поиску</button>
   <div class="catalog-head">
     <div><span class="kicker">РЕЗУЛЬТАТ ПОИСКА</span><h2 id="catalogTitle">Поиск</h2><p id="catalogSub"></p></div>
-    <form class="search compact" data-search-form><input name="query" placeholder="Другой артикул"><button>Найти</button></form>
+    <form class="search compact" data-search-form><input name="query" placeholder="Артикул или запрос словами"><span class="ai-badge">AI</span><button>Найти</button></form>
   </div>
   <div id="catalogBody" class="results" aria-live="polite"></div>
 </section>
@@ -379,6 +392,9 @@ const S={
   user:null,
   cart:readCart(),
   query:"",
+  aiOriginalQuery:"",
+  aiResult:null,
+  aiCandidates:[],
   brands:[],
   offers:[],
   overview:null,
@@ -544,7 +560,7 @@ function renderVehicleContext(){
     return;
   }
   const v=S.activeVehicle;
-  root.innerHTML='<button class="secondary" data-go="garage"><b>'+esc(v.brand)+' '+esc(v.model)+'</b><span class="small muted"> · '+esc([v.generation,v.year].filter(Boolean).join(" ")||"основной автомобиль")+'</span></button><span class="small muted" style="margin-left:9px">Поиск пока выполняется по артикулу; автомобиль сохраняет контекст заказа.</span>';
+  root.innerHTML='<button class="secondary" data-go="garage"><b>'+esc(v.brand)+' '+esc(v.model)+'</b><span class="small muted"> · '+esc([v.generation,v.year].filter(Boolean).join(" ")||"основной автомобиль")+'</span></button><span class="small muted" style="margin-left:9px">ИИ учитывает автомобиль как контекст, но не объявляет совместимость без подтверждения каталога.</span>';
 }
 
 function catalogState(title,text){
@@ -555,13 +571,47 @@ function catalogState(title,text){
 function catalogFail(title,text){
   $("#catalogBody").innerHTML='<div class="state-card"><div><b>'+esc(title)+'</b><p>'+esc(text||"Попробуйте ещё раз.")+'</p><button class="secondary" data-retry-search>Повторить</button></div></div>';
 }
+function looksLikeArticleQuery(value){
+  const q=String(value||"").trim();
+  if(!q||q.length>48||/\s/.test(q))return false;
+  if(/^[A-HJ-NPR-Z0-9]{17}$/i.test(q))return false;
+  return /^[A-Za-z0-9][A-Za-z0-9._/+\-]{2,47}$/.test(q);
+}
+function vehicleForAI(){
+  const v=S.activeVehicle;if(!v)return null;
+  return {
+    brand:v.brand||"",model:v.model||"",generation:v.generation||"",
+    year:v.year||"",engine:v.engine||""
+  };
+}
+function aiSummaryHtml(result){
+  const i=result?.intent;if(!i)return "";
+  const chips=[];
+  if(i.part_name)chips.push(i.part_name);
+  if(i.position)chips.push(i.position);
+  if(result.vehicle)chips.push([result.vehicle.brand,result.vehicle.model,result.vehicle.generation,result.vehicle.year].filter(Boolean).join(" "));
+  const terms=(i.search_terms||[]).slice(0,4);
+  return '<div class="ai-card"><div class="ai-card-head"><h3>ИИ понял запрос</h3><span class="ai-badge">AI</span></div>'+
+    '<p>'+esc(i.assistant_text||"Запрос разобран. Реальные позиции подтверждаем только каталогом.")+'</p>'+
+    (chips.length?'<div class="ai-meta">'+chips.map(x=>'<span class="ai-chip">'+esc(x)+'</span>').join("")+'</div>':'')+
+    (terms.length?'<div class="ai-meta">'+terms.map(x=>'<span class="ai-chip">↳ '+esc(x)+'</span>').join("")+'</div>':'')+
+    '</div>';
+}
 async function search(q,push=true){
   q=String(q||"").trim();
   if(!q)return;
+  if(looksLikeArticleQuery(q))return searchArticle(q,push,q,null);
+  return searchWithAI(q,push);
+}
+async function searchArticle(article,push=true,urlQuery=article,aiResult=null){
+  const q=String(article||"").trim();
+  if(!q)return;
   S.query=q;
+  S.aiResult=aiResult;
+  S.aiCandidates=[];
   go("catalog",push);
-  history.replaceState({page:"catalog"},"","?q="+encodeURIComponent(q));
-  catalogState(q,"Ищем производителей…");
+  history.replaceState({page:"catalog"},"","?q="+encodeURIComponent(urlQuery||q));
+  catalogState(q,aiResult?"ИИ нашёл явный артикул. Проверяем каталог…":"Ищем производителей…");
   try{
     const d=await api("/api/catalog/brands?number="+encodeURIComponent(q));
     S.brands=d.brands||[];
@@ -570,12 +620,50 @@ async function search(q,push=true){
     catalogFail("Поиск временно недоступен","Поставщик не ответил. Фиктивные товары и цены не показываем.");
   }
 }
+async function searchWithAI(q,push=true){
+  S.aiOriginalQuery=q;
+  S.query=q;
+  S.aiResult=null;
+  S.aiCandidates=[];
+  go("catalog",push);
+  history.replaceState({page:"catalog"},"","?q="+encodeURIComponent(q));
+  catalogState(q,"ИИ разбирает запрос…");
+  try{
+    const d=await api("/api/ai/search",{method:"POST",body:JSON.stringify({query:q,vehicle:vehicleForAI()})});
+    S.aiResult=d;
+    S.aiCandidates=d.candidates||[];
+    if(d.intent?.article){
+      return searchArticle(d.intent.article,false,q,d);
+    }
+    renderAiResult();
+  }catch(e){
+    const msg=e.message==="ai_not_configured"
+      ?"ИИ-контур готов, но на сервере ещё не установлен ключ OpenAI. Поиск по точному артикулу уже работает."
+      :"ИИ сейчас недоступен. Введите точный артикул — обычный каталог продолжает работать.";
+    $("#catalogTitle").textContent=q;
+    $("#catalogSub").textContent="Умный поиск";
+    $("#catalogBody").innerHTML='<div class="state-card"><div><span class="ai-badge">AI</span><b style="display:block;margin-top:12px">ИИ пока не отвечает</b><p>'+esc(msg)+'</p><button class="secondary" data-go="home">Изменить запрос</button></div></div>';
+  }
+}
+function renderAiResult(){
+  const d=S.aiResult,i=d?.intent||{},candidates=S.aiCandidates||[];
+  $("#catalogTitle").textContent=i.part_name||i.normalized_query||S.aiOriginalQuery||S.query;
+  $("#catalogSub").textContent=candidates.length
+    ?"ИИ нашёл варианты в каталожных подсказках. Выберите нужный."
+    :"ИИ понял запрос, но не будет придумывать артикул.";
+  $("#catalogBody").innerHTML=
+    aiSummaryHtml(d)+
+    (candidates.length
+      ?'<div class="ai-candidates">'+candidates.map((x,idx)=>'<button class="ai-candidate" data-ai-candidate="'+idx+'"><span><b>'+esc([x.brand,x.article].filter(Boolean).join(" "))+'</b><small>'+esc(x.description||"Каталожная подсказка")+'</small></span><span>Проверить →</span></button>').join("")+'</div>'
+      :'<div class="state-card"><div><b>'+(i.kind==="vin"?"VIN распознан":"Нужен подтверждаемый артикул")+'</b><p>'+(i.kind==="vin"?"VIN сохранён как контекст запроса, но без отдельного VIN-каталога ZapFormat не будет выдумывать применяемость.":"Для реальных цен и остатков нужен артикул из каталога. ИИ уже нормализовал название детали и контекст автомобиля.")+'</p><button class="secondary" data-go="garage">Открыть гараж</button></div></div>');
+}
 function renderBrands(){
   $("#catalogTitle").textContent=S.query;
   $("#catalogSub").textContent=S.brands.length?"Выберите производителя":"Производители не найдены";
-  $("#catalogBody").innerHTML=S.brands.length
+  const ai=S.aiResult?.ai?aiSummaryHtml(S.aiResult):"";
+  $("#catalogBody").innerHTML=ai+(S.brands.length
     ?'<div class="brand-list">'+S.brands.map((x,i)=>'<button class="brand-row" data-brand-index="'+i+'"><span class="monogram">'+esc(String(x.brand||"?").slice(0,2))+'</span><span><b>'+esc(x.brand||"Без бренда")+'</b><small>'+esc(x.description||"Описание не указано")+'</small></span><code>'+esc(x.article||S.query)+'</code><i>Предложения →</i></button>').join("")+'</div>'
-    :'<div class="state-card"><div><b>Ничего не найдено</b><p>Проверьте артикул или попробуйте другой вариант написания.</p></div></div>';
+    :'<div class="state-card"><div><b>Ничего не найдено</b><p>Проверьте артикул или попробуйте другой вариант написания.</p></div></div>');
 }
 async function loadOffers(i){
   const b=S.brands[i]; if(!b)return;
@@ -1098,6 +1186,10 @@ async function submitReturn(e){
 
 document.addEventListener("click",async e=>{
   let x=e.target.closest("[data-go]");if(x)return go(x.dataset.go);
+  x=e.target.closest("[data-ai-candidate]");if(x){
+    const candidate=S.aiCandidates[Number(x.dataset.aiCandidate)];if(!candidate)return;
+    return searchArticle(candidate.article,false,S.aiOriginalQuery||candidate.article,S.aiResult);
+  }
   x=e.target.closest("[data-brand-index]");if(x)return loadOffers(Number(x.dataset.brandIndex));
   x=e.target.closest("[data-add-offer]");if(x)return addOffer(Number(x.dataset.addOffer));
   if(e.target.closest("[data-show-brands]"))return renderBrands();
