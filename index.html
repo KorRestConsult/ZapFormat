@@ -2526,17 +2526,20 @@ function operatorReferralPanel(){
 function operatorReleasePanel(){
   const r=S.operatorReleaseReadiness;if(!r)return "";
   const live=r.external?.supplier_search_live;
+  const supplierSearchOk=Boolean(live?.search_ok||live?.search_articles_ok||live?.search_batch_ok);
   const liveText=!live
     ?"Не проверялось в этом сеансе"
     :live.search_articles_ok
       ?"search/articles доступен"
-      :live.search_articles_denied
-        ?"Доступ к search/articles пока запрещён"+(live.upstream_code?" · код "+live.upstream_code:"")
-        :"Проверка не прошла"+(live.http_status?" · HTTP "+live.http_status:"");
+      :live.search_batch_ok
+        ?"search/articles ограничен, рабочий fallback: search/batch"
+        :live.search_articles_denied
+          ?"search/articles запрещён, search/batch тоже не подтверждён"+(live.batch_upstream_code?" · batch код "+live.batch_upstream_code:(live.upstream_code?" · код "+live.upstream_code:""))
+          :"Проверка не прошла"+(live.http_status?" · HTTP "+live.http_status:"");
   const checks=[
     releaseCheck("PostgreSQL",Boolean(r.core?.database),"Основная база данных"),
     releaseCheck("PartGrade credentials",Boolean(r.core?.supplier_credentials),r.core?.supplier_credentials?"Настроены на backend":"Не настроены"),
-    releaseCheck("PartGrade search/articles",Boolean(live?.search_articles_ok),liveText,Boolean(live&&!live.search_articles_ok)),
+    releaseCheck("PartGrade поиск",supplierSearchOk,liveText,Boolean(live&&!supplierSearchOk)),
     releaseCheck("OpenAI",Boolean(r.core?.ai),r.core?.ai?"Ключ и модель настроены":"AI на сервере не настроен"),
     releaseCheck("Пункты выдачи",Number(r.core?.active_pickup_points||0)>0,Number(r.core?.active_pickup_points||0)+" активных",Number(r.core?.active_pickup_points||0)===0),
     releaseCheck("Домен",Boolean(r.external?.production_domain),r.external?.production_domain?"PUBLIC_BASE_URL задан":"Production URL не задан"),
@@ -2558,7 +2561,7 @@ async function checkReleaseSupplier(){
     S.operatorReleaseReadiness=await api("/api/admin/release-readiness?live=1");
     renderOperator();
     const live=S.operatorReleaseReadiness?.external?.supplier_search_live;
-    toast(live?.search_articles_ok?"PartGrade search/articles доступен":"PartGrade ещё не готов полностью");
+    toast((live?.search_ok||live?.search_articles_ok||live?.search_batch_ok)?"Поиск PartGrade доступен":"PartGrade ещё не готов полностью");
   }catch{toast("Не удалось проверить готовность")}
 }
 
