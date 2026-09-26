@@ -373,6 +373,7 @@ const S={
   vehicles:[],
   vehicleDetail:null,
   orders:[],
+  quoteRequests:[],
   orderDetail:null,
   offerSort:"price",
   offerOnlyAvailable:false,
@@ -582,6 +583,7 @@ async function checkout(){
     const d=await api("/api/quote-requests",{method:"POST",body:JSON.stringify({name:S.user.name,phone:S.user.phone,items})});
     S.cart=[];writeCart();renderCart();
     toast("Заявка "+d.request_id+" отправлена");
+    setTimeout(()=>go("orders"),350);
   }catch(e){
     toast("Не удалось отправить заявку");
   }finally{if(btn)btn.disabled=false}
@@ -763,12 +765,24 @@ async function loadOrders(){
   const root=$("#ordersBody");
   if(!S.user){root.innerHTML='<div class="empty"><div><b>Войдите, чтобы увидеть заказы</b><p>История привязана к вашему аккаунту.</p><button class="primary" data-auth-open>Войти</button></div></div>';return}
   root.innerHTML='<div class="state-card"><div class="spinner"></div></div>';
-  try{const d=await api("/api/orders");S.orders=d.orders||[];renderOrders()}catch{root.innerHTML='<div class="empty"><div><b>Не удалось загрузить заказы</b><p>Попробуйте ещё раз.</p><button class="secondary" data-reload-orders>Повторить</button></div></div>'}
+  try{
+    const [ordersData,requestsData]=await Promise.all([
+      api("/api/orders"),
+      api("/api/account/quote-requests").catch(()=>({requests:[]}))
+    ]);
+    S.orders=ordersData.orders||[];
+    S.quoteRequests=requestsData.requests||[];
+    renderOrders();
+  }catch{root.innerHTML='<div class="empty"><div><b>Не удалось загрузить заказы</b><p>Попробуйте ещё раз.</p><button class="secondary" data-reload-orders>Повторить</button></div></div>'}
 }
 function renderOrders(){
   const root=$("#ordersBody");
-  root.innerHTML='<div class="orders-toolbar"><span class="muted">'+S.orders.length+' заказов</span><button class="secondary" data-go="home">Найти деталь</button></div>'+
-  (S.orders.length?'<div class="order-list">'+S.orders.map(o=>'<button class="order-row" data-order-id="'+o.id+'"><b>№ '+esc(o.order_number)+'</b><span><b>'+date(o.created_at)+'</b><span class="small muted">'+o.item_count+' поз.</span></span><span class="status '+statusClass(o.status)+'">'+esc(statusLabel(o.status))+'</span><strong>'+rub(o.total_amount)+'</strong><span>→</span></button>').join("")+'</div>':'<div class="empty"><div><b>Заказов пока нет</b><p>Здесь появятся только реально созданные заказы ZapFormat.</p><button class="primary" data-go="home">К поиску</button></div></div>')+
+  const pending=S.quoteRequests.length
+    ?'<div class="panel panel-pad" style="margin-bottom:16px"><div class="panel-title"><div><h3>Заявки на подтверждение</h3><p>Ещё не заказ: мы перепроверяем цену и наличие.</p></div><span class="status">'+S.quoteRequests.length+'</span></div><div class="order-list">'+S.quoteRequests.map(q=>'<div class="order-row" style="cursor:default"><b>'+esc(q.id)+'</b><span><b>'+date(q.created_at)+'</b><span class="small muted">'+q.item_count+' поз.</span></span><span class="status">'+esc(q.status==="new"?"На подтверждении":q.status)+'</span><strong>'+rub(q.quoted_total)+'</strong><span class="small muted">заявка</span></div>').join("")+'</div></div>'
+    :'';
+  root.innerHTML='<div class="orders-toolbar"><span class="muted">'+S.orders.length+' заказов · '+S.quoteRequests.length+' заявок</span><button class="secondary" data-go="home">Найти деталь</button></div>'+
+  pending+
+  (S.orders.length?'<div class="order-list">'+S.orders.map(o=>'<button class="order-row" data-order-id="'+o.id+'"><b>№ '+esc(o.order_number)+'</b><span><b>'+date(o.created_at)+'</b><span class="small muted">'+o.item_count+' поз.</span></span><span class="status '+statusClass(o.status)+'">'+esc(statusLabel(o.status))+'</span><strong>'+rub(o.total_amount)+'</strong><span>→</span></button>').join("")+'</div>':'<div class="empty"><div><b>Подтверждённых заказов пока нет</b><p>'+(S.quoteRequests.length?'Заявки выше появятся здесь после создания реального заказа.':'Здесь появятся только реально созданные заказы ZapFormat.')+'</p><button class="primary" data-go="home">К поиску</button></div></div>')+
   '<div id="orderDetailRoot"></div>';
 }
 async function loadOrder(id){
