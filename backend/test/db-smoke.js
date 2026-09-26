@@ -21,7 +21,8 @@ async function main() {
       "007_operator_queue.sql",
       "008_customer_personalization.sql",
       "009_vehicle_specs.sql",
-      "010_customer_case_history.sql"
+      "010_customer_case_history.sql",
+      "011_notification_entities.sql"
     ];
 
     for (const file of migrations) {
@@ -117,6 +118,14 @@ async function main() {
     if (history.rowCount !== 2 || history.rows[1].status !== "in_progress" || history.rows[1].actor_type !== "staff") {
       throw new Error("customer_case_history insert/order failed");
     }
+
+    const notificationColumns = await client.query(
+      `SELECT column_name
+         FROM information_schema.columns
+        WHERE table_name = 'notifications'
+          AND column_name IN ('entity_type','entity_id')`
+    );
+    if (notificationColumns.rowCount !== 2) throw new Error("notification entity columns are missing");
 
     console.log("database migrations and critical upserts: ok");
   } finally {
