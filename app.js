@@ -542,47 +542,82 @@ async function tryLiveArticle(raw){
   const compact=article.replace(/[^A-Za-zА-Яа-я0-9-]/g,"");
   if(compact.length<4 || compact.length>32 || /\s/.test(article)) return false;
 
+  let brands=[];
   try{
     const brandsData=await apiRequest("/api/catalog/brands?number="+encodeURIComponent(article));
-    const brands=(brandsData?.brands||[]).filter(x=>x?.brand);
-    if(!brands.length) return false;
+    brands=(brandsData?.brands||[]).filter(x=>x?.brand);
+  }catch(error){
+    console.warn("PartGrade brand lookup unavailable",error);
+  }
 
-    const preferred=brands.find(x=>x.available) || brands[0];
+  const preferred=brands.find(x=>x.available) || brands[0] || {
+    brand:"Уточняем",
+    article,
+    description:"Запрос по артикулу"
+  };
+
+  try{
     const offersData=await apiRequest(
       "/api/catalog/offers?number="+encodeURIComponent(preferred.article||article)+
       "&brand="+encodeURIComponent(preferred.brand)
     );
     const offers=Array.isArray(offersData?.offers) ? offersData.offers : [];
-    if(!offers.length) return false;
+    if(offers.length){
+      const key="live:"+article.toUpperCase();
+      const exact=offers.map((o,index)=>({
+        id:"live-"+Date.now()+"-"+index,
+        type:"exact",
+        brand:o.brand||preferred.brand,
+        article:o.article||preferred.article||article,
+        name:o.description||preferred.description||"Автозапчасть",
+        warehouse:"PartGrade",
+        source:"Живое предложение",
+        purchase:0,
+        retailPrice:Number(o.price||0),
+        qty:Number(o.availability||0),
+        days:Math.max(0,Math.ceil(Number(o.delivery_hours||0)/24)),
+        live:true
+      }));
 
-    const key="live:"+article.toUpperCase();
-    const exact=offers.map((o,index)=>({
-      id:"live-"+Date.now()+"-"+index,
-      type:"exact",
-      brand:o.brand||preferred.brand,
-      article:o.article||preferred.article||article,
-      name:o.description||preferred.description||"Автозапчасть",
-      warehouse:"PartGrade",
-      source:"Живое предложение",
-      purchase:0,
-      retailPrice:Number(o.price||0),
-      qty:Number(o.availability||0),
-      days:Math.max(0,Math.ceil(Number(o.delivery_hours||0)/24)),
-      live:true
-    }));
-
-    datasets[key]={
-      title:(preferred.brand+" "+(preferred.article||article)).trim(),
-      subtitle:preferred.description||exact[0].name||"Результат PartGrade",
-      exact,
-      analogs:[]
-    };
-    currentKey=key;
-    return true;
+      datasets[key]={
+        title:(preferred.brand+" "+(preferred.article||article)).trim(),
+        subtitle:preferred.description||exact[0].name||"Результат PartGrade",
+        exact,
+        analogs:[]
+      };
+      currentKey=key;
+      return true;
+    }
   }catch(error){
-    console.warn("Live PartGrade search unavailable",error);
-    return false;
+    console.warn("PartGrade offers require confirmation",error);
   }
+
+  const key="quote:"+article.toUpperCase();
+  const candidates=(brands.length ? brands.slice(0,8) : [preferred]).map((item,index)=>({
+    id:"quote-"+article.toUpperCase()+"-"+index,
+    type:"exact",
+    brand:item.brand||"Уточняем",
+    article:item.article||item.number||article,
+    name:item.description||"Запрос по артикулу",
+    warehouse:"PartGrade",
+    source:brands.length ? "Артикул распознан · цена после подтверждения" : "Запрос принят · цена после подтверждения",
+    purchase:0,
+    retailPrice:null,
+    qty:1,
+    days:null,
+    quoteOnly:true,
+    live:true
+  }));
+
+  datasets[key]={
+    title:brands.length ? ((preferred.brand+" "+(preferred.article||article)).trim()) : article,
+    subtitle:brands.length ? (preferred.description||"Артикул найден в PartGrade") : "Запрос по артикулу",
+    exact:candidates,
+    analogs:[],
+    quoteOnly:true
+  };
+  currentKey=key;
+  return true;
 }
 
 async function search(query){
@@ -606,7 +641,7 @@ async function search(query){
   const secondary=document.getElementById("searchInput2");
 
   if(title) title.textContent=data.title;
-  if(subtitle) subtitle.textContent=data.subtitle+(String(currentKey).startsWith("live:")?" · данные PartGrade":" · точные предложения и аналоги");
+  if(subtitle) subtitle.textContent=data.subtitle+(String(currentKey).startsWith("live:")?" · живые данные PartGrade":String(currentKey).startsWith("quote:")?" · цену и наличие подтвердим перед заказом":" · точные предложения и аналоги");
   if(heading) heading.textContent=data.subtitle;
   if(secondary) secondary.value=raw;
 
@@ -639,6 +674,21 @@ function cartSvg(){
 }
 
 function supplyRowHtml(x){
+  if(x.quoteOnly){
+    return `
+      <div class="supply-row">
+        <div class="supply-left">
+          <div class="supply-term">
+            <b>Подтверждение</b>
+            <small>${x.warehouse}</small>
+          </div>
+          <span class="supply-warehouse">${x.source}</span>
+        </div>
+        <div class="supply-price"><span class="quote-only-label">Цена по запросу</span></div>
+        <div class="supply-stock">—</div>
+        <button class="quote-request-btn" data-add="${x.id}" aria-label="Добавить в запрос">В запрос</button>
+      </div>`;
+  }
   const term=x.days===0?"Сегодня":x.days+(x.days===1?" день":" дн.");
   return `
     <div class="supply-row">
@@ -722,7 +772,7 @@ function changeQty(id,delta){
 function addToCart(id,btn){
   const item=findItem(id); if(!item) return;
   const orderQty=quantities[id]||1;
-  const price=itemRetail(item);
+  const price=item.quoteOnly ? 0 : itemRetail(item);
   const existing=cart.find(x=>x.id===id);
   if(existing){
     existing.orderQty+=orderQty;
@@ -802,7 +852,7 @@ function refreshCartOffers(){
 }
 
 function selectedCartItems(){
-  return cart.filter(x=>x.selected && x.availableQty>0);
+  return cart.filter(x=>x.selected && (x.quoteOnly || x.availableQty>0));
 }
 
 function renderCartPage(){
@@ -818,14 +868,16 @@ function renderCartPage(){
 
   root.innerHTML=cart.map((x,index)=>{
     const subtotal=x.price*x.orderQty;
-    const unavailable=x.availableQty===0;
+    const unavailable=!x.quoteOnly && x.availableQty===0;
     const classes=["order-cart-row"];
     if(unavailable) classes.push("unavailable");
     if(x.priceChanged) classes.push("price-changed");
 
-    const priceHtml=x.priceChanged && x.previousPrice && x.previousPrice!==x.price
-      ? '<span class="cart-price-stack"><span class="old-price">'+rub(x.previousPrice)+'</span><span class="new-price">'+rub(x.price)+'</span><span class="changed-label">цена изменилась</span></span>'
-      : '<span class="cart-price-stack"><span class="new-price">'+rub(x.price)+'</span></span>';
+    const priceHtml=x.quoteOnly
+      ? '<span class="cart-price-stack"><span class="new-price">После подтверждения</span></span>'
+      : (x.priceChanged && x.previousPrice && x.previousPrice!==x.price
+        ? '<span class="cart-price-stack"><span class="old-price">'+rub(x.previousPrice)+'</span><span class="new-price">'+rub(x.price)+'</span><span class="changed-label">цена изменилась</span></span>'
+        : '<span class="cart-price-stack"><span class="new-price">'+rub(x.price)+'</span></span>');
 
     return `
       <div class="${classes.join(" ")}">
@@ -835,7 +887,7 @@ function renderCartPage(){
         <div class="article-cell"><span class="cart-article">${x.article}</span></div>
         <div class="description-cell cart-description">${x.name}</div>
         <div class="warehouse-cell">${x.warehouse}</div>
-        <div class="term-cell">${x.days===1?"1 день":x.days+" дня"}</div>
+        <div class="term-cell">${x.quoteOnly?"уточняем":(x.days===1?"1 день":x.days+" дня")}</div>
         <div class="qty-cell">
           <div class="cart-stepper">
             <button data-cart-minus="${x.id}">−</button>
@@ -843,16 +895,16 @@ function renderCartPage(){
             <button data-cart-plus="${x.id}">+</button>
           </div>
         </div>
-        <div class="availability-cell cart-availability ${unavailable?"zero":""}">${x.availableQty}</div>
+        <div class="availability-cell cart-availability ${unavailable?"zero":""}">${x.quoteOnly?"—":x.availableQty}</div>
         <div class="price-cell cart-price-cell">${priceHtml}</div>
-        <div class="sum-cell cart-sum-cell">${rub(subtotal)}</div>
+        <div class="sum-cell cart-sum-cell">${x.quoteOnly?"после подтверждения":rub(subtotal)}</div>
         <div class="comment-cell cart-comment"><input data-cart-comment="${x.id}" value="${String(x.comment||"").replace(/"/g,"&quot;")}" placeholder="Комментарий"></div>
         <div class="remove-cell"><button class="cart-remove-icon" data-remove="${x.id}" aria-label="Удалить">×</button></div>
       </div>
     `;
   }).join("");
 
-  const total=selectedCartItems().reduce((s,x)=>s+x.price*x.orderQty,0);
+  const total=selectedCartItems().reduce((s,x)=>s+(x.quoteOnly?0:x.price*x.orderQty),0);
   const totalEl=document.getElementById("orderCartTotal");
   if(totalEl) totalEl.textContent=rub(total);
 }
@@ -889,10 +941,54 @@ function saveCartManual(){
   });
 }
 
-function checkoutCart(){
+async function checkoutCart(){
   const selected=selectedCartItems();
-  if(!selected.length){ showToast("Отметьте хотя бы одну доступную позицию.","warn"); return; }
-  showToast("Корзина готова к оформлению. Подключение отправки заказа — следующий серверный этап.");
+  if(!selected.length){ showToast("Отметьте хотя бы одну позицию.","warn"); return; }
+
+  const name=String(document.getElementById("quoteName")?.value||"").trim();
+  const phone=String(document.getElementById("quotePhone")?.value||"").trim();
+  if(phone.replace(/\D/g,"").length<10){
+    showToast("Укажите телефон, чтобы подтвердить цену и заказ.","warn");
+    document.getElementById("quotePhone")?.focus();
+    return;
+  }
+
+  if(!backendConfigured()){
+    showToast("Сервер заказа временно недоступен.","warn");
+    return;
+  }
+
+  const button=document.getElementById("checkoutOrderButton");
+  if(button){ button.disabled=true; button.textContent="Отправляем…"; }
+
+  try{
+    const result=await apiRequest("/api/quote-requests",{
+      method:"POST",
+      headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({
+        name,
+        phone,
+        items:selected.map(x=>({
+          brand:x.brand,
+          article:x.article,
+          description:x.name,
+          quantity:x.orderQty,
+          comment:x.comment||"",
+          quoted_price:x.quoteOnly?null:x.price,
+          needs_confirmation:Boolean(x.quoteOnly)
+        }))
+      })
+    });
+
+    localStorage.setItem("zapformat-quote-name",name);
+    localStorage.setItem("zapformat-quote-phone",phone);
+    showToast("Запрос "+result.request_id+" принят. Подтвердим цену и наличие.");
+  }catch(error){
+    console.error(error);
+    showToast("Не удалось отправить запрос. Попробуйте ещё раз.","warn");
+  }finally{
+    if(button){ button.disabled=false; button.textContent="Отправить заказ / запрос цены"; }
+  }
 }
 
 
@@ -963,6 +1059,10 @@ document.getElementById("searchForm2").addEventListener("submit",e=>{e.preventDe
 
 renderCart();
 renderCatalog();
+const quoteNameInput=document.getElementById("quoteName");
+const quotePhoneInput=document.getElementById("quotePhone");
+if(quoteNameInput) quoteNameInput.value=localStorage.getItem("zapformat-quote-name")||"";
+if(quotePhoneInput) quotePhoneInput.value=localStorage.getItem("zapformat-quote-phone")||"";
 const aiInput=document.getElementById("searchInput");
 if(aiInput && aiInput.tagName==="TEXTAREA"){
   aiInput.addEventListener("input",()=>{
