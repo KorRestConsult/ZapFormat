@@ -2652,5 +2652,7 @@ module.exports = {
   supplierOfferRef,
   publicSupplierOffer,
   publicSearchTipCandidates,
-  supplierCandidatesForTerms
+  supplierCandidatesForTerms,
+  checkoutPaymentMethods,
+  checkoutFulfillmentMethods
 };
