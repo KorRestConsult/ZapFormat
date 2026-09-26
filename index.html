@@ -374,6 +374,8 @@ const S={
   vehicleDetail:null,
   orders:[],
   orderDetail:null,
+  offerSort:"price",
+  offerOnlyAvailable:false,
   authMode:"login"
 };
 
@@ -471,18 +473,29 @@ async function loadOffers(i){
   try{
     const d=await api("/api/catalog/offers?number="+encodeURIComponent(b.article||S.query)+"&brand="+encodeURIComponent(b.brand||""));
     S.offers=d.offers||[];
+    S.offerSort="price";
+    S.offerOnlyAvailable=false;
     $("#catalogTitle").textContent=(b.brand||"")+" "+(b.article||S.query);
     $("#catalogSub").textContent=b.description||"Предложения";
-    $("#catalogBody").innerHTML=
-      '<div class="offer-toolbar"><button class="back" data-show-brands>← Другой производитель</button><span class="muted small">'+S.offers.length+' предложений</span></div>'+
-      (S.offers.length?'<div class="offer-table"><div class="offer labels"><span>Описание</span><span>Наличие</span><span>Срок</span><span>Цена</span><span></span></div>'+
-      S.offers.map((x,j)=>{
-        const days=Math.max(1,Math.ceil(Number(x.delivery_hours||0)/24));
-        return '<div class="offer"><span><b>'+esc(x.brand)+' '+esc(x.article)+'</b><span class="offer-desc">'+esc(x.description||"Автозапчасть")+(x.returnable===false?' · без возврата':'')+'</span></span><span class="availability">'+Number(x.availability||0)+' шт.</span><span>'+days+' дн.</span><strong>'+rub(x.price)+'</strong><button class="small-primary" data-add-offer="'+j+'">В корзину</button></div>';
-      }).join("")+'</div>':'<div class="state-card"><div><b>Предложений сейчас нет</b><p>Ничего не подменяем демонстрационными позициями.</p></div></div>');
+    renderOfferTable();
   }catch(e){
     catalogFail("Предложения пока недоступны",e.status===502?"Доступ поставщика ещё не разрешён или временно недоступен.":"Не удалось загрузить предложения.");
   }
+}
+function renderOfferTable(){
+  let rows=[...S.offers];
+  if(S.offerOnlyAvailable)rows=rows.filter(x=>Number(x.availability||0)>0);
+  if(S.offerSort==="fast")rows.sort((a,b)=>Number(a.delivery_hours||0)-Number(b.delivery_hours||0)||Number(a.price)-Number(b.price));
+  else if(S.offerSort==="stock")rows.sort((a,b)=>Number(b.availability||0)-Number(a.availability||0)||Number(a.price)-Number(b.price));
+  else rows.sort((a,b)=>Number(a.price)-Number(b.price)||Number(a.delivery_hours||0)-Number(b.delivery_hours||0));
+  const indexed=rows.map(x=>({x,j:S.offers.indexOf(x)}));
+  $("#catalogBody").innerHTML=
+    '<div class="offer-toolbar"><button class="back" data-show-brands>← Другой производитель</button><div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap"><label class="small muted"><input type="checkbox" data-offer-stock '+(S.offerOnlyAvailable?"checked":"")+'> Только в наличии</label><select class="secondary" data-offer-sort><option value="price" '+(S.offerSort==="price"?"selected":"")+'>Сначала дешевле</option><option value="fast" '+(S.offerSort==="fast"?"selected":"")+'>Сначала быстрее</option><option value="stock" '+(S.offerSort==="stock"?"selected":"")+'>Больше в наличии</option></select><span class="muted small">'+rows.length+' предложений</span></div></div>'+
+    (indexed.length?'<div class="offer-table"><div class="offer labels"><span>Описание</span><span>Наличие</span><span>Срок</span><span>Цена</span><span></span></div>'+
+    indexed.map(({x,j})=>{
+      const days=Math.max(1,Math.ceil(Number(x.delivery_hours||0)/24));
+      return '<div class="offer"><span><b>'+esc(x.brand)+' '+esc(x.article)+'</b><span class="offer-desc">'+esc(x.description||"Автозапчасть")+(x.returnable===false?' · без возврата':'')+'</span></span><span class="availability">'+Number(x.availability||0)+' шт.</span><span>'+days+' дн.</span><strong>'+rub(x.price)+'</strong><button class="small-primary" data-add-offer="'+j+'">В корзину</button></div>';
+    }).join("")+'</div>':'<div class="state-card"><div><b>Под этот фильтр ничего нет</b><p>Снимите фильтр наличия или выберите другого производителя.</p></div></div>');
 }
 function addOffer(i){
   const x=S.offers[i]; if(!x)return;
@@ -500,7 +513,7 @@ function renderCart(){
     return;
   }
   const total=S.cart.reduce((a,x)=>a+Number(x.price||0)*Number(x.qty||1),0);
-  root.innerHTML='<div class="cart-layout"><div class="cart-lines">'+S.cart.map((x,i)=>'<div class="cart-line"><div><b>'+esc(x.brand)+' '+esc(x.article)+'</b><p>'+esc(x.description||"")+'</p><span class="small muted">Срок: '+Math.max(1,Math.ceil(Number(x.delivery_hours||0)/24))+' дн. · наличие при поиске: '+Number(x.availability||0)+' шт.</span></div><div class="qty"><button data-cart-qty="'+i+'" data-delta="-1">−</button><b>'+x.qty+'</b><button data-cart-qty="'+i+'" data-delta="1">+</button></div><strong>'+rub(Number(x.price)*x.qty)+'</strong><button class="remove" data-cart-remove="'+i+'">×</button></div>').join("")+'</div><aside class="panel summary"><div class="total"><span>Итого</span><b>'+rub(total)+'</b></div><p>Это цена по последнему поиску. Перед подтверждением заявки наличие и стоимость проверяются ещё раз.</p><button class="primary" data-checkout>'+((S.user&&S.user.phone)?"Отправить на подтверждение":"Продолжить")+'</button><div class="summary-note">Сейчас ZapFormat не создаёт фиктивный заказ. Корзина уходит как реальная заявка на подтверждение.</div></aside></div>';
+  root.innerHTML='<div class="cart-layout"><div class="cart-lines">'+S.cart.map((x,i)=>'<div class="cart-line"><div><b>'+esc(x.brand)+' '+esc(x.article)+'</b><p>'+esc(x.description||"")+'</p><span class="small muted">'+(x.historical?'Повтор из истории · цену и срок перепроверим':'Срок: '+Math.max(1,Math.ceil(Number(x.delivery_hours||0)/24))+' дн. · наличие при поиске: '+Number(x.availability||0)+' шт.')+'</span></div><div class="qty"><button data-cart-qty="'+i+'" data-delta="-1">−</button><b>'+x.qty+'</b><button data-cart-qty="'+i+'" data-delta="1">+</button></div><strong>'+rub(Number(x.price)*x.qty)+'</strong><button class="remove" data-cart-remove="'+i+'">×</button></div>').join("")+'</div><aside class="panel summary"><div class="total"><span>Итого</span><b>'+rub(total)+'</b></div><p>Это цена по последнему поиску. Перед подтверждением заявки наличие и стоимость проверяются ещё раз.</p><button class="primary" data-checkout>'+((S.user&&S.user.phone)?"Отправить на подтверждение":"Продолжить")+'</button><div class="summary-note">Сейчас ZapFormat не создаёт фиктивный заказ. Корзина уходит как реальная заявка на подтверждение.</div></aside></div>';
 }
 async function checkout(){
   if(!requireAuth())return;
@@ -647,8 +660,13 @@ function renderVehicleDetail(){
   const d=S.vehicleDetail,v=d.vehicle,root=$("#vehicleDetailRoot");
   const maintenance=d.maintenance||[],measurements=d.measurements||[],history=d.history||[];
   root.innerHTML='<div class="vehicle-detail"><div class="panel panel-pad"><div class="detail-title"><div><h3>'+esc(v.brand)+' '+esc(v.model)+'</h3><p>'+esc([v.generation,v.year,v.engine].filter(Boolean).join(" · "))+'</p></div><div><button class="secondary" data-edit-current-vehicle>Изменить</button></div></div><div class="info-grid"><div class="info"><span>VIN</span><b>'+esc(v.vin||"Не указан")+'</b></div><div class="info"><span>Пробег</span><b>'+(v.current_mileage?new Intl.NumberFormat("ru-RU").format(v.current_mileage)+" км":"Не указан")+'</b></div><div class="info"><span>Госномер</span><b>'+esc(v.plate_number||"Не указан")+'</b></div><div class="info"><span>Обновлено</span><b>'+date(v.updated_at||v.created_at)+'</b></div></div><div class="dashboard-actions"><button class="action-card" data-search-vin><b>Найти детали</b><span>Перейти к поиску с контекстом авто</span></button><button class="action-card" data-edit-mileage><b>Пробег</b><span>Обновить текущее значение</span></button><button class="action-card" data-delete-vehicle><b>Удалить</b><span>Убрать автомобиль из гаража</span></button></div><div class="mini-form"><h4>Замер</h4><form id="measurementForm"><div class="form-grid"><div class="field"><label>Что измерили</label><input name="measurement_type" placeholder="Передние колодки" required></div><div class="field"><label>Значение</label><input name="value" placeholder="6" required></div><div class="field"><label>Единица</label><input name="unit" placeholder="мм"></div><div class="field"><label>Комментарий</label><input name="note" placeholder="Левая / правая"></div></div><div class="form-actions"><button class="secondary">Добавить замер</button></div></form></div><div class="mini-form"><h4>Работа / обслуживание</h4><form id="maintenanceForm"><div class="form-grid"><div class="field full"><label>Работа</label><input name="title" placeholder="Замена масла и фильтра" required></div><div class="field"><label>Пробег</label><input name="mileage" type="number" min="0"></div><div class="field"><label>Дата</label><input name="service_date" type="date"></div><div class="field full"><label>Комментарий</label><input name="note" placeholder="Что было сделано"></div></div><div class="form-actions"><button class="secondary">Добавить запись</button></div></form></div></div><aside><div class="panel panel-pad"><div class="panel-title"><div><h3>Контроль</h3><p>Планы обслуживания</p></div></div>'+(maintenance.length?'<div class="timeline-list">'+maintenance.map(x=>'<div class="timeline-row"><span class="dot"></span><p><b>'+esc(x.title)+'</b><small>'+([x.next_service_mileage?new Intl.NumberFormat("ru-RU").format(x.next_service_mileage)+" км":null,x.next_service_at?date(x.next_service_at):null].filter(Boolean).join(" · ")||"Без срока")+'</small></p><span class="small muted">'+(x.code?esc(x.code):"")+'</span></div>').join("")+'</div>':'<p class="muted">Планы обслуживания пока не добавлены.</p>')+'</div><div class="panel panel-pad" style="margin-top:14px"><div class="panel-title"><div><h3>Последние замеры</h3><p>Фактические значения</p></div></div>'+(measurements.length?'<div class="measurements">'+measurements.slice(0,8).map(x=>'<div class="measurement"><span><b>'+esc(x.measurement_type)+'</b><span class="small muted">'+datetime(x.measured_at)+'</span></span><strong>'+esc(x.value??x.value_text??"")+' '+esc(x.unit||"")+'</strong></div>').join("")+'</div>':'<p class="muted">Замеров пока нет.</p>')+'</div><div class="panel panel-pad" style="margin-top:14px"><div class="panel-title"><div><h3>История</h3><p>Что уже делали</p></div></div>'+(history.length?'<div class="timeline-list">'+history.slice(0,8).map(x=>'<div class="timeline-row"><span class="dot"></span><p><b>'+esc(x.title)+'</b><small>'+date(x.service_date)+(x.mileage?" · "+new Intl.NumberFormat("ru-RU").format(x.mileage)+" км":"")+'</small></p></div>').join("")+'</div>':'<p class="muted">История обслуживания пока пуста.</p>')+'</div></aside></div>';
+  const controlPanel=root.querySelector("aside .panel");
+  if(controlPanel){
+    controlPanel.insertAdjacentHTML("beforeend",'<div class="mini-form"><h4>Добавить контроль</h4><form id="planForm"><div class="form-grid"><div class="field full"><label>Что контролируем</label><input name="title" placeholder="Масло двигателя + фильтр" required></div><div class="field"><label>Следующий пробег</label><input name="next_service_mileage" type="number" min="0" placeholder="190000"></div><div class="field"><label>Дата</label><input name="next_service_at" type="date"></div><div class="field"><label>Интервал, км</label><input name="interval_km" type="number" min="1" placeholder="10000"></div><div class="field"><label>Интервал, мес.</label><input name="interval_months" type="number" min="1" placeholder="12"></div></div><div class="form-actions"><button class="secondary">Добавить контроль</button></div></form></div>');
+  }
   $("#measurementForm")?.addEventListener("submit",saveMeasurement);
   $("#maintenanceForm")?.addEventListener("submit",saveMaintenance);
+  $("#planForm")?.addEventListener("submit",savePlan);
 }
 async function saveMeasurement(e){
   e.preventDefault();const v=S.vehicleDetail?.vehicle;if(!v)return;
@@ -659,6 +677,20 @@ async function saveMaintenance(e){
   e.preventDefault();const v=S.vehicleDetail?.vehicle;if(!v)return;
   const f=new FormData(e.currentTarget);
   try{await api("/api/garage/vehicles/"+v.id+"/maintenance",{method:"POST",body:JSON.stringify({title:f.get("title"),mileage:f.get("mileage")||null,service_date:f.get("service_date")||null,note:f.get("note")})});toast("Запись добавлена");await loadVehicle(v.id)}catch{toast("Не удалось добавить запись")}
+}
+async function savePlan(e){
+  e.preventDefault();const v=S.vehicleDetail?.vehicle;if(!v)return;
+  const f=new FormData(e.currentTarget);
+  try{
+    await api("/api/garage/vehicles/"+v.id+"/plans",{method:"POST",body:JSON.stringify({
+      title:f.get("title"),
+      next_service_mileage:f.get("next_service_mileage")||null,
+      next_service_at:f.get("next_service_at")||null,
+      interval_km:f.get("interval_km")||null,
+      interval_months:f.get("interval_months")||null
+    })});
+    toast("Контроль добавлен");await loadVehicle(v.id);
+  }catch{toast("Не удалось добавить контроль")}
 }
 async function updateMileage(){
   const v=S.vehicleDetail?.vehicle;if(!v)return;
@@ -695,6 +727,10 @@ async function loadOrder(id){
 function renderOrderDetail(){
   const d=S.orderDetail,o=d.order,items=d.items||[],history=d.history||[],root=$("#orderDetailRoot");
   root.innerHTML='<div class="order-detail"><div><div class="panel panel-pad"><div class="detail-title"><div><span class="kicker">ЗАКАЗ № '+esc(o.order_number)+'</span><h3>'+esc(statusLabel(o.status))+'</h3><p>Создан '+datetime(o.created_at)+'</p></div><span class="status '+statusClass(o.status)+'">'+esc(statusLabel(o.status))+'</span></div></div><div class="order-items" style="margin-top:12px">'+(items.length?items.map(x=>'<div class="order-item"><span><b>'+esc(x.brand)+' '+esc(x.article)+'</b><span class="offer-desc">'+esc(x.description||"Автозапчасть")+'</span></span><span>'+x.quantity+' шт.</span><strong>'+rub(Number(x.unit_price)*Number(x.quantity))+'</strong><span class="status '+statusClass(x.status)+'">'+esc(statusLabel(x.status))+'</span></div>').join(""):'<div class="empty">Позиции не найдены.</div>')+'</div></div><aside class="order-side"><div class="panel panel-pad"><div class="panel-title"><div><h3>Итого</h3><p>'+items.length+' позиций</p></div></div><div style="font-size:32px;font-weight:900">'+rub(o.total_amount)+'</div><p class="muted">'+esc(o.comment||"Без комментария")+'</p></div><div class="panel panel-pad"><div class="panel-title"><div><h3>Движение</h3><p>История изменений</p></div></div>'+(history.length?'<div class="timeline-list">'+history.map(x=>'<div class="timeline-row"><span class="dot"></span><p><b>'+esc(statusLabel(x.status))+'</b><small>'+datetime(x.created_at)+(x.note?" · "+esc(x.note):"")+'</small></p></div>').join("")+'</div>':'<p class="muted">История статусов пока пуста.</p>')+'</div></aside></div>';
+  if(items.length){
+    const firstPanel=root.querySelector(".order-side .panel");
+    firstPanel?.insertAdjacentHTML("beforeend",'<button class="secondary" style="width:100%;margin-top:14px" data-repeat-order>Повторить позиции</button>');
+  }
 }
 
 document.addEventListener("click",async e=>{
@@ -702,6 +738,8 @@ document.addEventListener("click",async e=>{
   x=e.target.closest("[data-brand-index]");if(x)return loadOffers(Number(x.dataset.brandIndex));
   x=e.target.closest("[data-add-offer]");if(x)return addOffer(Number(x.dataset.addOffer));
   if(e.target.closest("[data-show-brands]"))return renderBrands();
+  x=e.target.closest("[data-offer-sort]");if(x){S.offerSort=x.value;return renderOfferTable()}
+  x=e.target.closest("[data-offer-stock]");if(x){S.offerOnlyAvailable=x.checked;return renderOfferTable()}
   if(e.target.closest("[data-retry-search]"))return search(S.query,false);
   x=e.target.closest("[data-cart-qty]");if(x){const i=Number(x.dataset.cartQty),d=Number(x.dataset.delta);S.cart[i].qty=Math.max(1,Number(S.cart[i].qty)+d);writeCart();return renderCart()}
   x=e.target.closest("[data-cart-remove]");if(x){S.cart.splice(Number(x.dataset.cartRemove),1);writeCart();return renderCart()}
@@ -718,6 +756,16 @@ document.addEventListener("click",async e=>{
   if(e.target.closest("[data-search-vin]")){const v=S.vehicleDetail?.vehicle;go("home");const input=$('[data-search-form] input');if(input){input.value=v?.vin||"";input.focus()}return}
   if(e.target.closest("[data-reload-garage]"))return loadGarage();
   x=e.target.closest("[data-order-id]");if(x)return loadOrder(x.dataset.orderId);
+  if(e.target.closest("[data-repeat-order]")){
+    const items=S.orderDetail?.items||[];
+    for(const item of items){
+      const id=["repeat",item.brand,item.article,item.unit_price].join("|");
+      const existing=S.cart.find(z=>z.id===id);
+      if(existing)existing.qty+=Number(item.quantity||1);
+      else S.cart.push({id,brand:item.brand,article:item.article,description:item.description,price:Number(item.unit_price||0),qty:Number(item.quantity||1),availability:0,delivery_hours:0,historical:true});
+    }
+    writeCart();toast("Позиции добавлены в корзину");return go("cart");
+  }
   if(e.target.closest("[data-reload-orders]"))return loadOrders();
 });
 document.addEventListener("change",e=>{
