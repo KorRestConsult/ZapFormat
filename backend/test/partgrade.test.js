@@ -102,3 +102,40 @@ test("ABCP TS cart create keeps supplier routing fields backend-only", async () 
   assert.equal(body.get("itemKey"), "ITEM-ABC");
   assert.equal(body.get("userlogin"), "demo@example.com");
 });
+
+
+test("PartGrade batch search uses documented POST shape", async () => {
+  let seen = null;
+  const client = createPartGradeClient({
+    env: {
+      PARTGRADE_API_BASE: "https://auto-complekt.public.api.abcp.ru",
+      PARTGRADE_API_LOGIN: "demo@example.com",
+      PARTGRADE_API_PASSWORD_MD5: "0123456789abcdef0123456789abcdef"
+    },
+    fetchImpl: async (url, options) => {
+      seen = { url: new URL(url), options };
+      return {
+        ok: true,
+        status: 200,
+        async text() {
+          return JSON.stringify([{ brand: "PATRON", number: "PRS3420", price: 4595 }]);
+        }
+      };
+    }
+  });
+
+  const result = await client.searchBatch([
+    { brand: "PATRON", number: "PRS3420" },
+    { brand: "FEBI", number: "01089" }
+  ]);
+
+  assert.equal(result[0].brand, "PATRON");
+  assert.equal(seen.url.pathname, "/search/batch");
+  assert.equal(seen.options.method, "POST");
+  const body = new URLSearchParams(seen.options.body);
+  assert.equal(body.get("search[0][brand]"), "PATRON");
+  assert.equal(body.get("search[0][number]"), "PRS3420");
+  assert.equal(body.get("search[1][brand]"), "FEBI");
+  assert.equal(body.get("search[1][number]"), "01089");
+  assert.equal(body.get("userlogin"), "demo@example.com");
+});
