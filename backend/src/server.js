@@ -202,6 +202,62 @@ async function ensureReferralCode(db, userId) {
   throw new Error("referral_code_unavailable");
 }
 
+async function qualifyReferralForCompletedOrder(db, userId, orderId) {
+  const current = await db.query(
+    `SELECT id, referrer_user_id, status
+       FROM referral_attributions
+      WHERE referred_user_id = $1
+      FOR UPDATE`,
+    [userId]
+  );
+  const attribution = current.rows[0];
+  if (!attribution || attribution.status === "cancelled" || attribution.status === "rewarded") {
+    return { qualified: false, rewarded: attribution?.status === "rewarded" };
+  }
+
+  if (attribution.status === "registered") {
+    await db.query(
+      `UPDATE referral_attributions
+          SET status = 'qualified',
+              qualified_at = COALESCE(qualified_at, now())
+        WHERE id = $1`,
+      [attribution.id]
+    );
+    attribution.status = "qualified";
+  }
+
+  const rewardsEnabled = String(process.env.REFERRAL_REWARDS_ENABLED || "false").toLowerCase() === "true";
+  const rewardPoints = Math.max(0, Math.floor(Number(process.env.REFERRAL_REWARD_POINTS || 0)));
+  let rewarded = false;
+
+  if (rewardsEnabled && rewardPoints > 0 && attribution.status === "qualified") {
+    const reward = await db.query(
+      `INSERT INTO loyalty_ledger
+        (user_id, points, kind, reference_type, reference_id, note)
+       VALUES ($1,$2,'referral','referral',$3,$4)
+       ON CONFLICT DO NOTHING
+       RETURNING id`,
+      [
+        attribution.referrer_user_id,
+        rewardPoints,
+        String(attribution.id),
+        "Награда за первый завершённый заказ приглашённого клиента " + String(orderId)
+      ]
+    );
+    if (reward.rowCount) {
+      await db.query(
+        `UPDATE referral_attributions
+            SET status = 'rewarded', rewarded_at = COALESCE(rewarded_at, now())
+          WHERE id = $1`,
+        [attribution.id]
+      );
+      rewarded = true;
+    }
+  }
+
+  return { qualified: true, rewarded };
+}
+
 function validVehicleYear(value) {
   if (value === null || value === undefined || value === "") return true;
   const year = Number(value);
@@ -2719,7 +2775,9 @@ app.get("/api/orders/:orderId", requireUser, async (req, res, next) => {
   try {
     const orderResult = await pool.query(
       `SELECT id, order_number, status, total_amount, currency, comment,
-              recipient_name, recipient_phone, created_at, updated_at
+              recipient_name, recipient_phone, source_quote_id,
+              fulfillment_method, payment_method, vehicle_id,
+              created_at, updated_at
          FROM orders
         WHERE id = $1 AND user_id = $2
         LIMIT 1`,
@@ -2758,6 +2816,10 @@ app.get("/api/orders/:orderId", requireUser, async (req, res, next) => {
         comment: order.comment,
         recipient_name: order.recipient_name,
         recipient_phone: order.recipient_phone,
+        source_quote_id: order.source_quote_id,
+        fulfillment_method: order.fulfillment_method,
+        payment_method: order.payment_method,
+        vehicle_id: order.vehicle_id,
         created_at: order.created_at,
         updated_at: order.updated_at
       },
@@ -3323,7 +3385,7 @@ app.get("/api/admin/overview", requireStaff, async (req, res, next) => {
 
 app.get("/api/admin/queue", requireStaff, async (req, res, next) => {
   try {
-    const [quotes, vin, returns, support] = await Promise.all([
+    const [quotes, orders, vin, returns, support] = await Promise.all([
       pool.query(
         `SELECT
             q.id, q.status, q.fulfillment_method, q.payment_method,
@@ -3339,6 +3401,29 @@ app.get("/api/admin/queue", requireStaff, async (req, res, next) => {
          ORDER BY
            CASE q.status WHEN 'new' THEN 0 WHEN 'in_progress' THEN 1 ELSE 2 END,
            q.created_at ASC
+         LIMIT 200`
+      ),
+      pool.query(
+        `SELECT
+            o.id, o.order_number, o.status, o.total_amount,
+            o.fulfillment_method, o.payment_method, o.source_quote_id,
+            o.recipient_name, o.recipient_phone, o.created_at, o.updated_at,
+            u.name AS user_name, u.phone AS user_phone, u.email AS user_email,
+            count(oi.id)::int AS item_count
+         FROM orders o
+         JOIN users u ON u.id = o.user_id
+         LEFT JOIN order_items oi ON oi.order_id = o.id
+         WHERE o.status NOT IN ('completed','cancelled','returned')
+         GROUP BY o.id, u.id
+         ORDER BY
+           CASE o.status
+             WHEN 'confirmed' THEN 0
+             WHEN 'processing' THEN 1
+             WHEN 'in_transit' THEN 2
+             WHEN 'ready' THEN 3
+             ELSE 4
+           END,
+           o.created_at ASC
          LIMIT 200`
       ),
       pool.query(
@@ -3400,6 +3485,10 @@ app.get("/api/admin/queue", requireStaff, async (req, res, next) => {
       quotes: quotes.rows.map((row) => ({
         ...row,
         verified_total: row.verified_total === null ? null : Number(row.verified_total)
+      })),
+      orders: orders.rows.map((row) => ({
+        ...row,
+        total_amount: Number(row.total_amount || 0)
       })),
       vin: vin.rows,
       returns: returns.rows.map((row) => ({
@@ -3595,6 +3684,155 @@ app.get("/api/admin/quote-requests/:requestId/supplier-readiness", requireStaff,
   }
 });
 
+app.post("/api/admin/quote-requests/:requestId/create-order", requireStaff, async (req, res, next) => {
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+
+    const requestResult = await client.query(
+      `SELECT id, user_id, status, fulfillment_method, payment_method,
+              pickup_point_id, delivery_address_id, recipient_name, recipient_phone,
+              customer_comment, vehicle_id
+         FROM quote_requests
+        WHERE id = $1
+        FOR UPDATE`,
+      [req.params.requestId]
+    );
+    const request = requestResult.rows[0];
+    if (!request) {
+      await client.query("ROLLBACK");
+      return res.status(404).json({ error: "quote_request_not_found" });
+    }
+    if (!request.user_id) {
+      await client.query("ROLLBACK");
+      return res.status(409).json({ error: "quote_user_required" });
+    }
+
+    const existing = await client.query(
+      `SELECT id, order_number, status, total_amount, created_at
+         FROM orders
+        WHERE source_quote_id = $1
+        LIMIT 1`,
+      [request.id]
+    );
+    if (existing.rowCount) {
+      await client.query("COMMIT");
+      return res.json({ order: existing.rows[0], created: false });
+    }
+
+    if (request.status !== "confirmed") {
+      await client.query("ROLLBACK");
+      return res.status(409).json({ error: "quote_not_confirmed" });
+    }
+
+    const itemsResult = await client.query(
+      `SELECT id, brand, article, description, quantity, quoted_price,
+              returnable, delivery_hours
+         FROM quote_request_items
+        WHERE request_id = $1
+        ORDER BY created_at, id`,
+      [request.id]
+    );
+    if (!itemsResult.rowCount || itemsResult.rows.some((item) => item.quoted_price === null)) {
+      await client.query("ROLLBACK");
+      return res.status(409).json({ error: "quote_items_not_ready" });
+    }
+
+    const totalAmount = Number(itemsResult.rows.reduce(
+      (sum, item) => sum + Number(item.quoted_price || 0) * Number(item.quantity || 0),
+      0
+    ).toFixed(2));
+
+    const orderResult = await client.query(
+      `INSERT INTO orders
+        (user_id, status, total_amount, comment,
+         pickup_point_id, delivery_address_id, recipient_name, recipient_phone,
+         source_quote_id, fulfillment_method, payment_method, vehicle_id)
+       VALUES ($1,'confirmed',$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)
+       RETURNING id, order_number, status, total_amount, source_quote_id, created_at`,
+      [
+        request.user_id,
+        totalAmount,
+        request.customer_comment,
+        request.pickup_point_id,
+        request.delivery_address_id,
+        request.recipient_name,
+        request.recipient_phone,
+        request.id,
+        request.fulfillment_method,
+        request.payment_method,
+        request.vehicle_id
+      ]
+    );
+    const order = orderResult.rows[0];
+
+    for (const item of itemsResult.rows) {
+      const deliveryDays = item.delivery_hours === null
+        ? null
+        : Math.max(0, Math.ceil(Number(item.delivery_hours || 0) / 24));
+      await client.query(
+        `INSERT INTO order_items
+          (order_id, article, brand, description, delivery_days,
+           quantity, unit_price, status, returnable)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,'confirmed',$8)`,
+        [
+          order.id,
+          item.article,
+          item.brand || "",
+          item.description,
+          deliveryDays,
+          item.quantity,
+          item.quoted_price,
+          item.returnable
+        ]
+      );
+    }
+
+    await client.query(
+      `INSERT INTO order_status_history (order_id, status, source, note)
+       VALUES ($1,'confirmed','zapformat',$2)`,
+      [order.id, "Заказ создан из подтверждённой заявки " + request.id]
+    );
+
+    await client.query(
+      `UPDATE quote_requests
+          SET status = 'completed',
+              assigned_to = $2,
+              updated_at = now()
+        WHERE id = $1`,
+      [request.id, req.user.id]
+    );
+
+    await appendCaseHistory({
+      userId: request.user_id,
+      caseType: "quote",
+      caseId: request.id,
+      status: "completed",
+      actorType: "staff",
+      note: "Создан заказ № " + order.order_number + "."
+    }, client);
+
+    await client.query(
+      `INSERT INTO notifications (user_id, type, title, body, entity_type, entity_id)
+       VALUES ($1,'order_status',$2,$3,'order',$4)`,
+      [
+        request.user_id,
+        "Заказ № " + order.order_number + " создан",
+        "Подтверждённая заявка " + request.id + " переведена в заказ.",
+        order.id
+      ]
+    );
+
+    await client.query("COMMIT");
+    res.status(201).json({ order: { ...order, total_amount: totalAmount }, created: true });
+  } catch (error) {
+    await client.query("ROLLBACK").catch(() => {});
+    next(error);
+  } finally {
+    client.release();
+  }
+});
+
 app.patch("/api/admin/quote-requests/:requestId", requireStaff, async (req, res, next) => {
   try {
     const allowed = new Set(["new", "in_progress", "confirmed", "completed", "cancelled"]);
@@ -3662,6 +3900,95 @@ app.patch("/api/admin/quote-requests/:requestId", requireStaff, async (req, res,
     res.json({ request: result.rows[0] });
   } catch (error) {
     next(error);
+  }
+});
+
+app.patch("/api/admin/orders/:orderId", requireStaff, async (req, res, next) => {
+  const client = await pool.connect();
+  try {
+    const allowed = new Set(["confirmed","processing","in_transit","ready","completed","cancelled","returned"]);
+    const requestedStatus = req.body?.status === undefined ? null : String(req.body.status);
+    const note = req.body?.manager_note === undefined
+      ? null
+      : String(req.body.manager_note || "").trim().slice(0, 3000);
+
+    if (requestedStatus !== null && !allowed.has(requestedStatus)) {
+      return res.status(400).json({ error: "invalid_order_status" });
+    }
+
+    await client.query("BEGIN");
+    const currentResult = await client.query(
+      `SELECT id, order_number, user_id, status
+         FROM orders
+        WHERE id = $1
+        FOR UPDATE`,
+      [req.params.orderId]
+    );
+    const current = currentResult.rows[0];
+    if (!current) {
+      await client.query("ROLLBACK");
+      return res.status(404).json({ error: "order_not_found" });
+    }
+
+    const nextStatus = requestedStatus || current.status;
+    const changed = nextStatus !== current.status;
+
+    const updated = await client.query(
+      `UPDATE orders
+          SET status = $2, updated_at = now()
+        WHERE id = $1
+        RETURNING id, order_number, status, total_amount, updated_at`,
+      [current.id, nextStatus]
+    );
+
+    if (changed) {
+      await client.query(
+        `UPDATE order_items
+            SET status = $2, updated_at = now()
+          WHERE order_id = $1`,
+        [current.id, nextStatus]
+      );
+    }
+
+    if (changed || note) {
+      await client.query(
+        `INSERT INTO order_status_history (order_id, status, source, note)
+         VALUES ($1,$2,'zapformat',$3)`,
+        [current.id, nextStatus, note || "Статус заказа обновлён сотрудником ZapFormat."]
+      );
+    }
+
+    let referral = { qualified: false, rewarded: false };
+    if (changed && nextStatus === "completed") {
+      referral = await qualifyReferralForCompletedOrder(client, current.user_id, current.id);
+    }
+
+    if (changed || note) {
+      await client.query(
+        `INSERT INTO notifications (user_id, type, title, body, entity_type, entity_id)
+         VALUES ($1,'order_status',$2,$3,'order',$4)`,
+        [
+          current.user_id,
+          "Заказ № " + current.order_number + ": " + nextStatus,
+          note || "Статус заказа обновлён.",
+          current.id
+        ]
+      );
+    }
+
+    await client.query("COMMIT");
+    res.json({
+      order: {
+        ...updated.rows[0],
+        total_amount: Number(updated.rows[0].total_amount || 0)
+      },
+      referral
+    });
+  } catch (error) {
+    await client.query("ROLLBACK").catch(() => {});
+    next(error);
+  } finally {
+    client.release();
   }
 });
 
