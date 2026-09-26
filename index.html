@@ -818,6 +818,7 @@ const S={
   operatorPickupPoints:[],
   operatorReadiness:{},
   operatorReleaseReadiness:null,
+  operatorReferrals:null,
   vehicles:[],
   garageDue:[],
   vehicleDetail:null,
@@ -2050,10 +2051,12 @@ function accountReferralPanel(){
   const data=S.referrals;
   if(!data?.code)return "";
   const stats=data.stats||{},rows=data.referrals||[];
-  return '<div class="panel panel-pad" style="margin-top:16px"><div class="panel-title"><div><h3>Приглашения</h3><p>Прямая реферальная ссылка ZapFormat.</p></div><span class="status neutral">'+Number(stats.registered||0)+'</span></div>'+
-    '<div class="notice"><b>Код '+esc(data.code)+'</b><p style="margin:6px 0 0">Сейчас система фиксирует источник регистрации. Правила начисления и списания бонусов ещё не включены, поэтому бонусы не обещаем до утверждения экономики.</p></div>'+
+  const total=Number(stats.total||stats.registered||0);
+  const buyers=Number(stats.qualified||0)+Number(stats.rewarded||0);
+  return '<div class="panel panel-pad" style="margin-top:16px"><div class="panel-title"><div><h3>Приглашения</h3><p>Прямая реферальная ссылка ZapFormat.</p></div><span class="status neutral">'+total+'</span></div>'+
+    '<div class="notice"><b>Код '+esc(data.code)+'</b><p style="margin:6px 0 0">Система фиксирует источник регистрации и отмечает приглашённого после первого завершённого заказа. Денежные правила и начисления не включаем, пока не утверждена экономика.</p></div>'+
+    '<div class="stat-grid"><div class="stat"><b>'+total+'</b><span>приглашено</span></div><div class="stat"><b>'+buyers+'</b><span>с завершённым заказом</span></div><div class="stat"><b>'+Number(stats.points_balance||0)+'</b><span>баллов</span></div></div>'+
     '<div class="form-actions"><button class="secondary" data-copy-referral>Копировать ссылку</button><button class="ghost-btn" data-share-referral>Поделиться</button></div>'+
-    (Number(stats.points_balance||0)?'<div class="mini-form"><b>Баланс: '+Number(stats.points_balance||0)+' баллов</b></div>':'')+
     (rows.length?'<div class="mini-form"><div class="panel-title"><div><h3 style="font-size:16px">Последние приглашения</h3><p>'+rows.length+' показано</p></div></div><div class="measurements">'+rows.slice(0,10).map(r=>'<div class="measurement"><span><b>'+esc(r.name||"Клиент")+'</b><span class="small muted">'+date(r.created_at)+'</span></span><span class="status neutral">'+esc(referralStatusLabel(r.status))+'</span></div>').join("")+'</div></div>':'')+
   '</div>';
 }
@@ -2468,13 +2471,14 @@ async function loadOperator(){
   }
   root.innerHTML='<div class="state-card"><div><div class="spinner" style="margin:auto"></div><p>Загружаем очередь…</p></div></div>';
   try{
-    const [overview,queue,pickups,release]=await Promise.all([
+    const [overview,queue,pickups,release,referrals]=await Promise.all([
       api("/api/admin/overview"),
       api("/api/admin/queue"),
       api("/api/admin/pickup-points").catch(()=>({pickup_points:[]})),
-      api("/api/admin/release-readiness").catch(()=>null)
+      api("/api/admin/release-readiness").catch(()=>null),
+      api("/api/admin/referrals").catch(()=>null)
     ]);
-    S.operatorOverview=overview;S.operatorQueue=queue;S.operatorPickupPoints=pickups.pickup_points||[];S.operatorReleaseReadiness=release;renderOperator();
+    S.operatorOverview=overview;S.operatorQueue=queue;S.operatorPickupPoints=pickups.pickup_points||[];S.operatorReleaseReadiness=release;S.operatorReferrals=referrals;renderOperator();
   }catch{
     root.innerHTML='<div class="empty"><div><b>Не удалось загрузить очередь</b><button class="secondary" data-reload-operator>Повторить</button></div></div>';
   }
@@ -2502,11 +2506,23 @@ function renderOperator(){
       operatorColumn("VIN-подбор",vinRows,"vin")+
       operatorColumn("Возвраты",returnRows,"return")+
       operatorColumn("Поддержка",supportRows,"support")+
-    '</div>'+operatorReleasePanel()+operatorPickupPanel();
+    '</div>'+operatorReferralPanel()+operatorReleasePanel()+operatorPickupPanel();
 }
 function releaseCheck(title,ok,detail="",warn=false){
   return '<div class="release-check '+(ok?"ok":warn?"warn":"")+'"><i>'+(ok?"✓":warn?"!":"×")+'</i><span><b>'+esc(title)+'</b><small>'+esc(detail||"")+'</small></span></div>';
 }
+function operatorReferralPanel(){
+  const d=S.operatorReferrals;if(!d)return "";
+  const s=d.stats||{},rows=d.referrals||[];
+  const rewardText=d.rewards_enabled&&Number(d.reward_points||0)>0
+    ?Number(d.reward_points||0)+" баллов после первого завершённого заказа"
+    :"Начисления выключены";
+  return '<div class="panel panel-pad" style="margin-top:18px"><div class="panel-title"><div><h3>Реферальная программа</h3><p>Фактические регистрации и квалификация. Без многоуровневой цепочки.</p></div><span class="status '+(d.rewards_enabled?"ready":"neutral")+'">'+esc(rewardText)+'</span></div>'+
+    '<div class="operator-stats"><div class="operator-stat"><b>'+Number(s.total||0)+'</b><span>Всего приглашений</span></div><div class="operator-stat"><b>'+Number(s.registered||0)+'</b><span>Только регистрация</span></div><div class="operator-stat"><b>'+Number(s.qualified||0)+'</b><span>Завершили первый заказ</span></div><div class="operator-stat"><b>'+Number(s.rewarded||0)+'</b><span>Награда зафиксирована</span></div><div class="operator-stat"><b>'+Number(s.points_issued||0)+'</b><span>Выдано баллов</span></div></div>'+
+    (rows.length?'<div class="measurements">'+rows.slice(0,12).map(r=>'<div class="measurement"><span><b>'+esc(r.referrer_name||"—")+' → '+esc(r.referred_name||"—")+'</b><span class="small muted">Код '+esc(r.code||"—")+' · '+date(r.created_at)+'</span></span><span class="status neutral">'+esc(referralStatusLabel(r.status))+'</span></div>').join("")+'</div>':'<p class="muted">Приглашений пока нет.</p>')+
+  '</div>';
+}
+
 function operatorReleasePanel(){
   const r=S.operatorReleaseReadiness;if(!r)return "";
   const live=r.external?.supplier_search_live;
