@@ -73,6 +73,8 @@ API host:
 
 `backend/deploy/verify-after-partgrade-access.sh`
 
+ABCP TS basket/order methods are prepared in the backend client, but real supplier order writes stay disabled with `SUPPLIER_ORDER_WRITE_ENABLED=false`. An internal supplier order readiness endpoint re-resolves every quote offer and reports whether required route fields are present without returning those fields to the customer or creating an order.
+
 Проверка включает PRS3420/PATRON, клиентскую наценку, отсутствие утечки закупочной цены и сохранение производителей HK0810.
 
 ## Проверки
