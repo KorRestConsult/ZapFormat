@@ -425,15 +425,24 @@ app.get("/api/catalog/brands", async (req, res, next) => {
     if (!number) return res.status(400).json({ error: "article_required" });
 
     let rows = await partGrade.searchBrands(number, { useOnlineStocks: true });
-    if (!Array.isArray(rows) || !rows.length) {
+    let normalizedRows = Array.isArray(rows)
+      ? rows
+      : (rows && typeof rows === "object" ? Object.values(rows) : []);
+
+    if (!normalizedRows.length) {
       try {
         rows = await partGrade.searchTips(number);
+        normalizedRows = Array.isArray(rows)
+          ? rows
+          : (rows && typeof rows === "object" ? Object.values(rows) : []);
       } catch (_error) {
-        rows = [];
+        normalizedRows = [];
       }
     }
+
     const seen = new Set();
-    const brands = (Array.isArray(rows) ? rows : [])
+    const brands = normalizedRows
+      .filter((row) => row && typeof row === "object")
       .map((row) => ({
         brand: row.brand || null,
         article: row.number || number,
