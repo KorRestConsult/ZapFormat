@@ -105,8 +105,8 @@ try {
         { id: "rs2", query: "PRS3420", use_count: 2 }
       ];
       S.notificationFeed = [
-        { id: "n1", type: "quote_status", title: "Заявка в работе", body: "Проверяем цену и срок.", read_at: null, created_at: "2026-09-26T12:00:00Z" },
-        { id: "n2", type: "vin_status", title: "Подбор готов", body: "Есть ответ оператора.", read_at: "2026-09-26T12:30:00Z", created_at: "2026-09-26T12:20:00Z" }
+        { id: "n1", type: "quote_status", entity_type: "quote", entity_id: "Q-20260926-ABCDEF", title: "Заявка в работе", body: "Проверяем цену и срок.", read_at: null, created_at: "2026-09-26T12:00:00Z" },
+        { id: "n2", type: "vin_status", entity_type: "vin", entity_id: "vr1", title: "Подбор готов", body: "Есть ответ оператора.", read_at: "2026-09-26T12:30:00Z", created_at: "2026-09-26T12:20:00Z" }
       ];
       S.notificationUnread = 1;
       S.sessions = [
