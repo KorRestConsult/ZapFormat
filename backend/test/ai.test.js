@@ -27,6 +27,8 @@ test("vehicle context excludes VIN and plate", () => {
       generation: "II",
       year: 2006,
       engine: "1.8",
+      transmission: "МКПП",
+      body_type: "хэтчбек",
       vin: "X9F5XXEED56R37916",
       plate_number: "A000AA62"
     }),
@@ -35,7 +37,9 @@ test("vehicle context excludes VIN and plate", () => {
       model: "Focus",
       generation: "II",
       year: "2006",
-      engine: "1.8"
+      engine: "1.8",
+      transmission: "МКПП",
+      body_type: "хэтчбек"
     }
   );
 });
