@@ -551,6 +551,8 @@ const S={
   offers:[],
   overview:null,
   notifications:null,
+  notificationFeed:[],
+  notificationUnread:0,
   addresses:[],
   returns:[],
   selectedReturnItem:null,
@@ -1244,12 +1246,13 @@ async function renderAccount(){
   }
   root.innerHTML='<div class="section-head"><span class="kicker">ЛИЧНЫЙ КАБИНЕТ</span><h2>'+esc(S.user.name)+'</h2><p>Профиль, автомобили и заказы в одном месте.</p></div><div class="dashboard-grid"><div><div id="accountPrimary"></div></div><aside id="accountSide"></aside></div>';
   try{
-    const [overview,notif,addresses]=await Promise.all([
+    const [overview,notif,feed,addresses]=await Promise.all([
       api("/api/account/overview"),
       api("/api/account/notifications"),
+      api("/api/account/notifications/feed").catch(()=>({notifications:[],unread:0})),
       api("/api/account/addresses").catch(()=>({addresses:[]}))
     ]);
-    S.overview=overview;S.notifications=notif.settings;S.addresses=addresses.addresses||[];
+    S.overview=overview;S.notifications=notif.settings;S.notificationFeed=feed.notifications||[];S.notificationUnread=Number(feed.unread||0);S.addresses=addresses.addresses||[];
   }catch{}
   const stats=S.overview?.stats||{active_orders:0,ready_orders:0,vehicles:0,active_returns:0};
   $("#accountPrimary").innerHTML=
@@ -1257,7 +1260,8 @@ async function renderAccount(){
     '<div class="panel panel-pad" style="margin-top:16px"><div class="panel-title"><div><h3>Профиль</h3><p>Эти данные используем для связи и оформления.</p></div></div><form id="profileForm"><div class="form-grid"><div class="field"><label>Имя</label><input name="name" value="'+esc(S.user.name||"")+'" required></div><div class="field"><label>Фамилия</label><input name="surname" value="'+esc(S.user.surname||"")+'"></div><div class="field"><label>Телефон</label><input name="phone" value="'+esc(S.user.phone||"")+'"></div><div class="field"><label>Email</label><input name="email" type="email" value="'+esc(S.user.email||"")+'"></div></div><div class="form-actions"><button class="primary">Сохранить</button><span id="profileStatus" class="small"></span></div></form></div>';
   const n=S.notifications||{order_status:true,item_changes:true,returns:true,marketing:false};
   $("#accountSide").innerHTML=
-    '<div class="panel panel-pad"><div class="panel-title"><div><h3>Уведомления</h3><p>Что действительно нужно присылать.</p></div></div><div class="switch-list">'+
+    accountNotificationFeedPanel()+
+    '<div class="panel panel-pad" style="margin-top:16px"><div class="panel-title"><div><h3>Настройки уведомлений</h3><p>Что действительно нужно присылать.</p></div></div><div class="switch-list">'+
     notificationRow("order_status","Статусы заказов","Подтверждение, дорога, готовность",n.order_status)+
     notificationRow("item_changes","Изменения позиций","Цена, срок или наличие",n.item_changes)+
     notificationRow("returns","Возвраты","Изменения по возвратам",n.returns)+
@@ -1268,6 +1272,28 @@ async function renderAccount(){
   $("#passwordForm")?.addEventListener("submit",changePassword);
   $("#addressForm")?.addEventListener("submit",saveAddress);
 }
+function accountNotificationFeedPanel(){
+  const items=S.notificationFeed||[];
+  return '<div class="panel panel-pad"><div class="panel-title"><div><h3>События</h3><p>'+(S.notificationUnread?S.notificationUnread+' непрочитанных':'Новых событий нет')+'</p></div>'+(S.notificationUnread?'<button class="ghost-btn small" data-read-all-notifications>Прочитать все</button>':'')+'</div>'+
+    (items.length?'<div class="timeline-list">'+items.slice(0,8).map(n=>'<button class="timeline-row" style="width:100%;border:0;background:none;text-align:left;cursor:'+(n.read_at?'default':'pointer')+'" '+(n.read_at?'':'data-read-notification="'+n.id+'"')+'><span class="dot" style="'+(n.read_at?'opacity:.25':'')+'"></span><p><b>'+esc(n.title)+'</b><small>'+esc(n.body||"")+' · '+datetime(n.created_at)+'</small></p><span class="small muted">'+(n.read_at?'':'Новое')+'</span></button>').join("")+'</div>':'<p class="muted">Здесь появятся изменения по заказам, возвратам и оформлению.</p>')+
+  '</div>';
+}
+async function readNotification(id){
+  try{
+    await api("/api/account/notifications/"+encodeURIComponent(id)+"/read",{method:"PATCH"});
+    const n=S.notificationFeed.find(x=>x.id===id);if(n)n.read_at=new Date().toISOString();
+    S.notificationUnread=Math.max(0,S.notificationUnread-1);
+    renderAccount();
+  }catch{toast("Не удалось отметить уведомление")}
+}
+async function readAllNotifications(){
+  try{
+    await api("/api/account/notifications/read-all",{method:"POST"});
+    S.notificationFeed.forEach(n=>{if(!n.read_at)n.read_at=new Date().toISOString()});
+    S.notificationUnread=0;renderAccount();
+  }catch{toast("Не удалось обновить уведомления")}
+}
+
 function accountAddressPanel(){
   const cards=S.addresses.length
     ?'<div class="measurements">'+S.addresses.map(a=>'<div class="measurement"><span><b>'+esc(a.label||"Адрес")+(a.is_default?' · основной':'')+'</b><span class="small muted">'+esc(a.city)+', '+esc(a.address)+(a.recipient_name?' · '+esc(a.recipient_name):'')+'</span></span><span style="display:flex;gap:6px"><button class="ghost-btn small" type="button" data-edit-address="'+a.id+'">Изменить</button><button class="ghost-btn small" type="button" data-delete-address="'+a.id+'">×</button></span></div>').join("")+'</div>'
@@ -1656,6 +1682,8 @@ document.addEventListener("click",async e=>{
   if(e.target.closest("[data-auth-open]"))return openAuth();
   x=e.target.closest("[data-close-dialog]");if(x)return $("#"+x.dataset.closeDialog).close();
   x=e.target.closest("[data-auth-tab]");if(x){S.authMode=x.dataset.authTab;return authUi()}
+  x=e.target.closest("[data-read-notification]");if(x)return readNotification(x.dataset.readNotification);
+  if(e.target.closest("[data-read-all-notifications]"))return readAllNotifications();
   if(e.target.closest("[data-logout-others]"))return logoutOthers();
   x=e.target.closest("[data-edit-address]");if(x)return editAddress(x.dataset.editAddress);
   x=e.target.closest("[data-delete-address]");if(x)return deleteAddress(x.dataset.deleteAddress);
