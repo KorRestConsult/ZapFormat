@@ -442,6 +442,7 @@ async function persistCart(){
       item.availability=Number(fresh.availability||0);
       item.delivery_hours=Number(fresh.delivery_hours||0);
       item.delivery_hours_max=Number(fresh.delivery_hours_max||0);
+      item.packing=Math.max(1,Number(fresh.packing||1));
       item.returnable=fresh.returnable;
       item.offer_ref=fresh.offer_ref;
       item.checked_at=d.checked_at||new Date().toISOString();
@@ -589,18 +590,20 @@ function renderOfferTable(){
     (indexed.length?'<div class="offer-table"><div class="offer labels"><span>Описание</span><span>Наличие</span><span>Срок</span><span>Цена</span><span></span></div>'+
     indexed.map(({x,j})=>{
       const days=Math.max(1,Math.ceil(Number(x.delivery_hours||0)/24));
-      return '<div class="offer"><span><b>'+esc(x.brand)+' '+esc(x.article)+'</b><span class="offer-desc">'+esc(x.description||"Автозапчасть")+(x.returnable===false?' · без возврата':'')+'</span></span><span class="availability">'+Number(x.availability||0)+' шт.</span><span>'+days+' дн.</span><strong>'+rub(x.price)+'</strong><button class="small-primary" data-add-offer="'+j+'">В корзину</button></div>';
+      return '<div class="offer"><span><b>'+esc(x.brand)+' '+esc(x.article)+'</b><span class="offer-desc">'+esc(x.description||"Автозапчасть")+(Number(x.packing||1)>1?' · кратность '+Number(x.packing):'')+(x.delivery_probability!==null&&x.delivery_probability!==undefined?' · вероятность '+esc(x.delivery_probability)+'%':'')+(x.returnable===false?' · без возврата':'')+'</span></span><span class="availability">'+Number(x.availability||0)+' шт.</span><span>'+days+' дн.</span><strong>'+rub(x.price)+'</strong><button class="small-primary" data-add-offer="'+j+'">В корзину</button></div>';
     }).join("")+'</div>':'<div class="state-card"><div><b>Под этот фильтр ничего нет</b><p>Снимите фильтр наличия или выберите другого производителя.</p></div></div>');
 }
 function addOffer(i){
   const x=S.offers[i]; if(!x)return;
   const historical=S.cart.find(z=>z.historical&&String(z.brand).toUpperCase()===String(x.brand).toUpperCase()&&String(z.article).toUpperCase()===String(x.article).toUpperCase());
-  const carryQty=historical?Number(historical.qty||1):1;
+  const packing=Math.max(1,Number(x.packing||1));
+  const historicalQty=historical?Number(historical.qty||1):packing;
+  const carryQty=Math.max(packing,Math.ceil(historicalQty/packing)*packing);
   if(historical)S.cart=S.cart.filter(z=>z!==historical);
   const id=x.offer_ref||[x.brand,x.article,x.price,x.delivery_hours].join("|");
   const existing=S.cart.find(z=>z.id===id||z.offer_ref===x.offer_ref);
-  if(existing)existing.qty+=carryQty;
-  else S.cart.push({...x,id,qty:carryQty,historical:false});
+  if(existing)existing.qty+=packing;
+  else S.cart.push({...x,id,packing,qty:carryQty,historical:false});
   writeCart();toast(historical?"Позиция обновлена актуальным предложением":"Добавлено в корзину");
 }
 
@@ -630,7 +633,7 @@ function renderCart(){
         :(x.change_note?'<span class="small" style="color:var(--amber)">'+esc(x.change_note)+'</span>':'');
     const meta=isHistorical
       ?'Позиция из истории · старая цена не используется'
-      :'Срок: '+Math.max(1,Math.ceil(Number(x.delivery_hours||0)/24))+' дн. · наличие: '+Number(x.availability||0)+' шт.';
+      :'Срок: '+Math.max(1,Math.ceil(Number(x.delivery_hours||0)/24))+' дн. · наличие: '+Number(x.availability||0)+' шт.'+(Number(x.packing||1)>1?' · кратность '+Number(x.packing):'');
     const action=isHistorical
       ?'<button class="secondary" data-refresh-historical="'+i+'">Актуализировать</button>'
       :'<strong>'+rub(Number(x.price||0)*Number(x.qty||1))+'</strong>';
@@ -666,6 +669,7 @@ async function refreshCart(showToast=true){
       item.availability=Number(fresh.availability||0);
       item.delivery_hours=Number(fresh.delivery_hours||0);
       item.delivery_hours_max=Number(fresh.delivery_hours_max||fresh.delivery_hours||0);
+      item.packing=Math.max(1,Number(fresh.packing||1));
       item.returnable=fresh.returnable;
       item.offer_ref=fresh.offer_ref;
       item.change_note=notes.length?"Обновилось: "+notes.join(" · "):"";
@@ -1079,7 +1083,7 @@ document.addEventListener("click",async e=>{
   x=e.target.closest("[data-offer-sort]");if(x){S.offerSort=x.value;return renderOfferTable()}
   x=e.target.closest("[data-offer-stock]");if(x){S.offerOnlyAvailable=x.checked;return renderOfferTable()}
   if(e.target.closest("[data-retry-search]"))return search(S.query,false);
-  x=e.target.closest("[data-cart-qty]");if(x){const i=Number(x.dataset.cartQty),d=Number(x.dataset.delta);S.cart[i].qty=Math.max(1,Number(S.cart[i].qty)+d);writeCart();return renderCart()}
+  x=e.target.closest("[data-cart-qty]");if(x){const i=Number(x.dataset.cartQty),d=Number(x.dataset.delta),step=Math.max(1,Number(S.cart[i].packing||1));S.cart[i].qty=Math.max(step,Number(S.cart[i].qty)+d*step);writeCart();return renderCart()}
   x=e.target.closest("[data-cart-remove]");if(x){S.cart.splice(Number(x.dataset.cartRemove),1);writeCart();return renderCart()}
   x=e.target.closest("[data-refresh-historical]");if(x){
     const item=S.cart[Number(x.dataset.refreshHistorical)];
