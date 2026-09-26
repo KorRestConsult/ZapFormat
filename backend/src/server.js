@@ -145,6 +145,7 @@ app.use("/api/checkout", requireDatabase);
 app.use("/api/orders", requireDatabase);
 app.use("/api/returns", requireDatabase);
 app.use("/api/vin-requests", requireDatabase);
+app.use("/api/support-requests", requireDatabase);
 app.use("/api/admin", requireDatabase);
 
 function normalizeEmail(value) {
@@ -2755,6 +2756,222 @@ app.patch("/api/returns/:returnId/cancel", requireUser, async (req, res, next) =
     );
 
     res.json({ return: result.rows[0] });
+  } catch (error) {
+    next(error);
+  }
+});
+
+async function validateSupportLink(userId, linkedType, linkedId) {
+  if (!linkedType && !linkedId) return { linkedType: null, linkedId: null };
+  if (!linkedType || !linkedId) {
+    const error = new Error("support_link_incomplete");
+    error.code = "support_link_incomplete";
+    throw error;
+  }
+
+  const type = String(linkedType);
+  const id = String(linkedId);
+  const queries = {
+    order: ["SELECT id::text AS id FROM orders WHERE id::text = $1 AND user_id = $2 LIMIT 1", id],
+    quote: ["SELECT id::text AS id FROM quote_requests WHERE id::text = $1 AND user_id = $2 LIMIT 1", id],
+    vin: ["SELECT id::text AS id FROM vin_requests WHERE id::text = $1 AND user_id = $2 LIMIT 1", id],
+    return: ["SELECT id::text AS id FROM returns WHERE id::text = $1 AND user_id = $2 LIMIT 1", id]
+  };
+  if (!queries[type]) {
+    const error = new Error("invalid_support_link_type");
+    error.code = "invalid_support_link_type";
+    throw error;
+  }
+
+  const [sql, value] = queries[type];
+  const result = await pool.query(sql, [value, userId]);
+  if (!result.rowCount) {
+    const error = new Error("support_link_not_found");
+    error.code = "support_link_not_found";
+    throw error;
+  }
+  return { linkedType: type, linkedId: result.rows[0].id };
+}
+
+app.get("/api/support-requests", requireUser, async (req, res, next) => {
+  try {
+    const result = await pool.query(
+      `SELECT
+          sr.id, sr.ticket_number, sr.category, sr.subject, sr.status,
+          sr.linked_type, sr.linked_id, sr.created_at, sr.updated_at,
+          (SELECT count(*)::int FROM support_messages sm WHERE sm.request_id = sr.id) AS message_count,
+          (SELECT sm.message FROM support_messages sm WHERE sm.request_id = sr.id ORDER BY sm.created_at DESC, sm.id DESC LIMIT 1) AS last_message
+       FROM support_requests sr
+       WHERE sr.user_id = $1
+       ORDER BY
+         CASE sr.status
+           WHEN 'new' THEN 0
+           WHEN 'in_progress' THEN 1
+           WHEN 'waiting_customer' THEN 2
+           WHEN 'resolved' THEN 3
+           ELSE 4
+         END,
+         sr.updated_at DESC
+       LIMIT 100`,
+      [req.user.id]
+    );
+    res.json({ requests: result.rows });
+  } catch (error) {
+    next(error);
+  }
+});
+
+app.post("/api/support-requests", requireUser, quoteLimiter, async (req, res, next) => {
+  const client = await pool.connect();
+  try {
+    const allowedCategories = new Set(["order","quote","vin","return","account","delivery","payment","other"]);
+    const category = String(req.body?.category || "other");
+    const subject = String(req.body?.subject || "").trim().slice(0, 160);
+    const message = String(req.body?.message || "").trim().slice(0, 4000);
+    if (!allowedCategories.has(category)) return res.status(400).json({ error: "invalid_support_category" });
+    if (subject.length < 3) return res.status(400).json({ error: "support_subject_required" });
+    if (message.length < 5) return res.status(400).json({ error: "support_message_required" });
+
+    const link = await validateSupportLink(
+      req.user.id,
+      req.body?.linked_type ? String(req.body.linked_type) : null,
+      req.body?.linked_id ? String(req.body.linked_id) : null
+    );
+
+    await client.query("BEGIN");
+    const requestResult = await client.query(
+      `INSERT INTO support_requests
+        (user_id, category, subject, linked_type, linked_id)
+       VALUES ($1,$2,$3,$4,$5)
+       RETURNING id, ticket_number, category, subject, status, linked_type, linked_id, created_at, updated_at`,
+      [req.user.id, category, subject, link.linkedType, link.linkedId]
+    );
+    const request = requestResult.rows[0];
+
+    await client.query(
+      `INSERT INTO support_messages
+        (request_id, actor_type, actor_user_id, message)
+       VALUES ($1,'customer',$2,$3)`,
+      [request.id, req.user.id, message]
+    );
+
+    await client.query(
+      `INSERT INTO notifications (user_id, type, title, body)
+       VALUES ($1,'support','Обращение в поддержку создано',$2)`,
+      [req.user.id, "Обращение S-" + request.ticket_number + " принято."]
+    );
+
+    await client.query("COMMIT");
+    res.status(201).json({ request });
+  } catch (error) {
+    await client.query("ROLLBACK").catch(() => {});
+    if (["support_link_incomplete","invalid_support_link_type","support_link_not_found"].includes(error?.code)) {
+      return res.status(400).json({ error: error.code });
+    }
+    next(error);
+  } finally {
+    client.release();
+  }
+});
+
+app.get("/api/support-requests/:requestId", requireUser, async (req, res, next) => {
+  try {
+    const result = await pool.query(
+      `SELECT id, ticket_number, category, subject, status,
+              linked_type, linked_id, created_at, updated_at
+         FROM support_requests
+        WHERE id = $1 AND user_id = $2
+        LIMIT 1`,
+      [req.params.requestId, req.user.id]
+    );
+    const request = result.rows[0];
+    if (!request) return res.status(404).json({ error: "support_request_not_found" });
+
+    const messages = await pool.query(
+      `SELECT id, actor_type, message, created_at
+         FROM support_messages
+        WHERE request_id = $1
+        ORDER BY created_at, id`,
+      [request.id]
+    );
+
+    res.json({ request, messages: messages.rows });
+  } catch (error) {
+    next(error);
+  }
+});
+
+app.post("/api/support-requests/:requestId/messages", requireUser, quoteLimiter, async (req, res, next) => {
+  const client = await pool.connect();
+  try {
+    const message = String(req.body?.message || "").trim().slice(0, 4000);
+    if (message.length < 2) return res.status(400).json({ error: "support_message_required" });
+
+    await client.query("BEGIN");
+    const current = await client.query(
+      `SELECT id, ticket_number, status
+         FROM support_requests
+        WHERE id = $1 AND user_id = $2
+        FOR UPDATE`,
+      [req.params.requestId, req.user.id]
+    );
+    const request = current.rows[0];
+    if (!request) {
+      await client.query("ROLLBACK");
+      return res.status(404).json({ error: "support_request_not_found" });
+    }
+    if (request.status === "closed") {
+      await client.query("ROLLBACK");
+      return res.status(409).json({ error: "support_request_closed" });
+    }
+
+    await client.query(
+      `INSERT INTO support_messages
+        (request_id, actor_type, actor_user_id, message)
+       VALUES ($1,'customer',$2,$3)`,
+      [request.id, req.user.id, message]
+    );
+    const nextStatus = ["resolved","waiting_customer"].includes(request.status) ? "in_progress" : request.status;
+    await client.query(
+      `UPDATE support_requests
+          SET status = $2, updated_at = now()
+        WHERE id = $1`,
+      [request.id, nextStatus]
+    );
+    await client.query("COMMIT");
+    res.status(201).json({ ok: true, status: nextStatus });
+  } catch (error) {
+    await client.query("ROLLBACK").catch(() => {});
+    next(error);
+  } finally {
+    client.release();
+  }
+});
+
+app.patch("/api/support-requests/:requestId/close", requireUser, async (req, res, next) => {
+  try {
+    const result = await pool.query(
+      `UPDATE support_requests
+          SET status = 'closed', updated_at = now()
+        WHERE id = $1 AND user_id = $2 AND status <> 'closed'
+        RETURNING id, ticket_number, status, updated_at`,
+      [req.params.requestId, req.user.id]
+    );
+    if (!result.rowCount) {
+      const exists = await pool.query(
+        "SELECT id FROM support_requests WHERE id = $1 AND user_id = $2 LIMIT 1",
+        [req.params.requestId, req.user.id]
+      );
+      if (!exists.rowCount) return res.status(404).json({ error: "support_request_not_found" });
+      return res.status(409).json({ error: "support_request_already_closed" });
+    }
+    await pool.query(
+      `INSERT INTO support_messages
+        (request_id, actor_type, actor_user_id, message)
+       VALUES ($1,'system',$2,'Обращение закрыто клиентом.')`,
+      [req.params.requestId, req.user.id]
+    );
+    res.json({ request: result.rows[0] });
   } catch (error) {
     next(error);
   }
