@@ -586,6 +586,7 @@ const S={
   checkoutSubmitting:false,
   operatorOverview:null,
   operatorQueue:null,
+  operatorPickupPoints:[],
   vehicles:[],
   garageDue:[],
   vehicleDetail:null,
@@ -1609,8 +1610,12 @@ async function loadOperator(){
   }
   root.innerHTML='<div class="state-card"><div><div class="spinner" style="margin:auto"></div><p>Загружаем очередь…</p></div></div>';
   try{
-    const [overview,queue]=await Promise.all([api("/api/admin/overview"),api("/api/admin/queue")]);
-    S.operatorOverview=overview;S.operatorQueue=queue;renderOperator();
+    const [overview,queue,pickups]=await Promise.all([
+      api("/api/admin/overview"),
+      api("/api/admin/queue"),
+      api("/api/admin/pickup-points").catch(()=>({pickup_points:[]}))
+    ]);
+    S.operatorOverview=overview;S.operatorQueue=queue;S.operatorPickupPoints=pickups.pickup_points||[];renderOperator();
   }catch{
     root.innerHTML='<div class="empty"><div><b>Не удалось загрузить очередь</b><button class="secondary" data-reload-operator>Повторить</button></div></div>';
   }
@@ -1628,8 +1633,28 @@ function renderOperator(){
       operatorColumn("Заявки",q.quotes||[],"quote")+
       operatorColumn("VIN-подбор",q.vin||[],"vin")+
       operatorColumn("Возвраты",q.returns||[],"return")+
-    '</div>';
+    '</div>'+operatorPickupPanel();
 }
+function operatorPickupPanel(){
+  const rows=S.operatorPickupPoints||[];
+  return '<div class="panel panel-pad" style="margin-top:18px"><div class="panel-title"><div><h3>Пункты выдачи</h3><p>В checkout попадают только активные реальные точки.</p></div><span class="status neutral">'+rows.filter(x=>x.is_active).length+' активных</span></div>'+
+    (rows.length?'<div class="measurements">'+rows.map(p=>'<div class="measurement"><span><b>'+esc(p.name)+'</b><span class="small muted">'+esc([p.city,p.address].filter(Boolean).join(", "))+' · '+esc(p.code||"")+'</span></span><span style="display:flex;gap:7px;align-items:center"><span class="status '+(p.is_active?"":"neutral")+'">'+(p.is_active?"Активен":"Выключен")+'</span><button class="ghost-btn small" data-toggle-pickup="'+p.id+'" data-active="'+(p.is_active?"1":"0")+'">'+(p.is_active?"Выключить":"Включить")+'</button></span></div>').join("")+'</div>':'<p class="muted">Пунктов выдачи пока нет. Мы не показываем клиентам вымышленные точки.</p>')+
+    '<div class="mini-form"><h4>Добавить реальный пункт</h4><form id="pickupPointForm"><div class="form-grid"><div class="field"><label>Город</label><input name="city" required placeholder="Рязань"></div><div class="field"><label>Название</label><input name="name" required placeholder="ZapFormat · пункт выдачи"></div><div class="field full"><label>Адрес</label><input name="address" placeholder="Фактический адрес"></div></div><div class="form-actions"><button class="secondary">Добавить пункт</button></div></form></div></div>';
+}
+async function savePickupPoint(e){
+  e.preventDefault();const f=new FormData(e.currentTarget);
+  try{
+    await api("/api/admin/pickup-points",{method:"POST",body:JSON.stringify({city:f.get("city"),name:f.get("name"),address:f.get("address")})});
+    e.currentTarget.reset();toast("Пункт выдачи добавлен");await loadOperator();
+  }catch{toast("Не удалось добавить пункт")}
+}
+async function togglePickupPoint(id,active){
+  try{
+    await api("/api/admin/pickup-points/"+encodeURIComponent(id),{method:"PATCH",body:JSON.stringify({is_active:!active})});
+    toast(active?"Пункт выключен":"Пункт включён");await loadOperator();
+  }catch{toast("Не удалось изменить пункт")}
+}
+
 function operatorColumn(title,rows,kind){
   return '<section class="operator-column"><h3>'+esc(title)+' <span class="status neutral">'+rows.length+'</span></h3>'+
     (rows.length?rows.map(r=>operatorCard(r,kind)).join(""):'<div class="panel panel-pad muted">Очередь пуста.</div>')+'</section>';
@@ -1848,9 +1873,12 @@ document.addEventListener("click",async e=>{
     writeCart();toast("Позиции добавлены в корзину");return go("cart");
   }
   if(e.target.closest("[data-reload-orders]"))return loadOrders();
+  x=e.target.closest("[data-toggle-pickup]");if(x)return togglePickupPoint(x.dataset.togglePickup,x.dataset.active==="1");
   if(e.target.closest("[data-reload-operator]"))return loadOperator();
 });
 document.addEventListener("submit",e=>{
+  const pickup=e.target.closest("#pickupPointForm");
+  if(pickup){e.preventDefault();return savePickupPoint(pickup)}
   const form=e.target.closest("[data-operator-form]");
   if(form){e.preventDefault();saveOperatorItem(form)}
 });
