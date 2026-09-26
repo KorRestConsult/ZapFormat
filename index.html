@@ -370,6 +370,9 @@ const S={
   offers:[],
   overview:null,
   notifications:null,
+  addresses:[],
+  cartPersistTimer:null,
+  cartServerWarning:"",
   vehicles:[],
   vehicleDetail:null,
   orders:[],
@@ -392,7 +395,79 @@ const datetime=v=>v?new Intl.DateTimeFormat("ru-RU",{day:"2-digit",month:"short"
 const initials=u=>((u?.name?.[0]||"")+(u?.surname?.[0]||"")).toUpperCase()||"Я";
 
 function readCart(){try{return JSON.parse(localStorage.getItem("zf-cart")||"[]")}catch{return []}}
-function writeCart(){localStorage.setItem("zf-cart",JSON.stringify(S.cart));badges()}
+function writeCart({persist=true}={}){
+  localStorage.setItem("zf-cart",JSON.stringify(S.cart));
+  badges();
+  if(persist) scheduleCartPersist();
+}
+function scheduleCartPersist(){
+  if(!S.user)return;
+  clearTimeout(S.cartPersistTimer);
+  S.cartPersistTimer=setTimeout(()=>persistCart(),900);
+}
+async function persistCart(){
+  if(!S.user)return;
+  const eligible=S.cart.filter(x=>x.offer_ref&&!x.historical);
+  try{
+    if(!eligible.length){
+      await api("/api/cart",{method:"PUT",body:JSON.stringify({items:[]})});
+      S.cartServerWarning="";
+      return;
+    }
+    const d=await api("/api/cart",{method:"PUT",body:JSON.stringify({
+      items:eligible.map(x=>({
+        client_id:x.id,brand:x.brand,article:x.article,offer_ref:x.offer_ref,quantity:x.qty
+      }))
+    })});
+    const byId=new Map((d.items||[]).map(x=>[x.client_id,x]));
+    for(const item of S.cart){
+      const fresh=byId.get(item.id);if(!fresh)continue;
+      item.price=Number(fresh.price||item.price||0);
+      item.availability=Number(fresh.availability||0);
+      item.delivery_hours=Number(fresh.delivery_hours||0);
+      item.delivery_hours_max=Number(fresh.delivery_hours_max||0);
+      item.returnable=fresh.returnable;
+      item.offer_ref=fresh.offer_ref;
+      item.checked_at=d.checked_at||new Date().toISOString();
+      item.found=true;
+    }
+    S.cartServerWarning="";
+    localStorage.setItem("zf-cart",JSON.stringify(S.cart));
+  }catch(e){
+    S.cartServerWarning=e.status===409?"Корзина изменилась — требуется перепроверка.":"Корзина сохранена на устройстве; серверная синхронизация пока недоступна.";
+  }
+}
+async function mergeServerCart(){
+  if(!S.user)return;
+  try{
+    const d=await api("/api/cart");
+    const server=(d.items||[]).map(x=>({
+      ...x,
+      id:x.id||["server",x.offer_ref,x.article].join("|"),
+      qty:Number(x.quantity||1),
+      checked_at:x.checked_at||null
+    }));
+    if(!server.length){
+      if(S.cart.some(x=>x.offer_ref&&!x.historical)) scheduleCartPersist();
+      return;
+    }
+    const key=x=>String(x.offer_ref||x.id||"");
+    const map=new Map(server.map(x=>[key(x),x]));
+    for(const local of S.cart){
+      const k=key(local);
+      if(!k||local.historical)continue;
+      const existing=map.get(k);
+      if(existing){
+        existing.qty=Math.max(Number(existing.qty||1),Number(local.qty||1));
+      }else{
+        map.set(k,local);
+      }
+    }
+    const historical=S.cart.filter(x=>x.historical);
+    S.cart=[...map.values(),...historical];
+    writeCart({persist:false});
+  }catch{}
+}
 function toast(text){const t=$("#toast");t.textContent=text;t.classList.add("show");clearTimeout(toast.t);toast.t=setTimeout(()=>t.classList.remove("show"),1900)}
 async function api(path,options={}){
   const r=await fetch(API+path,{
@@ -503,11 +578,14 @@ function renderOfferTable(){
 }
 function addOffer(i){
   const x=S.offers[i]; if(!x)return;
-  const id=[x.brand,x.article,x.price,x.delivery_hours].join("|");
-  const existing=S.cart.find(z=>z.id===id);
-  if(existing)existing.qty+=1;
-  else S.cart.push({...x,id,qty:1});
-  writeCart();toast("Добавлено в корзину");
+  const historical=S.cart.find(z=>z.historical&&String(z.brand).toUpperCase()===String(x.brand).toUpperCase()&&String(z.article).toUpperCase()===String(x.article).toUpperCase());
+  const carryQty=historical?Number(historical.qty||1):1;
+  if(historical)S.cart=S.cart.filter(z=>z!==historical);
+  const id=x.offer_ref||[x.brand,x.article,x.price,x.delivery_hours].join("|");
+  const existing=S.cart.find(z=>z.id===id||z.offer_ref===x.offer_ref);
+  if(existing)existing.qty+=carryQty;
+  else S.cart.push({...x,id,qty:carryQty,historical:false});
+  writeCart();toast(historical?"Позиция обновлена актуальным предложением":"Добавлено в корзину");
 }
 
 function renderCart(){
@@ -595,6 +673,7 @@ async function hydrate(){
   updateHeader();badges();
   if(S.user){
     try{S.overview=await api("/api/account/overview")}catch{}
+    await mergeServerCart();
   }
 }
 function authUi(){
@@ -829,7 +908,7 @@ document.addEventListener("click",async e=>{
   if(e.target.closest("[data-auth-open]"))return openAuth();
   x=e.target.closest("[data-close-dialog]");if(x)return $("#"+x.dataset.closeDialog).close();
   x=e.target.closest("[data-auth-tab]");if(x){S.authMode=x.dataset.authTab;return authUi()}
-  if(e.target.closest("[data-logout]")){try{await api("/api/auth/logout",{method:"POST"})}catch{}S.user=null;S.overview=null;updateHeader();toast("Вы вышли");return go("home")}
+  if(e.target.closest("[data-logout]")){try{await api("/api/auth/logout",{method:"POST"})}catch{}S.user=null;S.overview=null;S.addresses=[];clearTimeout(S.cartPersistTimer);updateHeader();toast("Вы вышли");return go("home")}
   if(e.target.closest("[data-add-vehicle]"))return openVehicleDialog();
   x=e.target.closest("[data-vehicle-id]");if(x)return loadVehicle(x.dataset.vehicleId);
   if(e.target.closest("[data-edit-current-vehicle]"))return openVehicleDialog(S.vehicleDetail?.vehicle);
