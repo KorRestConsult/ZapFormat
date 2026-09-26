@@ -4,6 +4,7 @@ Backend responsibilities:
 - authentication and sessions;
 - PostgreSQL customer data;
 - carts, orders, returns and notifications;
+- direct referral attribution and loyalty ledger foundation;
 - supplier API access and secret credentials;
 - final customer pricing.
 
@@ -13,7 +14,7 @@ Backend responsibilities:
 cd backend
 cp .env.example .env
 npm install
-psql "$DATABASE_URL" -f db/001_init.sql
+npm run db:migrate
 npm start
 ```
 
@@ -32,6 +33,7 @@ POST /api/auth/logout
 GET  /api/auth/me
 PATCH /api/account/profile
 GET  /api/account/overview
+GET  /api/account/referrals
 ```
 
 Production process files are in `deploy/`.
