@@ -7,6 +7,25 @@ const viewports = [
   { name: "iphone", width: 390, height: 844 }
 ];
 
+async function assertNoHorizontalOverflow(page, label) {
+  const metrics = await page.evaluate(() => ({
+    scrollWidth: document.documentElement.scrollWidth,
+    clientWidth: document.documentElement.clientWidth,
+    bodyWidth: document.body.scrollWidth
+  }));
+  if (metrics.scrollWidth > metrics.clientWidth + 1 || metrics.bodyWidth > metrics.clientWidth + 1) {
+    throw new Error(`${label} horizontal overflow: ${JSON.stringify(metrics)}`);
+  }
+}
+
+async function assertDialogFits(page, selector, label) {
+  const fits = await page.evaluate((sel) => {
+    const d = document.querySelector(sel).getBoundingClientRect();
+    return d.left >= -1 && d.right <= innerWidth + 1 && d.top >= -1 && d.bottom <= innerHeight + 1;
+  }, selector);
+  if (!fits) throw new Error(`${label} does not fit viewport`);
+}
+
 try {
   for (const viewport of viewports) {
     const page = await browser.newPage({ viewport: { width: viewport.width, height: viewport.height } });
@@ -15,28 +34,149 @@ try {
 
     for (const screen of ["home", "garage", "orders", "cart", "account"]) {
       await page.evaluate((name) => window.go(name, false), screen);
-      await page.waitForTimeout(80);
-      const metrics = await page.evaluate(() => ({
-        scrollWidth: document.documentElement.scrollWidth,
-        clientWidth: document.documentElement.clientWidth,
-        bodyWidth: document.body.scrollWidth
-      }));
-      if (metrics.scrollWidth > metrics.clientWidth + 1 || metrics.bodyWidth > metrics.clientWidth + 1) {
-        throw new Error(
-          `${viewport.name}/${screen} horizontal overflow: ${JSON.stringify(metrics)}`
-        );
-      }
+      await page.waitForTimeout(50);
+      await assertNoHorizontalOverflow(page, `${viewport.name}/${screen}/guest`);
     }
 
-    await page.evaluate(() => window.openAuth("login"));
-    await page.waitForTimeout(50);
-    const dialogFits = await page.evaluate(() => {
-      const d = document.querySelector("#authDialog").getBoundingClientRect();
-      return d.left >= -1 && d.right <= innerWidth + 1 && d.top >= -1 && d.bottom <= innerHeight + 1;
+    await page.evaluate(() => {
+      S.user = {
+        id: "u1",
+        name: "Илья",
+        surname: "Коробицин",
+        phone: "+79000000000",
+        email: "test@example.com",
+        created_at: "2026-09-01T10:00:00Z"
+      };
+      S.overview = { stats: { active_orders: 2, ready_orders: 1, vehicles: 2, active_returns: 1 } };
+      S.notifications = { order_status: true, item_changes: true, returns: true, marketing: false };
+      S.addresses = [{
+        id: "a1", label: "Дом", city: "Рязань",
+        address: "Очень длинное тестовое название улицы, дом 123, квартира 456",
+        recipient_name: "Илья", recipient_phone: "+79000000000", is_default: true
+      }];
     });
-    if (!dialogFits) throw new Error(`${viewport.name} auth dialog does not fit viewport`);
+    await page.evaluate(() => window.renderAccount());
+    await page.waitForTimeout(120);
+    await assertNoHorizontalOverflow(page, `${viewport.name}/account/authenticated`);
+
+    await page.evaluate(() => {
+      S.offers = [
+        {
+          offer_ref: "offer1", brand: "PATRON", article: "PRS3420",
+          description: "Длинное описание реальной автозапчасти для проверки плотной выдачи на маленьком экране",
+          availability: 12, packing: 1, delivery_hours: 24, delivery_hours_max: 48,
+          delivery_probability: 96, returnable: true, price: 5284.25
+        },
+        {
+          offer_ref: "offer2", brand: "PATRON", article: "PRS3420",
+          description: "Вариант поставки с кратностью упаковки",
+          availability: 20, packing: 2, delivery_hours: 72, delivery_hours_max: 96,
+          delivery_probability: 88, returnable: false, price: 4999
+        }
+      ];
+      S.offerSort = "price";
+      S.offerOnlyAvailable = false;
+      go("catalog", false);
+      renderOfferTable();
+    });
+    await page.waitForTimeout(50);
+    await assertNoHorizontalOverflow(page, `${viewport.name}/catalog/offers`);
+
+    await page.evaluate(() => {
+      S.cart = [
+        {
+          id: "offer1", offer_ref: "offer1", brand: "PATRON", article: "PRS3420",
+          description: "Актуальная позиция", qty: 2, packing: 1, availability: 12,
+          delivery_hours: 24, price: 5284.25, checked_at: new Date().toISOString(), found: true
+        },
+        {
+          id: "old1", brand: "SKF", article: "HK0810",
+          description: "Позиция из старого заказа", qty: 1, historical: true, price: 1000
+        }
+      ];
+      go("cart", false);
+      renderCart();
+    });
+    await page.waitForTimeout(50);
+    await assertNoHorizontalOverflow(page, `${viewport.name}/cart/mixed`);
+
+    await page.evaluate(() => {
+      S.vehicles = [
+        {
+          id: "v1", brand: "BMW", model: "X3", generation: "F25", year: 2010,
+          engine: "2.0 Diesel N47", vin: "WBA00000000000001", plate_number: "А000АА62",
+          current_mileage: 186420, is_default: true
+        },
+        {
+          id: "v2", brand: "Ford", model: "Focus", generation: "II", year: 2006,
+          engine: "1.8", vin: "X9F5XXEED56R37916", current_mileage: 210000, is_default: false
+        }
+      ];
+      go("garage", false);
+      renderGarage();
+    });
+    await page.waitForTimeout(50);
+    await assertNoHorizontalOverflow(page, `${viewport.name}/garage/cards`);
+
+    await page.evaluate(() => {
+      S.vehicleDetail = {
+        vehicle: {
+          id: "v1", brand: "BMW", model: "X3", generation: "F25", year: 2010,
+          engine: "2.0 Diesel N47", vin: "WBA00000000000001", plate_number: "А000АА62",
+          current_mileage: 186420, is_default: true, updated_at: "2026-09-26T10:00:00Z"
+        },
+        maintenance: [
+          { id: "p1", title: "Масло двигателя + фильтр", next_service_mileage: 190000, next_service_at: "2027-01-15" }
+        ],
+        measurements: [
+          { id: "m1", measurement_type: "Передние колодки", value: 6, unit: "мм", measured_at: "2026-09-20T10:00:00Z" }
+        ],
+        history: [
+          { id: "h1", title: "Замена масла", service_date: "2026-05-20", mileage: 176000 }
+        ],
+        reminders: [
+          { id: "r1", title: "Проверить тормозную жидкость", due_mileage: 190000, due_at: "2026-11-20", is_done: false }
+        ]
+      };
+      renderVehicleDetail();
+    });
+    await page.waitForTimeout(50);
+    await assertNoHorizontalOverflow(page, `${viewport.name}/garage/detail`);
+
+    await page.evaluate(() => {
+      S.quoteRequests = [{
+        id: "Q-20260926-ABCDEF", status: "new", item_count: 2, quoted_total: 12000, created_at: "2026-09-26T10:00:00Z"
+      }];
+      S.returns = [{
+        id: "ret1", return_number: 1, quantity: 1, reason: "Не подошла деталь", status: "created",
+        brand: "PATRON", article: "PRS3420", unit_price: 5284.25, order_number: 101, created_at: "2026-09-25T10:00:00Z"
+      }];
+      S.orders = [{
+        id: "o1", order_number: 101, status: "ready", total_amount: 15284.25, item_count: 2, created_at: "2026-09-24T10:00:00Z"
+      }];
+      go("orders", false);
+      renderOrders();
+    });
+    await page.waitForTimeout(50);
+    await assertNoHorizontalOverflow(page, `${viewport.name}/orders/data`);
+
+    for (const dialog of [
+      ["#authDialog", () => window.openAuth("login")],
+      ["#vehicleDialog", () => window.openVehicleDialog()],
+      ["#returnDialog", () => {
+        S.orderDetail = { items: [{ id: "oi1", brand: "PATRON", article: "PRS3420", quantity: 2, unit_price: 5284.25 }] };
+        window.openReturnDialog("oi1");
+      }]
+    ]) {
+      await page.evaluate(dialog[1]);
+      await page.waitForTimeout(30);
+      await assertDialogFits(page, dialog[0], `${viewport.name} ${dialog[0]}`);
+      await page.evaluate((sel) => document.querySelector(sel).close(), dialog[0]);
+    }
+
     await page.close();
   }
+
   console.log("Responsive smoke passed:", viewports.map((v) => v.name).join(", "));
 } finally {
   await browser.close();
