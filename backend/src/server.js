@@ -34,6 +34,33 @@ const FRONTEND_ORIGINS = String(process.env.FRONTEND_ORIGINS || "")
   .filter(Boolean);
 
 const partGrade = createPartGradeClient();
+const CATALOG_CACHE_MS = Math.max(0, Number(process.env.CATALOG_CACHE_MS || 20000));
+const CATALOG_CACHE_MAX = Math.max(50, Number(process.env.CATALOG_CACHE_MAX || 500));
+const catalogCache = new Map();
+
+function catalogCacheGet(key) {
+  if (!CATALOG_CACHE_MS) return null;
+  const hit = catalogCache.get(key);
+  if (!hit) return null;
+  if (Date.now() - hit.at > CATALOG_CACHE_MS) {
+    catalogCache.delete(key);
+    return null;
+  }
+  return hit.value;
+}
+
+function catalogCacheSet(key, value) {
+  if (!CATALOG_CACHE_MS) return value;
+  if (catalogCache.has(key)) catalogCache.delete(key);
+  catalogCache.set(key, { at: Date.now(), value });
+  while (catalogCache.size > CATALOG_CACHE_MAX) {
+    const first = catalogCache.keys().next().value;
+    if (first === undefined) break;
+    catalogCache.delete(first);
+  }
+  return value;
+}
+
 
 const hasDatabase = Boolean(process.env.DATABASE_URL);
 const pool = hasDatabase
@@ -777,14 +804,22 @@ function summarizePublicOffers(offers = []) {
   };
 }
 
-async function supplierRowsForOffer(number, brand) {
+async function supplierRowsForOffer(number, brand, { fresh = false } = {}) {
+  const cacheKey = ["offers", String(brand || "").trim().toUpperCase(), String(number || "").trim().toUpperCase()].join("|");
+  if (!fresh) {
+    const cached = catalogCacheGet(cacheKey);
+    if (cached) return cached;
+  }
+
   try {
     const rows = await partGrade.searchArticles(number, brand);
-    return { mode: "articles", rows: normalizeSupplierRows(rows) };
+    const result = { mode: "articles", rows: normalizeSupplierRows(rows) };
+    return fresh ? result : catalogCacheSet(cacheKey, result);
   } catch (error) {
     if (error instanceof PartGradeError && Number(error.upstreamCode) === 103) {
       const rows = await partGrade.searchBatch([{ number, brand }]);
-      return { mode: "batch", rows: normalizeSupplierRows(rows) };
+      const result = { mode: "batch", rows: normalizeSupplierRows(rows) };
+      return fresh ? result : catalogCacheSet(cacheKey, result);
     }
     throw error;
   }
@@ -814,7 +849,7 @@ async function resolveRequestedOffers(requested = []) {
   const output = [...normalized];
 
   for (const group of groups.values()) {
-    const supplier = await supplierRowsForOffer(group.article, group.brand);
+    const supplier = await supplierRowsForOffer(group.article, group.brand, { fresh: true });
     const offers = supplier.rows
       .map((row) => publicSupplierOffer(row, { number: group.article, brand: group.brand }))
       .filter(Boolean);
@@ -3429,5 +3464,7 @@ module.exports = {
   supplierCandidatesForTerms,
   checkoutPaymentMethods,
   checkoutFulfillmentMethods,
-  summarizePublicOffers
+  summarizePublicOffers,
+  catalogCacheGet,
+  catalogCacheSet
 };
