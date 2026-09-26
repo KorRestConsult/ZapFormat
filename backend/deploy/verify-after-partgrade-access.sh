@@ -114,17 +114,37 @@ function forbiddenKeyFound(value) {
     locale: "ru_RU"
   });
 
-  if (articles.status === 403 && Number(articles.data?.errorCode) === 103) {
-    console.log("3) search/articles: rights are still disabled (HTTP 403 / errorCode 103)");
-    process.exit(10);
-  }
-  if (articles.status !== 200) throw new Error("search/articles failed: HTTP " + articles.status);
+  let supplierMode = "articles";
+  let supplierData = articles.data;
+  const articlesDenied =
+    articles.status === 403 || Number(articles.data?.errorCode) === 103;
 
-  const articleRows = rows(articles.data);
+  if (articlesDenied) {
+    console.log("3a) search/articles is restricted; checking documented search/batch fallback");
+    const batch = await upstream("search/batch", {
+      "search[0][number]": "PRS3420",
+      "search[0][brand]": "PATRON"
+    }, "POST");
+    if (batch.status !== 200) {
+      const code = Number(batch.data?.errorCode || 0);
+      if (batch.status === 403 || code === 103) {
+        console.log("3b) search/batch: rights are also disabled");
+        process.exit(10);
+      }
+      throw new Error("search/batch failed: HTTP " + batch.status);
+    }
+    supplierMode = "batch";
+    supplierData = batch.data;
+    console.log("3b) search/batch fallback: OK");
+  } else if (articles.status !== 200) {
+    throw new Error("search/articles failed: HTTP " + articles.status);
+  }
+
+  const articleRows = rows(supplierData);
   const upstreamPrices = articleRows.map(x => money(x?.price)).filter(x => x !== null && x > 0);
   if (!upstreamPrices.length) throw new Error("PRS3420 returned no numeric procurement prices");
   const nearExpected = upstreamPrices.some(p => Math.abs(p - 4595) / 4595 <= 0.10);
-  console.log("3) PRS3420 real offers: OK; procurement near reference:", nearExpected ? "YES" : "NO/CHANGED");
+  console.log("3) PRS3420 real offers via " + supplierMode + ": OK; procurement near reference:", nearExpected ? "YES" : "NO/CHANGED");
 
   const publicOffers = await local("/api/catalog/offers?number=PRS3420&brand=PATRON");
   if (publicOffers.status !== 200) throw new Error("local backend offers failed: HTTP " + publicOffers.status);
