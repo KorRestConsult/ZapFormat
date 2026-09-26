@@ -15,7 +15,9 @@ Live / GitHub Pages не переключаются на эту ветку до 
 Сейчас реализованы:
 
 - поиск по артикулу: производитель → реальные предложения;
-- сортировка предложений по цене, сроку и наличию;
+- отдельная deep-link карточка детали с реальными предложениями, сводкой цены/срока/остатка и каталожными вариантами;
+- прозрачный «баланс цены и срока» только по фактическим предложениям;
+- сортировка и фильтры предложений по цене, сроку, наличию, возможности возврата и вероятности поставки;
 - корзина без demo-позиций;
 - полноценный checkout: контакт, автомобиль, получение, адрес, оплата после подтверждения и финальная серверная перепроверка;
 - безопасная перепроверка цены/остатка через backend;
@@ -24,7 +26,7 @@ Live / GitHub Pages не переключаются на эту ветку до 
 - профиль пользователя;
 - настройки уведомлений и центр событий;
 - сохранённые детали и история поиска;
-- гараж: автомобили, VIN, пробег, замеры, обслуживание, контрольные интервалы и блок ближайшего ТО;
+- гараж: автомобили, VIN, пробег, двигатель, коробка, кузов, шины/диски, допуски жидкостей, замеры, обслуживание, контрольные интервалы и блок ближайшего ТО;
 - история реальных заказов;
 - отдельный статус заявок, которые ещё не стали заказами;
 - отдельный поток подбора по VIN;
@@ -115,7 +117,7 @@ The rebuild branch contains an AI layer above the supplier catalog.
 - Exact article queries bypass AI and go directly to the catalog.
 - Natural-language queries are interpreted on the backend through the OpenAI Responses API with Structured Outputs.
 - Default model: `gpt-5.6-luna`; override it with the backend model setting.
-- Vehicle context sent to AI is limited to make/model/generation/year/engine. VIN and plate are not forwarded from the saved garage context.
+- Vehicle context sent to AI is limited to make/model/generation/year/engine/transmission/body type. VIN and plate are not forwarded from the saved garage context.
 - AI is not allowed to invent part numbers, fitment, prices, stock, or delivery terms.
 - An article returned by AI is accepted only when that exact article was explicitly present in the user's query.
 - Natural-language search terms may be checked against supplier tips, but all price/availability data still comes from the supplier API.
