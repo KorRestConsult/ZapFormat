@@ -144,7 +144,7 @@ Rules:
 Do not fake these. Implement only when the underlying system is ready:
 
 1. Real VIN/EPC catalog provider for automatic fitment.
-2. Verified PartGrade search/articles access in production.
+2. Verified PartGrade live search in production: `search/articles` preferred, documented `search/batch` fallback accepted only after the real VPS smoke passes.
 3. Safe PartGrade basket/order write enablement plus supplier order/status synchronization.
 4. Real payment provider and payment state.
 5. Calculated delivery/courier integration; pickup points already support real configured locations.
