@@ -77,6 +77,17 @@ async function local(path) {
   try { data = t ? JSON.parse(t) : null; } catch {}
   return { status: r.status, data };
 }
+async function localPost(path, body) {
+  const r = await fetch(localApi + path, {
+    method: "POST",
+    headers: { Accept: "application/json", "Content-Type": "application/json" },
+    body: JSON.stringify(body)
+  });
+  const t = await r.text();
+  let data = null;
+  try { data = t ? JSON.parse(t) : null; } catch {}
+  return { status: r.status, data };
+}
 function forbiddenKeyFound(value) {
   const forbidden = /^(purchase|purchase_price|procurement|procurement_price|supplier_price|cost|cost_price|userpsw|password|md5)$/i;
   if (Array.isArray(value)) return value.some(forbiddenKeyFound);
@@ -133,6 +144,24 @@ function forbiddenKeyFound(value) {
   }
   console.log("4) procurement hidden + backend markup: OK");
 
+  const partDetail = await local("/api/catalog/part?number=PRS3420&brand=PATRON");
+  if (partDetail.status !== 200) throw new Error("local part detail failed: HTTP " + partDetail.status);
+  if (forbiddenKeyFound(partDetail.data)) throw new Error("part detail contains a forbidden procurement/credential field");
+  if (String(partDetail.data?.part?.brand || "").toUpperCase() !== "PATRON") {
+    throw new Error("part detail lost requested brand");
+  }
+  if (!Array.isArray(partDetail.data?.offers) || !partDetail.data.offers.length) {
+    throw new Error("part detail returned no real offers");
+  }
+  console.log("5) public part card + leak guard: OK");
+
+  const directSearch = await localPost("/api/ai/search", { query: "PATRON PRS3420" });
+  if (directSearch.status !== 200) throw new Error("brand/article search bypass failed: HTTP " + directSearch.status);
+  if (directSearch.data?.ai !== false || directSearch.data?.intent?.article !== "PRS3420" || String(directSearch.data?.intent?.brand_hint || "").toUpperCase() !== "PATRON") {
+    throw new Error("explicit brand/article query was not routed directly");
+  }
+  console.log("6) PATRON PRS3420 bypasses AI: OK");
+
   const hkDirect = await upstream("search/brands/", { number: "HK0810", useOnlineStocks: 1 });
   if (hkDirect.status !== 200) throw new Error("HK0810 upstream brand search failed");
   const hkUpstream = rows(hkDirect.data);
@@ -144,7 +173,7 @@ function forbiddenKeyFound(value) {
   const publicSet = uniq(Array.isArray(hkPublic.data?.brands) ? hkPublic.data.brands : []);
   const missing = [...upSet].filter(x => !publicSet.has(x));
   if (missing.length) throw new Error("HK0810 loses manufacturers in backend normalization");
-  console.log("5) HK0810 manufacturers preserved: OK; count =", publicSet.size);
+  console.log("7) HK0810 manufacturers preserved: OK; count =", publicSet.size);
 
   console.log("RESULT: PASS");
 })().catch(err => {
@@ -154,7 +183,7 @@ function forbiddenKeyFound(value) {
 NODE
 
 if [[ -n "${VERIFY_QUOTE_REQUEST_ID:-}" ]]; then
-  echo "6) supplier write readiness: checking quote ${VERIFY_QUOTE_REQUEST_ID}"
+  echo "8) supplier write readiness: checking quote ${VERIFY_QUOTE_REQUEST_ID}"
   readiness_json="$(curl -fsS "${LOCAL_API}/api/internal/supplier/order-readiness/${VERIFY_QUOTE_REQUEST_ID}")"
   node - "${readiness_json}" <<'NODE'
 const data = JSON.parse(process.argv[2]);
@@ -172,8 +201,8 @@ if (typeof data.all_items_ready !== "boolean" || typeof data.can_submit !== "boo
 if (data.write_enabled === false && data.can_submit !== false) {
   throw new Error("supplier write disabled but can_submit is true");
 }
-console.log("6) supplier write readiness: OK; all_items_ready =", data.all_items_ready, "; write_enabled =", data.write_enabled);
+console.log("8) supplier write readiness: OK; all_items_ready =", data.all_items_ready, "; write_enabled =", data.write_enabled);
 NODE
 else
-  echo "6) supplier write readiness: SKIP (set VERIFY_QUOTE_REQUEST_ID to test an existing quote)"
+  echo "8) supplier write readiness: SKIP (set VERIFY_QUOTE_REQUEST_ID to test an existing quote)"
 fi
