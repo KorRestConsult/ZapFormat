@@ -465,6 +465,53 @@ app.get("/api/catalog/brands", async (req, res, next) => {
   }
 });
 
+function supplierOfferRef(row, fallback = {}) {
+  const parts = [
+    row?.brand ?? fallback.brand ?? "",
+    row?.number ?? fallback.number ?? "",
+    row?.supplierCode ?? row?.supplier ?? "",
+    row?.itemKey ?? row?.itemId ?? row?.id ?? "",
+    row?.warehouse ?? row?.warehouseCode ?? "",
+    row?.price ?? "",
+    row?.deliveryPeriod ?? "",
+    row?.deliveryPeriodMax ?? ""
+  ];
+  return crypto.createHash("sha256").update(parts.map((x) => String(x)).join("|")).digest("hex").slice(0, 24);
+}
+
+function publicSupplierOffer(row, fallback = {}) {
+  const price = customerPrice(row?.price);
+  if (price === null) return null;
+  return {
+    offer_ref: supplierOfferRef(row, fallback),
+    brand: row?.brand || fallback.brand || null,
+    article: row?.number || fallback.number || null,
+    article_normalized: row?.numberFix || null,
+    description: row?.description || null,
+    availability: Number(row?.availability || 0),
+    packing: Math.max(1, Number(row?.packing || 1)),
+    delivery_hours: Number(row?.deliveryPeriod || 0),
+    delivery_hours_max: Number(row?.deliveryPeriodMax || row?.deliveryPeriod || 0),
+    delivery_probability: row?.deliveryProbability ?? null,
+    returnable: row?.noReturn ? false : true,
+    price,
+    currency: "RUB"
+  };
+}
+
+async function supplierRowsForOffer(number, brand) {
+  try {
+    const rows = await partGrade.searchArticles(number, brand);
+    return { mode: "articles", rows: Array.isArray(rows) ? rows : [] };
+  } catch (error) {
+    if (error instanceof PartGradeError && Number(error.upstreamCode) === 103) {
+      const rows = await partGrade.searchBatch([{ number, brand }]);
+      return { mode: "batch", rows: Array.isArray(rows) ? rows : [] };
+    }
+    throw error;
+  }
+}
+
 app.get("/api/catalog/offers", async (req, res, next) => {
   try {
     const number = String(req.query?.number || "").trim();
@@ -474,48 +521,58 @@ app.get("/api/catalog/offers", async (req, res, next) => {
       return res.status(400).json({ error: "article_and_brand_required" });
     }
 
-    let rows;
-    let mode = "articles";
-    try {
-      rows = await partGrade.searchArticles(number, brand);
-    } catch (error) {
-      if (error instanceof PartGradeError && Number(error.upstreamCode) === 103) {
-        rows = await partGrade.searchBatch([{ number, brand }]);
-        mode = "batch";
-      } else {
-        throw error;
-      }
-    }
-
-    const offers = (Array.isArray(rows) ? rows : [])
-      .map((row) => {
-        const price = customerPrice(row.price);
-        if (price === null) return null;
-
-        return {
-          brand: row.brand || brand,
-          article: row.number || number,
-          article_normalized: row.numberFix || null,
-          description: row.description || null,
-          availability: Number(row.availability || 0),
-          packing: Number(row.packing || 1),
-          delivery_hours: Number(row.deliveryPeriod || 0),
-          delivery_hours_max: Number(row.deliveryPeriodMax || row.deliveryPeriod || 0),
-          delivery_probability: row.deliveryProbability ?? null,
-          returnable: row.noReturn ? false : true,
-          price,
-          currency: "RUB"
-        };
-      })
+    const supplier = await supplierRowsForOffer(number, brand);
+    const offers = supplier.rows
+      .map((row) => publicSupplierOffer(row, { number, brand }))
       .filter(Boolean)
       .sort((a, b) => a.price - b.price || a.delivery_hours - b.delivery_hours);
 
     res.json({
       source: "PartGrade",
-      mode,
+      mode: supplier.mode,
       query: { number, brand },
       offers
     });
+  } catch (error) {
+    next(error);
+  }
+});
+
+app.post("/api/catalog/recheck", async (req, res, next) => {
+  try {
+    const requested = Array.isArray(req.body?.items) ? req.body.items.slice(0, 30) : [];
+    if (!requested.length) return res.status(400).json({ error: "items_required" });
+
+    const groups = new Map();
+    for (const item of requested) {
+      const number = String(item?.article || "").trim();
+      const brand = String(item?.brand || "").trim();
+      const clientId = String(item?.client_id || "").slice(0, 160);
+      const offerRef = String(item?.offer_ref || "").trim();
+      if (!number || !brand || !clientId || !offerRef) continue;
+      const key = (brand + "|" + number).toUpperCase();
+      if (!groups.has(key)) groups.set(key, { number, brand, items: [] });
+      groups.get(key).items.push({ clientId, offerRef });
+    }
+    if (!groups.size) return res.status(400).json({ error: "valid_items_required" });
+
+    const output = [];
+    for (const group of groups.values()) {
+      const supplier = await supplierRowsForOffer(group.number, group.brand);
+      const offers = supplier.rows
+        .map((row) => publicSupplierOffer(row, { number: group.number, brand: group.brand }))
+        .filter(Boolean);
+      const byRef = new Map(offers.map((offer) => [offer.offer_ref, offer]));
+
+      for (const item of group.items) {
+        const match = byRef.get(item.offerRef);
+        output.push(match
+          ? { client_id: item.clientId, found: true, ...match }
+          : { client_id: item.clientId, found: false, offer_ref: item.offerRef });
+      }
+    }
+
+    res.json({ checked_at: new Date().toISOString(), items: output });
   } catch (error) {
     next(error);
   }
