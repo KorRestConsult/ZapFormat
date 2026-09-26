@@ -87,6 +87,8 @@ a{color:inherit}
 .vehicle-strip .car-mark{display:grid;place-items:center;width:42px;height:42px;flex:0 0 auto;border-radius:11px;background:var(--soft);font-weight:950}
 .vehicle-strip b{display:block}
 .vehicle-strip small{display:block;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#catalogsBody,.catalog-groups,.catalog-group,.catalog-action-grid,.vehicle-strip,.vehicle-strip-main,.expert-card{min-width:0;max-width:100%}
+#catalogsBody{overflow:hidden}
 .catalog-groups{display:grid;gap:24px}
 .catalog-group h3{font-size:24px;letter-spacing:-.03em;margin:0 0 12px}
 .catalog-group p{margin:0 0 14px;color:var(--muted)}
@@ -94,8 +96,8 @@ a{color:inherit}
 .catalog-action{min-height:155px;border:1px solid var(--line);background:#fff;border-radius:17px;padding:18px;text-align:left;display:flex;flex-direction:column}
 .catalog-action:hover{border-color:#8da99f}
 .catalog-action span:first-child{font-size:11px;font-weight:900;letter-spacing:.12em;color:var(--green)}
-.catalog-action b{font-size:20px;letter-spacing:-.025em;margin-top:9px}
-.catalog-action p{color:var(--muted);font-size:13px;margin:6px 0}
+.catalog-action b{font-size:20px;letter-spacing:-.025em;margin-top:9px;overflow-wrap:anywhere}
+.catalog-action p{color:var(--muted);font-size:13px;margin:6px 0;overflow-wrap:anywhere}
 .catalog-action i{font-style:normal;color:var(--green);font-weight:850;margin-top:auto;padding-top:18px}
 .expert-card{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:22px;align-items:center;background:var(--ink);color:#fff;border-radius:22px;padding:26px;margin-top:20px}
 .expert-card h3{font-size:28px;letter-spacing:-.04em;margin:3px 0 7px}
