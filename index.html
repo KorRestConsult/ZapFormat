@@ -154,6 +154,12 @@ a{color:inherit}
 .offer strong{font-size:18px}
 .availability{font-weight:800}
 .offer-note{font-size:11px;color:var(--muted)}
+.offer-tags{display:flex;gap:5px;flex-wrap:wrap;margin-top:6px}
+.offer-tag{display:inline-flex;padding:4px 7px;border-radius:999px;background:#eef3ef;color:var(--green2);font-size:10px;font-weight:850}
+.offer-tag.fast{background:#eef2fb;color:#405d9b}
+.offer-tag.stock{background:#f2f1e7;color:#776d2f}
+.offer-tag.return{background:#f3edf7;color:#725082}
+
 .dashboard-grid{display:grid;grid-template-columns:minmax(0,1.5fr) minmax(300px,.7fr);gap:20px}
 .panel{background:#fff;border:1px solid var(--line);border-radius:var(--radius);box-shadow:0 10px 38px rgba(13,41,56,.035)}
 .panel-pad{padding:23px}
@@ -940,12 +946,21 @@ function renderOfferTable(){
   else if(S.offerSort==="stock")rows.sort((a,b)=>Number(b.availability||0)-Number(a.availability||0)||Number(a.price)-Number(b.price));
   else rows.sort((a,b)=>Number(a.price)-Number(b.price)||Number(a.delivery_hours||0)-Number(b.delivery_hours||0));
   const indexed=rows.map(x=>({x,j:S.offers.indexOf(x)}));
+  const priced=rows.filter(x=>Number(x.price||0)>0),timed=rows.filter(x=>Number(x.delivery_hours||0)>0);
+  const minPrice=priced.length?Math.min(...priced.map(x=>Number(x.price))):null;
+  const minDelivery=timed.length?Math.min(...timed.map(x=>Number(x.delivery_hours))):null;
+  const maxStock=rows.length?Math.max(...rows.map(x=>Number(x.availability||0))):0;
   $("#catalogBody").innerHTML=
     '<div class="offer-toolbar"><button class="back" data-show-brands>← Другой производитель</button><div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap"><label class="small muted"><input type="checkbox" data-offer-stock '+(S.offerOnlyAvailable?"checked":"")+'> Только в наличии</label><select class="secondary" data-offer-sort><option value="price" '+(S.offerSort==="price"?"selected":"")+'>Сначала дешевле</option><option value="fast" '+(S.offerSort==="fast"?"selected":"")+'>Сначала быстрее</option><option value="stock" '+(S.offerSort==="stock"?"selected":"")+'>Больше в наличии</option></select><span class="muted small">'+rows.length+' предложений</span></div></div>'+
     (indexed.length?'<div class="offer-table"><div class="offer labels"><span>Описание</span><span>Наличие</span><span>Срок</span><span>Цена</span><span></span></div>'+
     indexed.map(({x,j})=>{
       const delivery=deliveryLabel(x.delivery_hours,x.delivery_hours_max);
-      return '<div class="offer"><span><b>'+esc(x.brand)+' '+esc(x.article)+'</b><span class="offer-desc">'+esc(x.description||"Автозапчасть")+(Number(x.packing||1)>1?' · кратность '+Number(x.packing):'')+(x.delivery_probability!==null&&x.delivery_probability!==undefined?' · вероятность поставки '+esc(x.delivery_probability)+'%':'')+(x.returnable===false?' · без возврата':'')+'</span></span><span class="availability">'+Number(x.availability||0)+' шт.</span><span><b>'+esc(delivery)+'</b><span class="offer-note">'+(Number(x.delivery_hours||0)?Math.max(1,Math.ceil(Number(x.delivery_hours||0)/24))+' дн.':'')+'</span></span><strong>'+rub(x.price)+'</strong><button class="small-primary" data-add-offer="'+j+'">В корзину</button></div>';
+      const tags=[];
+      if(minPrice!==null&&Number(x.price)===minPrice)tags.push('<span class="offer-tag">Ниже цена</span>');
+      if(minDelivery!==null&&Number(x.delivery_hours)===minDelivery)tags.push('<span class="offer-tag fast">Быстрее</span>');
+      if(maxStock>0&&Number(x.availability||0)===maxStock)tags.push('<span class="offer-tag stock">Больше остаток</span>');
+      if(x.returnable!==false)tags.push('<span class="offer-tag return">Возврат возможен</span>');
+      return '<div class="offer"><span><b>'+esc(x.brand)+' '+esc(x.article)+'</b><span class="offer-desc">'+esc(x.description||"Автозапчасть")+(Number(x.packing||1)>1?' · кратность '+Number(x.packing):'')+(x.delivery_probability!==null&&x.delivery_probability!==undefined?' · вероятность поставки '+esc(x.delivery_probability)+'%':'')+(x.returnable===false?' · без возврата':'')+'</span>'+(tags.length?'<span class="offer-tags">'+tags.join("")+'</span>':'')+'</span><span class="availability">'+Number(x.availability||0)+' шт.</span><span><b>'+esc(delivery)+'</b><span class="offer-note">'+(Number(x.delivery_hours||0)?Math.max(1,Math.ceil(Number(x.delivery_hours||0)/24))+' дн.':'')+'</span></span><strong>'+rub(x.price)+'</strong><button class="small-primary" data-add-offer="'+j+'">В корзину</button></div>';
     }).join("")+'</div>':'<div class="state-card"><div><b>Под этот фильтр ничего нет</b><p>Снимите фильтр наличия или выберите другого производителя.</p></div></div>');
 }
 function addOffer(i){
