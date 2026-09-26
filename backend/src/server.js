@@ -107,6 +107,7 @@ app.use("/api/garage", requireDatabase);
 app.use("/api/cart", requireDatabase);
 app.use("/api/orders", requireDatabase);
 app.use("/api/returns", requireDatabase);
+app.use("/api/vin-requests", requireDatabase);
 
 function normalizeEmail(value) {
   const email = String(value || "").trim().toLowerCase();
@@ -1640,6 +1641,124 @@ app.post("/api/returns", requireUser, async (req, res, next) => {
     next(error);
   } finally {
     client.release();
+  }
+});
+
+app.get("/api/vin-requests", requireUser, async (req, res, next) => {
+  try {
+    const result = await pool.query(
+      `SELECT
+          vr.id,
+          vr.vehicle_id,
+          vr.vin,
+          vr.request_text,
+          vr.status,
+          vr.manager_note,
+          vr.created_at,
+          vr.updated_at,
+          v.brand,
+          v.model,
+          v.generation,
+          v.year,
+          v.engine
+       FROM vin_requests vr
+       LEFT JOIN vehicles v ON v.id = vr.vehicle_id
+       WHERE vr.user_id = $1
+       ORDER BY vr.created_at DESC
+       LIMIT 100`,
+      [req.user.id]
+    );
+    res.json({ requests: result.rows });
+  } catch (error) {
+    next(error);
+  }
+});
+
+app.post("/api/vin-requests", requireUser, async (req, res, next) => {
+  try {
+    const vehicleId = req.body?.vehicle_id ? String(req.body.vehicle_id) : null;
+    const requestText = String(req.body?.request_text || "").trim().slice(0, 1200);
+
+    if (!requestText) {
+      return res.status(400).json({ error: "request_text_required" });
+    }
+
+    let vehicle = null;
+    if (vehicleId) {
+      const vehicleResult = await pool.query(
+        `SELECT id, brand, model, generation, year, engine, vin
+           FROM vehicles
+          WHERE id = $1 AND user_id = $2
+          LIMIT 1`,
+        [vehicleId, req.user.id]
+      );
+      vehicle = vehicleResult.rows[0] || null;
+      if (!vehicle) return res.status(404).json({ error: "vehicle_not_found" });
+    }
+
+    const vin = String(req.body?.vin || vehicle?.vin || "").trim().toUpperCase() || null;
+    if (vin && !/^[A-HJ-NPR-Z0-9]{17}$/.test(vin)) {
+      return res.status(400).json({ error: "invalid_vin" });
+    }
+
+    if (!vin) {
+      return res.status(400).json({ error: "vin_required" });
+    }
+
+    const result = await pool.query(
+      `INSERT INTO vin_requests (user_id, vehicle_id, vin, request_text)
+       VALUES ($1,$2,$3,$4)
+       RETURNING id, vehicle_id, vin, request_text, status, created_at, updated_at`,
+      [req.user.id, vehicle?.id || null, vin, requestText]
+    );
+
+    res.status(201).json({
+      request: {
+        ...result.rows[0],
+        vehicle: vehicle
+          ? {
+              brand: vehicle.brand,
+              model: vehicle.model,
+              generation: vehicle.generation,
+              year: vehicle.year,
+              engine: vehicle.engine
+            }
+          : null
+      }
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+app.get("/api/vin-requests/:requestId", requireUser, async (req, res, next) => {
+  try {
+    const result = await pool.query(
+      `SELECT
+          vr.id,
+          vr.vehicle_id,
+          vr.vin,
+          vr.request_text,
+          vr.status,
+          vr.manager_note,
+          vr.created_at,
+          vr.updated_at,
+          v.brand,
+          v.model,
+          v.generation,
+          v.year,
+          v.engine
+       FROM vin_requests vr
+       LEFT JOIN vehicles v ON v.id = vr.vehicle_id
+       WHERE vr.id = $1 AND vr.user_id = $2
+       LIMIT 1`,
+      [req.params.requestId, req.user.id]
+    );
+    const request = result.rows[0];
+    if (!request) return res.status(404).json({ error: "vin_request_not_found" });
+    res.json({ request });
+  } catch (error) {
+    next(error);
   }
 });
 
