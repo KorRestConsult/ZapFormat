@@ -2083,6 +2083,118 @@ function operatorStatusOptions(kind,current){
   };
   return (map[kind]||[]).map(([v,l])=>'<option value="'+v+'" '+(v===current?"selected":"")+'>'+l+'</option>').join("");
 }
+function supportStatusLabel(status){
+  return ({
+    new:"Новое",
+    in_progress:"В работе",
+    waiting_customer:"Ждём вашего ответа",
+    resolved:"Решено",
+    closed:"Закрыто"
+  })[status]||String(status||"Статус");
+}
+function supportCategoryLabel(category){
+  return ({
+    order:"Заказ",
+    quote:"Заявка",
+    vin:"Подбор по VIN",
+    return:"Возврат",
+    account:"Аккаунт",
+    delivery:"Доставка",
+    payment:"Оплата",
+    other:"Другое"
+  })[category]||"Другое";
+}
+function openSupportForContext(type,id,label=""){
+  S.supportDraft={
+    linked_type:type,
+    linked_id:id,
+    category:type==="order"?"order":type==="quote"?"quote":type==="vin"?"vin":type==="return"?"return":"other",
+    subject:label?("Вопрос по "+label):""
+  };
+  go("support");
+}
+async function loadSupport(){
+  const root=$("#supportBody");if(!root)return;
+  if(!S.user){
+    root.innerHTML='<div class="empty"><div><b>Войдите, чтобы написать в поддержку</b><p>Переписка сохраняется в вашем кабинете.</p><button class="primary" data-auth-open>Войти</button></div></div>';
+    return;
+  }
+  root.innerHTML='<div class="state-card"><div><div class="spinner" style="margin:auto"></div><p>Загружаем обращения…</p></div></div>';
+  try{
+    const d=await api("/api/support-requests");
+    S.supportRequests=d.requests||[];
+    renderSupport();
+  }catch{
+    root.innerHTML='<div class="empty"><div><b>Не удалось загрузить поддержку</b><button class="secondary" data-reload-support>Повторить</button></div></div>';
+  }
+}
+function renderSupport(){
+  const root=$("#supportBody"),rows=S.supportRequests||[],draft=S.supportDraft||{};
+  root.innerHTML='<div class="support-layout"><main>'+
+    '<div class="panel panel-pad"><div class="panel-title"><div><h3>Мои обращения</h3><p>Ответы и статусы остаются здесь.</p></div><span class="status neutral">'+rows.length+'</span></div>'+
+    (rows.length?'<div class="support-list">'+rows.map(r=>'<button class="support-row" data-support-request="'+r.id+'"><b>S-'+String(r.ticket_number).padStart(6,"0")+'</b><span><b>'+esc(r.subject)+'</b><small>'+esc(supportCategoryLabel(r.category))+(r.last_message?' · '+esc(String(r.last_message).slice(0,100)):'')+'</small></span><span class="status '+(r.status==="resolved"?"ready":r.status==="closed"?"neutral":"")+'">'+esc(supportStatusLabel(r.status))+'</span><span>→</span></button>').join("")+'</div>':'<div class="empty" style="min-height:180px"><div><b>Обращений пока нет</b><p>Если вопрос не решается через заказ, VIN-подбор или возврат — создайте обращение.</p></div></div>')+
+    '</div><div id="supportDetailRoot"></div></main>'+
+    '<aside class="panel panel-pad support-compose"><div class="panel-title"><div><h3>Новое обращение</h3><p>Сформулируйте вопрос одним сообщением.</p></div></div><form id="supportForm"><input type="hidden" name="linked_type" value="'+esc(draft.linked_type||"")+'"><input type="hidden" name="linked_id" value="'+esc(draft.linked_id||"")+'"><div class="field"><label>Тема</label><input name="subject" maxlength="160" value="'+esc(draft.subject||"")+'" placeholder="Например, вопрос по сроку доставки" required></div><div class="field" style="margin-top:10px"><label>Раздел</label><select name="category"><option value="order" '+(draft.category==="order"?"selected":"")+'>Заказ</option><option value="quote" '+(draft.category==="quote"?"selected":"")+'>Заявка</option><option value="vin" '+(draft.category==="vin"?"selected":"")+'>Подбор по VIN</option><option value="return" '+(draft.category==="return"?"selected":"")+'>Возврат</option><option value="delivery" '+(draft.category==="delivery"?"selected":"")+'>Доставка</option><option value="payment" '+(draft.category==="payment"?"selected":"")+'>Оплата</option><option value="account" '+(draft.category==="account"?"selected":"")+'>Аккаунт</option><option value="other" '+(!draft.category||draft.category==="other"?"selected":"")+'>Другое</option></select></div><div class="field" style="margin-top:10px"><label>Сообщение</label><textarea name="message" rows="6" maxlength="4000" placeholder="Опишите, что произошло и какой результат нужен." required></textarea></div>'+(draft.linked_type&&draft.linked_id?'<div class="summary-note">Обращение будет связано с '+esc(supportCategoryLabel(draft.linked_type))+'.</div>':'')+'<div class="form-actions"><button class="primary">Отправить</button><span id="supportFormStatus" class="small error"></span></div></form></aside></div>';
+  $("#supportForm")?.addEventListener("submit",createSupportRequest);
+}
+async function createSupportRequest(e){
+  e.preventDefault();const f=new FormData(e.currentTarget),status=$("#supportFormStatus");
+  if(status)status.textContent="Отправляем…";
+  try{
+    const d=await api("/api/support-requests",{method:"POST",body:JSON.stringify({
+      subject:f.get("subject"),category:f.get("category"),message:f.get("message"),
+      linked_type:f.get("linked_type")||null,linked_id:f.get("linked_id")||null
+    })});
+    S.supportDraft=null;
+    toast("Обращение создано");
+    const list=await api("/api/support-requests");S.supportRequests=list.requests||[];
+    renderSupport();
+    await loadSupportRequest(d.request.id);
+  }catch(err){
+    if(status)status.textContent=err.message==="support_link_not_found"?"Связанный объект больше недоступен.":"Не удалось создать обращение.";
+  }
+}
+async function loadSupportRequest(id){
+  const root=$("#supportDetailRoot");if(!root)return;
+  root.innerHTML='<div class="state-card" style="margin-top:16px"><div class="spinner"></div></div>';
+  try{
+    S.supportDetail=await api("/api/support-requests/"+encodeURIComponent(id));
+    renderSupportDetail();
+  }catch{
+    root.innerHTML='<div class="notice" style="margin-top:16px">Не удалось открыть обращение.</div>';
+  }
+}
+function renderSupportDetail(){
+  const root=$("#supportDetailRoot"),d=S.supportDetail;if(!root||!d)return;
+  const r=d.request,messages=d.messages||[],closed=r.status==="closed";
+  root.innerHTML='<div class="panel panel-pad" style="margin-top:16px"><div class="detail-title"><div><span class="kicker">ПОДДЕРЖКА S-'+String(r.ticket_number).padStart(6,"0")+'</span><h3>'+esc(r.subject)+'</h3><p>'+esc(supportCategoryLabel(r.category))+' · создано '+datetime(r.created_at)+'</p></div><span class="status '+(r.status==="resolved"?"ready":closed?"neutral":"")+'">'+esc(supportStatusLabel(r.status))+'</span></div>'+(r.linked_type&&r.linked_id?'<div class="summary-note">Связано с: '+esc(supportCategoryLabel(r.linked_type))+' · '+esc(r.linked_id)+'</div>':'')+'<div class="support-thread" style="margin-top:18px">'+messages.map(m=>'<div class="support-message '+esc(m.actor_type)+'"><b>'+esc(m.actor_type==="customer"?"Вы":m.actor_type==="staff"?"ZapFormat":"Система")+'</b><p>'+esc(m.message)+'</p><small>'+datetime(m.created_at)+'</small></div>').join("")+'</div>'+(!closed?'<form id="supportReplyForm" class="mini-form"><div class="field"><label>Ответ</label><textarea name="message" rows="4" maxlength="4000" placeholder="Напишите уточнение или ответ." required></textarea></div><div class="form-actions"><button class="primary">Отправить</button><button class="ghost-btn" type="button" data-close-support="'+r.id+'">Закрыть обращение</button><span id="supportReplyStatus" class="small error"></span></div></form>':'<div class="summary-note">Обращение закрыто. Для нового вопроса создайте новое обращение.</div>')+'</div>';
+  $("#supportReplyForm")?.addEventListener("submit",sendSupportMessage);
+  root.scrollIntoView({behavior:"smooth",block:"start"});
+}
+async function sendSupportMessage(e){
+  e.preventDefault();const r=S.supportDetail?.request;if(!r)return;
+  const f=new FormData(e.currentTarget),status=$("#supportReplyStatus");
+  if(status)status.textContent="Отправляем…";
+  try{
+    await api("/api/support-requests/"+encodeURIComponent(r.id)+"/messages",{method:"POST",body:JSON.stringify({message:f.get("message")})});
+    toast("Ответ отправлен");
+    await loadSupportRequest(r.id);
+    const list=await api("/api/support-requests");S.supportRequests=list.requests||[];
+  }catch(err){
+    if(status)status.textContent=err.status===409?"Обращение уже закрыто.":"Не удалось отправить ответ.";
+  }
+}
+async function closeSupportRequest(id){
+  if(!confirm("Закрыть обращение в поддержку?"))return;
+  try{
+    await api("/api/support-requests/"+encodeURIComponent(id)+"/close",{method:"PATCH",body:"{}"});
+    toast("Обращение закрыто");
+    const list=await api("/api/support-requests");S.supportRequests=list.requests||[];
+    renderSupport();
+    await loadSupportRequest(id);
+  }catch{toast("Не удалось закрыть обращение")}
+}
+
 async function loadOperator(){
   const root=$("#operatorBody");if(!root)return;
   if(!S.user){
@@ -2273,7 +2385,7 @@ function renderQuoteDetail(){
   const total=items.reduce((a,x)=>a+Number(x.quoted_price||0)*Number(x.quantity||1),0);
   const fulfillment=({delivery:"Доставка",pickup:"Самовывоз",confirmation:"Получение согласуем"})[q.fulfillment_method]||"Получение уточняется";
   const cancellable=["new","in_progress"].includes(q.status);
-  root.innerHTML='<div class="order-detail"><div><div class="panel panel-pad"><div class="detail-title"><div><span class="kicker">ЗАЯВКА '+esc(q.id)+'</span><h3>'+(q.status==="new"?"На подтверждении":esc(statusLabel(q.status)))+'</h3><p>Отправлена '+datetime(q.created_at)+'</p></div><span class="status">'+(q.status==="new"?"На подтверждении":esc(statusLabel(q.status)))+'</span></div>'+(q.manager_note?'<div class="notice" style="margin-top:14px"><b>Комментарий ZapFormat:</b> '+esc(q.manager_note)+'</div>':'')+(cancellable?'<div class="form-actions"><button class="danger" data-cancel-quote="'+esc(q.id)+'">Отменить заявку</button><span class="small muted">Доступно до подтверждения.</span></div>':'')+'</div><div class="order-items" style="margin-top:12px">'+(items.length?items.map(x=>'<div class="order-item"><span><b>'+esc(x.brand||"")+' '+esc(x.article)+'</b><span class="offer-desc">'+esc(x.description||"Автозапчасть")+'</span>'+(x.brand?'<button class="ghost-btn small" style="margin-top:5px" data-open-saved-part data-brand="'+esc(x.brand)+'" data-article="'+esc(x.article)+'">Текущие предложения</button>':'')+'</span><span>'+x.quantity+' шт.</span><strong>'+(x.quoted_price===null?"На проверке":rub(Number(x.quoted_price)*Number(x.quantity)))+'</strong><span class="status">'+(x.needs_confirmation?"Проверяем":"Подтверждено")+'</span></div>').join(""):'<div class="empty">Позиции не найдены.</div>')+'</div></div><aside class="order-side"><div class="panel panel-pad"><div class="panel-title"><div><h3>Предварительно</h3><p>По цене последнего поиска</p></div></div><div style="font-size:32px;font-weight:900">'+rub(total)+'</div><div class="summary-note">Это ещё не заказ. После проверки цены и наличия заявка может перейти в реальный заказ.</div>'+(items.length?'<button class="secondary" style="width:100%;margin-top:12px" data-repeat-quote>Повторить позиции</button>':'')+'</div><div class="panel panel-pad"><div class="panel-title"><div><h3>Получение</h3><p>'+esc(fulfillment)+'</p></div></div><b>'+esc(q.recipient_name||q.name||S.user?.name||"")+'</b><p class="muted">'+esc(q.recipient_phone||q.phone||S.user?.phone||"")+'</p><div class="summary-note">Оплата: после подтверждения.</div></div><div class="panel panel-pad"><div class="panel-title"><div><h3>История заявки</h3><p>Что происходило после оформления</p></div></div>'+caseTimelineHtml(d.history,q.status,q.created_at)+'</div></aside></div>';
+  root.innerHTML='<div class="order-detail"><div><div class="panel panel-pad"><div class="detail-title"><div><span class="kicker">ЗАЯВКА '+esc(q.id)+'</span><h3>'+(q.status==="new"?"На подтверждении":esc(statusLabel(q.status)))+'</h3><p>Отправлена '+datetime(q.created_at)+'</p></div><span class="status">'+(q.status==="new"?"На подтверждении":esc(statusLabel(q.status)))+'</span></div>'+(q.manager_note?'<div class="notice" style="margin-top:14px"><b>Комментарий ZapFormat:</b> '+esc(q.manager_note)+'</div>':'')+(cancellable?'<div class="form-actions"><button class="danger" data-cancel-quote="'+esc(q.id)+'">Отменить заявку</button><span class="small muted">Доступно до подтверждения.</span></div>':'')+'</div><div class="order-items" style="margin-top:12px">'+(items.length?items.map(x=>'<div class="order-item"><span><b>'+esc(x.brand||"")+' '+esc(x.article)+'</b><span class="offer-desc">'+esc(x.description||"Автозапчасть")+'</span>'+(x.brand?'<button class="ghost-btn small" style="margin-top:5px" data-open-saved-part data-brand="'+esc(x.brand)+'" data-article="'+esc(x.article)+'">Текущие предложения</button>':'')+'</span><span>'+x.quantity+' шт.</span><strong>'+(x.quoted_price===null?"На проверке":rub(Number(x.quoted_price)*Number(x.quantity)))+'</strong><span class="status">'+(x.needs_confirmation?"Проверяем":"Подтверждено")+'</span></div>').join(""):'<div class="empty">Позиции не найдены.</div>')+'</div></div><aside class="order-side"><div class="panel panel-pad"><div class="panel-title"><div><h3>Предварительно</h3><p>По цене последнего поиска</p></div></div><div style="font-size:32px;font-weight:900">'+rub(total)+'</div><div class="summary-note">Это ещё не заказ. После проверки цены и наличия заявка может перейти в реальный заказ.</div>'+(items.length?'<button class="secondary" style="width:100%;margin-top:12px" data-repeat-quote>Повторить позиции</button>':'')+'</div><div class="panel panel-pad"><div class="panel-title"><div><h3>Получение</h3><p>'+esc(fulfillment)+'</p></div></div><b>'+esc(q.recipient_name||q.name||S.user?.name||"")+'</b><p class="muted">'+esc(q.recipient_phone||q.phone||S.user?.phone||"")+'</p><div class="summary-note">Оплата: после подтверждения.</div></div><div class="panel panel-pad"><div class="panel-title"><div><h3>История заявки</h3><p>Что происходило после оформления</p></div></div>'+caseTimelineHtml(d.history,q.status,q.created_at)+'</div><div class="panel panel-pad"><button class="secondary" style="width:100%" data-support-context-type="quote" data-support-context-id="'+esc(q.id)+'" data-support-context-label="заявке '+esc(q.id)+'">Задать вопрос по заявке</button></div></aside></div>';
 }
 async function cancelQuoteRequest(id){
   if(!confirm("Отменить заявку "+id+"?"))return;
@@ -2299,7 +2411,7 @@ async function loadVinRequest(id){
 }
 function renderVinDetail(){
   const d=S.vinDetail,r=d.request,root=$("#orderDetailRoot");
-  root.innerHTML='<div class="order-detail"><div><div class="panel panel-pad"><div class="detail-title"><div><span class="kicker">ПОДБОР ПО VIN</span><h3>'+esc(r.request_text)+'</h3><p>'+esc([r.brand,r.model,r.generation,r.year,r.engine].filter(Boolean).join(" · "))+'</p></div><span class="status '+(r.status==="answered"?"ready":"")+'">'+esc(vinStatusLabel(r.status))+'</span></div><div class="info-grid"><div class="info"><span>VIN</span><b>'+esc(r.vin||"—")+'</b></div><div class="info"><span>Создан</span><b>'+date(r.created_at)+'</b></div></div>'+(r.manager_note?'<div class="notice" style="margin-top:14px"><b>Ответ ZapFormat:</b> '+esc(r.manager_note)+'</div>':'')+(['new','in_progress'].includes(r.status)?'<div class="form-actions"><button class="danger" data-cancel-vin="'+r.id+'">Отменить запрос</button><span class="small muted">Доступно до ответа.</span></div>':'')+'</div></div><aside class="order-side"><div class="panel panel-pad"><div class="panel-title"><div><h3>История подбора</h3><p>Все изменения запроса</p></div></div>'+caseTimelineHtml(d.history,r.status,r.created_at)+'</div><div class="panel panel-pad"><h3 style="margin-top:0">Новая деталь?</h3><p class="muted">Для этой же машины создайте отдельный запрос — статусы не смешиваются.</p><button class="secondary" data-vin-open style="width:100%">Новый VIN-запрос</button></div></aside></div>';
+  root.innerHTML='<div class="order-detail"><div><div class="panel panel-pad"><div class="detail-title"><div><span class="kicker">ПОДБОР ПО VIN</span><h3>'+esc(r.request_text)+'</h3><p>'+esc([r.brand,r.model,r.generation,r.year,r.engine].filter(Boolean).join(" · "))+'</p></div><span class="status '+(r.status==="answered"?"ready":"")+'">'+esc(vinStatusLabel(r.status))+'</span></div><div class="info-grid"><div class="info"><span>VIN</span><b>'+esc(r.vin||"—")+'</b></div><div class="info"><span>Создан</span><b>'+date(r.created_at)+'</b></div></div>'+(r.manager_note?'<div class="notice" style="margin-top:14px"><b>Ответ ZapFormat:</b> '+esc(r.manager_note)+'</div>':'')+(['new','in_progress'].includes(r.status)?'<div class="form-actions"><button class="danger" data-cancel-vin="'+r.id+'">Отменить запрос</button><span class="small muted">Доступно до ответа.</span></div>':'')+'</div></div><aside class="order-side"><div class="panel panel-pad"><div class="panel-title"><div><h3>История подбора</h3><p>Все изменения запроса</p></div></div>'+caseTimelineHtml(d.history,r.status,r.created_at)+'</div><div class="panel panel-pad"><h3 style="margin-top:0">Новая деталь?</h3><p class="muted">Для этой же машины создайте отдельный запрос — статусы не смешиваются.</p><button class="secondary" data-vin-open style="width:100%">Новый VIN-запрос</button><button class="ghost-btn" style="width:100%;margin-top:8px" data-support-context-type="vin" data-support-context-id="'+r.id+'" data-support-context-label="VIN-подбору">Задать вопрос</button></div></aside></div>';
 }
 async function loadReturnRequest(id){
   const root=$("#orderDetailRoot");
@@ -2313,7 +2425,7 @@ async function loadReturnRequest(id){
 }
 function renderReturnDetail(){
   const d=S.returnDetail,r=d.return,root=$("#orderDetailRoot");
-  root.innerHTML='<div class="order-detail"><div><div class="panel panel-pad"><div class="detail-title"><div><span class="kicker">ВОЗВРАТ № '+esc(r.return_number)+'</span><h3>'+esc(r.brand)+' '+esc(r.article)+'</h3><p>Заказ № '+esc(r.order_number)+' · '+Number(r.quantity||1)+' шт.</p></div><span class="status '+statusClass(r.status)+'">'+esc(statusLabel(r.status))+'</span></div><div class="info-grid"><div class="info"><span>Причина</span><b>'+esc(r.reason||"—")+'</b></div><div class="info"><span>Сумма позиции</span><b>'+rub(Number(r.unit_price||0)*Number(r.quantity||1))+'</b></div></div>'+(r.comment?'<div class="notice" style="margin-top:14px"><b>Ваш комментарий:</b> '+esc(r.comment)+'</div>':'')+(r.manager_note?'<div class="notice" style="margin-top:10px"><b>Комментарий ZapFormat:</b> '+esc(r.manager_note)+'</div>':'')+(['created','in_progress'].includes(r.status)?'<div class="form-actions"><button class="danger" data-cancel-return="'+r.id+'">Отменить возврат</button><span class="small muted">Пока возврат не одобрен.</span></div>':'')+'</div></div><aside class="order-side"><div class="panel panel-pad"><div class="panel-title"><div><h3>История возврата</h3><p>Статусы и комментарии</p></div></div>'+caseTimelineHtml(d.history,r.status,r.created_at)+'</div><div class="panel panel-pad"><h3 style="margin-top:0">Исходный заказ</h3><p class="muted">Откройте заказ, чтобы увидеть все позиции.</p><button class="secondary" data-order-id="'+r.order_id+'" style="width:100%">Заказ № '+esc(r.order_number)+'</button></div></aside></div>';
+  root.innerHTML='<div class="order-detail"><div><div class="panel panel-pad"><div class="detail-title"><div><span class="kicker">ВОЗВРАТ № '+esc(r.return_number)+'</span><h3>'+esc(r.brand)+' '+esc(r.article)+'</h3><p>Заказ № '+esc(r.order_number)+' · '+Number(r.quantity||1)+' шт.</p></div><span class="status '+statusClass(r.status)+'">'+esc(statusLabel(r.status))+'</span></div><div class="info-grid"><div class="info"><span>Причина</span><b>'+esc(r.reason||"—")+'</b></div><div class="info"><span>Сумма позиции</span><b>'+rub(Number(r.unit_price||0)*Number(r.quantity||1))+'</b></div></div>'+(r.comment?'<div class="notice" style="margin-top:14px"><b>Ваш комментарий:</b> '+esc(r.comment)+'</div>':'')+(r.manager_note?'<div class="notice" style="margin-top:10px"><b>Комментарий ZapFormat:</b> '+esc(r.manager_note)+'</div>':'')+(['created','in_progress'].includes(r.status)?'<div class="form-actions"><button class="danger" data-cancel-return="'+r.id+'">Отменить возврат</button><span class="small muted">Пока возврат не одобрен.</span></div>':'')+'</div></div><aside class="order-side"><div class="panel panel-pad"><div class="panel-title"><div><h3>История возврата</h3><p>Статусы и комментарии</p></div></div>'+caseTimelineHtml(d.history,r.status,r.created_at)+'</div><div class="panel panel-pad"><h3 style="margin-top:0">Исходный заказ</h3><p class="muted">Откройте заказ, чтобы увидеть все позиции.</p><button class="secondary" data-order-id="'+r.order_id+'" style="width:100%">Заказ № '+esc(r.order_number)+'</button><button class="ghost-btn" style="width:100%;margin-top:8px" data-support-context-type="return" data-support-context-id="'+r.id+'" data-support-context-label="возврату № '+esc(r.return_number)+'">Задать вопрос по возврату</button></div></aside></div>';
 }
 
 async function cancelVinRequest(id){
@@ -2366,7 +2478,7 @@ function renderOrderDetail(){
   root.innerHTML='<div class="order-detail"><div><div class="panel panel-pad"><div class="detail-title"><div><span class="kicker">ЗАКАЗ № '+esc(o.order_number)+'</span><h3>'+esc(statusLabel(o.status))+'</h3><p>Создан '+datetime(o.created_at)+'</p></div><span class="status '+statusClass(o.status)+'">'+esc(statusLabel(o.status))+'</span></div></div><div class="order-items" style="margin-top:12px">'+(items.length?items.map(x=>'<div class="order-item"><span><b>'+esc(x.brand)+' '+esc(x.article)+'</b><span class="offer-desc">'+esc(x.description||"Автозапчасть")+'</span><button class="ghost-btn small" style="margin-top:5px" data-open-saved-part data-brand="'+esc(x.brand)+'" data-article="'+esc(x.article)+'">Актуальные предложения</button></span><span>'+x.quantity+' шт.</span><strong>'+rub(Number(x.unit_price)*Number(x.quantity))+'</strong><span><span class="status '+statusClass(x.status)+'">'+esc(statusLabel(x.status))+'</span>'+(x.returnable===false?'':'<button class="ghost-btn small" style="margin-top:6px" data-return-item="'+x.id+'">Возврат</button>')+'</span></div>').join(""):'<div class="empty">Позиции не найдены.</div>')+'</div></div><aside class="order-side"><div class="panel panel-pad"><div class="panel-title"><div><h3>Итого</h3><p>'+items.length+' позиций</p></div></div><div style="font-size:32px;font-weight:900">'+rub(o.total_amount)+'</div><p class="muted">'+esc(o.comment||"Без комментария")+'</p></div><div class="panel panel-pad"><div class="panel-title"><div><h3>Движение</h3><p>История изменений</p></div></div>'+(history.length?'<div class="timeline-list">'+history.map(x=>'<div class="timeline-row"><span class="dot"></span><p><b>'+esc(statusLabel(x.status))+'</b><small>'+datetime(x.created_at)+(x.note?" · "+esc(x.note):"")+'</small></p></div>').join("")+'</div>':'<p class="muted">История статусов пока пуста.</p>')+'</div></aside></div>';
   if(items.length){
     const firstPanel=root.querySelector(".order-side .panel");
-    firstPanel?.insertAdjacentHTML("beforeend",'<button class="secondary" style="width:100%;margin-top:14px" data-repeat-order>Повторить позиции</button>');
+    firstPanel?.insertAdjacentHTML("beforeend",'<button class="secondary" style="width:100%;margin-top:14px" data-repeat-order>Повторить позиции</button><button class="ghost-btn" style="width:100%;margin-top:8px" data-support-context-type="order" data-support-context-id="'+o.id+'" data-support-context-label="заказу № '+esc(o.order_number)+'">Задать вопрос по заказу</button>');
   }
 }
 
@@ -2530,6 +2642,10 @@ document.addEventListener("click",async e=>{
   x=e.target.closest("[data-order-filter]");if(x){S.orderFilter=x.value;return renderOrders()}
   if(e.target.closest("[data-reset-order-filter]")){S.orderFilter="all";return renderOrders()}
   if(e.target.closest("[data-reload-orders]"))return loadOrders();
+  if(e.target.closest("[data-reload-support]"))return loadSupport();
+  x=e.target.closest("[data-support-request]");if(x)return loadSupportRequest(x.dataset.supportRequest);
+  x=e.target.closest("[data-close-support]");if(x)return closeSupportRequest(x.dataset.closeSupport);
+  x=e.target.closest("[data-support-context-type]");if(x)return openSupportForContext(x.dataset.supportContextType,x.dataset.supportContextId,x.dataset.supportContextLabel||"");
   x=e.target.closest("[data-check-supplier]");if(x)return checkOperatorSupplier(x.dataset.checkSupplier);
   x=e.target.closest("[data-toggle-pickup]");if(x)return togglePickupPoint(x.dataset.togglePickup,x.dataset.active==="1");
   if(e.target.closest("[data-clear-operator-search]")){S.operatorQuery="";return renderOperator()}
