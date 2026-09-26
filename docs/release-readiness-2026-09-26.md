@@ -18,6 +18,7 @@ This is the launch gate for the rebuild branch. A checked item means the code pa
 - [x] Customer support center with threaded messages and staff queue.
 - [x] Printable/save-as-PDF summaries for order/service-case screens.
 - [x] Public help page explains where confirmation is required.
+- [x] Direct referral links attribute new registrations without promising or issuing unapproved rewards.
 
 ## Operations
 
