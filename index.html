@@ -376,6 +376,7 @@ const S={
   orderDetail:null,
   offerSort:"price",
   offerOnlyAvailable:false,
+  cartRefreshing:false,
   authMode:"login"
 };
 
@@ -513,7 +514,56 @@ function renderCart(){
     return;
   }
   const total=S.cart.reduce((a,x)=>a+Number(x.price||0)*Number(x.qty||1),0);
-  root.innerHTML='<div class="cart-layout"><div class="cart-lines">'+S.cart.map((x,i)=>'<div class="cart-line"><div><b>'+esc(x.brand)+' '+esc(x.article)+'</b><p>'+esc(x.description||"")+'</p><span class="small muted">'+(x.historical?'Повтор из истории · цену и срок перепроверим':'Срок: '+Math.max(1,Math.ceil(Number(x.delivery_hours||0)/24))+' дн. · наличие при поиске: '+Number(x.availability||0)+' шт.')+'</span></div><div class="qty"><button data-cart-qty="'+i+'" data-delta="-1">−</button><b>'+x.qty+'</b><button data-cart-qty="'+i+'" data-delta="1">+</button></div><strong>'+rub(Number(x.price)*x.qty)+'</strong><button class="remove" data-cart-remove="'+i+'">×</button></div>').join("")+'</div><aside class="panel summary"><div class="total"><span>Итого</span><b>'+rub(total)+'</b></div><p>Это цена по последнему поиску. Перед подтверждением заявки наличие и стоимость проверяются ещё раз.</p><button class="primary" data-checkout>'+((S.user&&S.user.phone)?"Отправить на подтверждение":"Продолжить")+'</button><div class="summary-note">Сейчас ZapFormat не создаёт фиктивный заказ. Корзина уходит как реальная заявка на подтверждение.</div></aside></div>';
+  const checked=S.cart.map(x=>x.checked_at).filter(Boolean).sort().at(-1);
+  root.innerHTML='<div class="cart-layout"><div><div class="cart-lines">'+S.cart.map((x,i)=>{
+    const state=x.found===false
+      ?'<span class="small error">Это предложение больше не найдено — нужна новая проверка.</span>'
+      :(x.change_note?'<span class="small" style="color:var(--amber)">'+esc(x.change_note)+'</span>':'');
+    const meta=x.historical
+      ?'Повтор из истории · цену и срок перепроверим'
+      :'Срок: '+Math.max(1,Math.ceil(Number(x.delivery_hours||0)/24))+' дн. · наличие: '+Number(x.availability||0)+' шт.';
+    return '<div class="cart-line"><div><b>'+esc(x.brand)+' '+esc(x.article)+'</b><p>'+esc(x.description||"")+'</p><span class="small muted">'+meta+'</span>'+state+'</div><div class="qty"><button data-cart-qty="'+i+'" data-delta="-1">−</button><b>'+x.qty+'</b><button data-cart-qty="'+i+'" data-delta="1">+</button></div><strong>'+rub(Number(x.price)*x.qty)+'</strong><button class="remove" data-cart-remove="'+i+'">×</button></div>';
+  }).join("")+'</div><div class="form-actions"><button class="secondary" data-refresh-cart '+(S.cartRefreshing?"disabled":"")+'>'+(S.cartRefreshing?"Проверяем…":"Обновить цены и наличие")+'</button><span class="small muted">'+(checked?"Проверено "+datetime(checked):"Ещё не перепроверено")+'</span></div></div><aside class="panel summary"><div class="total"><span>Итого</span><b>'+rub(total)+'</b></div><p>Цена и наличие привязаны к конкретному предложению поставщика. Перед подтверждением ZapFormat перепроверяет их на backend.</p><button class="primary" data-checkout>'+((S.user&&S.user.phone)?"Отправить на подтверждение":"Продолжить")+'</button><div class="summary-note">Если цена, срок или остаток изменятся, корзина покажет это отдельно. Закупочная цена в браузер не передаётся.</div></aside></div>';
+
+  const recheckable=S.cart.filter(x=>x.offer_ref&&!x.historical);
+  const stale=recheckable.some(x=>!x.checked_at||(Date.now()-new Date(x.checked_at).getTime())>120000);
+  if(stale&&!S.cartRefreshing) setTimeout(()=>refreshCart(false),0);
+}
+async function refreshCart(showToast=true){
+  const items=S.cart.filter(x=>x.offer_ref&&!x.historical);
+  if(!items.length){if(showToast)toast("Нет позиций для автоматической проверки");return}
+  if(S.cartRefreshing)return;
+  S.cartRefreshing=true;renderCart();
+  try{
+    const payload={items:items.map(x=>({client_id:x.id,brand:x.brand,article:x.article,offer_ref:x.offer_ref}))};
+    const d=await api("/api/catalog/recheck",{method:"POST",body:JSON.stringify(payload)});
+    const byId=new Map((d.items||[]).map(x=>[x.client_id,x]));
+    for(const item of S.cart){
+      const fresh=byId.get(item.id);if(!fresh)continue;
+      const oldPrice=Number(item.price||0),oldAvailability=Number(item.availability||0),oldHours=Number(item.delivery_hours||0);
+      item.checked_at=d.checked_at||new Date().toISOString();
+      item.found=fresh.found;
+      item.change_note="";
+      if(!fresh.found)continue;
+      const notes=[];
+      if(Number(fresh.price)!==oldPrice)notes.push("цена "+rub(oldPrice)+" → "+rub(fresh.price));
+      if(Number(fresh.availability)!==oldAvailability)notes.push("остаток "+oldAvailability+" → "+Number(fresh.availability));
+      if(Number(fresh.delivery_hours)!==oldHours)notes.push("срок изменился");
+      item.price=Number(fresh.price);
+      item.availability=Number(fresh.availability||0);
+      item.delivery_hours=Number(fresh.delivery_hours||0);
+      item.delivery_hours_max=Number(fresh.delivery_hours_max||fresh.delivery_hours||0);
+      item.returnable=fresh.returnable;
+      item.offer_ref=fresh.offer_ref;
+      item.change_note=notes.length?"Обновилось: "+notes.join(" · "):"";
+    }
+    writeCart();
+    if(showToast)toast("Корзина перепроверена");
+  }catch(e){
+    if(showToast)toast("Не удалось обновить корзину");
+  }finally{
+    S.cartRefreshing=false;renderCart();
+  }
 }
 async function checkout(){
   if(!requireAuth())return;
@@ -743,6 +793,7 @@ document.addEventListener("click",async e=>{
   if(e.target.closest("[data-retry-search]"))return search(S.query,false);
   x=e.target.closest("[data-cart-qty]");if(x){const i=Number(x.dataset.cartQty),d=Number(x.dataset.delta);S.cart[i].qty=Math.max(1,Number(S.cart[i].qty)+d);writeCart();return renderCart()}
   x=e.target.closest("[data-cart-remove]");if(x){S.cart.splice(Number(x.dataset.cartRemove),1);writeCart();return renderCart()}
+  if(e.target.closest("[data-refresh-cart]"))return refreshCart(true);
   if(e.target.closest("[data-checkout]"))return checkout();
   if(e.target.closest("[data-auth-open]"))return openAuth();
   x=e.target.closest("[data-close-dialog]");if(x)return $("#"+x.dataset.closeDialog).close();
