@@ -105,6 +105,7 @@ app.use("/api/auth", requireDatabase);
 app.use("/api/account", requireDatabase);
 app.use("/api/garage", requireDatabase);
 app.use("/api/cart", requireDatabase);
+app.use("/api/checkout", requireDatabase);
 app.use("/api/orders", requireDatabase);
 app.use("/api/returns", requireDatabase);
 app.use("/api/vin-requests", requireDatabase);
@@ -1081,6 +1082,9 @@ app.get("/api/account/quote-requests", requireUser, async (req, res, next) => {
       `SELECT
           q.id,
           q.status,
+          q.fulfillment_method,
+          q.payment_method,
+          q.verified_total,
           q.created_at,
           q.updated_at,
           count(i.id)::int AS item_count,
@@ -1098,6 +1102,9 @@ app.get("/api/account/quote-requests", requireUser, async (req, res, next) => {
       requests: result.rows.map((row) => ({
         id: row.id,
         status: row.status,
+        fulfillment_method: row.fulfillment_method,
+        payment_method: row.payment_method,
+        verified_total: row.verified_total === null ? null : Number(row.verified_total),
         item_count: row.item_count,
         quoted_total: Number(row.quoted_total || 0),
         created_at: row.created_at,
@@ -1112,7 +1119,10 @@ app.get("/api/account/quote-requests", requireUser, async (req, res, next) => {
 app.get("/api/account/quote-requests/:requestId", requireUser, async (req, res, next) => {
   try {
     const requestResult = await pool.query(
-      `SELECT id, status, name, phone, created_at, updated_at
+      `SELECT id, status, name, phone, fulfillment_method, pickup_point_id,
+              delivery_address_id, recipient_name, recipient_phone, payment_method,
+              customer_comment, verified_total, delivery_fee, vehicle_id,
+              created_at, updated_at
          FROM quote_requests
         WHERE id = $1 AND user_id = $2
         LIMIT 1`,
@@ -1313,6 +1323,139 @@ app.delete("/api/account/addresses/:addressId", requireUser, async (req, res, ne
   }
 });
 
+function checkoutPaymentMethods() {
+  return [{
+    code: "after_confirmation",
+    label: "После подтверждения",
+    description: "Сначала ZapFormat повторно проверяет цену и наличие. Оплата подключается после подтверждения заявки.",
+    online: false
+  }];
+}
+
+function checkoutFulfillmentMethods({ hasAddresses, hasPickupPoints }) {
+  const methods = [];
+  if (hasPickupPoints) {
+    methods.push({
+      code: "pickup",
+      label: "Самовывоз",
+      description: "Выберите доступный пункт выдачи.",
+      ready: true
+    });
+  }
+  methods.push({
+    code: "delivery",
+    label: "Доставка",
+    description: hasAddresses
+      ? "Используйте сохранённый адрес. Стоимость и точный способ доставки подтверждаются отдельно."
+      : "Добавьте адрес получения. Стоимость и точный способ доставки подтверждаются отдельно.",
+    ready: hasAddresses
+  });
+  methods.push({
+    code: "confirmation",
+    label: "Согласовать получение",
+    description: "Менеджер согласует способ получения после проверки товаров.",
+    ready: true
+  });
+  return methods;
+}
+
+async function checkoutOptionsForUser(user) {
+  const [addressesResult, pickupResult, vehiclesResult] = await Promise.all([
+    pool.query(
+      `SELECT id, label, city, address, recipient_name, recipient_phone, is_default
+         FROM user_addresses
+        WHERE user_id = $1
+        ORDER BY is_default DESC, created_at DESC`,
+      [user.id]
+    ),
+    pool.query(
+      `SELECT id, code, city, name, address
+         FROM pickup_points
+        WHERE is_active = true
+        ORDER BY city, name`
+    ),
+    pool.query(
+      `SELECT id, brand, model, generation, year, engine, vin, is_default
+         FROM vehicles
+        WHERE user_id = $1
+        ORDER BY is_default DESC, created_at ASC`,
+      [user.id]
+    )
+  ]);
+
+  const addresses = addressesResult.rows;
+  const pickupPoints = pickupResult.rows;
+  const vehicles = vehiclesResult.rows;
+
+  return {
+    customer: publicUser(user),
+    addresses,
+    pickup_points: pickupPoints,
+    vehicles,
+    fulfillment_methods: checkoutFulfillmentMethods({
+      hasAddresses: addresses.length > 0,
+      hasPickupPoints: pickupPoints.length > 0
+    }),
+    payment_methods: checkoutPaymentMethods(),
+    online_payment_enabled: false,
+    logistics_pricing_enabled: false
+  };
+}
+
+async function verifyCheckoutItems(rawItems) {
+  if (!rawItems.length) {
+    const error = new Error("items_required");
+    error.code = "items_required";
+    throw error;
+  }
+
+  const verified = await resolveRequestedOffers(
+    rawItems.map((item, index) => ({
+      client_id: String(item?.client_id || index),
+      brand: item?.brand,
+      article: item?.article,
+      offer_ref: item?.offer_ref,
+      quantity: item?.quantity
+    }))
+  );
+
+  const unavailable = verified.filter((item) =>
+    !item.found ||
+    Number(item.availability || 0) < Number(item.quantity || 1) ||
+    Number(item.quantity || 1) % Math.max(1, Number(item.packing || 1)) !== 0
+  );
+
+  if (unavailable.length) {
+    const error = new Error("cart_changed");
+    error.code = "cart_changed";
+    error.items = verified;
+    throw error;
+  }
+
+  const rawById = new Map(
+    rawItems.map((item, index) => [String(item?.client_id || index), item])
+  );
+
+  return verified.map((offer) => {
+    const raw = rawById.get(offer.client_id) || {};
+    return {
+      client_id: offer.client_id,
+      brand: offer.brand,
+      article: offer.article,
+      description: String(raw.description || offer.description || "").trim().slice(0, 300) || null,
+      quantity: Number(offer.quantity || 1),
+      comment: String(raw.comment || "").trim().slice(0, 500) || null,
+      quoted_price: Number(offer.price || 0),
+      offer_ref: offer.offer_ref,
+      returnable: offer.returnable,
+      delivery_hours: offer.delivery_hours,
+      availability: Number(offer.availability || 0),
+      packing: Math.max(1, Number(offer.packing || 1)),
+      needs_confirmation: false
+    };
+  });
+}
+
 async function userCartId(userId, client = pool) {
   const result = await client.query(
     `INSERT INTO carts (user_id) VALUES ($1)
@@ -1438,6 +1581,196 @@ app.put("/api/cart", requireUser, async (req, res, next) => {
     });
   } catch (error) {
     await client.query("ROLLBACK").catch(() => {});
+    next(error);
+  } finally {
+    client.release();
+  }
+});
+
+app.get("/api/checkout/options", requireUser, async (req, res, next) => {
+  try {
+    res.json(await checkoutOptionsForUser(req.user));
+  } catch (error) {
+    next(error);
+  }
+});
+
+app.post("/api/checkout/submit", requireUser, quoteLimiter, async (req, res, next) => {
+  const client = await pool.connect();
+  try {
+    const rawItems = Array.isArray(req.body?.items) ? req.body.items.slice(0, 50) : [];
+    const fulfillmentMethod = String(req.body?.fulfillment_method || "confirmation");
+    const paymentMethod = String(req.body?.payment_method || "after_confirmation");
+    const deliveryAddressId = req.body?.delivery_address_id ? String(req.body.delivery_address_id) : null;
+    const pickupPointId = req.body?.pickup_point_id ? String(req.body.pickup_point_id) : null;
+    const vehicleId = req.body?.vehicle_id ? String(req.body.vehicle_id) : null;
+    const customerComment = String(req.body?.comment || "").trim().slice(0, 1200) || null;
+    const recipientName = String(req.body?.recipient_name || req.user.name || "").trim().slice(0, 160);
+    const recipientPhone = normalizePhone(req.body?.recipient_phone || req.user.phone);
+
+    if (!["delivery", "pickup", "confirmation"].includes(fulfillmentMethod)) {
+      return res.status(400).json({ error: "invalid_fulfillment_method" });
+    }
+    if (paymentMethod !== "after_confirmation") {
+      return res.status(400).json({ error: "payment_method_unavailable" });
+    }
+    if (!recipientName) return res.status(400).json({ error: "recipient_name_required" });
+    if (!recipientPhone || recipientPhone.replace(/\D/g, "").length < 10) {
+      return res.status(400).json({ error: "recipient_phone_required" });
+    }
+
+    let deliveryAddress = null;
+    let pickupPoint = null;
+    let vehicle = null;
+
+    if (fulfillmentMethod === "delivery") {
+      if (!deliveryAddressId) return res.status(400).json({ error: "delivery_address_required" });
+      const result = await pool.query(
+        `SELECT id, city, address, recipient_name, recipient_phone
+           FROM user_addresses
+          WHERE id = $1 AND user_id = $2
+          LIMIT 1`,
+        [deliveryAddressId, req.user.id]
+      );
+      deliveryAddress = result.rows[0] || null;
+      if (!deliveryAddress) return res.status(404).json({ error: "delivery_address_not_found" });
+    }
+
+    if (fulfillmentMethod === "pickup") {
+      if (!pickupPointId) return res.status(400).json({ error: "pickup_point_required" });
+      const result = await pool.query(
+        `SELECT id, code, city, name, address
+           FROM pickup_points
+          WHERE id = $1 AND is_active = true
+          LIMIT 1`,
+        [pickupPointId]
+      );
+      pickupPoint = result.rows[0] || null;
+      if (!pickupPoint) return res.status(404).json({ error: "pickup_point_not_found" });
+    }
+
+    if (vehicleId) {
+      const result = await pool.query(
+        `SELECT id, brand, model, generation, year, engine, vin
+           FROM vehicles
+          WHERE id = $1 AND user_id = $2
+          LIMIT 1`,
+        [vehicleId, req.user.id]
+      );
+      vehicle = result.rows[0] || null;
+      if (!vehicle) return res.status(404).json({ error: "vehicle_not_found" });
+    }
+
+    const items = await verifyCheckoutItems(rawItems);
+    const verifiedTotal = Number(
+      items.reduce((sum, item) => sum + item.quoted_price * item.quantity, 0).toFixed(2)
+    );
+    const now = new Date();
+    const requestId =
+      "Q-" +
+      now.toISOString().slice(0, 10).replace(/-/g, "") +
+      "-" +
+      crypto.randomBytes(3).toString("hex").toUpperCase();
+
+    await client.query("BEGIN");
+    await client.query(
+      `INSERT INTO quote_requests
+        (id, user_id, name, phone, status, source, created_at,
+         fulfillment_method, pickup_point_id, delivery_address_id,
+         recipient_name, recipient_phone, payment_method, customer_comment,
+         verified_total, delivery_fee, vehicle_id, checkout_version)
+       VALUES
+        ($1,$2,$3,$4,'new','zapformat-checkout',$5,
+         $6,$7,$8,$9,$10,$11,$12,$13,NULL,$14,1)`,
+      [
+        requestId,
+        req.user.id,
+        [req.user.name, req.user.surname].filter(Boolean).join(" "),
+        recipientPhone,
+        now,
+        fulfillmentMethod,
+        pickupPoint?.id || null,
+        deliveryAddress?.id || null,
+        recipientName,
+        recipientPhone,
+        paymentMethod,
+        customerComment,
+        verifiedTotal,
+        vehicle?.id || null
+      ]
+    );
+
+    for (const item of items) {
+      await client.query(
+        `INSERT INTO quote_request_items
+          (request_id, brand, article, description, quantity, comment,
+           quoted_price, needs_confirmation, offer_ref, returnable,
+           delivery_hours, availability, price_checked_at)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)`,
+        [
+          requestId,
+          item.brand,
+          item.article,
+          item.description,
+          item.quantity,
+          item.comment,
+          item.quoted_price,
+          item.needs_confirmation,
+          item.offer_ref,
+          item.returnable,
+          item.delivery_hours,
+          item.availability,
+          now
+        ]
+      );
+    }
+
+    const cartResult = await client.query("SELECT id FROM carts WHERE user_id = $1 LIMIT 1", [req.user.id]);
+    if (cartResult.rowCount) {
+      await client.query("DELETE FROM cart_items WHERE cart_id = $1", [cartResult.rows[0].id]);
+      await client.query("UPDATE carts SET updated_at = now() WHERE id = $1", [cartResult.rows[0].id]);
+    }
+
+    await client.query(
+      `INSERT INTO notifications (user_id, type, title, body)
+       VALUES ($1,'checkout','Заявка принята',$2)`,
+      [req.user.id, "Заявка " + requestId + " создана после повторной проверки цены и наличия."]
+    );
+
+    await client.query("COMMIT");
+
+    res.status(201).json({
+      ok: true,
+      request_id: requestId,
+      status: "new",
+      verified_total: verifiedTotal,
+      delivery_fee: null,
+      fulfillment_method: fulfillmentMethod,
+      payment_method: paymentMethod,
+      pickup_point: pickupPoint,
+      delivery_address: deliveryAddress,
+      vehicle: vehicle
+        ? {
+            id: vehicle.id,
+            brand: vehicle.brand,
+            model: vehicle.model,
+            generation: vehicle.generation,
+            year: vehicle.year,
+            engine: vehicle.engine
+          }
+        : null,
+      items: items.length,
+      checked_at: now.toISOString(),
+      next_step: "confirmation"
+    });
+  } catch (error) {
+    await client.query("ROLLBACK").catch(() => {});
+    if (error?.code === "items_required") {
+      return res.status(400).json({ error: "items_required" });
+    }
+    if (error?.code === "cart_changed") {
+      return res.status(409).json({ error: "cart_changed", items: error.items || [] });
+    }
     next(error);
   } finally {
     client.release();
