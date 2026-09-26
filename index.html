@@ -356,6 +356,19 @@ dialog::backdrop{background:rgba(13,41,56,.56);backdrop-filter:blur(5px)}
   </form>
 </dialog>
 
+<dialog id="returnDialog">
+  <div class="dialog-head"><div><span class="kicker">ВОЗВРАТ</span><h2>Создать запрос</h2></div><button class="dialog-close" data-close-dialog="returnDialog">×</button></div>
+  <div id="returnItemSummary" class="notice" style="margin-bottom:15px"></div>
+  <form id="returnForm">
+    <div class="form-grid">
+      <div class="field"><label>Количество</label><input name="quantity" type="number" min="1" value="1" required></div>
+      <div class="field full"><label>Причина</label><select name="reason" required><option value="">Выберите причину</option><option>Не подошла деталь</option><option>Брак / повреждение</option><option>Не соответствует заказу</option><option>Другая причина</option></select></div>
+      <div class="field full"><label>Комментарий</label><textarea name="comment" rows="3" placeholder="Опишите ситуацию"></textarea></div>
+    </div>
+    <div class="form-actions"><button class="primary">Отправить запрос</button><span id="returnStatus" class="small error"></span></div>
+  </form>
+</dialog>
+
 <div class="toast" id="toast"></div>
 
 <script>
@@ -944,12 +957,14 @@ async function loadOrders(){
   if(!S.user){root.innerHTML='<div class="empty"><div><b>Войдите, чтобы увидеть заказы</b><p>История привязана к вашему аккаунту.</p><button class="primary" data-auth-open>Войти</button></div></div>';return}
   root.innerHTML='<div class="state-card"><div class="spinner"></div></div>';
   try{
-    const [ordersData,requestsData]=await Promise.all([
+    const [ordersData,requestsData,returnsData]=await Promise.all([
       api("/api/orders"),
-      api("/api/account/quote-requests").catch(()=>({requests:[]}))
+      api("/api/account/quote-requests").catch(()=>({requests:[]})),
+      api("/api/returns").catch(()=>({returns:[]}))
     ]);
     S.orders=ordersData.orders||[];
     S.quoteRequests=requestsData.requests||[];
+    S.returns=returnsData.returns||[];
     renderOrders();
   }catch{root.innerHTML='<div class="empty"><div><b>Не удалось загрузить заказы</b><p>Попробуйте ещё раз.</p><button class="secondary" data-reload-orders>Повторить</button></div></div>'}
 }
@@ -958,8 +973,12 @@ function renderOrders(){
   const pending=S.quoteRequests.length
     ?'<div class="panel panel-pad" style="margin-bottom:16px"><div class="panel-title"><div><h3>Заявки на подтверждение</h3><p>Ещё не заказ: мы перепроверяем цену и наличие.</p></div><span class="status">'+S.quoteRequests.length+'</span></div><div class="order-list">'+S.quoteRequests.map(q=>'<button class="order-row" data-quote-id="'+esc(q.id)+'"><b>'+esc(q.id)+'</b><span><b>'+date(q.created_at)+'</b><span class="small muted">'+q.item_count+' поз.</span></span><span class="status">'+esc(q.status==="new"?"На подтверждении":q.status)+'</span><strong>'+rub(q.quoted_total)+'</strong><span>→</span></button>').join("")+'</div></div>'
     :'';
+  const returnsPanel=S.returns.length
+    ?'<div class="panel panel-pad" style="margin-bottom:16px"><div class="panel-title"><div><h3>Возвраты</h3><p>Запросы по уже купленным позициям.</p></div><span class="status neutral">'+S.returns.length+'</span></div><div class="order-list">'+S.returns.map(r=>'<div class="order-row" style="cursor:default"><b>Возврат № '+esc(r.return_number)+'</b><span><b>'+esc(r.brand)+' '+esc(r.article)+'</b><span class="small muted">Заказ № '+esc(r.order_number)+' · '+r.quantity+' шт.</span></span><span class="status '+statusClass(r.status)+'">'+esc(statusLabel(r.status))+'</span><strong>'+rub(Number(r.unit_price||0)*Number(r.quantity||1))+'</strong><span class="small muted">'+date(r.created_at)+'</span></div>').join("")+'</div></div>'
+    :'';
   root.innerHTML='<div class="orders-toolbar"><span class="muted">'+S.orders.length+' заказов · '+S.quoteRequests.length+' заявок</span><button class="secondary" data-go="home">Найти деталь</button></div>'+
   pending+
+  returnsPanel+
   (S.orders.length?'<div class="order-list">'+S.orders.map(o=>'<button class="order-row" data-order-id="'+o.id+'"><b>№ '+esc(o.order_number)+'</b><span><b>'+date(o.created_at)+'</b><span class="small muted">'+o.item_count+' поз.</span></span><span class="status '+statusClass(o.status)+'">'+esc(statusLabel(o.status))+'</span><strong>'+rub(o.total_amount)+'</strong><span>→</span></button>').join("")+'</div>':'<div class="empty"><div><b>Подтверждённых заказов пока нет</b><p>'+(S.quoteRequests.length?'Заявки выше появятся здесь после создания реального заказа.':'Здесь появятся только реально созданные заказы ZapFormat.')+'</p><button class="primary" data-go="home">К поиску</button></div></div>')+
   '<div id="orderDetailRoot"></div>';
 }
@@ -984,10 +1003,34 @@ async function loadOrder(id){
 }
 function renderOrderDetail(){
   const d=S.orderDetail,o=d.order,items=d.items||[],history=d.history||[],root=$("#orderDetailRoot");
-  root.innerHTML='<div class="order-detail"><div><div class="panel panel-pad"><div class="detail-title"><div><span class="kicker">ЗАКАЗ № '+esc(o.order_number)+'</span><h3>'+esc(statusLabel(o.status))+'</h3><p>Создан '+datetime(o.created_at)+'</p></div><span class="status '+statusClass(o.status)+'">'+esc(statusLabel(o.status))+'</span></div></div><div class="order-items" style="margin-top:12px">'+(items.length?items.map(x=>'<div class="order-item"><span><b>'+esc(x.brand)+' '+esc(x.article)+'</b><span class="offer-desc">'+esc(x.description||"Автозапчасть")+'</span></span><span>'+x.quantity+' шт.</span><strong>'+rub(Number(x.unit_price)*Number(x.quantity))+'</strong><span class="status '+statusClass(x.status)+'">'+esc(statusLabel(x.status))+'</span></div>').join(""):'<div class="empty">Позиции не найдены.</div>')+'</div></div><aside class="order-side"><div class="panel panel-pad"><div class="panel-title"><div><h3>Итого</h3><p>'+items.length+' позиций</p></div></div><div style="font-size:32px;font-weight:900">'+rub(o.total_amount)+'</div><p class="muted">'+esc(o.comment||"Без комментария")+'</p></div><div class="panel panel-pad"><div class="panel-title"><div><h3>Движение</h3><p>История изменений</p></div></div>'+(history.length?'<div class="timeline-list">'+history.map(x=>'<div class="timeline-row"><span class="dot"></span><p><b>'+esc(statusLabel(x.status))+'</b><small>'+datetime(x.created_at)+(x.note?" · "+esc(x.note):"")+'</small></p></div>').join("")+'</div>':'<p class="muted">История статусов пока пуста.</p>')+'</div></aside></div>';
+  root.innerHTML='<div class="order-detail"><div><div class="panel panel-pad"><div class="detail-title"><div><span class="kicker">ЗАКАЗ № '+esc(o.order_number)+'</span><h3>'+esc(statusLabel(o.status))+'</h3><p>Создан '+datetime(o.created_at)+'</p></div><span class="status '+statusClass(o.status)+'">'+esc(statusLabel(o.status))+'</span></div></div><div class="order-items" style="margin-top:12px">'+(items.length?items.map(x=>'<div class="order-item"><span><b>'+esc(x.brand)+' '+esc(x.article)+'</b><span class="offer-desc">'+esc(x.description||"Автозапчасть")+'</span></span><span>'+x.quantity+' шт.</span><strong>'+rub(Number(x.unit_price)*Number(x.quantity))+'</strong><span><span class="status '+statusClass(x.status)+'">'+esc(statusLabel(x.status))+'</span>'+(x.returnable===false?'':'<button class="ghost-btn small" style="margin-top:6px" data-return-item="'+x.id+'">Возврат</button>')+'</span></div>').join(""):'<div class="empty">Позиции не найдены.</div>')+'</div></div><aside class="order-side"><div class="panel panel-pad"><div class="panel-title"><div><h3>Итого</h3><p>'+items.length+' позиций</p></div></div><div style="font-size:32px;font-weight:900">'+rub(o.total_amount)+'</div><p class="muted">'+esc(o.comment||"Без комментария")+'</p></div><div class="panel panel-pad"><div class="panel-title"><div><h3>Движение</h3><p>История изменений</p></div></div>'+(history.length?'<div class="timeline-list">'+history.map(x=>'<div class="timeline-row"><span class="dot"></span><p><b>'+esc(statusLabel(x.status))+'</b><small>'+datetime(x.created_at)+(x.note?" · "+esc(x.note):"")+'</small></p></div>').join("")+'</div>':'<p class="muted">История статусов пока пуста.</p>')+'</div></aside></div>';
   if(items.length){
     const firstPanel=root.querySelector(".order-side .panel");
     firstPanel?.insertAdjacentHTML("beforeend",'<button class="secondary" style="width:100%;margin-top:14px" data-repeat-order>Повторить позиции</button>');
+  }
+}
+
+function openReturnDialog(itemId){
+  const item=S.orderDetail?.items?.find(x=>x.id===itemId);if(!item)return;
+  S.selectedReturnItem=item;
+  $("#returnItemSummary").innerHTML='<b>'+esc(item.brand)+' '+esc(item.article)+'</b><br><span class="small">Заказано '+Number(item.quantity||1)+' шт. · '+rub(item.unit_price)+'</span>';
+  const f=$("#returnForm");f.reset();f.elements.quantity.max=Number(item.quantity||1);f.elements.quantity.value=1;
+  $("#returnStatus").textContent="";
+  $("#returnDialog").showModal();
+}
+async function submitReturn(e){
+  e.preventDefault();const item=S.selectedReturnItem;if(!item)return;
+  const f=new FormData(e.currentTarget),status=$("#returnStatus");status.textContent="Отправляем…";
+  try{
+    await api("/api/returns",{method:"POST",body:JSON.stringify({
+      order_item_id:item.id,
+      quantity:Number(f.get("quantity")||1),
+      reason:f.get("reason"),
+      comment:f.get("comment")
+    })});
+    $("#returnDialog").close();S.selectedReturnItem=null;toast("Запрос на возврат создан");await loadOrders();
+  }catch(err){
+    status.textContent=err.message==="item_not_returnable"?"Эта позиция не подлежит возврату.":err.message==="return_quantity_exceeded"?"Количество превышает доступное для возврата.":"Не удалось создать возврат.";
   }
 }
 
@@ -1030,6 +1073,7 @@ document.addEventListener("click",async e=>{
   if(e.target.closest("[data-search-vin]")){const v=S.vehicleDetail?.vehicle;go("home");const input=$('[data-search-form] input');if(input){input.value=v?.vin||"";input.focus()}return}
   if(e.target.closest("[data-reload-garage]"))return loadGarage();
   x=e.target.closest("[data-quote-id]");if(x)return loadQuoteRequest(x.dataset.quoteId);
+  x=e.target.closest("[data-return-item]");if(x)return openReturnDialog(x.dataset.returnItem);
   x=e.target.closest("[data-order-id]");if(x)return loadOrder(x.dataset.orderId);
   if(e.target.closest("[data-repeat-order]")){
     const items=S.orderDetail?.items||[];
@@ -1049,6 +1093,7 @@ document.addEventListener("change",e=>{
 $$("[data-search-form]").forEach(f=>f.addEventListener("submit",e=>{e.preventDefault();search(new FormData(f).get("query"))}));
 $("#authForm").addEventListener("submit",submitAuth);
 $("#vehicleForm").addEventListener("submit",saveVehicle);
+$("#returnForm").addEventListener("submit",submitReturn);
 
 hydrate().then(route);
 </script>
