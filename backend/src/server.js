@@ -2572,6 +2572,69 @@ app.get("/api/vin-requests/:requestId", requireUser, async (req, res, next) => {
   }
 });
 
+app.get("/api/garage/overview", requireUser, async (req, res, next) => {
+  try {
+    const result = await pool.query(
+      `SELECT *
+       FROM (
+         SELECT
+           'plan'::text AS source,
+           p.id,
+           p.vehicle_id,
+           p.title,
+           p.next_service_mileage AS due_mileage,
+           p.next_service_at::timestamptz AS due_at,
+           v.current_mileage,
+           v.brand,
+           v.model,
+           v.generation,
+           v.year
+         FROM vehicle_maintenance_plans p
+         JOIN vehicles v ON v.id = p.vehicle_id
+         WHERE p.user_id = $1
+           AND p.is_active = true
+           AND (
+             (p.next_service_at IS NOT NULL AND p.next_service_at <= CURRENT_DATE + 45)
+             OR
+             (p.next_service_mileage IS NOT NULL
+              AND v.current_mileage IS NOT NULL
+              AND p.next_service_mileage <= v.current_mileage + 3000)
+           )
+         UNION ALL
+         SELECT
+           'reminder'::text AS source,
+           r.id,
+           r.vehicle_id,
+           r.title,
+           r.due_mileage,
+           r.due_at,
+           v.current_mileage,
+           v.brand,
+           v.model,
+           v.generation,
+           v.year
+         FROM vehicle_reminders r
+         JOIN vehicles v ON v.id = r.vehicle_id
+         WHERE r.user_id = $1
+           AND r.is_done = false
+           AND (
+             (r.due_at IS NOT NULL AND r.due_at <= now() + interval '45 days')
+             OR
+             (r.due_mileage IS NOT NULL
+              AND v.current_mileage IS NOT NULL
+              AND r.due_mileage <= v.current_mileage + 3000)
+           )
+       ) due
+       ORDER BY due_at NULLS LAST, due_mileage NULLS LAST
+       LIMIT 50`,
+      [req.user.id]
+    );
+    res.json({ due: result.rows });
+  } catch (error) {
+    next(error);
+  }
+});
+
 app.get("/api/garage", requireUser, async (req, res, next) => {
   try {
     const vehicles = await pool.query(
