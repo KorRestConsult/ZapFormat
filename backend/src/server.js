@@ -1278,6 +1278,113 @@ app.patch("/api/account/notifications", requireUser, async (req, res, next) => {
   }
 });
 
+app.get("/api/account/saved-parts", requireUser, async (req, res, next) => {
+  try {
+    const result = await pool.query(
+      `SELECT id, brand, article, description, created_at
+         FROM saved_parts
+        WHERE user_id = $1
+        ORDER BY created_at DESC
+        LIMIT 200`,
+      [req.user.id]
+    );
+    res.json({ parts: result.rows });
+  } catch (error) {
+    next(error);
+  }
+});
+
+app.post("/api/account/saved-parts", requireUser, async (req, res, next) => {
+  try {
+    const brand = String(req.body?.brand || "").trim().slice(0, 120);
+    const article = String(req.body?.article || "").trim().slice(0, 120);
+    const description = String(req.body?.description || "").trim().slice(0, 500) || null;
+
+    if (!brand || !article) return res.status(400).json({ error: "brand_and_article_required" });
+
+    const result = await pool.query(
+      `INSERT INTO saved_parts (user_id, brand, article, description)
+       VALUES ($1,$2,$3,$4)
+       ON CONFLICT (user_id, upper(brand), upper(article))
+       DO UPDATE SET description = COALESCE(EXCLUDED.description, saved_parts.description)
+       RETURNING id, brand, article, description, created_at`,
+      [req.user.id, brand, article, description]
+    );
+    res.status(201).json({ part: result.rows[0] });
+  } catch (error) {
+    next(error);
+  }
+});
+
+app.delete("/api/account/saved-parts/:partId", requireUser, async (req, res, next) => {
+  try {
+    const result = await pool.query(
+      "DELETE FROM saved_parts WHERE id = $1 AND user_id = $2 RETURNING id",
+      [req.params.partId, req.user.id]
+    );
+    if (!result.rowCount) return res.status(404).json({ error: "saved_part_not_found" });
+    res.status(204).end();
+  } catch (error) {
+    next(error);
+  }
+});
+
+app.get("/api/account/recent-searches", requireUser, async (req, res, next) => {
+  try {
+    const result = await pool.query(
+      `SELECT id, query, search_type, vehicle_context, use_count, last_used_at
+         FROM recent_searches
+        WHERE user_id = $1
+        ORDER BY last_used_at DESC
+        LIMIT 20`,
+      [req.user.id]
+    );
+    res.json({ searches: result.rows });
+  } catch (error) {
+    next(error);
+  }
+});
+
+app.post("/api/account/recent-searches", requireUser, async (req, res, next) => {
+  try {
+    const query = String(req.body?.query || "").trim().slice(0, 500);
+    const searchType = String(req.body?.search_type || "search").trim().slice(0, 40) || "search";
+    const vehicleContext = safeVehicleContext(req.body?.vehicle);
+    if (!query) return res.status(400).json({ error: "search_query_required" });
+    const queryKey = query.toLowerCase().replace(/\s+/g, " ").trim();
+
+    const result = await pool.query(
+      `INSERT INTO recent_searches
+        (user_id, query, query_key, search_type, vehicle_context)
+       VALUES ($1,$2,$3,$4,$5::jsonb)
+       ON CONFLICT (user_id, query_key)
+       DO UPDATE SET
+         query = EXCLUDED.query,
+         search_type = EXCLUDED.search_type,
+         vehicle_context = EXCLUDED.vehicle_context,
+         use_count = recent_searches.use_count + 1,
+         last_used_at = now()
+       RETURNING id, query, search_type, vehicle_context, use_count, last_used_at`,
+      [req.user.id, query, queryKey, searchType, JSON.stringify(vehicleContext)]
+    );
+    res.status(201).json({ search: result.rows[0] });
+  } catch (error) {
+    next(error);
+  }
+});
+
+app.delete("/api/account/recent-searches", requireUser, async (req, res, next) => {
+  try {
+    const result = await pool.query(
+      "DELETE FROM recent_searches WHERE user_id = $1",
+      [req.user.id]
+    );
+    res.json({ deleted: result.rowCount });
+  } catch (error) {
+    next(error);
+  }
+});
+
 app.get("/api/account/addresses", requireUser, async (req, res, next) => {
   try {
     const result = await pool.query(
