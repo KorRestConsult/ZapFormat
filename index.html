@@ -377,6 +377,7 @@ const S={
   offerSort:"price",
   offerOnlyAvailable:false,
   cartRefreshing:false,
+  lastCartRefreshAttempt:0,
   authMode:"login"
 };
 
@@ -527,13 +528,13 @@ function renderCart(){
 
   const recheckable=S.cart.filter(x=>x.offer_ref&&!x.historical);
   const stale=recheckable.some(x=>!x.checked_at||(Date.now()-new Date(x.checked_at).getTime())>120000);
-  if(stale&&!S.cartRefreshing) setTimeout(()=>refreshCart(false),0);
+  if(stale&&!S.cartRefreshing&&(Date.now()-S.lastCartRefreshAttempt)>120000) setTimeout(()=>refreshCart(false),0);
 }
 async function refreshCart(showToast=true){
   const items=S.cart.filter(x=>x.offer_ref&&!x.historical);
   if(!items.length){if(showToast)toast("Нет позиций для автоматической проверки");return}
   if(S.cartRefreshing)return;
-  S.cartRefreshing=true;renderCart();
+  S.cartRefreshing=true;S.lastCartRefreshAttempt=Date.now();renderCart();
   try{
     const payload={items:items.map(x=>({client_id:x.id,brand:x.brand,article:x.article,offer_ref:x.offer_ref}))};
     const d=await api("/api/catalog/recheck",{method:"POST",body:JSON.stringify(payload)});
