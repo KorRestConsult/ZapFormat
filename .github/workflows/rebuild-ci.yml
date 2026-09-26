@@ -21,7 +21,7 @@ jobs:
         run: npm install --ignore-scripts --package-lock=false
       - name: Backend syntax
         working-directory: backend
-        run: node --check src/server.js && node --check src/partgrade.js && node --check src/pricing.js
+        run: node --check src/server.js && node --check src/partgrade.js && node --check src/pricing.js && node --check src/ai.js
       - name: Backend unit tests
         working-directory: backend
         run: npm test
