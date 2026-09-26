@@ -1954,8 +1954,11 @@ document.addEventListener("click",async e=>{
   x=e.target.closest("[data-part-alt]");if(x)return openPart(x.dataset.brand,x.dataset.article);
   x=e.target.closest("[data-part-retry]");if(x)return openPart(x.dataset.brand,x.dataset.article,false);
   if(e.target.closest("[data-part-back]")){
-    if(S.offers.length)return go("catalog");
-    const p=S.currentPartData?.part;
+    const p=S.currentPartData?.part,b=S.selectedBrand;
+    const sameContext=S.offers.length&&b&&p&&
+      String(b.brand||"").toUpperCase()===String(p.brand||"").toUpperCase()&&
+      String(b.article||S.query||"").toUpperCase()===String(p.article||"").toUpperCase();
+    if(sameContext)return go("catalog");
     if(p?.article)return searchArticle(p.article,false,p.article,null);
     return go("home");
   }
