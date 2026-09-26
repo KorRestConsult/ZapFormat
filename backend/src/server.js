@@ -432,13 +432,21 @@ app.get("/api/catalog/brands", async (req, res, next) => {
         rows = [];
       }
     }
-    const brands = (Array.isArray(rows) ? rows : []).map((row) => ({
-      brand: row.brand || null,
-      article: row.number || number,
-      article_normalized: row.numberFix || null,
-      description: row.description || null,
-      available: Boolean(row.availability)
-    }));
+    const seen = new Set();
+    const brands = (Array.isArray(rows) ? rows : [])
+      .map((row) => ({
+        brand: row.brand || null,
+        article: row.number || number,
+        article_normalized: row.numberFix || null,
+        description: row.description || null,
+        available: Boolean(row.availability)
+      }))
+      .filter((row) => {
+        const key = [row.brand, row.article, row.description].map((x) => String(x || "").trim().toUpperCase()).join("|");
+        if (seen.has(key)) return false;
+        seen.add(key);
+        return true;
+      });
 
     res.json({ query: { number }, brands });
   } catch (error) {
