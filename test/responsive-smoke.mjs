@@ -52,7 +52,7 @@ try {
     await page.goto("http://127.0.0.1:4173/index.html", { waitUntil: "domcontentloaded" });
     await page.waitForTimeout(150);
 
-    for (const screen of ["home", "catalogs", "garage", "orders", "cart", "checkout", "account"]) {
+    for (const screen of ["home", "catalogs", "garage", "orders", "cart", "checkout", "account", "operator"]) {
       await page.evaluate((name) => window.go(name, false), screen);
       await page.waitForTimeout(50);
       await assertNoHorizontalOverflow(page, `${viewport.name}/${screen}/guest`);
@@ -268,6 +268,42 @@ try {
     });
     await page.waitForTimeout(50);
     await assertNoHorizontalOverflow(page, `${viewport.name}/orders/data`);
+
+    await page.evaluate(() => {
+      S.user.role = "admin";
+      S.operatorOverview = {
+        quotes: { new: 2, in_progress: 1, confirmed: 0 },
+        vin: { new: 1, in_progress: 1, answered: 0 },
+        returns: { created: 1, in_progress: 0, approved: 0 },
+        orders: { active: 3, ready: 1 }
+      };
+      S.operatorQueue = {
+        quotes: [{
+          id: "Q-20260926-ABCDEF", status: "new", fulfillment_method: "delivery",
+          payment_method: "after_confirmation", verified_total: 10568.5,
+          customer_comment: "Связаться вечером", manager_note: "",
+          recipient_name: "Илья Коробицин", recipient_phone: "+79000000000",
+          item_count: 2, created_at: "2026-09-26T12:00:00Z",
+          brand: "Ford", model: "Focus", generation: "II", year: 2006
+        }],
+        vin: [{
+          id: "vin1", status: "in_progress", request_text: "Передние тормозные колодки",
+          manager_note: "", vin: "X9F5XXEED56R37916", created_at: "2026-09-26T12:10:00Z",
+          brand: "Ford", model: "Focus", generation: "II", year: 2006,
+          user_name: "Илья", user_phone: "+79000000000"
+        }],
+        returns: [{
+          id: "ret1", return_number: 7, quantity: 1, reason: "Не подошла деталь",
+          status: "created", manager_note: "", created_at: "2026-09-26T12:20:00Z",
+          brand: "PATRON", article: "PRS3420", unit_price: 5284.25, order_number: 101,
+          user_name: "Илья", user_phone: "+79000000000"
+        }]
+      };
+      document.querySelectorAll(".page").forEach(x=>x.classList.toggle("active",x.dataset.page==="operator"));
+      renderOperator();
+    });
+    await page.waitForTimeout(50);
+    await assertNoHorizontalOverflow(page, `${viewport.name}/operator/data`);
 
     for (const dialog of [
       ["#authDialog", () => window.openAuth("login")],
