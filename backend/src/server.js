@@ -8,6 +8,8 @@ const cookieParser = require("cookie-parser");
 const bcrypt = require("bcryptjs");
 const { rateLimit } = require("express-rate-limit");
 const { Pool } = require("pg");
+const { createPartGradeClient, PartGradeError } = require("./partgrade");
+const { customerPrice } = require("./pricing");
 
 const app = express();
 const isProduction = process.env.NODE_ENV === "production";
@@ -19,6 +21,8 @@ const FRONTEND_ORIGINS = String(process.env.FRONTEND_ORIGINS || "")
   .split(",")
   .map((x) => x.trim())
   .filter(Boolean);
+
+const partGrade = createPartGradeClient();
 
 if (!process.env.DATABASE_URL) {
   throw new Error("DATABASE_URL is required");
@@ -155,7 +159,75 @@ app.get("/api/health", async (_req, res, next) => {
       ok: true,
       service: "zapformat-api",
       db: true,
+      supplier_configured: partGrade.configured(),
       time: db.rows[0].now
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+app.get("/api/catalog/brands", async (req, res, next) => {
+  try {
+    const number = String(req.query?.number || "").trim();
+    if (!number) return res.status(400).json({ error: "article_required" });
+
+    const brands = await partGrade.searchBrands(number);
+    res.json({
+      source: "PartGrade",
+      query: { number },
+      brands: brands.map((row) => ({
+        brand: row.brand,
+        article: row.number || number,
+        article_normalized: row.numberFix || null,
+        description: row.description || null,
+        available: Boolean(row.availability)
+      }))
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+app.get("/api/catalog/offers", async (req, res, next) => {
+  try {
+    const number = String(req.query?.number || "").trim();
+    const brand = String(req.query?.brand || "").trim();
+    if (!number || !brand) {
+      return res.status(400).json({ error: "article_and_brand_required" });
+    }
+
+    const rows = await partGrade.searchArticles(number, brand);
+    const offers = rows
+      .map((row, index) => {
+        const price = customerPrice(row.price);
+        if (price === null) return null;
+        return {
+          id: [row.supplierCode, row.itemKey, row.brand || brand, row.number || number, index]
+            .filter((x) => x !== undefined && x !== null)
+            .join(":"),
+          brand: row.brand || brand,
+          article: row.number || number,
+          article_normalized: row.numberFix || null,
+          description: row.description || null,
+          availability: Number(row.availability || 0),
+          packing: Math.max(1, Number(row.packing || 1)),
+          delivery_hours: Number(row.deliveryPeriod || 0),
+          delivery_hours_max: Number(row.deliveryPeriodMax || row.deliveryPeriod || 0),
+          returnable: row.noReturn ? false : true,
+          supplier_route: row.supplierCode || null,
+          item_key: row.itemKey || null,
+          price,
+          currency: "RUB"
+        };
+      })
+      .filter(Boolean)
+      .sort((a, b) => a.price - b.price || a.delivery_hours - b.delivery_hours);
+
+    res.json({
+      source: "PartGrade",
+      query: { number, brand },
+      offers
     });
   } catch (error) {
     next(error);
@@ -595,6 +667,21 @@ app.post("/api/garage/vehicles/:vehicleId/maintenance", requireUser, async (req,
 });
 
 app.use((error, _req, res, _next) => {
+  if (error instanceof PartGradeError) {
+    console.error("[PartGrade]", {
+      code: error.code,
+      status: error.status,
+      upstreamCode: error.upstreamCode,
+      upstreamMessage: error.upstreamMessage
+    });
+    return res.status(502).json({
+      error: "supplier_error",
+      supplier: "PartGrade",
+      upstream_status: error.status,
+      upstream_code: error.upstreamCode
+    });
+  }
+
   console.error(error);
   if (error?.code === "23505") {
     return res.status(409).json({ error: "conflict" });
