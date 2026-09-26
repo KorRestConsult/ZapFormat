@@ -8,7 +8,7 @@
     "start": "node src/server.js",
     "dev": "node --watch src/server.js",
     "test": "node --test test/*.test.js",
-    "db:migrate": "psql \"$DATABASE_URL\" -f db/001_init.sql && psql \"$DATABASE_URL\" -f db/002_garage_owner_app.sql && psql \"$DATABASE_URL\" -f db/003_quote_requests.sql && psql \"$DATABASE_URL\" -f db/004_customer_workflow.sql && psql \"$DATABASE_URL\" -f db/005_vin_requests.sql && psql \"$DATABASE_URL\" -f db/006_checkout.sql && psql \"$DATABASE_URL\" -f db/007_operator_queue.sql && psql \"$DATABASE_URL\" -f db/008_customer_personalization.sql && psql \"$DATABASE_URL\" -f db/009_vehicle_specs.sql",
+    "db:migrate": "psql \"$DATABASE_URL\" -f db/001_init.sql && psql \"$DATABASE_URL\" -f db/002_garage_owner_app.sql && psql \"$DATABASE_URL\" -f db/003_quote_requests.sql && psql \"$DATABASE_URL\" -f db/004_customer_workflow.sql && psql \"$DATABASE_URL\" -f db/005_vin_requests.sql && psql \"$DATABASE_URL\" -f db/006_checkout.sql && psql \"$DATABASE_URL\" -f db/007_operator_queue.sql && psql \"$DATABASE_URL\" -f db/008_customer_personalization.sql && psql \"$DATABASE_URL\" -f db/009_vehicle_specs.sql && psql \"$DATABASE_URL\" -f db/010_customer_case_history.sql",
     "test:db": "node test/db-smoke.js"
   },
   "engines": {
