@@ -1953,7 +1953,12 @@ document.addEventListener("click",async e=>{
   if(e.target.closest("[data-save-part-card]")){const p=S.currentPartData?.part;if(p)return saveCurrentPart(p)}
   x=e.target.closest("[data-part-alt]");if(x)return openPart(x.dataset.brand,x.dataset.article);
   x=e.target.closest("[data-part-retry]");if(x)return openPart(x.dataset.brand,x.dataset.article,false);
-  if(e.target.closest("[data-part-back]")){if(S.offers.length)return go("catalog");return history.back()}
+  if(e.target.closest("[data-part-back]")){
+    if(S.offers.length)return go("catalog");
+    const p=S.currentPartData?.part;
+    if(p?.article)return searchArticle(p.article,false,p.article,null);
+    return go("home");
+  }
 
   if(e.target.closest("[data-show-brands]"))return renderBrands();
   x=e.target.closest("[data-offer-sort]");if(x){S.offerSort=x.value;return renderOfferTable()}
