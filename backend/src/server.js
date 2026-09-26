@@ -848,6 +848,39 @@ app.get("/api/account/quote-requests", requireUser, async (req, res, next) => {
   }
 });
 
+app.get("/api/account/quote-requests/:requestId", requireUser, async (req, res, next) => {
+  try {
+    const requestResult = await pool.query(
+      `SELECT id, status, name, phone, created_at, updated_at
+         FROM quote_requests
+        WHERE id = $1 AND user_id = $2
+        LIMIT 1`,
+      [req.params.requestId, req.user.id]
+    );
+    const request = requestResult.rows[0];
+    if (!request) return res.status(404).json({ error: "quote_request_not_found" });
+
+    const itemsResult = await pool.query(
+      `SELECT id, brand, article, description, quantity, comment,
+              quoted_price, needs_confirmation, created_at
+         FROM quote_request_items
+        WHERE request_id = $1
+        ORDER BY created_at, id`,
+      [request.id]
+    );
+
+    res.json({
+      request,
+      items: itemsResult.rows.map((row) => ({
+        ...row,
+        quoted_price: row.quoted_price === null ? null : Number(row.quoted_price)
+      }))
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
 app.get("/api/account/notifications", requireUser, async (req, res, next) => {
   try {
     await pool.query(
