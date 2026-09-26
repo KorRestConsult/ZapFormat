@@ -640,6 +640,7 @@ const S={
   operatorOverview:null,
   operatorQueue:null,
   operatorPickupPoints:[],
+  operatorReadiness:{},
   vehicles:[],
   garageDue:[],
   vehicleDetail:null,
@@ -1809,8 +1810,31 @@ function operatorCard(r,kind){
     :kind==="vin"
       ?[[r.brand,r.model,r.generation,r.year].filter(Boolean).join(" "),r.vin].filter(Boolean).join(" · ")
       :["Заказ № "+r.order_number,r.quantity+" шт.",rub(Number(r.unit_price||0)*Number(r.quantity||1))].join(" · ");
-  return '<form class="operator-card" data-operator-form="'+kind+'" data-id="'+id+'"><div class="op-top"><div><h4>'+esc(title)+'</h4><p>'+esc(contact||"Контакт не указан")+'</p></div><span class="status">'+esc(r.status)+'</span></div><div class="op-meta"><span class="ai-chip">'+esc(details)+'</span><span class="ai-chip">'+datetime(r.created_at)+'</span></div>'+(kind==="quote"&&r.customer_comment?'<p><b>Комментарий клиента:</b> '+esc(r.customer_comment)+'</p>':"")+(kind==="return"&&r.reason?'<p><b>Причина:</b> '+esc(r.reason)+'</p>':"")+'<select name="status">'+operatorStatusOptions(kind,r.status)+'</select><textarea name="manager_note" placeholder="Комментарий сотрудника">'+esc(r.manager_note||"")+'</textarea><div class="form-actions"><button class="secondary">Сохранить</button><span class="small muted">ID '+esc(String(id).slice(0,14))+'</span></div></form>';
+  const readiness=kind==="quote"?S.operatorReadiness[id]:null;
+  const readinessHtml=kind==="quote"
+    ?'<div class="summary-note" style="margin-top:9px">'+(
+      readiness
+        ?'<b>Поставщик:</b> '+(readiness.all_items_ready?'все позиции распознаны':'нужна проверка')+
+          ' · '+(readiness.confirmed?'заявка подтверждена':'заявка ещё не подтверждена')+
+          ' · '+(readiness.write_enabled?'запись разрешена конфигурацией':'запись поставщику выключена')+
+          (readiness.items?.some(x=>!x.write_ready)?'<br>'+readiness.items.filter(x=>!x.write_ready).map(x=>esc(x.brand+' '+x.article+': '+(x.missing||[]).join(", "))).join("<br>"):'')
+        :'Можно безопасно проверить, готова ли заявка к передаче поставщику. Заказ при этом не создаётся.'
+    )+'</div>'
+    :"";
+  return '<form class="operator-card" data-operator-form="'+kind+'" data-id="'+id+'"><div class="op-top"><div><h4>'+esc(title)+'</h4><p>'+esc(contact||"Контакт не указан")+'</p></div><span class="status">'+esc(r.status)+'</span></div><div class="op-meta"><span class="ai-chip">'+esc(details)+'</span><span class="ai-chip">'+datetime(r.created_at)+'</span></div>'+(kind==="quote"&&r.customer_comment?'<p><b>Комментарий клиента:</b> '+esc(r.customer_comment)+'</p>':"")+(kind==="return"&&r.reason?'<p><b>Причина:</b> '+esc(r.reason)+'</p>':"")+readinessHtml+'<select name="status">'+operatorStatusOptions(kind,r.status)+'</select><textarea name="manager_note" placeholder="Комментарий сотрудника">'+esc(r.manager_note||"")+'</textarea><div class="form-actions"><div style="display:flex;gap:7px;flex-wrap:wrap"><button class="secondary">Сохранить</button>'+(kind==="quote"?'<button type="button" class="ghost-btn" data-check-supplier="'+esc(id)+'">Проверить поставщика</button>':'')+'</div><span class="small muted">ID '+esc(String(id).slice(0,14))+'</span></div></form>';
 }
+async function checkOperatorSupplier(id){
+  try{
+    toast("Проверяем поставщика");
+    const d=await api("/api/admin/quote-requests/"+encodeURIComponent(id)+"/supplier-readiness");
+    S.operatorReadiness[id]=d;
+    renderOperator();
+    toast(d.all_items_ready?"Позиции распознаны":"Есть позиции для проверки");
+  }catch(err){
+    toast(err.message==="supplier_unavailable"?"Поставщик пока недоступен":"Не удалось проверить поставщика");
+  }
+}
+
 async function saveOperatorItem(form){
   const kind=form.dataset.operatorForm,id=form.dataset.id,f=new FormData(form);
   const path=kind==="quote"
@@ -2030,6 +2054,7 @@ document.addEventListener("click",async e=>{
     writeCart();toast("Позиции добавлены в корзину");return go("cart");
   }
   if(e.target.closest("[data-reload-orders]"))return loadOrders();
+  x=e.target.closest("[data-check-supplier]");if(x)return checkOperatorSupplier(x.dataset.checkSupplier);
   x=e.target.closest("[data-toggle-pickup]");if(x)return togglePickupPoint(x.dataset.togglePickup,x.dataset.active==="1");
   if(e.target.closest("[data-reload-operator]"))return loadOperator();
 });
