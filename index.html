@@ -136,7 +136,7 @@ button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-vis
 .operator-stat{padding:17px;border:1px solid var(--line);border-radius:14px;background:#fff}
 .operator-stat b{display:block;font-size:30px;letter-spacing:-.05em}
 .operator-stat span{font-size:12px;color:var(--muted)}
-.operator-columns{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px;align-items:start}
+.operator-columns{display:grid;grid-template-columns:repeat(auto-fit,minmax(225px,1fr));gap:14px;align-items:start}
 .operator-column{display:grid;gap:10px}
 .operator-searchbar{display:flex;gap:8px;align-items:center;margin-bottom:14px}
 .operator-searchbar input{flex:1;min-width:0;border:1px solid var(--line);background:#fff;border-radius:11px;padding:11px 13px}
@@ -2331,6 +2331,7 @@ async function deleteVehicle(){
 function operatorStatusOptions(kind,current){
   const map={
     quote:[["new","Новая"],["in_progress","В работе"],["confirmed","Подтверждена"],["completed","Завершена"],["cancelled","Отменена"]],
+    order:[["confirmed","Подтверждён"],["processing","В обработке"],["in_transit","В пути"],["ready","Готов к выдаче"],["completed","Завершён"],["cancelled","Отменён"],["returned","Возвращён"]],
     vin:[["new","Новый"],["in_progress","В подборе"],["answered","Ответ готов"],["closed","Закрыт"],["cancelled","Отменён"]],
     return:[["created","Создан"],["in_progress","В работе"],["approved","Одобрен"],["rejected","Отклонён"],["completed","Завершён"],["cancelled","Отменён"]],
     support:[["new","Новое"],["in_progress","В работе"],["waiting_customer","Ждём клиента"],["resolved","Решено"],["closed","Закрыто"]]
@@ -2479,12 +2480,12 @@ async function loadOperator(){
   }
 }
 function renderOperator(){
-  const root=$("#operatorBody"),o=S.operatorOverview||{},q=S.operatorQueue||{quotes:[],vin:[],returns:[],support:[]};
+  const root=$("#operatorBody"),o=S.operatorOverview||{},q=S.operatorQueue||{quotes:[],orders:[],vin:[],returns:[],support:[]};
   const query=String(S.operatorQuery||"").trim().toLowerCase();
   const filterRows=rows=>!query?(rows||[]):(rows||[]).filter(r=>
     Object.values(r||{}).some(v=>String(v??"").toLowerCase().includes(query))
   );
-  const quoteRows=filterRows(q.quotes),vinRows=filterRows(q.vin),returnRows=filterRows(q.returns),supportRows=filterRows(q.support);
+  const quoteRows=filterRows(q.quotes),orderRows=filterRows(q.orders),vinRows=filterRows(q.vin),returnRows=filterRows(q.returns),supportRows=filterRows(q.support);
   const stats=[
     ["Новые заявки",Number(o.quotes?.new||0)],
     ["VIN в очереди",Number(o.vin?.new||0)+Number(o.vin?.in_progress||0)],
@@ -2494,9 +2495,10 @@ function renderOperator(){
   ];
   root.innerHTML='<form class="operator-searchbar" data-operator-search-form><input name="query" value="'+esc(S.operatorQuery||"")+'" placeholder="Телефон, VIN, артикул, номер заявки или имя"><button class="secondary">Найти</button>'+(S.operatorQuery?'<button class="ghost-btn" type="button" data-clear-operator-search>Сбросить</button>':'')+'</form>'+
     '<div class="operator-stats">'+stats.map(x=>'<div class="operator-stat"><b>'+x[1]+'</b><span>'+esc(x[0])+'</span></div>').join("")+'</div>'+
-    (query?'<div class="small muted" style="margin:-7px 0 12px">Найдено: '+(quoteRows.length+vinRows.length+returnRows.length+supportRows.length)+'</div>':'')+
+    (query?'<div class="small muted" style="margin:-7px 0 12px">Найдено: '+(quoteRows.length+orderRows.length+vinRows.length+returnRows.length+supportRows.length)+'</div>':'')+
     '<div class="operator-columns">'+
       operatorColumn("Заявки",quoteRows,"quote")+
+      operatorColumn("Заказы",orderRows,"order")+
       operatorColumn("VIN-подбор",vinRows,"vin")+
       operatorColumn("Возвраты",returnRows,"return")+
       operatorColumn("Поддержка",supportRows,"support")+
@@ -2572,21 +2574,27 @@ function operatorCard(r,kind){
   const id=r.id;
   const title=kind==="quote"
     ?r.id
-    :kind==="vin"
-      ?r.request_text
-      :kind==="return"
-        ?"Возврат № "+r.return_number+" · "+r.brand+" "+r.article
-        :"S-"+String(r.ticket_number||"").padStart(6,"0")+" · "+r.subject;
+    :kind==="order"
+      ?"Заказ № "+r.order_number
+      :kind==="vin"
+        ?r.request_text
+        :kind==="return"
+          ?"Возврат № "+r.return_number+" · "+r.brand+" "+r.article
+          :"S-"+String(r.ticket_number||"").padStart(6,"0")+" · "+r.subject;
   const contact=kind==="quote"
     ?[r.recipient_name,r.recipient_phone].filter(Boolean).join(" · ")
-    :[r.user_name,r.user_phone||r.user_email].filter(Boolean).join(" · ");
+    :kind==="order"
+      ?[r.recipient_name||r.user_name,r.recipient_phone||r.user_phone||r.user_email].filter(Boolean).join(" · ")
+      :[r.user_name,r.user_phone||r.user_email].filter(Boolean).join(" · ");
   const details=kind==="quote"
     ?[r.item_count+" поз.",r.verified_total!==null?rub(r.verified_total):null,r.fulfillment_method].filter(Boolean).join(" · ")
-    :kind==="vin"
-      ?[[r.brand,r.model,r.generation,r.year].filter(Boolean).join(" "),r.vin].filter(Boolean).join(" · ")
-      :kind==="return"
-        ?["Заказ № "+r.order_number,r.quantity+" шт.",rub(Number(r.unit_price||0)*Number(r.quantity||1))].join(" · ")
-        :[supportCategoryLabel(r.category),r.linked_type&&r.linked_id?(supportCategoryLabel(r.linked_type)+" · "+r.linked_id):null,(r.message_count||0)+" сообщ."].filter(Boolean).join(" · ");
+    :kind==="order"
+      ?[r.item_count+" поз.",rub(r.total_amount),r.fulfillment_method,r.source_quote_id?("из "+r.source_quote_id):null].filter(Boolean).join(" · ")
+      :kind==="vin"
+        ?[[r.brand,r.model,r.generation,r.year].filter(Boolean).join(" "),r.vin].filter(Boolean).join(" · ")
+        :kind==="return"
+          ?["Заказ № "+r.order_number,r.quantity+" шт.",rub(Number(r.unit_price||0)*Number(r.quantity||1))].join(" · ")
+          :[supportCategoryLabel(r.category),r.linked_type&&r.linked_id?(supportCategoryLabel(r.linked_type)+" · "+r.linked_id):null,(r.message_count||0)+" сообщ."].filter(Boolean).join(" · ");
   const readiness=kind==="quote"?S.operatorReadiness[id]:null;
   const readinessHtml=kind==="quote"
     ?'<div class="summary-note" style="margin-top:9px">'+(
@@ -2600,15 +2608,36 @@ function operatorCard(r,kind){
     :"";
   const extra=kind==="quote"&&r.customer_comment
     ?'<p><b>Комментарий клиента:</b> '+esc(r.customer_comment)+'</p>'
-    :kind==="return"&&r.reason
-      ?'<p><b>Причина:</b> '+esc(r.reason)+'</p>'
-      :kind==="support"&&r.last_message
-        ?'<p><b>Последнее сообщение:</b> '+esc(r.last_message)+'</p>'
-        :"";
+    :kind==="order"&&r.source_quote_id
+      ?'<p><b>Источник:</b> подтверждённая заявка '+esc(r.source_quote_id)+'</p>'
+      :kind==="return"&&r.reason
+        ?'<p><b>Причина:</b> '+esc(r.reason)+'</p>'
+        :kind==="support"&&r.last_message
+          ?'<p><b>Последнее сообщение:</b> '+esc(r.last_message)+'</p>'
+          :"";
   const textareaValue=kind==="support"?"":(r.manager_note||"");
   const textareaPlaceholder=kind==="support"?"Ответ клиенту (необязательно при смене статуса)":"Комментарий сотрудника";
-  return '<form class="operator-card" data-operator-form="'+kind+'" data-id="'+id+'"><div class="op-top"><div><h4>'+esc(title)+'</h4><p>'+esc(contact||"Контакт не указан")+'</p></div><span class="status">'+esc(kind==="support"?supportStatusLabel(r.status):r.status)+'</span></div><div class="op-meta"><span class="ai-chip">'+esc(details)+'</span><span class="ai-chip">'+datetime(r.created_at)+'</span></div>'+extra+readinessHtml+'<select name="status">'+operatorStatusOptions(kind,r.status)+'</select><textarea name="manager_note" placeholder="'+esc(textareaPlaceholder)+'">'+esc(textareaValue)+'</textarea><div class="form-actions"><div style="display:flex;gap:7px;flex-wrap:wrap"><button class="secondary">Сохранить</button>'+(kind==="quote"?'<button type="button" class="ghost-btn" data-check-supplier="'+esc(id)+'">Проверить поставщика</button>':'')+'</div><span class="small muted">ID '+esc(String(id).slice(0,14))+'</span></div></form>';
+  const statusText=kind==="support"?supportStatusLabel(r.status):kind==="order"?statusLabel(r.status):r.status;
+  const quoteActions=kind==="quote"
+    ?'<button type="button" class="ghost-btn" data-check-supplier="'+esc(id)+'">Проверить поставщика</button>'+(r.status==="confirmed"?'<button type="button" class="primary" data-create-order="'+esc(id)+'">Создать заказ</button>':'')
+    :'';
+  return '<form class="operator-card" data-operator-form="'+kind+'" data-id="'+id+'"><div class="op-top"><div><h4>'+esc(title)+'</h4><p>'+esc(contact||"Контакт не указан")+'</p></div><span class="status '+(kind==="order"?statusClass(r.status):"")+'">'+esc(statusText)+'</span></div><div class="op-meta"><span class="ai-chip">'+esc(details)+'</span><span class="ai-chip">'+datetime(r.created_at)+'</span></div>'+extra+readinessHtml+'<select name="status">'+operatorStatusOptions(kind,r.status)+'</select><textarea name="manager_note" placeholder="'+esc(textareaPlaceholder)+'">'+esc(textareaValue)+'</textarea><div class="form-actions"><div style="display:flex;gap:7px;flex-wrap:wrap"><button class="secondary">Сохранить</button>'+quoteActions+'</div><span class="small muted">ID '+esc(String(id).slice(0,14))+'</span></div></form>';
 }
+async function createOrderFromQuote(id){
+  if(!confirm("Создать реальный заказ ZapFormat из подтверждённой заявки "+id+"? Поставщику заказ автоматически не отправляется."))return;
+  try{
+    const d=await api("/api/admin/quote-requests/"+encodeURIComponent(id)+"/create-order",{method:"POST",body:"{}"});
+    toast(d.created?"Заказ № "+d.order.order_number+" создан":"Заказ уже был создан");
+    await loadOperator();
+  }catch(err){
+    toast(err.message==="quote_not_confirmed"
+      ?"Сначала подтвердите заявку"
+      :err.message==="quote_items_not_ready"
+        ?"Не все позиции готовы к заказу"
+        :"Не удалось создать заказ");
+  }
+}
+
 async function checkOperatorSupplier(id){
   try{
     toast("Проверяем поставщика");
@@ -2625,11 +2654,13 @@ async function saveOperatorItem(form){
   const kind=form.dataset.operatorForm,id=form.dataset.id,f=new FormData(form);
   const path=kind==="quote"
     ?"/api/admin/quote-requests/"+encodeURIComponent(id)
-    :kind==="vin"
-      ?"/api/admin/vin-requests/"+encodeURIComponent(id)
-      :kind==="return"
-        ?"/api/admin/returns/"+encodeURIComponent(id)
-        :"/api/admin/support-requests/"+encodeURIComponent(id);
+    :kind==="order"
+      ?"/api/admin/orders/"+encodeURIComponent(id)
+      :kind==="vin"
+        ?"/api/admin/vin-requests/"+encodeURIComponent(id)
+        :kind==="return"
+          ?"/api/admin/returns/"+encodeURIComponent(id)
+          :"/api/admin/support-requests/"+encodeURIComponent(id);
   const note=String(f.get("manager_note")||"").trim();
   const body=kind==="support"
     ?{status:f.get("status"),...(note?{message:note}:{})}
@@ -2798,7 +2829,9 @@ async function loadOrder(id){
 }
 function renderOrderDetail(){
   const d=S.orderDetail,o=d.order,items=d.items||[],history=d.history||[],root=$("#orderDetailRoot");
-  root.innerHTML='<div class="order-detail"><div><div class="panel panel-pad"><div class="detail-title"><div><span class="kicker">ЗАКАЗ № '+esc(o.order_number)+'</span><h3>'+esc(statusLabel(o.status))+'</h3><p>Создан '+datetime(o.created_at)+'</p></div><span style="display:flex;gap:7px;align-items:center;flex-wrap:wrap"><span class="status '+statusClass(o.status)+'">'+esc(statusLabel(o.status))+'</span><button class="ghost-btn small" data-print-detail>Печать / PDF</button></span></div></div><div class="order-items" style="margin-top:12px">'+(items.length?items.map(x=>'<div class="order-item"><span><b>'+esc(x.brand)+' '+esc(x.article)+'</b><span class="offer-desc">'+esc(x.description||"Автозапчасть")+'</span><button class="ghost-btn small" style="margin-top:5px" data-open-saved-part data-brand="'+esc(x.brand)+'" data-article="'+esc(x.article)+'">Актуальные предложения</button></span><span>'+x.quantity+' шт.</span><strong>'+rub(Number(x.unit_price)*Number(x.quantity))+'</strong><span><span class="status '+statusClass(x.status)+'">'+esc(statusLabel(x.status))+'</span>'+(x.returnable===false?'':'<button class="ghost-btn small" style="margin-top:6px" data-return-item="'+x.id+'">Возврат</button>')+'</span></div>').join(""):'<div class="empty">Позиции не найдены.</div>')+'</div></div><aside class="order-side"><div class="panel panel-pad"><div class="panel-title"><div><h3>Итого</h3><p>'+items.length+' позиций</p></div></div><div style="font-size:32px;font-weight:900">'+rub(o.total_amount)+'</div><p class="muted">'+esc(o.comment||"Без комментария")+'</p></div><div class="panel panel-pad"><div class="panel-title"><div><h3>Движение</h3><p>История изменений</p></div></div>'+(history.length?'<div class="timeline-list">'+history.map(x=>'<div class="timeline-row"><span class="dot"></span><p><b>'+esc(statusLabel(x.status))+'</b><small>'+datetime(x.created_at)+(x.note?" · "+esc(x.note):"")+'</small></p></div>').join("")+'</div>':'<p class="muted">История статусов пока пуста.</p>')+'</div></aside></div>';
+  const fulfillment=({delivery:"Доставка",pickup:"Самовывоз",confirmation:"Получение согласуем"})[o.fulfillment_method]||"Согласуется";
+  const payment=o.payment_method==="after_confirmation"?"После подтверждения":(o.payment_method||"Согласуется");
+  root.innerHTML='<div class="order-detail"><div><div class="panel panel-pad"><div class="detail-title"><div><span class="kicker">ЗАКАЗ № '+esc(o.order_number)+'</span><h3>'+esc(statusLabel(o.status))+'</h3><p>Создан '+datetime(o.created_at)+'</p></div><span style="display:flex;gap:7px;align-items:center;flex-wrap:wrap"><span class="status '+statusClass(o.status)+'">'+esc(statusLabel(o.status))+'</span><button class="ghost-btn small" data-print-detail>Печать / PDF</button></span></div><div class="info-grid"><div class="info"><span>Получение</span><b>'+esc(fulfillment)+'</b></div><div class="info"><span>Оплата</span><b>'+esc(payment)+'</b></div>'+(o.source_quote_id?'<div class="info"><span>Заявка</span><b>'+esc(o.source_quote_id)+'</b></div>':'')+(o.recipient_phone?'<div class="info"><span>Контакт</span><b>'+esc(o.recipient_phone)+'</b></div>':'')+'</div></div><div class="order-items" style="margin-top:12px">'+(items.length?items.map(x=>'<div class="order-item"><span><b>'+esc(x.brand)+' '+esc(x.article)+'</b><span class="offer-desc">'+esc(x.description||"Автозапчасть")+'</span><button class="ghost-btn small" style="margin-top:5px" data-open-saved-part data-brand="'+esc(x.brand)+'" data-article="'+esc(x.article)+'">Актуальные предложения</button></span><span>'+x.quantity+' шт.</span><strong>'+rub(Number(x.unit_price)*Number(x.quantity))+'</strong><span><span class="status '+statusClass(x.status)+'">'+esc(statusLabel(x.status))+'</span>'+(x.returnable===false?'':'<button class="ghost-btn small" style="margin-top:6px" data-return-item="'+x.id+'">Возврат</button>')+'</span></div>').join(""):'<div class="empty">Позиции не найдены.</div>')+'</div></div><aside class="order-side"><div class="panel panel-pad"><div class="panel-title"><div><h3>Итого</h3><p>'+items.length+' позиций</p></div></div><div style="font-size:32px;font-weight:900">'+rub(o.total_amount)+'</div><p class="muted">'+esc(o.comment||"Без комментария")+'</p></div><div class="panel panel-pad"><div class="panel-title"><div><h3>Движение</h3><p>История изменений</p></div></div>'+(history.length?'<div class="timeline-list">'+history.map(x=>'<div class="timeline-row"><span class="dot"></span><p><b>'+esc(statusLabel(x.status))+'</b><small>'+datetime(x.created_at)+(x.note?" · "+esc(x.note):"")+'</small></p></div>').join("")+'</div>':'<p class="muted">История статусов пока пуста.</p>')+'</div></aside></div>';
   if(items.length){
     const firstPanel=root.querySelector(".order-side .panel");
     firstPanel?.insertAdjacentHTML("beforeend",'<button class="secondary" style="width:100%;margin-top:14px" data-repeat-order>Повторить позиции</button><button class="ghost-btn" style="width:100%;margin-top:8px" data-support-context-type="order" data-support-context-id="'+o.id+'" data-support-context-label="заказу № '+esc(o.order_number)+'">Задать вопрос по заказу</button>');
@@ -2979,6 +3012,7 @@ document.addEventListener("click",async e=>{
   x=e.target.closest("[data-close-support]");if(x)return closeSupportRequest(x.dataset.closeSupport);
   x=e.target.closest("[data-support-context-type]");if(x)return openSupportForContext(x.dataset.supportContextType,x.dataset.supportContextId,x.dataset.supportContextLabel||"");
   x=e.target.closest("[data-check-supplier]");if(x)return checkOperatorSupplier(x.dataset.checkSupplier);
+  x=e.target.closest("[data-create-order]");if(x)return createOrderFromQuote(x.dataset.createOrder);
   if(e.target.closest("[data-check-release-supplier]"))return checkReleaseSupplier();
   x=e.target.closest("[data-toggle-pickup]");if(x)return togglePickupPoint(x.dataset.togglePickup,x.dataset.active==="1");
   if(e.target.closest("[data-clear-operator-search]")){S.operatorQuery="";return renderOperator()}
