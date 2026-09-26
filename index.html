@@ -60,9 +60,19 @@ button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-vis
 .hero h1 em{font-style:normal;color:var(--green)}
 .hero-copy{min-width:0;max-width:100%}
 .hero-copy>p{max-width:660px;font-size:19px;color:var(--muted)}
-.search{display:flex;gap:8px;max-width:760px;margin-top:30px;padding:7px;background:#fff;border:1px solid var(--line);border-radius:15px;box-shadow:var(--shadow)}
+.search{position:relative;display:flex;gap:8px;max-width:760px;margin-top:30px;padding:7px;background:#fff;border:1px solid var(--line);border-radius:15px;box-shadow:var(--shadow);overflow:visible}
 .search input{flex:1;min-width:0;border:0;outline:0;background:transparent;padding:12px 13px;font-size:17px}
 .search button{padding:12px 20px}
+.search-suggest{position:absolute;z-index:70;left:0;right:0;top:calc(100% + 8px);display:grid;background:#fff;border:1px solid var(--line);border-radius:14px;box-shadow:0 18px 50px rgba(13,41,56,.16);overflow:hidden}
+.search-suggest[hidden]{display:none}
+.search-suggest-item{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:12px;align-items:center;width:100%;border:0;border-top:1px solid var(--line);background:#fff;padding:11px 13px;text-align:left}
+.search-suggest-item:first-child{border-top:0}
+.search-suggest-item:hover,.search-suggest-item.active{background:#f0f5f1}
+.search-suggest-item b{display:block;font-size:13px}
+.search-suggest-item small{display:block;color:var(--muted);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.search-suggest-item code{font:750 11px/1 ui-monospace,SFMono-Regular,Menlo,monospace;color:var(--green2)}
+.search-suggest-note{padding:8px 13px;background:#f7f8f6;color:var(--muted);font-size:10px;border-top:1px solid var(--line)}
+
 .trust{display:flex;flex-wrap:wrap;gap:20px;margin-top:17px;color:var(--muted);font-size:13px}
 .trust span:before{content:"✓";margin-right:7px;color:var(--green);font-weight:900}
 .ai-badge{display:inline-grid;place-items:center;height:27px;padding:0 9px;border-radius:9px;background:var(--soft);color:var(--green2);font-size:10px;font-weight:950;letter-spacing:.08em;white-space:nowrap}
@@ -1037,6 +1047,97 @@ function aiSummaryHtml(result){
     (terms.length?'<div class="ai-meta">'+terms.map(x=>'<span class="ai-chip">↳ '+esc(x)+'</span>').join("")+'</div>':'')+
     '</div>';
 }
+const SEARCH_SUGGEST_STATE=new WeakMap();
+function searchSuggestState(form){
+  let state=SEARCH_SUGGEST_STATE.get(form);
+  if(!state){
+    state={timer:null,seq:0,items:[],active:-1};
+    SEARCH_SUGGEST_STATE.set(form,state);
+  }
+  return state;
+}
+function searchSuggestRoot(form){
+  let root=form.querySelector(".search-suggest");
+  if(!root){
+    root=document.createElement("div");
+    root.className="search-suggest";
+    root.hidden=true;
+    root.setAttribute("role","listbox");
+    form.appendChild(root);
+  }
+  return root;
+}
+function clearSearchSuggestions(form){
+  const state=searchSuggestState(form);
+  clearTimeout(state.timer);state.items=[];state.active=-1;
+  const root=searchSuggestRoot(form);root.hidden=true;root.innerHTML="";
+}
+function renderSearchSuggestions(form,items){
+  const state=searchSuggestState(form),root=searchSuggestRoot(form);
+  state.items=(items||[]).slice(0,8);state.active=-1;
+  if(!state.items.length){root.hidden=true;root.innerHTML="";return}
+  root.innerHTML=state.items.map((x,i)=>'<button type="button" class="search-suggest-item" role="option" data-suggest-index="'+i+' data-suggest-brand="'+esc(x.brand||"")+'" data-suggest-article="'+esc(x.article||"")+'"><span><b>'+esc([x.brand,x.article].filter(Boolean).join(" "))+'</b><small>'+esc(x.description||"Подсказка каталога")+'</small></span><code>'+esc(x.article||"")+'</code></button>').join("")+
+    '<div class="search-suggest-note">Подсказки приходят из каталога поставщика. Совместимость с автомобилем подтверждается отдельно.</div>';
+  root.hidden=false;
+}
+function setSearchSuggestionActive(form,index){
+  const state=searchSuggestState(form),root=searchSuggestRoot(form);
+  if(!state.items.length)return;
+  state.active=(index+state.items.length)%state.items.length;
+  root.querySelectorAll(".search-suggest-item").forEach((el,i)=>{
+    const active=i===state.active;el.classList.toggle("active",active);el.setAttribute("aria-selected",active?"true":"false");
+  });
+  root.querySelector(".search-suggest-item.active")?.scrollIntoView({block:"nearest"});
+}
+async function requestSearchSuggestions(form){
+  const input=form.querySelector('input[name="query"]'),state=searchSuggestState(form);
+  const q=String(input?.value||"").trim();
+  if(q.length<2){clearSearchSuggestions(form);return}
+  const seq=++state.seq;
+  try{
+    const d=await api("/api/catalog/suggest?q="+encodeURIComponent(q));
+    if(seq!==state.seq||String(input.value||"").trim()!==q)return;
+    renderSearchSuggestions(form,d.suggestions||[]);
+  }catch{
+    if(seq===state.seq)clearSearchSuggestions(form);
+  }
+}
+function bindSearchSuggestions(form){
+  const input=form.querySelector('input[name="query"]');if(!input)return;
+  input.autocomplete="off";
+  const state=searchSuggestState(form);
+  input.addEventListener("input",()=>{
+    clearTimeout(state.timer);
+    state.timer=setTimeout(()=>requestSearchSuggestions(form),220);
+  });
+  input.addEventListener("keydown",e=>{
+    if(e.key==="Escape"){clearSearchSuggestions(form);return}
+    if(e.key==="ArrowDown"||e.key==="ArrowUp"){
+      const root=searchSuggestRoot(form);if(root.hidden)return;
+      e.preventDefault();
+      setSearchSuggestionActive(form,state.active+(e.key==="ArrowDown"?1:-1));
+      return;
+    }
+    if(e.key==="Enter"&&state.active>=0&&state.items[state.active]){
+      e.preventDefault();
+      const item=state.items[state.active];
+      clearSearchSuggestions(form);
+      chooseSearchSuggestion(item);
+    }
+  });
+  input.addEventListener("focus",()=>{
+    if(state.items.length)searchSuggestRoot(form).hidden=false;
+  });
+}
+function chooseSearchSuggestion(item){
+  const brand=String(item?.brand||"").trim(),article=String(item?.article||"").trim();
+  if(!article)return;
+  $("[data-search-form]").forEach(clearSearchSuggestions);
+  recordSearch([brand,article].filter(Boolean).join(" "),"suggestion");
+  if(brand)return openPart(brand,article);
+  return searchArticle(article,true,article,null);
+}
+
 async function search(q,push=true){
   q=String(q||"").trim();
   if(!q)return;
@@ -2109,7 +2210,15 @@ async function submitReturn(e){
 }
 
 document.addEventListener("click",async e=>{
-  let x=e.target.closest("[data-go]");if(x)return go(x.dataset.go);
+  let x=e.target.closest("[data-suggest-index]");
+  if(x){
+    const form=x.closest("[data-search-form]"),state=form?searchSuggestState(form):null;
+    const item=state?.items?.[Number(x.dataset.suggestIndex)]||{brand:x.dataset.suggestBrand,article:x.dataset.suggestArticle};
+    if(form)clearSearchSuggestions(form);
+    return chooseSearchSuggestion(item);
+  }
+  if(!e.target.closest("[data-search-form]"))$("[data-search-form]").forEach(clearSearchSuggestions);
+  x=e.target.closest("[data-go]");if(x)return go(x.dataset.go);
   x=e.target.closest("[data-smart-query]");if(x)return search(x.dataset.smartQuery);
   x=e.target.closest("[data-recent-search]");if(x)return search(x.dataset.recentSearch);
   x=e.target.closest("[data-open-saved-part]");if(x)return openPart(x.dataset.brand,x.dataset.article);
@@ -2228,7 +2337,14 @@ document.addEventListener("submit",e=>{
 document.addEventListener("change",e=>{
   const x=e.target.closest("[data-notification]");if(x)saveNotification(x);
 });
-$$("[data-search-form]").forEach(f=>f.addEventListener("submit",e=>{e.preventDefault();search(new FormData(f).get("query"))}));
+$("[data-search-form]").forEach(f=>{
+  bindSearchSuggestions(f);
+  f.addEventListener("submit",e=>{
+    e.preventDefault();
+    clearSearchSuggestions(f);
+    search(new FormData(f).get("query"));
+  });
+});
 $("#authForm").addEventListener("submit",submitAuth);
 $("#vehicleForm").addEventListener("submit",saveVehicle);
 $("#vinForm").addEventListener("submit",submitVinRequest);
