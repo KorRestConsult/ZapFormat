@@ -109,6 +109,7 @@ app.use("/api/checkout", requireDatabase);
 app.use("/api/orders", requireDatabase);
 app.use("/api/returns", requireDatabase);
 app.use("/api/vin-requests", requireDatabase);
+app.use("/api/admin", requireDatabase);
 
 function normalizeEmail(value) {
   const email = String(value || "").trim().toLowerCase();
@@ -198,6 +199,20 @@ async function requireUser(req, res, next) {
   try {
     const user = await currentUser(req);
     if (!user) return res.status(401).json({ error: "unauthorized" });
+    req.user = user;
+    next();
+  } catch (error) {
+    next(error);
+  }
+}
+
+async function requireStaff(req, res, next) {
+  try {
+    const user = await currentUser(req);
+    if (!user) return res.status(401).json({ error: "unauthorized" });
+    if (!["admin", "owner"].includes(user.role)) {
+      return res.status(403).json({ error: "forbidden" });
+    }
     req.user = user;
     next();
   } catch (error) {
@@ -1974,6 +1989,239 @@ app.post("/api/returns", requireUser, async (req, res, next) => {
     next(error);
   } finally {
     client.release();
+  }
+});
+
+app.get("/api/admin/overview", requireStaff, async (req, res, next) => {
+  try {
+    const [quotes, vin, returns, orders] = await Promise.all([
+      pool.query(
+        `SELECT
+            count(*) FILTER (WHERE status = 'new')::int AS new,
+            count(*) FILTER (WHERE status = 'in_progress')::int AS in_progress,
+            count(*) FILTER (WHERE status = 'confirmed')::int AS confirmed
+           FROM quote_requests`
+      ),
+      pool.query(
+        `SELECT
+            count(*) FILTER (WHERE status = 'new')::int AS new,
+            count(*) FILTER (WHERE status = 'in_progress')::int AS in_progress,
+            count(*) FILTER (WHERE status = 'answered')::int AS answered
+           FROM vin_requests`
+      ),
+      pool.query(
+        `SELECT
+            count(*) FILTER (WHERE status = 'created')::int AS created,
+            count(*) FILTER (WHERE status = 'in_progress')::int AS in_progress,
+            count(*) FILTER (WHERE status = 'approved')::int AS approved
+           FROM returns`
+      ),
+      pool.query(
+        `SELECT
+            count(*) FILTER (WHERE status NOT IN ('completed','cancelled','returned'))::int AS active,
+            count(*) FILTER (WHERE status = 'ready')::int AS ready
+           FROM orders`
+      )
+    ]);
+
+    res.json({
+      quotes: quotes.rows[0],
+      vin: vin.rows[0],
+      returns: returns.rows[0],
+      orders: orders.rows[0]
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+app.get("/api/admin/queue", requireStaff, async (req, res, next) => {
+  try {
+    const [quotes, vin, returns] = await Promise.all([
+      pool.query(
+        `SELECT
+            q.id, q.status, q.fulfillment_method, q.payment_method,
+            q.verified_total, q.customer_comment, q.manager_note,
+            q.recipient_name, q.recipient_phone, q.created_at, q.updated_at,
+            q.vehicle_id, v.brand, v.model, v.generation, v.year,
+            count(i.id)::int AS item_count
+         FROM quote_requests q
+         LEFT JOIN quote_request_items i ON i.request_id = q.id
+         LEFT JOIN vehicles v ON v.id = q.vehicle_id
+         WHERE q.status NOT IN ('completed','cancelled')
+         GROUP BY q.id, v.id
+         ORDER BY
+           CASE q.status WHEN 'new' THEN 0 WHEN 'in_progress' THEN 1 ELSE 2 END,
+           q.created_at ASC
+         LIMIT 200`
+      ),
+      pool.query(
+        `SELECT
+            vr.id, vr.status, vr.request_text, vr.manager_note, vr.vin,
+            vr.created_at, vr.updated_at,
+            v.brand, v.model, v.generation, v.year, v.engine,
+            u.name AS user_name, u.phone AS user_phone, u.email AS user_email
+         FROM vin_requests vr
+         LEFT JOIN vehicles v ON v.id = vr.vehicle_id
+         JOIN users u ON u.id = vr.user_id
+         WHERE vr.status NOT IN ('closed','cancelled')
+         ORDER BY
+           CASE vr.status WHEN 'new' THEN 0 WHEN 'in_progress' THEN 1 ELSE 2 END,
+           vr.created_at ASC
+         LIMIT 200`
+      ),
+      pool.query(
+        `SELECT
+            r.id, r.return_number, r.quantity, r.reason, r.comment,
+            r.status, r.manager_note, r.created_at, r.updated_at,
+            oi.article, oi.brand, oi.description, oi.unit_price,
+            o.order_number,
+            u.name AS user_name, u.phone AS user_phone, u.email AS user_email
+         FROM returns r
+         JOIN order_items oi ON oi.id = r.order_item_id
+         JOIN orders o ON o.id = oi.order_id
+         JOIN users u ON u.id = r.user_id
+         WHERE r.status NOT IN ('completed','rejected','cancelled')
+         ORDER BY
+           CASE r.status WHEN 'created' THEN 0 WHEN 'in_progress' THEN 1 ELSE 2 END,
+           r.created_at ASC
+         LIMIT 200`
+      )
+    ]);
+
+    res.json({
+      quotes: quotes.rows.map((row) => ({
+        ...row,
+        verified_total: row.verified_total === null ? null : Number(row.verified_total)
+      })),
+      vin: vin.rows,
+      returns: returns.rows.map((row) => ({
+        ...row,
+        unit_price: Number(row.unit_price || 0)
+      }))
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+app.patch("/api/admin/quote-requests/:requestId", requireStaff, async (req, res, next) => {
+  try {
+    const allowed = new Set(["new", "in_progress", "confirmed", "completed", "cancelled"]);
+    const status = req.body?.status === undefined ? null : String(req.body.status);
+    const managerNote = req.body?.manager_note === undefined
+      ? undefined
+      : String(req.body.manager_note || "").trim().slice(0, 3000) || null;
+
+    if (status !== null && !allowed.has(status)) {
+      return res.status(400).json({ error: "invalid_quote_status" });
+    }
+
+    const current = await pool.query(
+      "SELECT status, manager_note FROM quote_requests WHERE id = $1 LIMIT 1",
+      [req.params.requestId]
+    );
+    if (!current.rowCount) return res.status(404).json({ error: "quote_request_not_found" });
+
+    const nextStatus = status ?? current.rows[0].status;
+    const result = await pool.query(
+      `UPDATE quote_requests
+          SET status = $2,
+              manager_note = $3,
+              assigned_to = $4,
+              confirmed_at = CASE
+                WHEN $2 = 'confirmed' AND confirmed_at IS NULL THEN now()
+                ELSE confirmed_at
+              END,
+              updated_at = now()
+        WHERE id = $1
+        RETURNING *`,
+      [
+        req.params.requestId,
+        nextStatus,
+        managerNote === undefined ? current.rows[0].manager_note : managerNote,
+        req.user.id
+      ]
+    );
+    res.json({ request: result.rows[0] });
+  } catch (error) {
+    next(error);
+  }
+});
+
+app.patch("/api/admin/vin-requests/:requestId", requireStaff, async (req, res, next) => {
+  try {
+    const allowed = new Set(["new", "in_progress", "answered", "closed", "cancelled"]);
+    const status = req.body?.status === undefined ? null : String(req.body.status);
+    const managerNote = req.body?.manager_note === undefined
+      ? undefined
+      : String(req.body.manager_note || "").trim().slice(0, 3000) || null;
+
+    if (status !== null && !allowed.has(status)) {
+      return res.status(400).json({ error: "invalid_vin_request_status" });
+    }
+
+    const current = await pool.query(
+      "SELECT status, manager_note FROM vin_requests WHERE id = $1 LIMIT 1",
+      [req.params.requestId]
+    );
+    if (!current.rowCount) return res.status(404).json({ error: "vin_request_not_found" });
+
+    const result = await pool.query(
+      `UPDATE vin_requests
+          SET status = $2,
+              manager_note = $3,
+              updated_at = now()
+        WHERE id = $1
+        RETURNING *`,
+      [
+        req.params.requestId,
+        status ?? current.rows[0].status,
+        managerNote === undefined ? current.rows[0].manager_note : managerNote
+      ]
+    );
+    res.json({ request: result.rows[0] });
+  } catch (error) {
+    next(error);
+  }
+});
+
+app.patch("/api/admin/returns/:returnId", requireStaff, async (req, res, next) => {
+  try {
+    const allowed = new Set(["created", "in_progress", "approved", "rejected", "completed", "cancelled"]);
+    const status = req.body?.status === undefined ? null : String(req.body.status);
+    const managerNote = req.body?.manager_note === undefined
+      ? undefined
+      : String(req.body.manager_note || "").trim().slice(0, 3000) || null;
+
+    if (status !== null && !allowed.has(status)) {
+      return res.status(400).json({ error: "invalid_return_status" });
+    }
+
+    const current = await pool.query(
+      "SELECT status, manager_note FROM returns WHERE id = $1 LIMIT 1",
+      [req.params.returnId]
+    );
+    if (!current.rowCount) return res.status(404).json({ error: "return_not_found" });
+
+    const result = await pool.query(
+      `UPDATE returns
+          SET status = $2,
+              manager_note = $3,
+              assigned_to = $4,
+              updated_at = now()
+        WHERE id = $1
+        RETURNING *`,
+      [
+        req.params.returnId,
+        status ?? current.rows[0].status,
+        managerNote === undefined ? current.rows[0].manager_note : managerNote,
+        req.user.id
+      ]
+    );
+    res.json({ return: result.rows[0] });
+  } catch (error) {
+    next(error);
   }
 });
 
