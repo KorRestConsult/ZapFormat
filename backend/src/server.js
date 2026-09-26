@@ -1048,7 +1048,9 @@ async function supplierRowsForOffer(number, brand, { fresh = false } = {}) {
     const result = { mode: "articles", rows: normalizeSupplierRows(rows) };
     return fresh ? result : catalogCacheSet(cacheKey, result);
   } catch (error) {
-    if (error instanceof PartGradeError && Number(error.upstreamCode) === 103) {
+    const accessDenied = error instanceof PartGradeError &&
+      (Number(error.upstreamCode) === 103 || Number(error.status) === 403);
+    if (accessDenied) {
       const rows = await partGrade.searchBatch([{ number, brand }]);
       const result = { mode: "batch", rows: normalizeSupplierRows(rows) };
       return fresh ? result : catalogCacheSet(cacheKey, result);
@@ -3271,23 +3273,52 @@ app.get("/api/admin/release-readiness", requireStaff, async (req, res, next) => 
         user_info_ok: false,
         search_articles_ok: false,
         search_articles_denied: false,
+        search_batch_ok: false,
+        search_ok: false,
+        search_mode: null,
         http_status: null,
-        upstream_code: null
+        upstream_code: null,
+        batch_http_status: null,
+        batch_upstream_code: null
       };
       if (partGrade.configured()) {
         try {
           await partGrade.userInfo();
           supplierLive.user_info_ok = true;
-          await partGrade.searchArticles("PRS3420", "PATRON");
-          supplierLive.search_articles_ok = true;
         } catch (error) {
           if (error instanceof PartGradeError) {
             supplierLive.http_status = error.status || null;
             supplierLive.upstream_code = error.upstreamCode ?? null;
-            supplierLive.search_articles_denied =
-              Number(error.status) === 403 || Number(error.upstreamCode) === 103;
           } else {
             throw error;
+          }
+        }
+
+        if (supplierLive.user_info_ok) {
+          try {
+            await partGrade.searchArticles("PRS3420", "PATRON");
+            supplierLive.search_articles_ok = true;
+            supplierLive.search_ok = true;
+            supplierLive.search_mode = "articles";
+          } catch (error) {
+            if (!(error instanceof PartGradeError)) throw error;
+            supplierLive.http_status = error.status || null;
+            supplierLive.upstream_code = error.upstreamCode ?? null;
+            supplierLive.search_articles_denied =
+              Number(error.status) === 403 || Number(error.upstreamCode) === 103;
+
+            if (supplierLive.search_articles_denied) {
+              try {
+                await partGrade.searchBatch([{ number: "PRS3420", brand: "PATRON" }]);
+                supplierLive.search_batch_ok = true;
+                supplierLive.search_ok = true;
+                supplierLive.search_mode = "batch";
+              } catch (batchError) {
+                if (!(batchError instanceof PartGradeError)) throw batchError;
+                supplierLive.batch_http_status = batchError.status || null;
+                supplierLive.batch_upstream_code = batchError.upstreamCode ?? null;
+              }
+            }
           }
         }
       }
@@ -3328,7 +3359,7 @@ app.get("/api/admin/release-readiness", requireStaff, async (req, res, next) => 
       ready_for_public_commerce:
         Boolean(pool) &&
         partGrade.configured() &&
-        Boolean(supplierLive?.search_articles_ok) &&
+        Boolean(supplierLive?.search_ok) &&
         legal.seller_identity &&
         legal.privacy_policy &&
         legal.terms &&
