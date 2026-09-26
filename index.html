@@ -124,6 +124,13 @@ a{color:inherit}
 .vin-row small{display:block;color:var(--muted);margin-top:3px}
 .search-mode{display:flex;gap:6px;margin-top:18px}
 .search-mode span{display:inline-flex;align-items:center;padding:6px 9px;border-radius:999px;background:#edf2ee;color:var(--green2);font-size:11px;font-weight:850}
+.recent-searches{display:flex;gap:7px;flex-wrap:wrap;margin-top:12px;align-items:center}
+.recent-searches>span{font-size:11px;color:var(--muted);font-weight:800}
+.recent-search{border:1px solid var(--line);background:#fff;border-radius:999px;padding:6px 9px;font-size:12px;max-width:220px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.saved-part-row{display:grid;grid-template-columns:minmax(0,1fr) auto auto;gap:9px;align-items:center;padding:11px 0;border-top:1px solid var(--line)}
+.saved-part-row:first-child{border-top:0}
+.saved-part-row small{display:block;color:var(--muted);margin-top:2px}
+
 
 .catalog,.section-page{padding:34px 0 100px}
 .back{border:0;background:none;padding:8px 0;color:var(--green);font-weight:800}
@@ -394,6 +401,7 @@ dialog::backdrop{background:rgba(13,41,56,.56);backdrop-filter:blur(5px)}
       </form>
       <div class="trust"><span>Поиск с ИИ</span><span>Реальные остатки</span><span>Актуальная цена</span><span>Личный гараж</span></div><div id="vehicleContext" style="margin-top:14px"></div>
       <div class="search-mode"><span>АРТИКУЛ</span><span>НАЗВАНИЕ</span><span>VIN-ПОДБОР</span><span>АНАЛОГИ</span></div>
+      <div id="recentSearchesHome"></div>
     </div>
     <aside class="hero-panel">
       <small>ZAPFORMAT</small>
@@ -553,6 +561,8 @@ const S={
   notifications:null,
   notificationFeed:[],
   notificationUnread:0,
+  savedParts:[],
+  recentSearches:[],
   addresses:[],
   returns:[],
   selectedReturnItem:null,
@@ -819,6 +829,42 @@ function vinStatusLabel(s){
   return ({new:"Новый",in_progress:"В подборе",answered:"Ответ готов",closed:"Закрыт",cancelled:"Отменён"})[s]||String(s||"Статус");
 }
 
+function renderRecentSearches(){
+  const root=$("#recentSearchesHome");if(!root)return;
+  const items=(S.recentSearches||[]).slice(0,5);
+  root.innerHTML=items.length
+    ?'<div class="recent-searches"><span>НЕДАВНО:</span>'+items.map(x=>'<button class="recent-search" data-recent-search="'+esc(x.query)+'">'+esc(x.query)+'</button>').join("")+'</div>'
+    :"";
+}
+async function recordSearch(query,type="search"){
+  if(!S.user)return;
+  try{
+    const d=await api("/api/account/recent-searches",{method:"POST",body:JSON.stringify({query,search_type:type,vehicle:vehicleForAI()})});
+    S.recentSearches=[d.search,...S.recentSearches.filter(x=>x.id!==d.search.id&&String(x.query).toLowerCase()!==String(d.search.query).toLowerCase())].slice(0,20);
+    renderRecentSearches();
+  }catch{}
+}
+async function saveCurrentPart(part){
+  if(!requireAuth())return;
+  try{
+    const d=await api("/api/account/saved-parts",{method:"POST",body:JSON.stringify({brand:part.brand,article:part.article,description:part.description})});
+    S.savedParts=[d.part,...S.savedParts.filter(x=>x.id!==d.part.id&&!(String(x.brand).toUpperCase()===String(d.part.brand).toUpperCase()&&String(x.article).toUpperCase()===String(d.part.article).toUpperCase()))];
+    toast("Деталь сохранена");
+  }catch{toast("Не удалось сохранить деталь")}
+}
+async function deleteSavedPart(id){
+  try{
+    await api("/api/account/saved-parts/"+encodeURIComponent(id),{method:"DELETE"});
+    S.savedParts=S.savedParts.filter(x=>x.id!==id);toast("Удалено из сохранённых");renderAccount();
+  }catch{toast("Не удалось удалить")}
+}
+async function clearRecentSearches(){
+  try{
+    await api("/api/account/recent-searches",{method:"DELETE"});
+    S.recentSearches=[];renderRecentSearches();renderAccount();toast("История поиска очищена");
+  }catch{toast("Не удалось очистить историю")}
+}
+
 function catalogState(title,text){
   $("#catalogTitle").textContent=title;
   $("#catalogSub").textContent=text||"";
@@ -856,6 +902,7 @@ function aiSummaryHtml(result){
 async function search(q,push=true){
   q=String(q||"").trim();
   if(!q)return;
+  recordSearch(q,looksLikeArticleQuery(q)?"article":"smart");
   if(looksLikeArticleQuery(q))return searchArticle(q,push,q,null);
   return searchWithAI(q,push);
 }
@@ -962,7 +1009,7 @@ function renderOfferTable(){
       if(minDelivery!==null&&Number(x.delivery_hours)===minDelivery)tags.push('<span class="offer-tag fast">Быстрее</span>');
       if(maxStock>0&&Number(x.availability||0)===maxStock)tags.push('<span class="offer-tag stock">Больше остаток</span>');
       if(x.returnable!==false)tags.push('<span class="offer-tag return">Возврат возможен</span>');
-      return '<div class="offer"><span><b>'+esc(x.brand)+' '+esc(x.article)+'</b><span class="offer-desc">'+esc(x.description||"Автозапчасть")+(Number(x.packing||1)>1?' · кратность '+Number(x.packing):'')+(x.delivery_probability!==null&&x.delivery_probability!==undefined?' · вероятность поставки '+esc(x.delivery_probability)+'%':'')+(x.returnable===false?' · без возврата':'')+'</span>'+(tags.length?'<span class="offer-tags">'+tags.join("")+'</span>':'')+'</span><span class="availability">'+Number(x.availability||0)+' шт.</span><span><b>'+esc(delivery)+'</b><span class="offer-note">'+(Number(x.delivery_hours||0)?Math.max(1,Math.ceil(Number(x.delivery_hours||0)/24))+' дн.':'')+'</span></span><strong>'+rub(x.price)+'</strong><button class="small-primary" data-add-offer="'+j+'">В корзину</button></div>';
+      return '<div class="offer"><span><b>'+esc(x.brand)+' '+esc(x.article)+'</b><span class="offer-desc">'+esc(x.description||"Автозапчасть")+(Number(x.packing||1)>1?' · кратность '+Number(x.packing):'')+(x.delivery_probability!==null&&x.delivery_probability!==undefined?' · вероятность поставки '+esc(x.delivery_probability)+'%':'')+(x.returnable===false?' · без возврата':'')+'</span>'+(tags.length?'<span class="offer-tags">'+tags.join("")+'</span>':'')+'</span><span class="availability">'+Number(x.availability||0)+' шт.</span><span><b>'+esc(delivery)+'</b><span class="offer-note">'+(Number(x.delivery_hours||0)?Math.max(1,Math.ceil(Number(x.delivery_hours||0)/24))+' дн.':'')+'</span></span><strong>'+rub(x.price)+'</strong><span style="display:flex;gap:6px;align-items:center"><button class="ghost-btn" data-save-offer="'+j+'" title="Сохранить">☆</button><button class="small-primary" data-add-offer="'+j+'">В корзину</button></span></div>';
     }).join("")+'</div>':'<div class="state-card"><div><b>Под этот фильтр ничего нет</b><p>Снимите фильтр наличия или выберите другого производителя.</p></div></div>');
 }
 function addOffer(i){
@@ -1209,9 +1256,18 @@ async function hydrate(){
       S.vehicles=garage.vehicles||[];
       S.activeVehicle=S.vehicles.find(v=>v.is_default)||S.vehicles[0]||null;
     }catch{}
+    try{
+      const [saved,recent]=await Promise.all([
+        api("/api/account/saved-parts").catch(()=>({parts:[]})),
+        api("/api/account/recent-searches").catch(()=>({searches:[]}))
+      ]);
+      S.savedParts=saved.parts||[];
+      S.recentSearches=recent.searches||[];
+    }catch{}
     await mergeServerCart();
   }
   renderVehicleContext();
+  renderRecentSearches();
 }
 function authUi(){
   $$("[data-auth-tab]").forEach(x=>x.classList.toggle("active",x.dataset.authTab===S.authMode));
@@ -1246,13 +1302,15 @@ async function renderAccount(){
   }
   root.innerHTML='<div class="section-head"><span class="kicker">ЛИЧНЫЙ КАБИНЕТ</span><h2>'+esc(S.user.name)+'</h2><p>Профиль, автомобили и заказы в одном месте.</p></div><div class="dashboard-grid"><div><div id="accountPrimary"></div></div><aside id="accountSide"></aside></div>';
   try{
-    const [overview,notif,feed,addresses]=await Promise.all([
+    const [overview,notif,feed,addresses,saved,recent]=await Promise.all([
       api("/api/account/overview"),
       api("/api/account/notifications"),
       api("/api/account/notifications/feed").catch(()=>({notifications:[],unread:0})),
-      api("/api/account/addresses").catch(()=>({addresses:[]}))
+      api("/api/account/addresses").catch(()=>({addresses:[]})),
+      api("/api/account/saved-parts").catch(()=>({parts:[]})),
+      api("/api/account/recent-searches").catch(()=>({searches:[]}))
     ]);
-    S.overview=overview;S.notifications=notif.settings;S.notificationFeed=feed.notifications||[];S.notificationUnread=Number(feed.unread||0);S.addresses=addresses.addresses||[];
+    S.overview=overview;S.notifications=notif.settings;S.notificationFeed=feed.notifications||[];S.notificationUnread=Number(feed.unread||0);S.addresses=addresses.addresses||[];S.savedParts=saved.parts||[];S.recentSearches=recent.searches||[];
   }catch{}
   const stats=S.overview?.stats||{active_orders:0,ready_orders:0,vehicles:0,active_returns:0};
   $("#accountPrimary").innerHTML=
@@ -1267,11 +1325,18 @@ async function renderAccount(){
     notificationRow("returns","Возвраты","Изменения по возвратам",n.returns)+
     notificationRow("marketing","Предложения","Новости и акции ZapFormat",n.marketing)+
     '</div></div><div class="panel panel-pad" style="margin-top:16px"><div class="panel-title"><div><h3>Безопасность</h3><p>Пароль и активные устройства.</p></div></div><form id="passwordForm"><div class="field"><label>Текущий пароль</label><input name="current_password" type="password" autocomplete="current-password" required></div><div class="field" style="margin-top:9px"><label>Новый пароль</label><input name="new_password" type="password" minlength="8" autocomplete="new-password" required></div><div class="form-actions"><button class="secondary">Сменить пароль</button></div></form><div class="form-actions"><button class="secondary" data-logout-others>Выйти на других устройствах</button><button class="danger" data-logout>Выйти</button></div></div>';
-  $("#accountPrimary").insertAdjacentHTML("beforeend",accountAddressPanel());
+  $("#accountPrimary").insertAdjacentHTML("beforeend",accountAddressPanel()+accountSavedPanel());
   $("#profileForm")?.addEventListener("submit",saveProfile);
   $("#passwordForm")?.addEventListener("submit",changePassword);
   $("#addressForm")?.addEventListener("submit",saveAddress);
 }
+function accountSavedPanel(){
+  const saved=S.savedParts||[],recent=S.recentSearches||[];
+  return '<div class="panel panel-pad" style="margin-top:16px"><div class="panel-title"><div><h3>Сохранённые детали</h3><p>Артикулы без сохранения старой цены.</p></div><span class="status neutral">'+saved.length+'</span></div>'+
+    (saved.length?'<div>'+saved.slice(0,20).map(x=>'<div class="saved-part-row"><span><b>'+esc(x.brand)+' '+esc(x.article)+'</b><small>'+esc(x.description||"")+'</small></span><button class="ghost-btn small" data-search-saved="'+esc(x.article)+'">Найти</button><button class="ghost-btn small" data-delete-saved="'+x.id+'">×</button></div>').join("")+'</div>':'<p class="muted">Нажмите ☆ рядом с предложением, чтобы сохранить артикул.</p>')+
+    '<div class="mini-form"><div class="panel-title" style="margin-bottom:8px"><div><h3 style="font-size:16px">История поиска</h3><p>'+recent.length+' последних запросов</p></div>'+(recent.length?'<button class="ghost-btn small" data-clear-recent>Очистить</button>':'')+'</div>'+(recent.length?'<div class="recent-searches">'+recent.slice(0,8).map(x=>'<button class="recent-search" data-recent-search="'+esc(x.query)+'">'+esc(x.query)+'</button>').join("")+'</div>':'<p class="muted">История пока пуста.</p>')+'</div></div>';
+}
+
 function accountNotificationFeedPanel(){
   const items=S.notificationFeed||[];
   return '<div class="panel panel-pad"><div class="panel-title"><div><h3>События</h3><p>'+(S.notificationUnread?S.notificationUnread+' непрочитанных':'Новых событий нет')+'</p></div>'+(S.notificationUnread?'<button class="ghost-btn small" data-read-all-notifications>Прочитать все</button>':'')+'</div>'+
@@ -1654,6 +1719,10 @@ async function submitReturn(e){
 document.addEventListener("click",async e=>{
   let x=e.target.closest("[data-go]");if(x)return go(x.dataset.go);
   x=e.target.closest("[data-smart-query]");if(x)return search(x.dataset.smartQuery);
+  x=e.target.closest("[data-recent-search]");if(x)return search(x.dataset.recentSearch);
+  x=e.target.closest("[data-search-saved]");if(x)return search(x.dataset.searchSaved);
+  x=e.target.closest("[data-delete-saved]");if(x)return deleteSavedPart(x.dataset.deleteSaved);
+  if(e.target.closest("[data-clear-recent]"))return clearRecentSearches();
   x=e.target.closest("[data-vin-prefill]");if(x)return openVinRequest(x.dataset.vinPrefill||"");
   if(e.target.closest("[data-vin-open]"))return openVinRequest("");
   x=e.target.closest("[data-ai-candidate]");if(x){
@@ -1662,6 +1731,7 @@ document.addEventListener("click",async e=>{
     return searchArticle(candidate.article,false,S.aiOriginalQuery||candidate.article,ai);
   }
   x=e.target.closest("[data-brand-index]");if(x)return loadOffers(Number(x.dataset.brandIndex));
+  x=e.target.closest("[data-save-offer]");if(x){const item=S.offers[Number(x.dataset.saveOffer)];if(item)return saveCurrentPart(item)}
   x=e.target.closest("[data-add-offer]");if(x)return addOffer(Number(x.dataset.addOffer));
   if(e.target.closest("[data-show-brands]"))return renderBrands();
   x=e.target.closest("[data-offer-sort]");if(x){S.offerSort=x.value;return renderOfferTable()}
