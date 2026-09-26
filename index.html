@@ -354,9 +354,13 @@ button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-vis
 .help-cta .form-actions{margin:0;flex-wrap:wrap}
 .help-cta .secondary,.help-cta .ghost-btn{background:#fff}
 .site-footer{border-top:1px solid var(--line);background:#fff;margin-top:10px}
-.site-footer-in{min-height:88px;display:flex;align-items:center;justify-content:space-between;gap:20px}
+.site-footer-in{min-height:88px;display:flex;align-items:center;justify-content:space-between;gap:20px;flex-wrap:wrap;padding-top:18px;padding-bottom:18px}
 .site-footer-brand b{display:block;font-size:17px}
 .site-footer-brand span{display:block;font-size:12px;color:var(--muted);margin-top:3px}
+.site-footer-legal{width:100%;display:flex;gap:12px;align-items:center;flex-wrap:wrap;padding-top:10px;border-top:1px solid var(--line);font-size:12px;color:var(--muted)}
+.site-footer-legal[hidden]{display:none}
+.site-footer-legal a{color:var(--muted);font-weight:750;text-decoration:none}
+.site-footer-legal a:hover{color:var(--green)}
 .site-footer-nav{display:flex;gap:7px;flex-wrap:wrap}
 .site-footer-nav button{border:0;background:none;padding:8px;color:var(--muted);font-weight:750}
 .site-footer-nav button:hover{color:var(--green)}
@@ -691,6 +695,7 @@ dialog::backdrop{background:rgba(13,41,56,.56);backdrop-filter:blur(5px)}
   <div class="shell site-footer-in">
     <div class="site-footer-brand"><b>ZapFormat</b><span>Поиск, проверка, заказ и обслуживание автомобиля в одном месте.</span></div>
     <nav class="site-footer-nav" aria-label="Навигация в подвале"><button data-go="help">Как работает</button><button data-go="support">Поддержка</button><button data-go="orders">Заказы</button><button data-go="garage">Гараж</button><button data-go="account">Кабинет</button></nav>
+    <div class="site-footer-legal" id="siteFooterLegal" hidden></div>
   </div>
 </footer>
 
@@ -784,6 +789,7 @@ try{
 }catch{}
 const S={
   user:null,
+  publicConfig:null,
   cart:readCart(),
   query:"",
   aiOriginalQuery:"",
@@ -1899,7 +1905,22 @@ function renderCheckoutSuccess(){
   root.innerHTML='<div class="checkout-success"><div class="success-mark">✓</div><span class="kicker">ЗАЯВКА ПРИНЯТА</span><h2>Товары перепроверены</h2><p>Это заявка на подтверждение, а не автоматически созданный заказ у поставщика. Следующий шаг — подтверждение условий.</p><span class="request-code">'+esc(d.request_id)+'</span><div class="panel panel-pad" style="text-align:left;margin:18px 0"><div class="total-row" style="display:flex;justify-content:space-between;padding:8px 0"><span>Проверенная сумма товаров</span><strong>'+rub(d.verified_total)+'</strong></div><div class="total-row" style="display:flex;justify-content:space-between;padding:8px 0"><span>Получение</span><strong>'+esc(method)+'</strong></div><div class="total-row" style="display:flex;justify-content:space-between;padding:8px 0"><span>Оплата</span><strong>После подтверждения</strong></div></div><div class="form-actions" style="justify-content:center"><button class="primary" data-go="orders">Открыть заявки</button><button class="secondary" data-go="home">Продолжить поиск</button></div></div>';
 }
 
+function renderPublicConfig(){
+  const root=$("#siteFooterLegal"),cfg=S.publicConfig;if(!root)return;
+  const seller=cfg?.seller?.legal_name||"";
+  const links=cfg?.links||{};
+  const parts=[];
+  if(seller)parts.push('<span>'+esc(seller)+'</span>');
+  if(links.privacy)parts.push('<a href="'+esc(links.privacy)+'" target="_blank" rel="noopener noreferrer">Конфиденциальность</a>');
+  if(links.terms)parts.push('<a href="'+esc(links.terms)+'" target="_blank" rel="noopener noreferrer">Условия / оферта</a>');
+  if(links.returns)parts.push('<a href="'+esc(links.returns)+'" target="_blank" rel="noopener noreferrer">Возвраты</a>');
+  root.innerHTML=parts.join("");
+  root.hidden=!parts.length;
+}
+
 async function hydrate(){
+  try{S.publicConfig=await api("/api/public/config")}catch{S.publicConfig=null}
+  renderPublicConfig();
   try{S.user=(await api("/api/auth/me")).user}catch{S.user=null}
   updateHeader();badges();
   if(S.user){
