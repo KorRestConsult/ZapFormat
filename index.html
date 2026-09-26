@@ -1402,11 +1402,14 @@ function addOffer(i){
   const packing=Math.max(1,Number(x.packing||1));
   const historicalQty=historical?Number(historical.qty||1):packing;
   const carryQty=Math.max(packing,Math.ceil(historicalQty/packing)*packing);
+  if(carryQty>999){toast("Максимум 999 шт. на одну позицию");return}
   if(historical)S.cart=S.cart.filter(z=>z!==historical);
   const id=x.offer_ref||[x.brand,x.article,x.price,x.delivery_hours].join("|");
   const existing=S.cart.find(z=>z.id===id||z.offer_ref===x.offer_ref);
-  if(existing)existing.qty+=packing;
-  else{
+  if(existing){
+    if(Number(existing.qty||0)+packing>999){toast("Максимум 999 шт. на одну позицию");return}
+    existing.qty+=packing;
+  }else{
     if(S.cart.length>=MAX_CART_ITEMS){toast("В корзине максимум "+MAX_CART_ITEMS+" разных позиций");return}
     S.cart.push({...x,id,packing,qty:carryQty,historical:false});
   }
@@ -2314,7 +2317,7 @@ function addHistoricalItems(items,source="history"){
     if(!item?.article||!item?.brand)continue;
     const unit=Number(item.unit_price??item.quoted_price??0);
     const id=[source,item.brand,item.article,unit].join("|");
-    const qty=Math.max(1,Number(item.quantity||1));
+    const qty=Math.min(999,Math.max(1,Number(item.quantity||1)));
     const existing=S.cart.find(z=>z.id===id);
     if(existing)existing.qty+=qty;
     else{
@@ -2417,7 +2420,13 @@ document.addEventListener("click",async e=>{
   x=e.target.closest("[data-offer-return]");if(x){S.offerOnlyReturnable=x.checked;return renderOfferTable()}
   x=e.target.closest("[data-offer-probability]");if(x){S.offerHighProbability=x.checked;return renderOfferTable()}
   if(e.target.closest("[data-retry-search]"))return search(S.query,false);
-  x=e.target.closest("[data-cart-qty]");if(x){const i=Number(x.dataset.cartQty),d=Number(x.dataset.delta),step=Math.max(1,Number(S.cart[i].packing||1));S.cart[i].qty=Math.max(step,Number(S.cart[i].qty)+d*step);writeCart();return renderCart()}
+  x=e.target.closest("[data-cart-qty]");if(x){
+    const i=Number(x.dataset.cartQty),d=Number(x.dataset.delta),item=S.cart[i];if(!item)return;
+    const step=Math.max(1,Number(item.packing||1)),maxQty=Math.max(step,Math.floor(999/step)*step);
+    const next=Math.max(step,Number(item.qty)+d*step);
+    if(next>maxQty){toast("Максимум "+maxQty+" шт. для этой кратности");return}
+    item.qty=next;writeCart();return renderCart()
+  }
   x=e.target.closest("[data-cart-remove]");if(x){S.cart.splice(Number(x.dataset.cartRemove),1);writeCart();return renderCart()}
   x=e.target.closest("[data-refresh-historical]");if(x){
     const item=S.cart[Number(x.dataset.refreshHistorical)];
