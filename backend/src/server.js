@@ -86,6 +86,8 @@ function requireInternal(req, res, next) {
 app.use("/api/auth", requireDatabase);
 app.use("/api/account", requireDatabase);
 app.use("/api/garage", requireDatabase);
+app.use("/api/orders", requireDatabase);
+app.use("/api/returns", requireDatabase);
 
 function normalizeEmail(value) {
   const email = String(value || "").trim().toLowerCase();
@@ -752,6 +754,164 @@ app.get("/api/account/requests/:requestId", requireUser, async (req, res, next) 
   }
 });
 
+app.get("/api/account/notifications", requireUser, async (req, res, next) => {
+  try {
+    await pool.query(
+      "INSERT INTO user_notification_settings (user_id) VALUES ($1) ON CONFLICT (user_id) DO NOTHING",
+      [req.user.id]
+    );
+    const result = await pool.query(
+      `SELECT order_status, item_changes, returns, marketing, updated_at
+         FROM user_notification_settings
+        WHERE user_id = $1`,
+      [req.user.id]
+    );
+    res.json({ settings: result.rows[0] });
+  } catch (error) {
+    next(error);
+  }
+});
+
+app.patch("/api/account/notifications", requireUser, async (req, res, next) => {
+  try {
+    const keys = ["order_status", "item_changes", "returns", "marketing"];
+    const current = await pool.query(
+      `SELECT order_status, item_changes, returns, marketing
+         FROM user_notification_settings
+        WHERE user_id = $1`,
+      [req.user.id]
+    );
+    const value = current.rows[0] || {
+      order_status: true,
+      item_changes: true,
+      returns: true,
+      marketing: false
+    };
+    for (const key of keys) {
+      if (req.body?.[key] !== undefined) value[key] = Boolean(req.body[key]);
+    }
+    const result = await pool.query(
+      `INSERT INTO user_notification_settings
+        (user_id, order_status, item_changes, returns, marketing, updated_at)
+       VALUES ($1,$2,$3,$4,$5,now())
+       ON CONFLICT (user_id) DO UPDATE SET
+         order_status = EXCLUDED.order_status,
+         item_changes = EXCLUDED.item_changes,
+         returns = EXCLUDED.returns,
+         marketing = EXCLUDED.marketing,
+         updated_at = now()
+       RETURNING order_status, item_changes, returns, marketing, updated_at`,
+      [
+        req.user.id,
+        value.order_status,
+        value.item_changes,
+        value.returns,
+        value.marketing
+      ]
+    );
+    res.json({ settings: result.rows[0] });
+  } catch (error) {
+    next(error);
+  }
+});
+
+app.get("/api/orders", requireUser, async (req, res, next) => {
+  try {
+    const result = await pool.query(
+      `SELECT
+          o.id,
+          o.order_number,
+          o.status,
+          o.total_amount,
+          o.currency,
+          o.comment,
+          o.created_at,
+          o.updated_at,
+          count(oi.id)::int AS item_count
+       FROM orders o
+       LEFT JOIN order_items oi ON oi.order_id = o.id
+       WHERE o.user_id = $1
+       GROUP BY o.id
+       ORDER BY o.created_at DESC
+       LIMIT 100`,
+      [req.user.id]
+    );
+
+    res.json({
+      orders: result.rows.map((row) => ({
+        id: row.id,
+        order_number: row.order_number,
+        status: row.status,
+        total_amount: Number(row.total_amount || 0),
+        currency: row.currency,
+        comment: row.comment,
+        item_count: row.item_count,
+        created_at: row.created_at,
+        updated_at: row.updated_at
+      }))
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+app.get("/api/orders/:orderId", requireUser, async (req, res, next) => {
+  try {
+    const orderResult = await pool.query(
+      `SELECT id, order_number, status, total_amount, currency, comment,
+              recipient_name, recipient_phone, created_at, updated_at
+         FROM orders
+        WHERE id = $1 AND user_id = $2
+        LIMIT 1`,
+      [req.params.orderId, req.user.id]
+    );
+    const order = orderResult.rows[0];
+    if (!order) return res.status(404).json({ error: "order_not_found" });
+
+    const [itemsResult, historyResult] = await Promise.all([
+      pool.query(
+        `SELECT id, article, brand, description, warehouse, delivery_days,
+                quantity, unit_price, status, supplier_status, expected_at,
+                received_at, created_at, updated_at
+           FROM order_items
+          WHERE order_id = $1
+          ORDER BY created_at, id`,
+        [order.id]
+      ),
+      pool.query(
+        `SELECT id, order_id, order_item_id, status, source, note, created_at
+           FROM order_status_history
+          WHERE order_id = $1
+             OR order_item_id IN (SELECT id FROM order_items WHERE order_id = $1)
+          ORDER BY created_at`,
+        [order.id]
+      )
+    ]);
+
+    res.json({
+      order: {
+        id: order.id,
+        order_number: order.order_number,
+        status: order.status,
+        total_amount: Number(order.total_amount || 0),
+        currency: order.currency,
+        comment: order.comment,
+        recipient_name: order.recipient_name,
+        recipient_phone: order.recipient_phone,
+        created_at: order.created_at,
+        updated_at: order.updated_at
+      },
+      items: itemsResult.rows.map((row) => ({
+        ...row,
+        unit_price: Number(row.unit_price || 0)
+      })),
+      history: historyResult.rows
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
 app.get("/api/garage", requireUser, async (req, res, next) => {
   try {
     const vehicles = await pool.query(
@@ -993,6 +1153,19 @@ app.post("/api/garage/vehicles/:vehicleId/maintenance", requireUser, async (req,
       ]
     );
     res.status(201).json({ record: result.rows[0] });
+  } catch (error) {
+    next(error);
+  }
+});
+
+app.delete("/api/garage/vehicles/:vehicleId", requireUser, async (req, res, next) => {
+  try {
+    const result = await pool.query(
+      "DELETE FROM vehicles WHERE id = $1 AND user_id = $2 RETURNING id",
+      [req.params.vehicleId, req.user.id]
+    );
+    if (!result.rowCount) return res.status(404).json({ error: "vehicle_not_found" });
+    res.status(204).end();
   } catch (error) {
     next(error);
   }
