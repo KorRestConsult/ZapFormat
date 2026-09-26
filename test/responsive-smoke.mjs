@@ -59,7 +59,7 @@ try {
     await page.goto("http://127.0.0.1:4173/index.html", { waitUntil: "domcontentloaded" });
     await page.waitForTimeout(150);
 
-    for (const screen of ["home", "catalogs", "garage", "orders", "support", "cart", "checkout", "account", "operator"]) {
+    for (const screen of ["home", "catalogs", "garage", "orders", "support", "help", "cart", "checkout", "account", "operator"]) {
       await page.evaluate((name) => window.go(name, false), screen);
       await page.waitForTimeout(50);
       await assertNoHorizontalOverflow(page, `${browserName}/${viewport.name}/${screen}/guest`);
