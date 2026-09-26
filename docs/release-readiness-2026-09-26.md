@@ -12,6 +12,7 @@ This is the launch gate for the rebuild branch. A checked item means the code pa
 - [x] Cart recheck before checkout.
 - [x] Checkout captures customer, vehicle, receiving method, address/pickup, comment and payment state.
 - [x] Checkout creates a confirmation request only after server verification.
+- [x] When terms/privacy URLs are configured, checkout requires explicit consent and stores acceptance timestamps plus URL snapshots with the request.
 - [x] Account: profile, addresses, saved parts, recent searches, notifications and active sessions.
 - [x] Garage: multiple vehicles, VIN, mileage, drivetrain/body/tyre/fluid context, history, plans and reminders.
 - [x] Orders, quote requests, VIN requests and returns have customer-visible detail/history.
