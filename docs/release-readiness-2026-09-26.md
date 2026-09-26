@@ -50,7 +50,7 @@ These must stay explicit. Do not replace them with fake UI/data.
 - [ ] **Delivery pricing / courier integration:** active pickup points can be configured, but calculated logistics is not connected.
 - [ ] **VIN/EPC fitment provider:** VIN requests exist, but automatic compatibility must not be claimed until a licensed catalog source is connected.
 - [ ] **Outbound notification provider:** in-app notifications exist; email/SMS/push delivery is not connected.
-- [ ] **Business/legal identity:** seller details, offer/terms, privacy policy, returns policy and required consent text must be supplied and legally reviewed before public commerce.
+- [ ] **Business/legal identity:** seller details, offer/terms, privacy policy and returns policy must be supplied and legally reviewed before public commerce. The backend now validates policy URLs as HTTP(S), and the frontend renders configured seller/legal links in the footer; missing values stay absent rather than fabricated.
 - [ ] **Production domain/TLS smoke:** final domain must serve frontend and API on the intended same origin and pass post-deploy checks.
 - [ ] **Production secrets:** confirm DATABASE_URL, PartGrade credentials, INTERNAL_API_TOKEN and OpenAI key are installed only in the protected VPS environment.
 
