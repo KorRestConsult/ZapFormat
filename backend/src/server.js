@@ -170,6 +170,30 @@ function publicUser(row) {
   };
 }
 
+async function appendCaseHistory({
+  userId,
+  caseType,
+  caseId,
+  status,
+  actorType = "system",
+  note = null
+}, client = pool) {
+  if (!userId || !caseType || !caseId || !status) return;
+  await client.query(
+    `INSERT INTO customer_case_history
+      (user_id, case_type, case_id, status, actor_type, note)
+     VALUES ($1,$2,$3,$4,$5,$6)`,
+    [
+      userId,
+      String(caseType),
+      String(caseId),
+      String(status),
+      String(actorType),
+      note ? String(note).slice(0, 3000) : null
+    ]
+  );
+}
+
 function sessionCookieOptions() {
   const sameSite = String(process.env.COOKIE_SAME_SITE || "lax").toLowerCase();
   const options = {
@@ -1446,12 +1470,21 @@ app.get("/api/account/quote-requests/:requestId", requireUser, async (req, res, 
       [request.id]
     );
 
+    const historyResult = await pool.query(
+      `SELECT id, status, actor_type, note, created_at
+         FROM customer_case_history
+        WHERE user_id = $1 AND case_type = 'quote' AND case_id = $2
+        ORDER BY created_at, id`,
+      [req.user.id, request.id]
+    );
+
     res.json({
       request,
       items: itemsResult.rows.map((row) => ({
         ...row,
         quoted_price: row.quoted_price === null ? null : Number(row.quoted_price)
-      }))
+      })),
+      history: historyResult.rows
     });
   } catch (error) {
     next(error);
@@ -1486,6 +1519,15 @@ app.patch("/api/account/quote-requests/:requestId/cancel", requireUser, async (r
         RETURNING id, status, updated_at`,
       [req.params.requestId, req.user.id]
     );
+
+    await appendCaseHistory({
+      userId: req.user.id,
+      caseType: "quote",
+      caseId: req.params.requestId,
+      status: "cancelled",
+      actorType: "customer",
+      note: "Заявка отменена клиентом."
+    });
 
     await pool.query(
       `INSERT INTO notifications (user_id, type, title, body)
@@ -2204,6 +2246,15 @@ app.post("/api/checkout/submit", requireUser, quoteLimiter, async (req, res, nex
       ]
     );
 
+    await appendCaseHistory({
+      userId: req.user.id,
+      caseType: "quote",
+      caseId: requestId,
+      status: "new",
+      actorType: "customer",
+      note: "Заявка создана после повторной проверки товаров."
+    }, client);
+
     for (const item of items) {
       await client.query(
         `INSERT INTO quote_request_items
@@ -2415,6 +2466,44 @@ app.get("/api/returns", requireUser, async (req, res, next) => {
   }
 });
 
+app.get("/api/returns/:returnId", requireUser, async (req, res, next) => {
+  try {
+    const result = await pool.query(
+      `SELECT
+          r.id, r.return_number, r.quantity, r.reason, r.comment,
+          r.status, r.manager_note, r.created_at, r.updated_at,
+          oi.id AS order_item_id, oi.article, oi.brand, oi.description, oi.unit_price,
+          o.id AS order_id, o.order_number
+       FROM returns r
+       JOIN order_items oi ON oi.id = r.order_item_id
+       JOIN orders o ON o.id = oi.order_id
+       WHERE r.id = $1 AND r.user_id = $2
+       LIMIT 1`,
+      [req.params.returnId, req.user.id]
+    );
+    const returnRequest = result.rows[0];
+    if (!returnRequest) return res.status(404).json({ error: "return_not_found" });
+
+    const history = await pool.query(
+      `SELECT id, status, actor_type, note, created_at
+         FROM customer_case_history
+        WHERE user_id = $1 AND case_type = 'return' AND case_id = $2
+        ORDER BY created_at, id`,
+      [req.user.id, String(returnRequest.id)]
+    );
+
+    res.json({
+      return: {
+        ...returnRequest,
+        unit_price: Number(returnRequest.unit_price || 0)
+      },
+      history: history.rows
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
 app.post("/api/returns", requireUser, async (req, res, next) => {
   const client = await pool.connect();
   try {
@@ -2471,6 +2560,15 @@ app.post("/api/returns", requireUser, async (req, res, next) => {
        VALUES ($1,$2,'return_created','zapformat',$3)`,
       [item.order_id, orderItemId, "Запрос на возврат создан"]
     );
+
+    await appendCaseHistory({
+      userId: req.user.id,
+      caseType: "return",
+      caseId: result.rows[0].id,
+      status: "created",
+      actorType: "customer",
+      note: "Запрос на возврат создан."
+    }, client);
 
     await client.query("COMMIT");
     res.status(201).json({ return: result.rows[0] });
@@ -2738,6 +2836,20 @@ app.patch("/api/admin/quote-requests/:requestId", requireStaff, async (req, res,
         req.user.id
       ]
     );
+    if (
+      current.rows[0].user_id &&
+      (nextStatus !== current.rows[0].status || result.rows[0].manager_note !== current.rows[0].manager_note)
+    ) {
+      await appendCaseHistory({
+        userId: current.rows[0].user_id,
+        caseType: "quote",
+        caseId: req.params.requestId,
+        status: nextStatus,
+        actorType: "staff",
+        note: result.rows[0].manager_note || "Статус заявки обновлён."
+      });
+    }
+
     if (current.rows[0].user_id) {
       await pool.query(
         `INSERT INTO notifications (user_id, type, title, body)
@@ -2786,6 +2898,19 @@ app.patch("/api/admin/vin-requests/:requestId", requireStaff, async (req, res, n
         managerNote === undefined ? current.rows[0].manager_note : managerNote
       ]
     );
+    if (
+      (status ?? current.rows[0].status) !== current.rows[0].status ||
+      result.rows[0].manager_note !== current.rows[0].manager_note
+    ) {
+      await appendCaseHistory({
+        userId: current.rows[0].user_id,
+        caseType: "vin",
+        caseId: req.params.requestId,
+        status: status ?? current.rows[0].status,
+        actorType: "staff",
+        note: result.rows[0].manager_note || "Статус подбора обновлён."
+      });
+    }
     await pool.query(
       `INSERT INTO notifications (user_id, type, title, body)
        VALUES ($1,'vin_status',$2,$3)`,
@@ -2834,6 +2959,19 @@ app.patch("/api/admin/returns/:returnId", requireStaff, async (req, res, next) =
         req.user.id
       ]
     );
+    if (
+      (status ?? current.rows[0].status) !== current.rows[0].status ||
+      result.rows[0].manager_note !== current.rows[0].manager_note
+    ) {
+      await appendCaseHistory({
+        userId: current.rows[0].user_id,
+        caseType: "return",
+        caseId: req.params.returnId,
+        status: status ?? current.rows[0].status,
+        actorType: "staff",
+        note: result.rows[0].manager_note || "Статус возврата обновлён."
+      });
+    }
     await pool.query(
       `INSERT INTO notifications (user_id, type, title, body)
        VALUES ($1,'return_status',$2,$3)`,
@@ -2989,6 +3127,15 @@ app.post("/api/vin-requests", requireUser, async (req, res, next) => {
       [req.user.id, vehicle?.id || null, vin, requestText]
     );
 
+    await appendCaseHistory({
+      userId: req.user.id,
+      caseType: "vin",
+      caseId: result.rows[0].id,
+      status: "new",
+      actorType: "customer",
+      note: "Запрос по VIN создан."
+    });
+
     await pool.query(
       `INSERT INTO notifications (user_id, type, title, body)
        VALUES ($1,'vin_request','Запрос по VIN создан',$2)`,
@@ -3039,7 +3186,14 @@ app.get("/api/vin-requests/:requestId", requireUser, async (req, res, next) => {
     );
     const request = result.rows[0];
     if (!request) return res.status(404).json({ error: "vin_request_not_found" });
-    res.json({ request });
+    const history = await pool.query(
+      `SELECT id, status, actor_type, note, created_at
+         FROM customer_case_history
+        WHERE user_id = $1 AND case_type = 'vin' AND case_id = $2
+        ORDER BY created_at, id`,
+      [req.user.id, String(request.id)]
+    );
+    res.json({ request, history: history.rows });
   } catch (error) {
     next(error);
   }
