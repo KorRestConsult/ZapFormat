@@ -135,6 +135,8 @@ button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-vis
 .operator-stat span{font-size:12px;color:var(--muted)}
 .operator-columns{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px;align-items:start}
 .operator-column{display:grid;gap:10px}
+.operator-searchbar{display:flex;gap:8px;align-items:center;margin-bottom:14px}
+.operator-searchbar input{flex:1;min-width:0;border:1px solid var(--line);background:#fff;border-radius:11px;padding:11px 13px}
 .operator-column>h3{margin:0 0 3px;font-size:21px}
 .operator-card{border:1px solid var(--line);background:#fff;border-radius:15px;padding:16px;min-width:0}
 .operator-card .op-top{display:flex;align-items:start;justify-content:space-between;gap:10px}
@@ -661,6 +663,7 @@ const S={
   checkoutSubmitting:false,
   operatorOverview:null,
   operatorQueue:null,
+  operatorQuery:"",
   operatorPickupPoints:[],
   operatorReadiness:{},
   vehicles:[],
@@ -2039,17 +2042,24 @@ async function loadOperator(){
 }
 function renderOperator(){
   const root=$("#operatorBody"),o=S.operatorOverview||{},q=S.operatorQueue||{quotes:[],vin:[],returns:[]};
+  const query=String(S.operatorQuery||"").trim().toLowerCase();
+  const filterRows=rows=>!query?(rows||[]):(rows||[]).filter(r=>
+    Object.values(r||{}).some(v=>String(v??"").toLowerCase().includes(query))
+  );
+  const quoteRows=filterRows(q.quotes),vinRows=filterRows(q.vin),returnRows=filterRows(q.returns);
   const stats=[
     ["Новые заявки",Number(o.quotes?.new||0)],
     ["VIN в очереди",Number(o.vin?.new||0)+Number(o.vin?.in_progress||0)],
     ["Возвраты",Number(o.returns?.created||0)+Number(o.returns?.in_progress||0)],
     ["Активные заказы",Number(o.orders?.active||0)]
   ];
-  root.innerHTML='<div class="operator-stats">'+stats.map(x=>'<div class="operator-stat"><b>'+x[1]+'</b><span>'+esc(x[0])+'</span></div>').join("")+'</div>'+
+  root.innerHTML='<form class="operator-searchbar" data-operator-search-form><input name="query" value="'+esc(S.operatorQuery||"")+'" placeholder="Телефон, VIN, артикул, номер заявки или имя"><button class="secondary">Найти</button>'+(S.operatorQuery?'<button class="ghost-btn" type="button" data-clear-operator-search>Сбросить</button>':'')+'</form>'+
+    '<div class="operator-stats">'+stats.map(x=>'<div class="operator-stat"><b>'+x[1]+'</b><span>'+esc(x[0])+'</span></div>').join("")+'</div>'+
+    (query?'<div class="small muted" style="margin:-7px 0 12px">Найдено: '+(quoteRows.length+vinRows.length+returnRows.length)+'</div>':'')+
     '<div class="operator-columns">'+
-      operatorColumn("Заявки",q.quotes||[],"quote")+
-      operatorColumn("VIN-подбор",q.vin||[],"vin")+
-      operatorColumn("Возвраты",q.returns||[],"return")+
+      operatorColumn("Заявки",quoteRows,"quote")+
+      operatorColumn("VIN-подбор",vinRows,"vin")+
+      operatorColumn("Возвраты",returnRows,"return")+
     '</div>'+operatorPickupPanel();
 }
 function operatorPickupPanel(){
@@ -2437,9 +2447,16 @@ document.addEventListener("click",async e=>{
   if(e.target.closest("[data-reload-orders]"))return loadOrders();
   x=e.target.closest("[data-check-supplier]");if(x)return checkOperatorSupplier(x.dataset.checkSupplier);
   x=e.target.closest("[data-toggle-pickup]");if(x)return togglePickupPoint(x.dataset.togglePickup,x.dataset.active==="1");
+  if(e.target.closest("[data-clear-operator-search]")){S.operatorQuery="";return renderOperator()}
   if(e.target.closest("[data-reload-operator]"))return loadOperator();
 });
 document.addEventListener("submit",e=>{
+  const operatorSearch=e.target.closest("[data-operator-search-form]");
+  if(operatorSearch){
+    e.preventDefault();
+    S.operatorQuery=String(new FormData(operatorSearch).get("query")||"").trim();
+    return renderOperator();
+  }
   const pickup=e.target.closest("#pickupPointForm");
   if(pickup){e.preventDefault();return savePickupPoint(pickup)}
   const form=e.target.closest("[data-operator-form]");
