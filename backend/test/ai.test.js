@@ -7,6 +7,7 @@ const {
   looksLikeArticle,
   looksLikeVin,
   outputText,
+  parseBrandArticle,
   safeVehicleContext,
   sanitizeIntent
 } = require("../src/ai");
@@ -17,6 +18,19 @@ test("recognizes article-like queries but not VINs or natural language", () => {
   assert.equal(looksLikeArticle("передние колодки"), false);
   assert.equal(looksLikeVin("X9F5XXEED56R37916"), true);
   assert.equal(looksLikeArticle("X9F5XXEED56R37916"), false);
+});
+
+test("parses an explicit brand plus article without AI", () => {
+  assert.deepEqual(parseBrandArticle("PATRON PRS3420"), {
+    brand_hint: "PATRON",
+    article: "PRS3420"
+  });
+  assert.deepEqual(parseBrandArticle("MANN-FILTER HU816X"), {
+    brand_hint: "MANN-FILTER",
+    article: "HU816X"
+  });
+  assert.equal(parseBrandArticle("передние PRS3420"), null);
+  assert.equal(parseBrandArticle("передние колодки"), null);
 });
 
 test("vehicle context excludes VIN and plate", () => {
