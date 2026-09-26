@@ -2640,8 +2640,12 @@ app.post("/api/returns", requireUser, async (req, res, next) => {
   const client = await pool.connect();
   try {
     const orderItemId = String(req.body?.order_item_id || "");
-    const quantity = Math.max(1, Math.min(999, Number(req.body?.quantity || 1)));
+    const quantity = Number(req.body?.quantity ?? 1);
     const reason = String(req.body?.reason || "").trim().slice(0, 300);
+
+    if (!Number.isInteger(quantity) || quantity < 1 || quantity > 999) {
+      return res.status(400).json({ error: "invalid_return_quantity" });
+    }
     const comment = String(req.body?.comment || "").trim().slice(0, 1000) || null;
 
     if (!orderItemId || !reason || !Number.isInteger(quantity)) {
