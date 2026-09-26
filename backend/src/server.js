@@ -2659,6 +2659,47 @@ app.patch("/api/admin/pickup-points/:pickupPointId", requireStaff, async (req, r
   }
 });
 
+app.get("/api/admin/quote-requests/:requestId/supplier-readiness", requireStaff, async (req, res, next) => {
+  try {
+    const requestResult = await pool.query(
+      `SELECT id, status, fulfillment_method, payment_method, verified_total, created_at
+         FROM quote_requests
+        WHERE id = $1
+        LIMIT 1`,
+      [req.params.requestId]
+    );
+    const request = requestResult.rows[0];
+    if (!request) return res.status(404).json({ error: "quote_request_not_found" });
+
+    const itemsResult = await pool.query(
+      `SELECT brand, article, quantity, offer_ref
+         FROM quote_request_items
+        WHERE request_id = $1
+        ORDER BY created_at, id`,
+      [request.id]
+    );
+
+    const resolved = await resolveSupplierWriteItems(itemsResult.rows);
+    const items = resolved.map(({ _supplier, ...item }) => item);
+    const writeEnabled = String(process.env.SUPPLIER_ORDER_WRITE_ENABLED || "false") === "true";
+    const confirmed = request.status === "confirmed";
+    const allReady = resolved.length > 0 && resolved.every((item) => item.write_ready);
+
+    res.json({
+      request_id: request.id,
+      supplier: "PartGrade / ABCP",
+      write_enabled: writeEnabled,
+      confirmed,
+      all_items_ready: allReady,
+      can_submit: Boolean(writeEnabled && confirmed && allReady),
+      items,
+      checked_at: new Date().toISOString()
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
 app.patch("/api/admin/quote-requests/:requestId", requireStaff, async (req, res, next) => {
   try {
     const allowed = new Set(["new", "in_progress", "confirmed", "completed", "cancelled"]);
