@@ -657,7 +657,7 @@ const S={
   cartServerWarning:"",
   checkoutOptions:null,
   checkoutResult:null,
-  checkoutDraft:{fulfillment_method:"",payment_method:"after_confirmation"},
+  checkoutDraft:{fulfillment_method:"",payment_method:"after_confirmation",recipient_name:"",recipient_phone:"",vehicle_id:"",delivery_address_id:"",pickup_point_id:"",comment:""},
   checkoutSubmitting:false,
   operatorOverview:null,
   operatorQueue:null,
@@ -1479,8 +1479,11 @@ function renderCheckout(){
   const root=$("#checkoutBody"),o=S.checkoutOptions||{};
   const methods=o.fulfillment_methods||[],addresses=o.addresses||[],points=o.pickup_points||[],vehicles=o.vehicles||[];
   const activeMethod=S.checkoutDraft.fulfillment_method||methods.find(x=>x.ready)?.code||"confirmation";
-  const defaultAddress=addresses.find(x=>x.is_default)||addresses[0]||null;
-  const defaultVehicle=vehicles.find(x=>x.is_default)||vehicles[0]||null;
+  const defaultAddress=addresses.find(x=>x.id===S.checkoutDraft.delivery_address_id)||addresses.find(x=>x.is_default)||addresses[0]||null;
+  const defaultVehicle=vehicles.find(x=>x.id===S.checkoutDraft.vehicle_id)||vehicles.find(x=>x.is_default)||vehicles[0]||null;
+  const defaultPickup=points.find(x=>x.id===S.checkoutDraft.pickup_point_id)||points[0]||null;
+  const recipientName=S.checkoutDraft.recipient_name||[S.user.name,S.user.surname].filter(Boolean).join(" ");
+  const recipientPhone=S.checkoutDraft.recipient_phone||S.user.phone||"";
   const total=S.cart.reduce((sum,x)=>sum+Number(x.price||0)*Number(x.qty||1),0);
 
   const fulfillmentChoices=methods.map(m=>'<label class="choice"><input type="radio" name="fulfillment_method" value="'+esc(m.code)+'" '+(activeMethod===m.code?"checked":"")+' '+(!m.ready&&m.code!=="delivery"?"disabled":"")+'><span><b>'+esc(m.label)+'</b><small>'+esc(m.description||"")+'</small></span></label>').join("");
@@ -1488,25 +1491,43 @@ function renderCheckout(){
     ?'<div class="choice-list">'+addresses.map(a=>'<label class="choice"><input type="radio" name="delivery_address_id" value="'+a.id+'" '+(defaultAddress?.id===a.id?"checked":"")+'><span><b>'+esc(a.label||"Адрес")+'</b><small>'+esc(a.city)+', '+esc(a.address)+(a.recipient_name?' · '+esc(a.recipient_name):'')+'</small></span></label>').join("")+'</div>'
     :'<div class="notice">Сохранённых адресов нет. Добавьте адрес ниже или выберите «Согласовать получение».</div>';
   const pointChoices=points.length
-    ?'<div class="choice-list">'+points.map((p,i)=>'<label class="choice"><input type="radio" name="pickup_point_id" value="'+p.id+'" '+(i===0?"checked":"")+'><span><b>'+esc(p.name)+'</b><small>'+esc([p.city,p.address].filter(Boolean).join(", "))+'</small></span></label>').join("")+'</div>'
+    ?'<div class="choice-list">'+points.map((p)=>'<label class="choice"><input type="radio" name="pickup_point_id" value="'+p.id+'" '+(defaultPickup?.id===p.id?"checked":"")+'><span><b>'+esc(p.name)+'</b><small>'+esc([p.city,p.address].filter(Boolean).join(", "))+'</small></span></label>').join("")+'</div>'
     :'<div class="notice">Пункты выдачи ещё не настроены. Этот вариант станет доступен после подключения реальной логистики.</div>';
   const vehicleChoices=vehicles.length
     ?'<select name="vehicle_id"><option value="">Без привязки к машине</option>'+vehicles.map(v=>'<option value="'+v.id+'" '+(defaultVehicle?.id===v.id?"selected":"")+'>'+esc(v.brand)+' '+esc(v.model)+' '+esc([v.generation,v.year].filter(Boolean).join(" "))+'</option>').join("")+'</select>'
     :'<span class="muted small">Автомобиль можно добавить позже.</span>';
 
   root.innerHTML='<form id="checkoutForm"><div class="checkout-grid"><div class="checkout-main">'+
-    '<section class="checkout-step"><div class="checkout-step-head"><span class="checkout-step-no">1</span><div><h3>Покупатель</h3><p>Контакт для подтверждения заявки.</p></div></div><div class="form-grid"><div class="field"><label>Получатель</label><input name="recipient_name" value="'+esc([S.user.name,S.user.surname].filter(Boolean).join(" "))+'" required></div><div class="field"><label>Телефон</label><input name="recipient_phone" value="'+esc(S.user.phone||"")+'" placeholder="+7 900 000-00-00" required></div><div class="field full"><label>Автомобиль</label>'+vehicleChoices+'</div></div></section>'+
+    '<section class="checkout-step"><div class="checkout-step-head"><span class="checkout-step-no">1</span><div><h3>Покупатель</h3><p>Контакт для подтверждения заявки.</p></div></div><div class="form-grid"><div class="field"><label>Получатель</label><input name="recipient_name" value="'+esc(recipientName)+'" required></div><div class="field"><label>Телефон</label><input name="recipient_phone" value="'+esc(recipientPhone)+'" placeholder="+7 900 000-00-00" required></div><div class="field full"><label>Автомобиль</label>'+vehicleChoices+'</div></div></section>'+
     '<section class="checkout-step"><div class="checkout-step-head"><span class="checkout-step-no">2</span><div><h3>Получение</h3><p>Выберите доступный вариант. Никаких вымышленных пунктов выдачи.</p></div></div><div class="choice-list">'+fulfillmentChoices+'</div>'+
       '<div id="checkoutDelivery" style="margin-top:14px">'+addressChoices+'<div class="mini-form"><h4>Добавить адрес</h4><div class="form-grid"><div class="field"><label>Город</label><input data-new-address-city placeholder="Рязань"></div><div class="field"><label>Название</label><input data-new-address-label placeholder="Дом"></div><div class="field full"><label>Адрес</label><input data-new-address-text placeholder="Улица, дом, квартира"></div></div><div class="form-actions"><button type="button" class="secondary" data-checkout-add-address>Сохранить адрес</button></div></div></div>'+
       '<div id="checkoutPickup" style="margin-top:14px">'+pointChoices+'</div>'+
     '</section>'+
     '<section class="checkout-step"><div class="checkout-step-head"><span class="checkout-step-no">3</span><div><h3>Оплата</h3><p>Онлайн-оплата не имитируется: пока доступно только подтверждение перед оплатой.</p></div></div><label class="choice"><input type="radio" name="payment_method" value="after_confirmation" checked><span><b>После подтверждения</b><small>Сначала проверяем поставщика, цену, наличие и получение. Деньги сейчас не списываются.</small></span></label></section>'+
-    '<section class="checkout-step"><div class="checkout-step-head"><span class="checkout-step-no">4</span><div><h3>Комментарий</h3><p>Необязательно.</p></div></div><div class="field"><textarea name="comment" rows="4" maxlength="1200" placeholder="Например: связаться после 18:00"></textarea></div></section>'+
+    '<section class="checkout-step"><div class="checkout-step-head"><span class="checkout-step-no">4</span><div><h3>Комментарий</h3><p>Необязательно.</p></div></div><div class="field"><textarea name="comment" rows="4" maxlength="1200" placeholder="Например: связаться после 18:00">'+esc(S.checkoutDraft.comment||"")+'</textarea></div></section>'+
     '</div><aside class="panel panel-pad checkout-summary"><div class="panel-title"><div><h3>Ваш заказ</h3><p>'+S.cart.length+' поз.</p></div></div><div class="checkout-items">'+S.cart.map(x=>'<div class="checkout-item"><span><b>'+esc(x.brand)+' '+esc(x.article)+'</b><small>'+Number(x.qty||1)+' шт. · '+esc(deliveryLabel(x.delivery_hours,x.delivery_hours_max))+'</small></span><strong>'+rub(Number(x.price||0)*Number(x.qty||1))+'</strong></div>').join("")+'</div><div style="margin-top:14px"><div class="total-row"><span>Товары</span><strong>'+rub(total)+'</strong></div><div class="total-row"><span>Доставка</span><span class="muted">после подтверждения</span></div><div class="total-row grand"><span>Предварительно</span><span>'+rub(total)+'</span></div></div><div class="checkout-warning">Перед созданием заявки backend ещё раз проверит каждое предложение. Если цена, срок или остаток изменились, оформление остановится.</div><button class="primary" style="width:100%" '+(S.checkoutSubmitting?"disabled":"")+'>'+(S.checkoutSubmitting?"Проверяем…":"Отправить на подтверждение")+'</button><div id="checkoutStatus" class="small error" style="margin-top:10px"></div></aside></div></form>';
 
-  $("#checkoutForm")?.addEventListener("submit",submitCheckout);
-  $$('[name="fulfillment_method"]',root).forEach(x=>x.addEventListener("change",e=>{S.checkoutDraft.fulfillment_method=e.target.value;updateCheckoutFulfillmentUi()}));
+  const checkoutForm=$("#checkoutForm");
+  checkoutForm?.addEventListener("submit",submitCheckout);
+  checkoutForm?.addEventListener("input",()=>syncCheckoutDraft(checkoutForm));
+  checkoutForm?.addEventListener("change",()=>syncCheckoutDraft(checkoutForm));
+  $('[name="fulfillment_method"]',root).forEach(x=>x.addEventListener("change",e=>{S.checkoutDraft.fulfillment_method=e.target.value;updateCheckoutFulfillmentUi()}));
   updateCheckoutFulfillmentUi();
+}
+function syncCheckoutDraft(form=$("#checkoutForm")){
+  if(!form)return;
+  const f=new FormData(form);
+  S.checkoutDraft={
+    ...S.checkoutDraft,
+    recipient_name:String(f.get("recipient_name")||""),
+    recipient_phone:String(f.get("recipient_phone")||""),
+    vehicle_id:String(f.get("vehicle_id")||""),
+    fulfillment_method:String(f.get("fulfillment_method")||S.checkoutDraft.fulfillment_method||"confirmation"),
+    delivery_address_id:String(f.get("delivery_address_id")||""),
+    pickup_point_id:String(f.get("pickup_point_id")||""),
+    payment_method:"after_confirmation",
+    comment:String(f.get("comment")||"")
+  };
 }
 function updateCheckoutFulfillmentUi(){
   const method=$('[name="fulfillment_method"]:checked')?.value||S.checkoutDraft.fulfillment_method||"confirmation";
@@ -1515,15 +1536,21 @@ function updateCheckoutFulfillmentUi(){
   if(pickup)pickup.hidden=method!=="pickup";
 }
 async function addCheckoutAddress(){
+  syncCheckoutDraft();
   const city=String($("[data-new-address-city]")?.value||"").trim();
   const address=String($("[data-new-address-text]")?.value||"").trim();
   const label=String($("[data-new-address-label]")?.value||"").trim();
   if(!city||!address){toast("Укажите город и адрес");return}
   try{
-    await api("/api/account/addresses",{method:"POST",body:JSON.stringify({city,address,label,is_default:true,recipient_name:S.user?.name||"",recipient_phone:S.user?.phone||""})});
+    const created=await api("/api/account/addresses",{method:"POST",body:JSON.stringify({
+      city,address,label,is_default:true,
+      recipient_name:S.checkoutDraft.recipient_name||S.user?.name||"",
+      recipient_phone:S.checkoutDraft.recipient_phone||S.user?.phone||""
+    })});
     toast("Адрес сохранён");
     S.checkoutOptions=await api("/api/checkout/options");
     S.checkoutDraft.fulfillment_method="delivery";
+    S.checkoutDraft.delivery_address_id=created.address?.id||"";
     renderCheckout();
   }catch{toast("Не удалось сохранить адрес")}
 }
@@ -1553,6 +1580,7 @@ async function submitCheckout(e){
     };
     const d=await api("/api/checkout/submit",{method:"POST",body:JSON.stringify(payload)});
     S.checkoutResult=d;
+    S.checkoutDraft={fulfillment_method:"",payment_method:"after_confirmation",recipient_name:"",recipient_phone:"",vehicle_id:"",delivery_address_id:"",pickup_point_id:"",comment:""};
     S.cart=[];
     writeCart({persist:false});
     renderCheckoutSuccess();
