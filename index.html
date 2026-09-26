@@ -600,6 +600,7 @@ function go(page,push=true){
   $$(".page").forEach(x=>x.classList.toggle("active",x.dataset.page===page));
   if(push) history.pushState({page},"",routeUrl(page));
   scrollTo(0,0);
+  if(page==="catalogs") renderCatalogs();
   if(page==="cart") renderCart();
   if(page==="account") renderAccount();
   if(page==="garage") loadGarage();
@@ -640,6 +641,82 @@ function renderVehicleContext(){
   }
   const v=S.activeVehicle;
   root.innerHTML='<button class="secondary" data-go="garage"><b>'+esc(v.brand)+' '+esc(v.model)+'</b><span class="small muted"> · '+esc([v.generation,v.year].filter(Boolean).join(" ")||"основной автомобиль")+'</span></button><span class="small muted" style="margin-left:9px">ИИ учитывает автомобиль как контекст, но не объявляет совместимость без подтверждения каталога.</span>';
+}
+
+function renderCatalogs(){
+  const root=$("#catalogsBody");if(!root)return;
+  const v=S.activeVehicle;
+  const vehicleBlock=v
+    ?'<div class="vehicle-strip"><div class="vehicle-strip-main"><span class="car-mark">'+esc(String(v.brand||"?").slice(0,2).toUpperCase())+'</span><span><b>'+esc(v.brand)+' '+esc(v.model)+'</b><small>'+esc([v.generation,v.year,v.engine].filter(Boolean).join(" · "))+(v.vin?' · VIN '+esc(v.vin):'')+'</small></span></div><button class="secondary" data-go="garage">Изменить</button></div>'
+    :'<div class="vehicle-strip"><div class="vehicle-strip-main"><span class="car-mark">+</span><span><b>Добавьте автомобиль</b><small>Гараж делает подбор понятнее и сохраняет контекст машины.</small></span></div><button class="primary" data-go="garage">В гараж</button></div>';
+
+  root.innerHTML=vehicleBlock+
+    '<div class="catalog-groups">'+
+      '<section class="catalog-group"><h3>Запчасти по автомобилю</h3><p>Структура как у крупных каталогов, но без выдуманной применимости: сначала машина, затем деталь, затем реальный поставщик.</p><div class="catalog-action-grid">'+
+        catalogAction("ТО","Запчасти для ТО","Фильтры, свечи, ремни, жидкости и расходники.","запчасти для технического обслуживания")+
+        catalogAction("OEM","Оригинальные запчасти","Точный подбор оригинальной детали по автомобилю.","",true,"Нужна оригинальная запчасть: ")+
+        catalogAction("CROSS","Аналоги и заменители","Ищем артикул и показываем доступных производителей и предложения.","аналоги и заменители автозапчастей")+
+      '</div></section>'+
+      '<section class="catalog-group"><h3>Расходники и параметры</h3><p>Быстрые входы в самые частые сценарии вместо тяжёлого дерева меню.</p><div class="catalog-action-grid">'+
+        catalogAction("OIL","Масла и жидкости","Моторные, трансмиссионные, антифриз и тормозная жидкость.","масло и технические жидкости")+
+        catalogAction("BRAKE","Тормозная система","Колодки, диски, датчики, суппорты.","тормозная система")+
+        catalogAction("SUSP","Подвеска","Стойки, рычаги, втулки, опоры и ступицы.","детали подвески")+
+        catalogAction("ELEC","Электрика и свет","Лампы, датчики, стартеры, генераторы.","автоэлектрика и свет")+
+        catalogAction("WIPER","Щётки","Передние, задние и комплекты.","щетки стеклоочистителя")+
+        catalogAction("VIN","Подбор экспертом","Когда нужна точная применимость по VIN.","",true,"Нужно подобрать: ")+
+      '</div></section>'+
+    '</div>'+
+    '<div class="expert-card"><div><span class="kicker" style="color:var(--lime)">ПОДБОР ПО VIN</span><h3>Не уверены в артикуле — не угадываем</h3><p>Отправьте запрос по машине. Он сохранится в кабинете отдельно от заказов и корзины.</p></div><button class="secondary" data-vin-open>Создать запрос</button></div>';
+}
+function catalogAction(code,title,description,query,vin=false,prefill=""){
+  return '<button class="catalog-action" '+(vin?'data-vin-prefill="'+esc(prefill)+'"':'data-smart-query="'+esc(query)+'"')+'><span>'+esc(code)+'</span><b>'+esc(title)+'</b><p>'+esc(description)+'</p><i>'+(vin?'Запросить подбор →':'Искать →')+'</i></button>';
+}
+async function ensureVehicles(){
+  if(!S.user)return [];
+  if(S.vehicles.length)return S.vehicles;
+  try{
+    const d=await api("/api/garage");
+    S.vehicles=d.vehicles||[];
+    S.activeVehicle=S.vehicles.find(v=>v.is_default)||S.vehicles[0]||null;
+    renderVehicleContext();
+  }catch{}
+  return S.vehicles;
+}
+async function openVinRequest(prefill=""){
+  if(!requireAuth())return;
+  const vehicles=await ensureVehicles();
+  const withVin=vehicles.filter(v=>/^[A-HJ-NPR-Z0-9]{17}$/i.test(String(v.vin||"")));
+  if(!withVin.length){
+    toast("Добавьте VIN автомобилю в гараже");
+    return go("garage");
+  }
+  const select=$("#vinVehicleSelect");
+  select.innerHTML=withVin.map(v=>'<option value="'+v.id+'" '+(S.activeVehicle?.id===v.id?'selected':'')+'>'+esc(v.brand)+' '+esc(v.model)+' · '+esc(v.vin)+'</option>').join("");
+  const form=$("#vinForm");form.reset();
+  select.innerHTML=withVin.map(v=>'<option value="'+v.id+'" '+(S.activeVehicle?.id===v.id?'selected':'')+'>'+esc(v.brand)+' '+esc(v.model)+' · '+esc(v.vin)+'</option>').join("");
+  form.elements.request_text.value=prefill||S.aiResult?.intent?.part_name||S.aiOriginalQuery||"";
+  $("#vinFormStatus").textContent="";
+  $("#vinDialog").showModal();
+}
+async function submitVinRequest(e){
+  e.preventDefault();
+  const f=new FormData(e.currentTarget),status=$("#vinFormStatus");
+  status.textContent="Отправляем…";
+  try{
+    const d=await api("/api/vin-requests",{method:"POST",body:JSON.stringify({
+      vehicle_id:f.get("vehicle_id"),
+      request_text:f.get("request_text")
+    })});
+    $("#vinDialog").close();
+    toast("Запрос по VIN создан");
+    S.vinRequests.unshift(d.request);
+    go("orders");
+  }catch(err){
+    status.textContent=err.message==="vin_required"?"У выбранного автомобиля нет VIN.":"Не удалось отправить запрос.";
+  }
+}
+function vinStatusLabel(s){
+  return ({new:"Новый",in_progress:"В подборе",answered:"Ответ готов",closed:"Закрыт",cancelled:"Отменён"})[s]||String(s||"Статус");
 }
 
 function catalogState(title,text){
@@ -739,7 +816,7 @@ function renderAiResult(){
     aiSummaryHtml(d)+
     (candidates.length
       ?'<div class="ai-candidates">'+candidates.map((x,idx)=>'<button class="ai-candidate" data-ai-candidate="'+idx+'"><span><b>'+esc([x.brand,x.article].filter(Boolean).join(" "))+'</b><small>'+esc(x.description||"Каталожная подсказка")+'</small></span><span>Проверить →</span></button>').join("")+'</div>'
-      :'<div class="state-card"><div><b>'+(i.kind==="vin"?"VIN распознан":"Нужен подтверждаемый артикул")+'</b><p>'+(i.kind==="vin"?"VIN сохранён как контекст запроса, но без отдельного VIN-каталога ZapFormat не будет выдумывать применяемость.":"Для реальных цен и остатков нужен артикул из каталога. ИИ уже нормализовал название детали и контекст автомобиля.")+'</p><button class="secondary" data-go="garage">Открыть гараж</button></div></div>');
+      :'<div class="state-card"><div><b>'+(i.kind==="vin"?"VIN распознан":"Нужен подтверждаемый артикул")+'</b><p>'+(i.kind==="vin"?"VIN можно использовать для запроса эксперту. ZapFormat не будет выдумывать применяемость.":"ИИ понял, какая деталь нужна. Если артикул неизвестен — отправьте подбор по VIN.")+'</p><div class="form-actions" style="justify-content:center"><button class="primary" data-vin-open>Подбор по VIN</button><button class="secondary" data-go="garage">Гараж</button></div></div></div>');
 }
 function renderBrands(){
   $("#catalogTitle").textContent=S.query;
@@ -977,7 +1054,7 @@ async function renderAccount(){
   }catch{}
   const stats=S.overview?.stats||{active_orders:0,ready_orders:0,vehicles:0,active_returns:0};
   $("#accountPrimary").innerHTML=
-    '<div class="panel panel-pad"><div class="profile-hero"><div class="profile-avatar">'+esc(initials(S.user))+'</div><div><h3>'+esc([S.user.name,S.user.surname].filter(Boolean).join(" "))+'</h3><p>'+esc(S.user.phone||S.user.email||"Контакт не указан")+'</p><span class="small muted">Клиент ZapFormat с '+date(S.user.created_at)+'</span></div></div><div class="stat-grid"><div class="stat"><b>'+stats.active_orders+'</b><span>активных заказов</span></div><div class="stat"><b>'+stats.ready_orders+'</b><span>готовы к выдаче</span></div><div class="stat"><b>'+stats.vehicles+'</b><span>автомобилей</span></div></div><div class="dashboard-actions"><button class="action-card" data-go="garage"><b>Гараж</b><span>Автомобили и обслуживание</span></button><button class="action-card" data-go="orders"><b>Заказы</b><span>История и статусы</span></button><button class="action-card" data-go="cart"><b>Корзина</b><span>'+S.cart.length+' позиций</span></button></div></div>'+
+    '<div class="panel panel-pad"><div class="profile-hero"><div class="profile-avatar">'+esc(initials(S.user))+'</div><div><h3>'+esc([S.user.name,S.user.surname].filter(Boolean).join(" "))+'</h3><p>'+esc(S.user.phone||S.user.email||"Контакт не указан")+'</p><span class="small muted">Клиент ZapFormat с '+date(S.user.created_at)+'</span></div></div><div class="stat-grid"><div class="stat"><b>'+stats.active_orders+'</b><span>активных заказов</span></div><div class="stat"><b>'+stats.ready_orders+'</b><span>готовы к выдаче</span></div><div class="stat"><b>'+stats.vehicles+'</b><span>автомобилей</span></div></div><div class="dashboard-actions"><button class="action-card" data-go="garage"><b>Гараж</b><span>Автомобили и обслуживание</span></button><button class="action-card" data-go="orders"><b>Заказы</b><span>История и статусы</span></button><button class="action-card" data-go="cart"><b>Корзина</b><span>'+S.cart.length+' позиций</span></button><button class="action-card" data-vin-open><b>Подбор по VIN</b><span>Запрос эксперту по вашей машине</span></button></div></div>'+
     '<div class="panel panel-pad" style="margin-top:16px"><div class="panel-title"><div><h3>Профиль</h3><p>Эти данные используем для связи и оформления.</p></div></div><form id="profileForm"><div class="form-grid"><div class="field"><label>Имя</label><input name="name" value="'+esc(S.user.name||"")+'" required></div><div class="field"><label>Фамилия</label><input name="surname" value="'+esc(S.user.surname||"")+'"></div><div class="field"><label>Телефон</label><input name="phone" value="'+esc(S.user.phone||"")+'"></div><div class="field"><label>Email</label><input name="email" type="email" value="'+esc(S.user.email||"")+'"></div></div><div class="form-actions"><button class="primary">Сохранить</button><span id="profileStatus" class="small"></span></div></form></div>';
   const n=S.notifications||{order_status:true,item_changes:true,returns:true,marketing:false};
   $("#accountSide").innerHTML=
@@ -1100,7 +1177,7 @@ async function loadVehicle(id){
 function renderVehicleDetail(){
   const d=S.vehicleDetail,v=d.vehicle,root=$("#vehicleDetailRoot");
   const maintenance=d.maintenance||[],measurements=d.measurements||[],history=d.history||[],reminders=d.reminders||[];
-  root.innerHTML='<div class="vehicle-detail"><div class="panel panel-pad"><div class="detail-title"><div><h3>'+esc(v.brand)+' '+esc(v.model)+'</h3><p>'+esc([v.generation,v.year,v.engine].filter(Boolean).join(" · "))+'</p></div><div style="display:flex;gap:7px;flex-wrap:wrap">'+(v.is_default?'':'<button class="secondary" data-set-default-vehicle>Сделать основным</button>')+'<button class="secondary" data-edit-current-vehicle>Изменить</button></div></div><div class="info-grid"><div class="info"><span>VIN</span><b>'+esc(v.vin||"Не указан")+'</b></div><div class="info"><span>Пробег</span><b>'+(v.current_mileage?new Intl.NumberFormat("ru-RU").format(v.current_mileage)+" км":"Не указан")+'</b></div><div class="info"><span>Госномер</span><b>'+esc(v.plate_number||"Не указан")+'</b></div><div class="info"><span>Обновлено</span><b>'+date(v.updated_at||v.created_at)+'</b></div></div><div class="dashboard-actions"><button class="action-card" data-search-for-vehicle><b>Найти детали</b><span>Выбрать автомобиль и перейти к поиску артикула</span></button><button class="action-card" data-edit-mileage><b>Пробег</b><span>Обновить текущее значение</span></button><button class="action-card" data-delete-vehicle><b>Удалить</b><span>Убрать автомобиль из гаража</span></button></div><div class="mini-form"><h4>Замер</h4><form id="measurementForm"><div class="form-grid"><div class="field"><label>Что измерили</label><input name="measurement_type" placeholder="Передние колодки" required></div><div class="field"><label>Значение</label><input name="value" placeholder="6" required></div><div class="field"><label>Единица</label><input name="unit" placeholder="мм"></div><div class="field"><label>Комментарий</label><input name="note" placeholder="Левая / правая"></div></div><div class="form-actions"><button class="secondary">Добавить замер</button></div></form></div><div class="mini-form"><h4>Работа / обслуживание</h4><form id="maintenanceForm"><div class="form-grid"><div class="field full"><label>Работа</label><input name="title" placeholder="Замена масла и фильтра" required></div><div class="field"><label>Пробег</label><input name="mileage" type="number" min="0"></div><div class="field"><label>Дата</label><input name="service_date" type="date"></div><div class="field full"><label>Комментарий</label><input name="note" placeholder="Что было сделано"></div></div><div class="form-actions"><button class="secondary">Добавить запись</button></div></form></div></div><aside><div class="panel panel-pad"><div class="panel-title"><div><h3>Контроль</h3><p>Планы обслуживания</p></div></div>'+(maintenance.length?'<div class="timeline-list">'+maintenance.map(x=>'<div class="timeline-row"><span class="dot"></span><p><b>'+esc(x.title)+'</b><small>'+([x.next_service_mileage?new Intl.NumberFormat("ru-RU").format(x.next_service_mileage)+" км":null,x.next_service_at?date(x.next_service_at):null].filter(Boolean).join(" · ")||"Без срока")+(x.part_search_query?' · '+esc(x.part_search_query):'')+'</small></p><span style="display:flex;gap:4px">'+(x.part_search_query?'<button class="ghost-btn small" data-plan-search="'+esc(x.part_search_query)+'">Найти</button>':'')+'<button class="ghost-btn small" data-delete-plan="'+x.id+'" title="Удалить контроль">×</button></span></div>').join("")+'</div>':'<p class="muted">Планы обслуживания пока не добавлены.</p>')+'</div><div class="panel panel-pad" style="margin-top:14px"><div class="panel-title"><div><h3>Последние замеры</h3><p>Фактические значения</p></div></div>'+(measurements.length?'<div class="measurements">'+measurements.slice(0,8).map(x=>'<div class="measurement"><span><b>'+esc(x.measurement_type)+'</b><span class="small muted">'+datetime(x.measured_at)+'</span></span><strong>'+esc(x.value??x.value_text??"")+' '+esc(x.unit||"")+'</strong></div>').join("")+'</div>':'<p class="muted">Замеров пока нет.</p>')+'</div><div class="panel panel-pad" style="margin-top:14px"><div class="panel-title"><div><h3>История</h3><p>Что уже делали</p></div></div>'+(history.length?'<div class="timeline-list">'+history.slice(0,8).map(x=>'<div class="timeline-row"><span class="dot"></span><p><b>'+esc(x.title)+'</b><small>'+date(x.service_date)+(x.mileage?" · "+new Intl.NumberFormat("ru-RU").format(x.mileage)+" км":"")+'</small></p></div>').join("")+'</div>':'<p class="muted">История обслуживания пока пуста.</p>')+'</div></aside></div>';
+  root.innerHTML='<div class="vehicle-detail"><div class="panel panel-pad"><div class="detail-title"><div><h3>'+esc(v.brand)+' '+esc(v.model)+'</h3><p>'+esc([v.generation,v.year,v.engine].filter(Boolean).join(" · "))+'</p></div><div style="display:flex;gap:7px;flex-wrap:wrap">'+(v.is_default?'':'<button class="secondary" data-set-default-vehicle>Сделать основным</button>')+'<button class="secondary" data-edit-current-vehicle>Изменить</button></div></div><div class="info-grid"><div class="info"><span>VIN</span><b>'+esc(v.vin||"Не указан")+'</b></div><div class="info"><span>Пробег</span><b>'+(v.current_mileage?new Intl.NumberFormat("ru-RU").format(v.current_mileage)+" км":"Не указан")+'</b></div><div class="info"><span>Госномер</span><b>'+esc(v.plate_number||"Не указан")+'</b></div><div class="info"><span>Обновлено</span><b>'+date(v.updated_at||v.created_at)+'</b></div></div><div class="dashboard-actions"><button class="action-card" data-search-for-vehicle><b>Найти детали</b><span>Выбрать автомобиль и перейти к умному поиску</span></button><button class="action-card" data-vin-prefill="Нужно подобрать: "><b>Подбор по VIN</b><span>Создать точный запрос по этой машине</span></button><button class="action-card" data-edit-mileage><b>Пробег</b><span>Обновить текущее значение</span></button><button class="action-card" data-delete-vehicle><b>Удалить</b><span>Убрать автомобиль из гаража</span></button></div><div class="mini-form"><h4>Замер</h4><form id="measurementForm"><div class="form-grid"><div class="field"><label>Что измерили</label><input name="measurement_type" placeholder="Передние колодки" required></div><div class="field"><label>Значение</label><input name="value" placeholder="6" required></div><div class="field"><label>Единица</label><input name="unit" placeholder="мм"></div><div class="field"><label>Комментарий</label><input name="note" placeholder="Левая / правая"></div></div><div class="form-actions"><button class="secondary">Добавить замер</button></div></form></div><div class="mini-form"><h4>Работа / обслуживание</h4><form id="maintenanceForm"><div class="form-grid"><div class="field full"><label>Работа</label><input name="title" placeholder="Замена масла и фильтра" required></div><div class="field"><label>Пробег</label><input name="mileage" type="number" min="0"></div><div class="field"><label>Дата</label><input name="service_date" type="date"></div><div class="field full"><label>Комментарий</label><input name="note" placeholder="Что было сделано"></div></div><div class="form-actions"><button class="secondary">Добавить запись</button></div></form></div></div><aside><div class="panel panel-pad"><div class="panel-title"><div><h3>Контроль</h3><p>Планы обслуживания</p></div></div>'+(maintenance.length?'<div class="timeline-list">'+maintenance.map(x=>'<div class="timeline-row"><span class="dot"></span><p><b>'+esc(x.title)+'</b><small>'+([x.next_service_mileage?new Intl.NumberFormat("ru-RU").format(x.next_service_mileage)+" км":null,x.next_service_at?date(x.next_service_at):null].filter(Boolean).join(" · ")||"Без срока")+(x.part_search_query?' · '+esc(x.part_search_query):'')+'</small></p><span style="display:flex;gap:4px">'+(x.part_search_query?'<button class="ghost-btn small" data-plan-search="'+esc(x.part_search_query)+'">Найти</button>':'')+'<button class="ghost-btn small" data-delete-plan="'+x.id+'" title="Удалить контроль">×</button></span></div>').join("")+'</div>':'<p class="muted">Планы обслуживания пока не добавлены.</p>')+'</div><div class="panel panel-pad" style="margin-top:14px"><div class="panel-title"><div><h3>Последние замеры</h3><p>Фактические значения</p></div></div>'+(measurements.length?'<div class="measurements">'+measurements.slice(0,8).map(x=>'<div class="measurement"><span><b>'+esc(x.measurement_type)+'</b><span class="small muted">'+datetime(x.measured_at)+'</span></span><strong>'+esc(x.value??x.value_text??"")+' '+esc(x.unit||"")+'</strong></div>').join("")+'</div>':'<p class="muted">Замеров пока нет.</p>')+'</div><div class="panel panel-pad" style="margin-top:14px"><div class="panel-title"><div><h3>История</h3><p>Что уже делали</p></div></div>'+(history.length?'<div class="timeline-list">'+history.slice(0,8).map(x=>'<div class="timeline-row"><span class="dot"></span><p><b>'+esc(x.title)+'</b><small>'+date(x.service_date)+(x.mileage?" · "+new Intl.NumberFormat("ru-RU").format(x.mileage)+" км":"")+'</small></p></div>').join("")+'</div>':'<p class="muted">История обслуживания пока пуста.</p>')+'</div></aside></div>';
   const controlPanel=root.querySelector("aside .panel");
   if(controlPanel){
     controlPanel.insertAdjacentHTML("beforeend",'<div class="mini-form"><h4>Добавить контроль</h4><form id="planForm"><div class="form-grid"><div class="field full"><label>Что контролируем</label><input name="title" placeholder="Масло двигателя + фильтр" required></div><div class="field"><label>Следующий пробег</label><input name="next_service_mileage" type="number" min="0" placeholder="190000"></div><div class="field"><label>Дата</label><input name="next_service_at" type="date"></div><div class="field"><label>Интервал, км</label><input name="interval_km" type="number" min="1" placeholder="10000"></div><div class="field"><label>Интервал, мес.</label><input name="interval_months" type="number" min="1" placeholder="12"></div><div class="field full"><label>Артикул для быстрого поиска</label><input name="part_search_query" placeholder="Например, HU816X"></div></div><div class="form-actions"><button class="secondary">Добавить контроль</button></div></form></div>');
@@ -1191,14 +1268,16 @@ async function loadOrders(){
   if(!S.user){root.innerHTML='<div class="empty"><div><b>Войдите, чтобы увидеть заказы</b><p>История привязана к вашему аккаунту.</p><button class="primary" data-auth-open>Войти</button></div></div>';return}
   root.innerHTML='<div class="state-card"><div class="spinner"></div></div>';
   try{
-    const [ordersData,requestsData,returnsData]=await Promise.all([
+    const [ordersData,requestsData,returnsData,vinData]=await Promise.all([
       api("/api/orders"),
       api("/api/account/quote-requests").catch(()=>({requests:[]})),
-      api("/api/returns").catch(()=>({returns:[]}))
+      api("/api/returns").catch(()=>({returns:[]})),
+      api("/api/vin-requests").catch(()=>({requests:[]}))
     ]);
     S.orders=ordersData.orders||[];
     S.quoteRequests=requestsData.requests||[];
     S.returns=returnsData.returns||[];
+    S.vinRequests=vinData.requests||[];
     renderOrders();
   }catch{root.innerHTML='<div class="empty"><div><b>Не удалось загрузить заказы</b><p>Попробуйте ещё раз.</p><button class="secondary" data-reload-orders>Повторить</button></div></div>'}
 }
@@ -1207,10 +1286,14 @@ function renderOrders(){
   const pending=S.quoteRequests.length
     ?'<div class="panel panel-pad" style="margin-bottom:16px"><div class="panel-title"><div><h3>Заявки на подтверждение</h3><p>Ещё не заказ: мы перепроверяем цену и наличие.</p></div><span class="status">'+S.quoteRequests.length+'</span></div><div class="order-list">'+S.quoteRequests.map(q=>'<button class="order-row" data-quote-id="'+esc(q.id)+'"><b>'+esc(q.id)+'</b><span><b>'+date(q.created_at)+'</b><span class="small muted">'+q.item_count+' поз.</span></span><span class="status">'+esc(q.status==="new"?"На подтверждении":q.status)+'</span><strong>'+rub(q.quoted_total)+'</strong><span>→</span></button>').join("")+'</div></div>'
     :'';
+  const vinPanel=S.vinRequests.length
+    ?'<div class="panel panel-pad" style="margin-bottom:16px"><div class="panel-title"><div><h3>Подбор по VIN</h3><p>Запросы на точный подбор по автомобилю.</p></div><button class="secondary" data-vin-open>Новый запрос</button></div><div class="vin-list">'+S.vinRequests.map(r=>'<div class="vin-row"><span><b>'+esc(r.request_text)+'</b><small>'+esc([r.brand,r.model,r.generation,r.year].filter(Boolean).join(" · "))+' · '+date(r.created_at)+'</small></span><span class="status '+(r.status==="answered"?"ready":"")+'">'+esc(vinStatusLabel(r.status))+'</span><span class="small muted">'+(r.manager_note?esc(r.manager_note):"")+'</span></div>').join("")+'</div></div>'
+    :'';
   const returnsPanel=S.returns.length
     ?'<div class="panel panel-pad" style="margin-bottom:16px"><div class="panel-title"><div><h3>Возвраты</h3><p>Запросы по уже купленным позициям.</p></div><span class="status neutral">'+S.returns.length+'</span></div><div class="order-list">'+S.returns.map(r=>'<div class="order-row" style="cursor:default"><b>Возврат № '+esc(r.return_number)+'</b><span><b>'+esc(r.brand)+' '+esc(r.article)+'</b><span class="small muted">Заказ № '+esc(r.order_number)+' · '+r.quantity+' шт.</span></span><span class="status '+statusClass(r.status)+'">'+esc(statusLabel(r.status))+'</span><strong>'+rub(Number(r.unit_price||0)*Number(r.quantity||1))+'</strong><span class="small muted">'+date(r.created_at)+'</span></div>').join("")+'</div></div>'
     :'';
-  root.innerHTML='<div class="orders-toolbar"><span class="muted">'+S.orders.length+' заказов · '+S.quoteRequests.length+' заявок</span><button class="secondary" data-go="home">Найти деталь</button></div>'+
+  root.innerHTML='<div class="orders-toolbar"><span class="muted">'+S.orders.length+' заказов · '+S.quoteRequests.length+' заявок · '+S.vinRequests.length+' VIN-запросов</span><div style="display:flex;gap:8px"><button class="secondary" data-vin-open>Подбор по VIN</button><button class="secondary" data-go="home">Найти деталь</button></div></div>'+
+  vinPanel+
   pending+
   returnsPanel+
   (S.orders.length?'<div class="order-list">'+S.orders.map(o=>'<button class="order-row" data-order-id="'+o.id+'"><b>№ '+esc(o.order_number)+'</b><span><b>'+date(o.created_at)+'</b><span class="small muted">'+o.item_count+' поз.</span></span><span class="status '+statusClass(o.status)+'">'+esc(statusLabel(o.status))+'</span><strong>'+rub(o.total_amount)+'</strong><span>→</span></button>').join("")+'</div>':'<div class="empty"><div><b>Подтверждённых заказов пока нет</b><p>'+(S.quoteRequests.length?'Заявки выше появятся здесь после создания реального заказа.':'Здесь появятся только реально созданные заказы ZapFormat.')+'</p><button class="primary" data-go="home">К поиску</button></div></div>')+
@@ -1270,6 +1353,9 @@ async function submitReturn(e){
 
 document.addEventListener("click",async e=>{
   let x=e.target.closest("[data-go]");if(x)return go(x.dataset.go);
+  x=e.target.closest("[data-smart-query]");if(x)return search(x.dataset.smartQuery);
+  x=e.target.closest("[data-vin-prefill]");if(x)return openVinRequest(x.dataset.vinPrefill||"");
+  if(e.target.closest("[data-vin-open]"))return openVinRequest("");
   x=e.target.closest("[data-ai-candidate]");if(x){
     const candidate=S.aiCandidates[Number(x.dataset.aiCandidate)];if(!candidate)return;
     const ai=S.aiResult?{...S.aiResult,intent:{...(S.aiResult.intent||{}),brand_hint:candidate.brand||""}}:null;
@@ -1341,6 +1427,7 @@ document.addEventListener("change",e=>{
 $$("[data-search-form]").forEach(f=>f.addEventListener("submit",e=>{e.preventDefault();search(new FormData(f).get("query"))}));
 $("#authForm").addEventListener("submit",submitAuth);
 $("#vehicleForm").addEventListener("submit",saveVehicle);
+$("#vinForm").addEventListener("submit",submitVinRequest);
 $("#returnForm").addEventListener("submit",submitReturn);
 
 hydrate().then(route);
