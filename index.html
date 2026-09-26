@@ -636,6 +636,7 @@ dialog::backdrop{background:rgba(13,41,56,.56);backdrop-filter:blur(5px)}
 "use strict";
 
 const API=location.origin;
+const MAX_CART_ITEMS=50;
 const PAGE_NAMES=new Set(["home","catalog","part","catalogs","cart","checkout","account","garage","orders","operator"]);
 const S={
   user:null,
@@ -770,7 +771,11 @@ async function persistCart(){
     S.cartServerWarning="";
     localStorage.setItem("zf-cart",JSON.stringify(S.cart));
   }catch(e){
-    S.cartServerWarning=e.status===409?"Корзина изменилась — требуется перепроверка.":"Корзина сохранена на устройстве; серверная синхронизация пока недоступна.";
+    S.cartServerWarning=e.message==="too_many_items"
+      ?"В серверную корзину можно сохранить не больше "+MAX_CART_ITEMS+" разных позиций."
+      :e.status===409
+        ?"Корзина изменилась — требуется перепроверка."
+        :"Корзина сохранена на устройстве; серверная синхронизация пока недоступна.";
   }
 }
 async function mergeServerCart(){
@@ -1401,7 +1406,10 @@ function addOffer(i){
   const id=x.offer_ref||[x.brand,x.article,x.price,x.delivery_hours].join("|");
   const existing=S.cart.find(z=>z.id===id||z.offer_ref===x.offer_ref);
   if(existing)existing.qty+=packing;
-  else S.cart.push({...x,id,packing,qty:carryQty,historical:false});
+  else{
+    if(S.cart.length>=MAX_CART_ITEMS){toast("В корзине максимум "+MAX_CART_ITEMS+" разных позиций");return}
+    S.cart.push({...x,id,packing,qty:carryQty,historical:false});
+  }
   writeCart();toast(historical?"Позиция обновлена актуальным предложением":"Добавлено в корзину");
 }
 
@@ -1418,8 +1426,9 @@ function renderCart(){
   const payable=active.filter(x=>x.found!==false&&Number(x.availability||0)>=Number(x.qty||1));
   const total=payable.reduce((a,x)=>a+Number(x.price||0)*Number(x.qty||1),0);
   const checked=active.map(x=>x.checked_at).filter(Boolean).sort().at(-1);
-  const blocked=historical.length>0||invalid.length>0||S.cartRefreshing;
-  const warning=S.cartServerWarning?'<div class="notice" style="margin-top:10px">'+esc(S.cartServerWarning)+'</div>':'';
+  const overLimit=S.cart.length>MAX_CART_ITEMS;
+  const blocked=historical.length>0||invalid.length>0||overLimit||S.cartRefreshing;
+  const warning=(overLimit?'<div class="notice" style="margin-top:10px">В корзине больше '+MAX_CART_ITEMS+' разных позиций. Удалите лишние перед оформлением.</div>':'')+(S.cartServerWarning?'<div class="notice" style="margin-top:10px">'+esc(S.cartServerWarning)+'</div>':'');
 
   root.innerHTML='<div class="cart-layout"><div><div class="cart-lines">'+S.cart.map((x,i)=>{
     const isHistorical=x.historical||!x.offer_ref;
@@ -1436,7 +1445,7 @@ function renderCart(){
       ?'<button class="secondary" data-refresh-historical="'+i+'">Актуализировать</button>'
       :'<strong>'+rub(Number(x.price||0)*Number(x.qty||1))+'</strong>';
     return '<div class="cart-line"><div><b>'+esc(x.brand)+' '+esc(x.article)+'</b><p>'+esc(x.description||"")+'</p><span class="small muted">'+meta+'</span>'+state+'</div><div class="qty"><button data-cart-qty="'+i+'" data-delta="-1">−</button><b>'+x.qty+'</b><button data-cart-qty="'+i+'" data-delta="1">+</button></div>'+action+'<button class="remove" data-cart-remove="'+i+'">×</button></div>';
-  }).join("")+'</div><div class="form-actions"><button class="secondary" data-refresh-cart '+(S.cartRefreshing?"disabled":"")+'>'+(S.cartRefreshing?"Проверяем…":"Обновить цены и наличие")+'</button><span class="small muted">'+(checked?"Проверено "+datetime(checked):"Ещё не перепроверено")+'</span></div>'+warning+'</div><aside class="panel summary"><div class="total"><span>Итого по актуальным позициям</span><b>'+rub(total)+'</b></div><p>Итог считается только по предложениям, которые можно перепроверить на backend. Старые позиции и исчезнувшие предложения не участвуют в сумме.</p><button class="primary" data-checkout '+(blocked?"disabled":"")+'>'+(S.user?"Перейти к оформлению":"Войти и оформить")+'</button><div class="summary-note">'+(historical.length?'Актуализируйте '+historical.length+' поз. из истории. ': '')+(invalid.length?'Исправьте '+invalid.length+' недоступн. поз. ': '')+'Перед созданием заявки backend ещё раз проверит конкретные предложения, цены и остатки.</div></aside></div>';
+  }).join("")+'</div><div class="form-actions"><button class="secondary" data-refresh-cart '+(S.cartRefreshing?"disabled":"")+'>'+(S.cartRefreshing?"Проверяем…":"Обновить цены и наличие")+'</button><span class="small muted">'+(checked?"Проверено "+datetime(checked):"Ещё не перепроверено")+'</span></div>'+warning+'</div><aside class="panel summary"><div class="total"><span>Итого по актуальным позициям</span><b>'+rub(total)+'</b></div><p>Итог считается только по предложениям, которые можно перепроверить на backend. Старые позиции и исчезнувшие предложения не участвуют в сумме.</p><button class="primary" data-checkout '+(blocked?"disabled":"")+'>'+(S.user?"Перейти к оформлению":"Войти и оформить")+'</button><div class="summary-note">'+(historical.length?'Актуализируйте '+historical.length+' поз. из истории. ': '')+(invalid.length?'Исправьте '+invalid.length+' недоступн. поз. ': '')+(overLimit?'Оставьте не больше '+MAX_CART_ITEMS+' поз. ': '')+'Перед созданием заявки backend ещё раз проверит конкретные предложения, цены и остатки.</div></aside></div>';
 
   const recheckable=active;
   const stale=recheckable.some(x=>!x.checked_at||(Date.now()-new Date(x.checked_at).getTime())>120000);
@@ -2306,10 +2315,13 @@ function addHistoricalItems(items,source="history"){
     const qty=Math.max(1,Number(item.quantity||1));
     const existing=S.cart.find(z=>z.id===id);
     if(existing)existing.qty+=qty;
-    else S.cart.push({
-      id,brand:item.brand,article:item.article,description:item.description,
-      price:unit,qty,availability:0,delivery_hours:0,historical:true
-    });
+    else{
+      if(S.cart.length>=MAX_CART_ITEMS)break;
+      S.cart.push({
+        id,brand:item.brand,article:item.article,description:item.description,
+        price:unit,qty,availability:0,delivery_hours:0,historical:true
+      });
+    }
   }
   writeCart();
 }
