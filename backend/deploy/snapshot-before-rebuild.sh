@@ -25,6 +25,23 @@ git -C "${APP_DIR}" branch --show-current > "${dest}/git-branch.txt"
 git -C "${APP_DIR}" status --porcelain=v1 > "${dest}/git-status.txt"
 
 if [[ -f "${ENV_FILE}" ]]; then install -m 600 "${ENV_FILE}" "${dest}/zapformat-api.env"; fi
+
+# Database snapshot: read DATABASE_URL from the protected env file without printing it.
+if [[ -f "${ENV_FILE}" ]] && command -v pg_dump >/dev/null 2>&1; then
+  set -a
+  # shellcheck disable=SC1090
+  source "${ENV_FILE}"
+  set +a
+  if [[ -n "${DATABASE_URL:-}" ]]; then
+    pg_dump --format=custom --no-owner --no-privileges --file "${dest}/database.dump" "${DATABASE_URL}"
+    chmod 600 "${dest}/database.dump"
+    echo "PostgreSQL dump saved."
+  else
+    echo "DATABASE_URL is empty; database snapshot skipped."
+  fi
+else
+  echo "pg_dump or env file unavailable; database snapshot skipped."
+fi
 if [[ -f "${SERVICE_FILE}" ]]; then install -m 600 "${SERVICE_FILE}" "${dest}/zapformat-api.service"; fi
 if [[ -f "${NGINX_FILE}" ]]; then install -m 600 "${NGINX_FILE}" "${dest}/nginx-zapformat-api"; fi
 
