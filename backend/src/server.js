@@ -70,6 +70,19 @@ function requireDatabase(_req, res, next) {
   next();
 }
 
+function requireInternal(req, res, next) {
+  const ip = String(req.ip || "").replace("::ffff:", "");
+  const direct = ip === "127.0.0.1" || ip === "::1";
+  const configured = String(process.env.INTERNAL_API_TOKEN || "");
+  const provided = String(req.get("x-zapformat-internal") || "");
+  const sameLength = configured && provided && Buffer.byteLength(provided) === Buffer.byteLength(configured);
+  if (direct || (sameLength && crypto.timingSafeEqual(
+    Buffer.from(provided),
+    Buffer.from(configured)
+  ))) return next();
+  return res.status(404).json({ error: "not_found" });
+}
+
 app.use("/api/auth", requireDatabase);
 app.use("/api/account", requireDatabase);
 app.use("/api/garage", requireDatabase);
@@ -275,7 +288,7 @@ app.get("/api/supplier/health", async (_req, res, next) => {
   }
 });
 
-app.get("/api/supplier/capabilities", async (_req, res, next) => {
+app.get("/api/supplier/capabilities", requireInternal, async (_req, res, next) => {
   try {
     const [basket, payments, shipments, addresses, statuses, orders] = await Promise.allSettled([
       partGrade.basketContent(),
@@ -311,7 +324,7 @@ app.get("/api/supplier/capabilities", async (_req, res, next) => {
   }
 });
 
-app.get("/api/supplier/basket", async (_req, res, next) => {
+app.get("/api/supplier/basket", requireInternal, async (_req, res, next) => {
   try {
     const rows = await partGrade.basketContent();
     const items = (Array.isArray(rows) ? rows : []).map((row) => ({
@@ -331,7 +344,7 @@ app.get("/api/supplier/basket", async (_req, res, next) => {
   }
 });
 
-app.get("/api/supplier/order-statuses", async (_req, res, next) => {
+app.get("/api/supplier/order-statuses", requireInternal, async (_req, res, next) => {
   try {
     const rows = await partGrade.orderStatuses();
     res.json({ source: "PartGrade", statuses: Array.isArray(rows) ? rows : [] });
@@ -340,7 +353,7 @@ app.get("/api/supplier/order-statuses", async (_req, res, next) => {
   }
 });
 
-app.get("/api/supplier/orders", async (req, res, next) => {
+app.get("/api/supplier/orders", requireInternal, async (req, res, next) => {
   try {
     const limit = Math.max(1, Math.min(100, Number(req.query?.limit || 20)));
     const skip = Math.max(0, Number(req.query?.skip || 0));
@@ -351,7 +364,7 @@ app.get("/api/supplier/orders", async (req, res, next) => {
   }
 });
 
-app.get("/api/supplier/checkout-options", async (_req, res, next) => {
+app.get("/api/supplier/checkout-options", requireInternal, async (_req, res, next) => {
   try {
     const [paymentMethods, shipmentMethods, shipmentAddresses] = await Promise.all([
       partGrade.paymentMethods(),
