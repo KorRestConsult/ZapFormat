@@ -775,7 +775,7 @@ dialog::backdrop{background:rgba(13,41,56,.56);backdrop-filter:blur(5px)}
 <script>
 "use strict";
 
-const API=location.origin;
+const API=location.hostname.endsWith("github.io")?"https://zap.201.51.28.68.sslip.io":location.origin;
 const MAX_CART_ITEMS=50;
 const PAGE_NAMES=new Set(["home","catalog","part","catalogs","cart","checkout","account","garage","orders","support","help","operator"]);
 const REFERRAL_STORAGE_KEY="zf-ref";
