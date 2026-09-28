@@ -2163,8 +2163,13 @@ async function checkoutCart(){
     cart=cart.filter(x=>!sentIds.has(x.id));
     saveCart();
 
-    localStorage.setItem("zapformat-quote-name",name);
-    localStorage.setItem("zapformat-quote-phone",phone);
+    if(sessionUser){
+      localStorage.removeItem("zapformat-quote-name");
+      localStorage.removeItem("zapformat-quote-phone");
+    }else{
+      localStorage.setItem("zapformat-quote-name",name);
+      localStorage.setItem("zapformat-quote-phone",phone);
+    }
 
     if(result.kind==="order" && result.order_number){
       showToast("Заказ #"+result.order_number+" создан.");
