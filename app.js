@@ -956,7 +956,13 @@ function showRoute(route){
   const accountRoute=route==="orders" || route==="garage";
   const resolvedRoute=accountRoute ? "profile" : route;
   const target=document.getElementById("view-"+resolvedRoute);
-  if(target) target.classList.add("active");
+  if(!target){
+    document.getElementById("view-home")?.classList.add("active");
+    syncMobileNav("home");
+    window.scrollTo({top:0,behavior:"auto"});
+    return;
+  }
+  target.classList.add("active");
   if(route==="orders") showAccountTab("orders");
   if(route==="garage") showAccountTab("garage");
   syncMobileNav(route);
@@ -1046,8 +1052,8 @@ function updateVehicleContextUi(){
     if(header) header.hidden=true;
     if(home) home.hidden=true;
     if(catalog) catalog.hidden=true;
-    if(searchInput) searchInput.placeholder="Артикул / VIN / деталь";
-    if(searchInput2) searchInput2.placeholder="Артикул, VIN или название детали";
+    if(searchInput) searchInput.placeholder="Артикул / название детали";
+    if(searchInput2) searchInput2.placeholder="Артикул или название детали";
     if(disclaimer) disclaimer.textContent="Информация по аналогам справочная. Перед заказом совместимость уточняется по автомобилю или VIN.";
     return;
   }
@@ -2301,8 +2307,9 @@ function restoreFromUrl(){
 }
 window.addEventListener("popstate",restoreFromUrl);
 document.getElementById("backButton")?.addEventListener("click",()=>safeBack("home"));
-restoreFromUrl();
-hydrateSession();
+hydrateSession()
+  .catch(()=>null)
+  .finally(()=>restoreFromUrl());
 
 document.addEventListener("change",e=>{
   const select=e.target.closest("[data-cart-select]");
