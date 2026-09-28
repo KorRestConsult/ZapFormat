@@ -1168,6 +1168,7 @@ function updateVehicleContextUi(){
   const vehicle=currentSearchVehicle();
   const header=document.getElementById("headerVehicleButton");
   const home=document.getElementById("homeVehicleContext");
+  const homeSetup=document.getElementById("homeVehicleSetup");
   const catalog=document.getElementById("catalogVehicleContext");
   const searchInput=document.getElementById("searchInput");
   const searchInput2=document.getElementById("searchInput2");
@@ -1182,6 +1183,7 @@ function updateVehicleContextUi(){
       if(name) name.textContent="Мой автомобиль";
     }
     if(home) home.hidden=true;
+    if(homeSetup) homeSetup.hidden=false;
     if(catalog) catalog.hidden=true;
     if(searchInput) searchInput.placeholder="Артикул / название детали";
     if(searchInput2) searchInput2.placeholder="Артикул или название детали";
@@ -1197,6 +1199,7 @@ function updateVehicleContextUi(){
     if(mark) mark.textContent=String(vehicle.brand||"AUTO").slice(0,5).toUpperCase();
     if(name) name.textContent=label;
   }
+  if(homeSetup) homeSetup.hidden=true;
   if(home){
     home.hidden=false;
     const name=document.getElementById("homeVehicleName");
