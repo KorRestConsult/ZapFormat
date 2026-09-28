@@ -548,7 +548,12 @@ function requestStatusLabel(status){
     processing:"В работе",
     ready:"Готов",
     completed:"Завершён",
-    cancelled:"Отменён"
+    cancelled:"Отменён",
+    created:"Создан",
+    review:"На рассмотрении",
+    approved:"Одобрен",
+    rejected:"Отклонён",
+    refunded:"Возврат выполнен"
   };
   return map[String(status||"").toLowerCase()] || String(status||"Принят");
 }
