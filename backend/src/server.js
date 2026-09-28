@@ -1115,7 +1115,7 @@ app.get("/api/supplier/health", async (_req, res, next) => {
       return res.status(503).json({
         ok: false,
         configured: false,
-        provider: "PartGrade"
+        provider: "supplier"
       });
     }
 
@@ -1123,8 +1123,7 @@ app.get("/api/supplier/health", async (_req, res, next) => {
     res.json({
       ok: true,
       configured: true,
-      provider: "PartGrade",
-      api_host: new URL(partGrade.baseUrl).hostname
+      provider: "supplier",
     });
   } catch (error) {
     next(error);
@@ -1152,7 +1151,7 @@ app.get("/api/supplier/capabilities", requireInternal, async (_req, res, next) =
 
     res.json({
       ok: true,
-      provider: "PartGrade",
+      provider: "supplier",
       read_access: {
         basket_content: count(basket),
         payment_methods: count(payments),
@@ -1181,7 +1180,7 @@ app.get("/api/supplier/basket", requireInternal, async (_req, res, next) => {
       position_id: row.positionId ?? null,
       status: row.status ?? null
     }));
-    res.json({ source: "PartGrade", items });
+    res.json({ source: "supplier", items });
   } catch (error) {
     next(error);
   }
@@ -1190,7 +1189,7 @@ app.get("/api/supplier/basket", requireInternal, async (_req, res, next) => {
 app.get("/api/supplier/order-statuses", requireInternal, async (_req, res, next) => {
   try {
     const rows = await partGrade.orderStatuses();
-    res.json({ source: "PartGrade", statuses: Array.isArray(rows) ? rows : [] });
+    res.json({ source: "supplier", statuses: Array.isArray(rows) ? rows : [] });
   } catch (error) {
     next(error);
   }
@@ -1201,7 +1200,7 @@ app.get("/api/supplier/orders", requireInternal, async (req, res, next) => {
     const limit = Math.max(1, Math.min(100, Number(req.query?.limit || 20)));
     const skip = Math.max(0, Number(req.query?.skip || 0));
     const data = await partGrade.orders({ limit, skip });
-    res.json({ source: "PartGrade", data });
+    res.json({ source: "supplier", data });
   } catch (error) {
     next(error);
   }
@@ -1215,7 +1214,7 @@ app.get("/api/supplier/checkout-options", requireInternal, async (_req, res, nex
       partGrade.shipmentAddresses()
     ]);
     res.json({
-      source: "PartGrade",
+      source: "supplier",
       payment_methods: paymentMethods,
       shipment_methods: shipmentMethods,
       shipment_addresses: shipmentAddresses
@@ -2953,7 +2952,7 @@ app.get("/api/deploy/status", async (_req, res) => {
 
 app.use((error, _req, res, _next) => {
   if (error instanceof PartGradeError) {
-    console.error("[PartGrade]", error.code, error.status || "");
+    console.error("[SupplierAPI]", error.code, error.status || "");
     const status = error.code === "partgrade_not_configured" ? 503 : 502;
     return res.status(status).json({ error: "supplier_unavailable" });
   }
