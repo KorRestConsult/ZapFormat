@@ -341,6 +341,12 @@ async function saveSupplierOrderSnapshots(orderId, snapshots) {
   const client = await pool.connect();
   try {
     await client.query("BEGIN");
+    const orderMetaResult = await client.query(
+      "SELECT user_id, order_number FROM orders WHERE id = $1 LIMIT 1",
+      [orderId]
+    );
+    const orderMeta = orderMetaResult.rows[0] || null;
+
     const itemsResult = await client.query(
       `SELECT id, brand, article, supplier_code, supplier_offer_id, status, supplier_status
          FROM order_items
@@ -387,6 +393,16 @@ async function saveSupplierOrderSnapshots(orderId, snapshots) {
            VALUES ($1,'processing','supply',$2,now())`,
           [orderId, "Статус поставки: " + String(status || statusCode)]
         );
+        if (orderMeta?.user_id) {
+          await addUserNotification(
+            client,
+            orderMeta.user_id,
+            "order_status",
+            "supply_status",
+            "Заказ #" + String(orderMeta.order_number),
+            "Статус поставки: " + String(status || statusCode)
+          );
+        }
       }
 
       const used = new Set();
@@ -433,6 +449,23 @@ async function saveSupplierOrderSnapshots(orderId, snapshots) {
             internalStatus
           ]
         );
+
+        const nextSupplyStatus = supplyStatus || supplyCode || null;
+        if (
+          orderMeta?.user_id &&
+          nextSupplyStatus &&
+          String(match.supplier_status || "") !== String(nextSupplyStatus)
+        ) {
+          await addUserNotification(
+            client,
+            orderMeta.user_id,
+            "item_changes",
+            "item_status",
+            String(match.brand || "") + " " + String(match.article || ""),
+            "Статус поставки: " + String(nextSupplyStatus)
+          );
+        }
+
         positionUpdates += 1;
       }
     }
@@ -1011,6 +1044,15 @@ app.post("/api/quote-requests", quoteLimiter, async (req, res, next) => {
             (order_id, status, source, note, created_at)
            VALUES ($1,'new','zapformat','Заказ создан на основании проверенных предложений',$2)`,
           [order.id, now]
+        );
+
+        await addUserNotification(
+          client,
+          requestUser.id,
+          "order_status",
+          "order_created",
+          "Заказ #" + String(order.order_number) + " создан",
+          "Цена и наличие проверены. Заказ появился в личном кабинете."
         );
 
         await client.query(
@@ -2183,6 +2225,15 @@ app.post("/api/account/returns", requireUser, async (req, res, next) => {
        VALUES ($1,$2,$3,$4,$5,'created',now(),now())
        RETURNING id, return_number, quantity, reason, comment, status, created_at`,
       [req.user.id, orderItemId, quantity, reason, comment]
+    );
+
+    await addUserNotification(
+      pool,
+      req.user.id,
+      "returns",
+      "return_created",
+      "Возврат #" + String(result.rows[0].return_number) + " создан",
+      reason
     );
 
     res.status(201).json({ return: result.rows[0] });
