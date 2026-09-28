@@ -1162,11 +1162,13 @@ function renderVehicleSearchState(query,vehicle,options={}){
   exactRoot.innerHTML=`
     <div class="vehicle-search-state">
       <span class="eyebrow">${isVin?"VIN":"УМНЫЙ ПОИСК"}</span>
-      <h3>${isVin?"VIN распознан":"Запрос понят"}</h3>
+      <h3>${isVin?(vehicle?"Автомобиль найден в гараже":"VIN принят"):"Запрос понят"}</h3>
       <p><b>${escapeHtml(query)}</b>${label?" · "+escapeHtml(label):""}${vin?" · "+escapeHtml(vin):""}</p>
       <p class="vehicle-search-note">
         ${isVin
-          ? "VIN используется как контекст автомобиля. ZapFormat не будет придумывать совместимость или артикулы."
+          ? (vehicle
+              ? "Используем сохранённый автомобиль как контекст. Совместимость и артикулы не придумываем."
+              : "Автоматическая расшифровка неизвестного VIN пока не подключена. Добавьте автомобиль в гараж или введите известный артикул.")
           : "ZapFormat понимает запрос, но показывает только те артикулы, которые подтверждены каталогом выбранной модификации."}
       </p>
       <div class="vehicle-search-actions">
@@ -1583,7 +1585,7 @@ async function search(query,options={}){
       await selectGarageVehicle(matched.id);
     }
     const active=matched || currentSearchVehicle();
-    setSearchHead(vin,active ? "VIN связан с "+vehicleLabel(active) : "VIN распознан",vin);
+    setSearchHead(vin,active ? "VIN связан с "+vehicleLabel(active) : "VIN принят. Автоматическая расшифровка пока не подключена.",vin);
     renderVehicleSearchState(vin,active,{vin:true});
     return true;
   }
