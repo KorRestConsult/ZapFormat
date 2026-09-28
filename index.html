@@ -6,7 +6,7 @@
   <meta name="theme-color" content="#17324a" />
   <title>ZapFormat — автозапчасти</title>
   <meta name="description" content="Умный поиск автозапчастей по артикулу, VIN и обычному запросу" />
-  <link rel="stylesheet" href="./styles.css?v=20260928-cart1" />
+  <link rel="stylesheet" href="./styles.css?v=20260928-orders1" />
 </head>
 <body>
   <div class="app">
@@ -133,25 +133,6 @@
         </div>
       </section>
 
-      <section class="view" id="view-orders">
-        <div class="page-simple-head">
-          <span class="eyebrow">ЛИЧНЫЙ КАБИНЕТ</span>
-          <h2>Заказы</h2>
-          <p>Здесь будет история и синхронизированные статусы поставщика.</p>
-        </div>
-
-        <div class="orders-list">
-          <article class="order-row">
-            <div><small>Заказ #1042</small><b>3 позиции · 12 480 ₽</b></div>
-            <div><span>24 сентября</span><strong class="status">В пути</strong></div>
-          </article>
-          <article class="order-row muted-row">
-            <div><small>Пример интерфейса</small><b>После API здесь появятся реальные заказы</b></div>
-            <div><span>—</span><strong class="status gray">Черновик</strong></div>
-          </article>
-        </div>
-      </section>
-
       <section class="view" id="view-auth">
         <div class="auth-shell">
           <div class="auth-brand">
@@ -275,7 +256,7 @@
             </section>
 
             <section class="account-pane" id="account-orders">
-              <div class="account-head"><div><span class="eyebrow">ЗАКАЗЫ</span><h2>История заказов</h2><p>Статус каждой позиции, сроки и действия по заказу.</p></div></div>
+              <div class="account-head"><div><span class="eyebrow">ЗАКАЗЫ</span><h2>История заказов</h2><p>Реальные заказы ZapFormat и запросы на ручное подтверждение.</p></div></div>
               <div class="account-toolbar">
                 <input id="orderSearch" placeholder="Номер заказа или артикул">
                 <select id="orderStatusFilter" aria-label="Статус заказа">
@@ -432,7 +413,7 @@
     </nav>
 </div>
 
-  <script src="./config.js?v=20260928-cart1"></script>
-  <script src="./app.js?v=20260928-cart1"></script>
+  <script src="./config.js?v=20260928-orders1"></script>
+  <script src="./app.js?v=20260928-orders1"></script>
 </body>
 </html>
