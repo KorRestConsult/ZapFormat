@@ -1659,8 +1659,13 @@ async function search(query,options={}){
     datasets[key]={title:article,subtitle:"Выберите производителя",exact:[],analogs:[]};
     currentKey=key;
 
-    setSearchHead(article,brands.length ? "Выберите производителя — затем покажем цены и аналоги." : "Артикул не найден.",raw);
-    renderBrandChoices(article,brands);
+    setSearchHead(
+      article,
+      brands.length===1 ? "Нашли производителя. Загружаем цены и наличие…" :
+        brands.length ? "Выберите производителя — затем покажем цены и аналоги." :
+          "Артикул не найден.",
+      raw
+    );
 
     if(options.push!==false){
       const url=new URL(location.href);
@@ -1668,6 +1673,18 @@ async function search(query,options={}){
       url.searchParams.set("q",article);
       history.pushState({route:"search",query:article},"",url.pathname+url.search);
     }
+
+    if(brands.length===1){
+      const only=brands[0];
+      return loadLiveOffers(
+        only.article||article,
+        only.brand,
+        only.description||"",
+        {push:false}
+      );
+    }
+
+    renderBrandChoices(article,brands);
 
     const requestedBrand=String(options.brand||"").trim();
     if(requestedBrand){
@@ -1731,8 +1748,9 @@ function supplyRowHtml(x){
       </div>`;
   }
   const term=x.days===0?"Сегодня":x.days+(x.days===1?" день":" дн.");
+  const available=Math.max(0,Number(x.qty||0));
   return `
-    <div class="supply-row">
+    <div class="supply-row${available<=0?" unavailable":""}">
       <div class="supply-left">
         <div class="supply-term">
           <b>${term}</b>
@@ -1741,8 +1759,8 @@ function supplyRowHtml(x){
         <span class="supply-warehouse">${escapeHtml(x.source||"")}</span>
       </div>
       <div class="supply-price">${rub(itemRetail(x))}</div>
-      <div class="supply-stock">${x.qty} шт.</div>
-      <button class="cart-icon-btn" data-add="${escapeHtml(x.id)}" aria-label="В корзину">${cartSvg()}</button>
+      <div class="supply-stock">${available>0?available+" шт.":"Нет в наличии"}</div>
+      <button class="cart-add-text" data-add="${escapeHtml(x.id)}" ${available<=0?"disabled":""}>В корзину</button>
     </div>`;
 }
 
@@ -1835,7 +1853,11 @@ function changeQty(id,delta){
 
 function addToCart(id,btn){
   const item=findItem(id); if(!item) return;
-  const orderQty=quantities[id]||1;
+  if(Number(item.qty||0)<=0){
+    showToast("Этой позиции сейчас нет в наличии.","warn");
+    return;
+  }
+  const orderQty=Math.min(quantities[id]||1,Math.max(1,Number(item.qty||1)));
   const price=item.quoteOnly ? 0 : itemRetail(item);
   const existing=cart.find(x=>x.id===id);
   if(existing){
