@@ -462,6 +462,28 @@ function requestStatusClass(status){
   return "processing";
 }
 
+function supplyStatusLabel(status){
+  const raw=String(status||"").trim();
+  if(!raw) return "";
+  const value=raw.toLowerCase().replace(/[\s_-]+/g,"");
+  if(/cancel|canceled|cancelled|отмен|reject/.test(value)) return "Отменено";
+  if(/complete|completed|delivered|issued|выдан|заверш/.test(value)) return "Завершено";
+  if(/ready|готов/.test(value)) return "Готово у поставщика";
+  if(/ship|transit|delivery|dispatch|впути|достав/.test(value)) return "В пути";
+  if(/process|work|ordered|confirmed|обработ|работ/.test(value)) return "В работе";
+  if(/new|created|received|accepted|принят|создан/.test(value)) return "Принято";
+
+  const looksTechnical=/^[A-Za-z0-9_.:-]+$/.test(raw) || /^[a-z]+(?:[A-Z][a-z0-9]*)+$/.test(raw);
+  return looksTechnical ? "Статус обновлён" : raw;
+}
+
+function historyNoteText(note){
+  const raw=String(note||"").trim();
+  const match=raw.match(/^Статус поставки:\s*(.+)$/i);
+  if(match) return "Поставка: "+supplyStatusLabel(match[1]);
+  return raw;
+}
+
 function orderNextStep(status){
   const value=String(status||"").toLowerCase();
   const map={
@@ -992,7 +1014,7 @@ async function openLiveOrderDetail(id,options={}){
                 <div class="position-title">
                   <h3>${escapeHtml(item.brand||"")} ${escapeHtml(item.article||"")}</h3>
                   <p>${escapeHtml(item.description||"")}</p>
-                  ${item.vehicle_id ? '<small class="order-vehicle-context">Для: '+escapeHtml([item.vehicle_brand,item.vehicle_model,item.vehicle_generation].filter(Boolean).join(" "))+(item.vehicle_vin?" · "+escapeHtml(shortVin(item.vehicle_vin)):"")+' · контекст заказа</small>' : ""}\n                  ${item.supplier_status ? '<small class="order-vehicle-context">Поставка: '+escapeHtml(item.supplier_status)+'</small>' : ""}
+                  ${item.vehicle_id ? '<small class="order-vehicle-context">Для: '+escapeHtml([item.vehicle_brand,item.vehicle_model,item.vehicle_generation].filter(Boolean).join(" "))+(item.vehicle_vin?" · "+escapeHtml(shortVin(item.vehicle_vin)):"")+' · контекст заказа</small>' : ""}\n                  ${item.supplier_status ? '<small class="order-vehicle-context">Поставка: '+escapeHtml(supplyStatusLabel(item.supplier_status))+'</small>' : ""}
                   ${item.comment ? '<small class="order-item-comment">Комментарий: '+escapeHtml(item.comment)+'</small>' : ""}
                 </div>
                 <strong class="status ${requestStatusClass(item.status)}">${requestStatusLabel(item.status)}</strong>
@@ -1017,7 +1039,7 @@ async function openLiveOrderDetail(id,options={}){
               <div class="timeline-copy">
                 <small>${formatDateRu(step.created_at)}</small>
                 <b>${requestStatusLabel(step.status)}</b>
-                ${step.note?`<p>${escapeHtml(step.note)}</p>`:""}
+                ${step.note?`<p>${escapeHtml(historyNoteText(step.note))}</p>`:""}
               </div>
             </div>`).join("") : '<div class="account-empty"><p>Заказ создан.</p></div>'}
         </div>
