@@ -62,6 +62,8 @@ else
   git merge --ff-only origin/main
 fi
 
+install -m 750 "${APP_DIR}/backend/deploy/autodeploy-runner.sh" /usr/local/sbin/zapformat-autodeploy
+
 node --check app.js
 node --check backend/src/server.js
 node --check backend/src/partgrade.js
