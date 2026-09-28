@@ -219,6 +219,7 @@ const defaultGarageState = {
 };
 let garageTab="overview";
 let garageMeasurementOpen=false;
+let garageHistoryOpen=false;
 let garageVehicles=[];
 let garageActiveVehicleId=null;
 let garageState=loadGarageState();
@@ -713,6 +714,7 @@ async function selectGarageVehicle(vehicleId){
   garageActiveVehicleId=target.id;
   garageTab="overview";
   garageMeasurementOpen=false;
+  garageHistoryOpen=false;
 
   try{
     await apiRequest("/api/garage/vehicles/"+encodeURIComponent(target.id)+"/default",{method:"POST"});
@@ -2178,18 +2180,39 @@ function renderGarageMeasurements(){
 }
 
 function renderGarageHistory(){
+  const today=new Date().toISOString().slice(0,10);
   return `
     <section class="garage-panel garage-full-panel">
       <div class="garage-panel-head">
-        <div><span class="eyebrow">ИСТОРИЯ АВТОМОБИЛЯ</span><h3>Работы и обслуживание</h3><p>Сервисная история остаётся у владельца и привязана к автомобилю.</p></div>
+        <div><span class="eyebrow">ИСТОРИЯ АВТОМОБИЛЯ</span><h3>Работы и обслуживание</h3><p>Сервисная история хранится в аккаунте и привязана к выбранному автомобилю.</p></div>
+        <button class="garage-primary" data-garage-toggle-history>+ Добавить запись</button>
       </div>
+
+      ${garageHistoryOpen ? `
+        <form class="garage-history-form" id="garageHistoryForm">
+          <label><span>Работа</span><input name="title" placeholder="Например: Замена масла" required></label>
+          <label><span>Пробег, км</span><input name="mileage" inputmode="numeric" value="${garageState.vehicle.mileage||""}" placeholder="Пробег"></label>
+          <label><span>Дата</span><input name="service_date" type="date" value="${today}"></label>
+          <label class="wide"><span>Комментарий</span><input name="note" placeholder="Что сделали, какие детали установили"></label>
+          <div class="garage-measure-actions wide">
+            <button type="button" data-garage-toggle-history>Отмена</button>
+            <button class="garage-primary" type="submit">Сохранить</button>
+          </div>
+        </form>
+      ` : ""}
+
       <div class="garage-history-list">
-        ${garageState.history.map(x=>`
+        ${garageState.history.length ? garageState.history.map(x=>`
           <article>
-            <div class="garage-history-date"><b>${x.date}</b><span>${new Intl.NumberFormat("ru-RU").format(x.mileage)} км</span></div>
-            <div><b>${x.title}</b><p>${x.note}</p></div>
+            <div class="garage-history-date"><b>${escapeHtml(x.date)}</b><span>${new Intl.NumberFormat("ru-RU").format(x.mileage||0)} км</span></div>
+            <div><b>${escapeHtml(x.title)}</b><p>${escapeHtml(x.note||"")}</p></div>
           </article>
-        `).join("")}
+        `).join("") : `
+          <div class="garage-empty-inline">
+            <b>История пока пуста.</b>
+            <span>Добавляйте фактические работы — дальше они смогут влиять на рекомендации и план ТО.</span>
+          </div>
+        `}
       </div>
     </section>
   `;
@@ -2309,7 +2332,9 @@ function openGarageVehicleEditor(mode="edit"){
         <label><span>Марка</span><input name="brand" value="${esc(v.brand)}" placeholder="Ford" required></label>
         <label><span>Модель</span><input name="model" value="${esc(v.model)}" placeholder="Focus" required></label>
         <label><span>Год</span><input name="year" inputmode="numeric" value="${esc(v.year)}" placeholder="2010"></label>
+        <label><span>Поколение</span><input name="generation" value="${esc(v.generation)}" placeholder="F25 / Mk2"></label>
         <label><span>Двигатель</span><input name="engine" value="${esc(v.engine)}" placeholder="1.8 бензин"></label>
+        <label><span>Госномер</span><input name="plate" value="${esc(v.plate)}" placeholder="А123ВС62"></label>
         <label class="wide"><span>VIN</span><input name="vin" maxlength="17" autocomplete="off" autocapitalize="characters" value="${esc(v.vin)}" placeholder="17 символов"></label>
         <label class="wide"><span>Пробег, км</span><input name="mileage" inputmode="numeric" value="${esc(v.mileage||"")}" placeholder="0"></label>
         <div class="vehicle-editor-actions">
@@ -2346,8 +2371,10 @@ async function saveGarageVehicleForm(form){
   const payload={
     brand,
     model,
+    generation:String(data.generation||"").trim()||null,
     year,
     engine:String(data.engine||"").trim(),
+    plate_number:String(data.plate||"").trim().toUpperCase()||null,
     vin:vin||null,
     current_mileage:mileage
   };
@@ -2451,12 +2478,19 @@ document.addEventListener("click",async e=>{
   if(garageTabButton){
     garageTab=garageTabButton.dataset.garageTab;
     garageMeasurementOpen=false;
+    garageHistoryOpen=false;
     renderGarageApp();
     return;
   }
 
   if(e.target.closest("[data-garage-toggle-measurement]")){
     garageMeasurementOpen=!garageMeasurementOpen;
+    renderGarageApp();
+    return;
+  }
+
+  if(e.target.closest("[data-garage-toggle-history]")){
+    garageHistoryOpen=!garageHistoryOpen;
     renderGarageApp();
     return;
   }
@@ -2653,6 +2687,48 @@ document.addEventListener("submit",async e=>{
     }catch(error){
       console.error("Garage measurement save failed",error);
       showToast("Не удалось сохранить замер.","warn");
+    }finally{
+      if(submit) submit.disabled=false;
+    }
+    return;
+  }
+
+  const garageHistoryForm=e.target.closest("#garageHistoryForm");
+  if(garageHistoryForm){
+    e.preventDefault();
+    if(!sessionUser || !garageState.vehicle?.id){
+      showToast("Сначала добавьте автомобиль.","warn");
+      return;
+    }
+
+    const data=Object.fromEntries(new FormData(garageHistoryForm).entries());
+    const title=String(data.title||"").trim();
+    if(!title){
+      showToast("Укажите выполненную работу.","warn");
+      return;
+    }
+
+    const submit=garageHistoryForm.querySelector('button[type="submit"]');
+    if(submit) submit.disabled=true;
+    try{
+      await apiRequest("/api/garage/vehicles/"+encodeURIComponent(garageState.vehicle.id)+"/maintenance",{
+        method:"POST",
+        body:JSON.stringify({
+          title,
+          mileage:Math.max(0,parseInt(String(data.mileage||"0").replace(/\D/g,""),10)||0)||null,
+          service_date:String(data.service_date||"").trim()||null,
+          note:String(data.note||"").trim()
+        })
+      });
+      garageHistoryOpen=false;
+      await hydrateRealGarage({vehicles:garageVehicles.map(x=>({
+        id:x.id,brand:x.brand,model:x.model,generation:x.generation,year:x.year,engine:x.engine,
+        vin:x.vin,plate_number:x.plate,current_mileage:x.mileage,is_default:x.isDefault
+      }))});
+      showToast("Работа добавлена в историю.");
+    }catch(error){
+      console.error("Garage history save failed",error);
+      showToast("Не удалось сохранить работу.","warn");
     }finally{
       if(submit) submit.disabled=false;
     }
