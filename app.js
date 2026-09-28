@@ -1906,9 +1906,9 @@ function supplyRowHtml(x){
       <div class="supply-left">
         <div class="supply-term">
           <b>${term}</b>
-          <small>${escapeHtml(x.warehouse||"")}</small>
+          <small>Ожидаемый срок</small>
         </div>
-        <span class="supply-warehouse">${escapeHtml(x.source||"")}</span>
+        <span class="supply-warehouse">${x.type==="analog"?"Аналог":"Точная позиция"}</span>
       </div>
       <div class="supply-price">${rub(itemRetail(x))}</div>
       <div class="supply-stock">${available>0?available+" шт.":"Нет в наличии"}</div>
