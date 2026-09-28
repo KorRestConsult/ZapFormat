@@ -336,17 +336,24 @@ function showToast(message,type=""){
 function loadCart(){
   try{
     const raw=JSON.parse(localStorage.getItem("zapformat-cart") || "[]");
-    return raw.map(x=>({
-      ...x,
-      orderQty: x.orderQty ?? x.qty ?? 1,
-      availableQty: x.availableQty ?? x.available ?? x.qty ?? 0,
-      selected: x.selected ?? true,
-      comment: x.comment ?? "",
-      priceAtAdd: x.priceAtAdd ?? x.price ?? 0,
-      previousPrice: x.previousPrice ?? null,
-      priceChanged: x.priceChanged ?? false,
-      availabilityChanged: x.availabilityChanged ?? false
-    }));
+    return raw
+      .filter(x=>x && (x.offerToken || x.live===true))
+      .map(x=>{
+        const stale=Boolean(x.stale || !x.offerToken);
+        return {
+          ...x,
+          orderQty:x.orderQty ?? x.qty ?? 1,
+          availableQty:x.availableQty ?? x.available ?? x.qty ?? 0,
+          selected:stale ? false : (x.selected ?? true),
+          comment:x.comment ?? "",
+          priceAtAdd:x.priceAtAdd ?? x.price ?? 0,
+          previousPrice:x.previousPrice ?? null,
+          priceChanged:x.priceChanged ?? false,
+          availabilityChanged:x.availabilityChanged ?? false,
+          stale,
+          offerToken:x.offerToken||null
+        };
+      });
   }catch{return []}
 }
 function saveCart(){
@@ -388,6 +395,7 @@ async function apiRequest(path,options={}){
     const error=new Error(data.error||("http_"+response.status));
     error.code=data.error||("http_"+response.status);
     error.status=response.status;
+    error.data=data;
     throw error;
   }
   return data;
@@ -821,6 +829,7 @@ async function loadLiveOffers(article,brand,description="",options={}){
       qty:Number(o.availability||0),
       days:Math.max(0,Math.ceil(Number(o.delivery_hours||0)/24)),
       deliveryProbability:o.delivery_probability??null,
+      offerToken:o.offer_token||null,
       live:true
     });
 
@@ -1120,46 +1129,130 @@ function renderCart(){
   if(mobile) mobile.textContent=count;
 }
 
-function refreshCartOffers(){
-  let changed=0;
-  cart.forEach(item=>{
-    const live=findItem(item.id);
-    if(!live) return;
-
-    const nextPrice=itemRetail(live);
-    const nextAvailable=live.qty;
-
-    item.previousPrice=item.price;
-    item.priceChanged=item.price!==nextPrice;
-    item.availabilityChanged=item.availableQty!==nextAvailable;
-    if(item.priceChanged || item.availabilityChanged) changed++;
-
-    item.price=nextPrice;
-    item.availableQty=nextAvailable;
-    if(item.availableQty===0) item.selected=false;
-  });
-
-  localStorage.setItem("zapformat-cart",JSON.stringify(cart));
-
+async function refreshCartOffers(options={}){
+  const silent=Boolean(options.silent);
+  const refreshable=cart.filter(x=>x.offerToken);
   const status=document.getElementById("cartRefreshStatus");
   const time=document.getElementById("cartRefreshTime");
   const notice=document.getElementById("cartChangeNotice");
-  if(status) status.textContent="Цены и наличие обновлены";
-  if(time) time.textContent=new Date().toLocaleTimeString("ru-RU",{hour:"2-digit",minute:"2-digit"});
-  if(notice){
-    if(changed){
-      notice.hidden=false;
-      notice.textContent="Изменились цена или наличие у "+changed+" позиц.";
-    } else {
-      notice.hidden=true;
-      notice.textContent="";
-    }
-  }
-  renderCartPage();
-}
+  const button=document.getElementById("refreshCartButton");
 
+  if(!refreshable.length){
+    cart.forEach(item=>{
+      item.stale=true;
+      item.selected=false;
+    });
+    saveCart();
+    if(status) status.textContent="Нужно заново выбрать предложения";
+    if(time) time.textContent="";
+    if(notice){
+      notice.hidden=false;
+      notice.textContent="Старые позиции нельзя подтвердить автоматически. Добавьте их заново из живого каталога.";
+    }
+    return {ok:false,changed:0,blocked:cart.length};
+  }
+
+  if(button) button.disabled=true;
+  if(status) status.textContent="Проверяем цены и наличие…";
+
+  try{
+    const data=await apiRequest("/api/catalog/revalidate",{
+      method:"POST",
+      body:JSON.stringify({
+        items:refreshable.map(x=>({
+          id:x.id,
+          offer_token:x.offerToken,
+          quantity:x.orderQty
+        }))
+      })
+    });
+
+    const byId=new Map((data?.items||[]).map(item=>[String(item.id),item]));
+    let changed=0;
+    let blocked=0;
+
+    cart.forEach(item=>{
+      if(!item.offerToken){
+        item.stale=true;
+        item.selected=false;
+        blocked++;
+        return;
+      }
+
+      const checked=byId.get(String(item.id));
+      if(!checked || checked.status==="invalid" || checked.status==="unavailable"){
+        item.stale=true;
+        item.selected=false;
+        item.availableQty=0;
+        item.availabilityChanged=true;
+        blocked++;
+        return;
+      }
+
+      const nextPrice=Number(checked.price||0);
+      const nextAvailable=Number(checked.availability||0);
+      const nextDays=Math.max(0,Math.ceil(Number(checked.delivery_hours||0)/24));
+      const priceChanged=Math.abs(Number(item.price||0)-nextPrice)>0.009;
+      const availabilityChanged=Number(item.availableQty||0)!==nextAvailable;
+
+      item.previousPrice=priceChanged ? item.price : null;
+      item.priceChanged=priceChanged;
+      item.availabilityChanged=availabilityChanged;
+      if(priceChanged || availabilityChanged) changed++;
+
+      item.price=nextPrice;
+      item.availableQty=nextAvailable;
+      item.days=nextDays;
+      item.offerToken=checked.offer_token||item.offerToken;
+      item.stale=false;
+
+      if(checked.status==="insufficient" || nextAvailable<item.orderQty){
+        item.selected=false;
+        blocked++;
+      }
+    });
+
+    localStorage.setItem("zapformat-cart",JSON.stringify(cart));
+    renderCart();
+    renderCartPage();
+
+    if(status) status.textContent="Цены и наличие обновлены";
+    if(time) time.textContent=new Date().toLocaleTimeString("ru-RU",{hour:"2-digit",minute:"2-digit"});
+    if(notice){
+      if(blocked){
+        notice.hidden=false;
+        notice.textContent="У "+blocked+" позиц. недостаточно остатка или предложение больше недоступно.";
+      }else if(changed){
+        notice.hidden=false;
+        notice.textContent="Изменились цена или наличие у "+changed+" позиц. Проверьте корзину.";
+      }else{
+        notice.hidden=true;
+        notice.textContent="";
+      }
+    }
+
+    if(!silent && !blocked && !changed) showToast("Цены и наличие актуальны.");
+    return {ok:true,changed,blocked};
+  }catch(error){
+    console.error("Cart revalidation failed",error);
+    if(status) status.textContent="Не удалось обновить цены";
+    if(time) time.textContent="";
+    if(notice){
+      notice.hidden=false;
+      notice.textContent="Связь с каталогом временно недоступна. Заказ не отправлен.";
+    }
+    return {ok:false,changed:0,blocked:cart.length||1};
+  }finally{
+    if(button) button.disabled=false;
+  }
+}
 function selectedCartItems(){
-  return cart.filter(x=>x.selected && (x.quoteOnly || x.availableQty>0));
+  return cart.filter(x=>
+    x.selected &&
+    !x.stale &&
+    Boolean(x.offerToken) &&
+    Number(x.availableQty||0)>=Number(x.orderQty||1)
+  );
 }
 
 function renderCartPage(){
@@ -1175,7 +1268,7 @@ function renderCartPage(){
 
   root.innerHTML=cart.map((x,index)=>{
     const subtotal=x.price*x.orderQty;
-    const unavailable=!x.quoteOnly && x.availableQty===0;
+    const unavailable=Boolean(x.stale) || Number(x.availableQty||0)<Number(x.orderQty||1);
     const classes=["order-cart-row"];
     if(unavailable) classes.push("unavailable");
     if(x.priceChanged) classes.push("price-changed");
@@ -1194,7 +1287,7 @@ function renderCartPage(){
         <div class="article-cell"><span class="cart-article">${x.article}</span></div>
         <div class="description-cell cart-description">${x.name}</div>
         <div class="warehouse-cell">${x.warehouse}</div>
-        <div class="term-cell">${x.quoteOnly?"уточняем":(x.days===1?"1 день":x.days+" дня")}</div>
+        <div class="term-cell">${x.stale?"обновить":(x.days===0?"Сегодня":x.days===1?"1 день":x.days+" дня")}</div>
         <div class="qty-cell">
           <div class="cart-stepper">
             <button data-cart-minus="${x.id}">−</button>
@@ -1202,7 +1295,7 @@ function renderCartPage(){
             <button data-cart-plus="${x.id}">+</button>
           </div>
         </div>
-        <div class="availability-cell cart-availability ${unavailable?"zero":""}">${x.quoteOnly?"—":x.availableQty}</div>
+        <div class="availability-cell cart-availability ${unavailable?"zero":""}">${x.stale?"—":x.availableQty}</div>
         <div class="price-cell cart-price-cell">${priceHtml}</div>
         <div class="sum-cell cart-sum-cell">${x.quoteOnly?"после подтверждения":rub(subtotal)}</div>
         <div class="comment-cell cart-comment"><input data-cart-comment="${x.id}" value="${String(x.comment||"").replace(/"/g,"&quot;")}" placeholder="Комментарий"></div>
@@ -1249,13 +1342,16 @@ function saveCartManual(){
 }
 
 async function checkoutCart(){
-  const selected=selectedCartItems();
-  if(!selected.length){ showToast("Отметьте хотя бы одну позицию.","warn"); return; }
+  let selected=selectedCartItems();
+  if(!selected.length){
+    showToast("Отметьте доступные позиции.","warn");
+    return;
+  }
 
   const name=String(document.getElementById("quoteName")?.value||"").trim();
   const phone=String(document.getElementById("quotePhone")?.value||"").trim();
   if(phone.replace(/\D/g,"").length<10){
-    showToast("Укажите телефон, чтобы подтвердить цену и заказ.","warn");
+    showToast("Укажите телефон для заказа.","warn");
     document.getElementById("quotePhone")?.focus();
     return;
   }
@@ -1266,39 +1362,67 @@ async function checkoutCart(){
   }
 
   const button=document.getElementById("checkoutOrderButton");
-  if(button){ button.disabled=true; button.textContent="Отправляем…"; }
+  if(button){ button.disabled=true; button.textContent="Проверяем цену и наличие…"; }
 
   try{
+    const check=await refreshCartOffers({silent:true});
+    if(!check.ok || check.blocked){
+      showToast("Часть позиций недоступна. Проверьте корзину.","warn");
+      return;
+    }
+    if(check.changed){
+      showToast("Цена или наличие изменились. Проверьте корзину и подтвердите заказ ещё раз.","warn");
+      return;
+    }
+
+    selected=selectedCartItems();
+    if(!selected.length){
+      showToast("Нет доступных позиций для заказа.","warn");
+      return;
+    }
+
+    if(button) button.textContent="Отправляем заказ…";
+
     const result=await apiRequest("/api/quote-requests",{
       method:"POST",
-      headers:{"Content-Type":"application/json"},
       body:JSON.stringify({
         name,
         phone,
         items:selected.map(x=>({
+          client_id:x.id,
           brand:x.brand,
           article:x.article,
           description:x.name,
           quantity:x.orderQty,
           comment:x.comment||"",
-          quoted_price:x.quoteOnly?null:x.price,
-          needs_confirmation:Boolean(x.quoteOnly)
+          offer_token:x.offerToken,
+          expected_price:x.price
         }))
       })
     });
 
+    const sentIds=new Set(selected.map(x=>x.id));
+    cart=cart.filter(x=>!sentIds.has(x.id));
+    saveCart();
+
     localStorage.setItem("zapformat-quote-name",name);
     localStorage.setItem("zapformat-quote-phone",phone);
-    showToast("Запрос "+result.request_id+" принят. Подтвердим цену и наличие.");
+    showToast("Заказ "+result.request_id+" принят.");
+
     if(sessionUser){
       accountDataHydrated=false;
       await hydrateAccountData();
     }
   }catch(error){
     console.error(error);
-    showToast("Не удалось отправить запрос. Попробуйте ещё раз.","warn");
+    if(error.status===409 && error.code==="cart_changed"){
+      await refreshCartOffers({silent:true});
+      showToast("Цена или наличие изменились. Проверьте корзину и подтвердите ещё раз.","warn");
+    }else{
+      showToast("Не удалось отправить заказ. Попробуйте ещё раз.","warn");
+    }
   }finally{
-    if(button){ button.disabled=false; button.textContent="Отправить заказ / запрос цены"; }
+    if(button){ button.disabled=false; button.textContent="Отправить заказ"; }
   }
 }
 
