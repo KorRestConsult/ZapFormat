@@ -362,12 +362,16 @@ function renderCheckoutDelivery(){
   }
 }
 
+function checkoutButtons(){
+  return [...document.querySelectorAll('#checkoutOrderButton,[data-cart-action="checkout"]')];
+}
+
 function updateCheckoutMode(){
-  const button=document.getElementById("checkoutOrderButton");
+  const label=sessionUser ? "Оформить заказ" : "Отправить запрос";
+  checkoutButtons().forEach(button=>{
+    if(!button.disabled) button.textContent=label;
+  });
   const note=document.querySelector(".checkout-recheck-note");
-  if(button && !button.disabled){
-    button.textContent=sessionUser ? "Оформить заказ" : "Отправить запрос";
-  }
   if(note){
     note.textContent=sessionUser
       ? "Цена и наличие проверяются повторно. После оформления заказ сразу появится в личном кабинете."
@@ -2101,8 +2105,11 @@ async function checkoutCart(){
     return;
   }
 
-  const button=document.getElementById("checkoutOrderButton");
-  if(button){ button.disabled=true; button.textContent="Проверяем цену и наличие…"; }
+  const buttons=checkoutButtons();
+  buttons.forEach(button=>{
+    button.disabled=true;
+    button.textContent="Проверяем…";
+  });
 
   try{
     const checkoutIds=selected.map(x=>x.id);
@@ -2122,7 +2129,7 @@ async function checkoutCart(){
       return;
     }
 
-    if(button) button.textContent="Отправляем заказ…";
+    buttons.forEach(button=>{ button.textContent="Отправляем…"; });
 
     const result=await apiRequest("/api/quote-requests",{
       method:"POST",
@@ -2176,7 +2183,7 @@ async function checkoutCart(){
       showToast("Не удалось отправить заказ. Попробуйте ещё раз.","warn");
     }
   }finally{
-    if(button) button.disabled=false;
+    buttons.forEach(button=>{ button.disabled=false; });
     updateCheckoutMode();
   }
 }
