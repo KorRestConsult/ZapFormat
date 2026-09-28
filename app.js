@@ -298,6 +298,35 @@ function showAuthTab(tab){
   setAuthStatus("");
 }
 
+function renderCheckoutContact(){
+  const summary=document.getElementById("checkoutContactSummary");
+  const fallback=document.getElementById("checkoutContactFallback");
+  if(!summary || !fallback) return;
+
+  if(!sessionUser){
+    summary.innerHTML="";
+    fallback.hidden=false;
+    return;
+  }
+
+  const fullName=[sessionUser.name,sessionUser.surname].filter(Boolean).join(" ");
+  const phone=String(sessionUser.phone||"").trim();
+  const needsContact=!fullName || phone.replace(/\D/g,"").length<10;
+
+  if(needsContact){
+    summary.innerHTML=
+      '<div><small>КОНТАКТ</small><b>Нужно дополнить данные</b><span>Для заказа нужны имя и телефон.</span></div>'+
+      '<button type="button" data-account-profile>Профиль</button>';
+    fallback.hidden=false;
+    return;
+  }
+
+  fallback.hidden=true;
+  summary.innerHTML=
+    '<div><small>КОНТАКТ</small><b>'+escapeHtml(fullName)+'</b><span>'+escapeHtml(phone)+'</span></div>'+
+    '<button type="button" data-account-profile>Изменить</button>';
+}
+
 function renderCheckoutDelivery(){
   const mount=document.getElementById("checkoutDeliverySummary");
   if(!mount) return;
@@ -390,6 +419,7 @@ function applySessionUser(){
     if(quotePhone && sessionUser.phone) quotePhone.value=sessionUser.phone;
   }
 
+  renderCheckoutContact();
   updateCheckoutMode();
   updateVehicleContextUi();
 }
@@ -2347,6 +2377,13 @@ document.addEventListener("click",async e=>{
       showToast("Не удалось сохранить модификацию.","warn");
       modification.disabled=false;
     }
+    return;
+  }
+
+  const accountProfile=e.target.closest("[data-account-profile]");
+  if(accountProfile){
+    navigate("profile");
+    showAccountTab("profile");
     return;
   }
 
