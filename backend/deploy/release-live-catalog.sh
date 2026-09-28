@@ -70,6 +70,8 @@ node --check backend/src/partgrade.js
 node --check backend/src/offer-token.js
 node --check backend/src/pricing.js
 node --check backend/src/github-oidc.js
+node --check backend/src/ai-search.js
+node --check backend/src/secret-bootstrap.js
 
 cd backend
 if [[ -f package-lock.json ]]; then
@@ -93,6 +95,13 @@ if [[ -n "${DATABASE_URL:-}" ]]; then
   psql "${DATABASE_URL}" -f db/005_vehicle_context.sql >/dev/null
 fi
 
+mkdir -p /etc/systemd/system/zapformat-api.service.d
+cat >/etc/systemd/system/zapformat-api.service.d/ai-env.conf <<'EOF'
+[Service]
+EnvironmentFile=-/var/lib/zapformat/zapformat-ai.env
+EOF
+systemctl daemon-reload
+
 systemctl restart "${SERVICE}"
 sleep 2
 
@@ -100,6 +109,25 @@ echo
 echo "Health:"
 curl -fsS http://127.0.0.1:3000/api/health
 echo
+
+echo
+echo "AI search health:"
+curl -fsS http://127.0.0.1:3000/api/search/health
+echo
+
+echo
+echo "AI search fallback smoke test:"
+curl -fsS -X POST   -H "Content-Type: application/json"   --data '{"query":"передние тормозные колодки"}'   http://127.0.0.1:3000/api/search/interpret > /tmp/zf-ai-search.json
+python3 - <<'PY'
+import json
+data=json.load(open("/tmp/zf-ai-search.json",encoding="utf-8"))
+intent=data.get("intent") or {}
+print("mode:",data.get("mode"))
+print("category:",intent.get("category"))
+print("axle:",intent.get("axle"))
+if intent.get("category") != "brake_pads":
+    raise SystemExit("FAIL: AI search parser smoke test")
+PY
 
 echo
 echo "Catalog smoke test:"
