@@ -26,7 +26,11 @@ node --check backend/src/server.js
 node --check backend/src/github-oidc.js
 
 cd backend
-npm ci --omit=dev
+if [[ -f package-lock.json ]]; then
+  npm ci --omit=dev
+else
+  npm install --omit=dev --package-lock=false
+fi
 npm test
 
 mkdir -p "${STATE_DIR}" "${LOG_DIR}"
