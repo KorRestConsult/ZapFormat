@@ -916,16 +916,28 @@ app.post("/api/quote-requests", quoteLimiter, async (req, res, next) => {
           0
         );
 
+        const deliveryResult = await client.query(
+          `SELECT id, recipient_name, recipient_phone
+             FROM user_addresses
+            WHERE user_id = $1
+            ORDER BY is_default DESC, updated_at DESC, created_at DESC
+            LIMIT 1`,
+          [requestUser.id]
+        );
+        const delivery = deliveryResult.rows[0] || null;
+
         const orderResult = await client.query(
           `INSERT INTO orders
-            (user_id, status, total_amount, currency, recipient_name, recipient_phone, created_at, updated_at)
-           VALUES ($1,'new',$2,'RUB',$3,$4,$5,$5)
+            (user_id, status, total_amount, currency, delivery_address_id,
+             recipient_name, recipient_phone, created_at, updated_at)
+           VALUES ($1,'new',$2,'RUB',$3,$4,$5,$6,$6)
            RETURNING id, order_number, status, total_amount, currency, created_at`,
           [
             requestUser.id,
             Math.round((totalAmount + Number.EPSILON) * 100) / 100,
-            name || requestUser.name || null,
-            phone,
+            delivery?.id || null,
+            name || delivery?.recipient_name || requestUser.name || null,
+            phone || delivery?.recipient_phone || requestUser.phone || null,
             now
           ]
         );
@@ -2340,11 +2352,15 @@ app.get("/api/account/orders/:orderId", requireUser, async (req, res, next) => {
     });
 
     const orderResult = await pool.query(
-      `SELECT id, order_number, status, total_amount, currency, comment,
-              pickup_point_id, delivery_address_id, recipient_name, recipient_phone,
-              created_at, updated_at
-         FROM orders
-        WHERE id = $1 AND user_id = $2
+      `SELECT o.id, o.order_number, o.status, o.total_amount, o.currency, o.comment,
+              o.pickup_point_id, o.delivery_address_id, o.recipient_name, o.recipient_phone,
+              o.created_at, o.updated_at,
+              a.city AS delivery_city, a.address AS delivery_address
+         FROM orders o
+         LEFT JOIN user_addresses a
+           ON a.id = o.delivery_address_id
+          AND a.user_id = o.user_id
+        WHERE o.id = $1 AND o.user_id = $2
         LIMIT 1`,
       [orderLookup.rows[0].id, req.user.id]
     );
