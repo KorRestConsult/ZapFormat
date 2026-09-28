@@ -2093,17 +2093,45 @@ function selectedCartItems(){
   );
 }
 
+function setCartCheckoutVisible(visible){
+  const ids=[
+    "cartTotalBlock",
+    "cartBulkActions",
+    "checkoutContactSummary",
+    "checkoutContactFallback",
+    "checkoutDeliverySummary",
+    "checkoutOrderButton",
+    "checkoutRecheckNote",
+    "cartOrderWarning"
+  ];
+  ids.forEach(id=>{
+    const el=document.getElementById(id);
+    if(el) el.hidden=!visible;
+  });
+  document.querySelectorAll('[data-cart-action="checkout"]').forEach(button=>{
+    button.hidden=!visible;
+  });
+}
+
 function renderCartPage(){
   const root=document.getElementById("orderCartRows");
   if(!root) return;
 
   if(!cart.length){
-    root.innerHTML='<div style="padding:24px;background:#fff;color:#7b8892">Корзина пока пустая.</div>';
+    setCartCheckoutVisible(false);
+    root.innerHTML=
+      '<div class="cart-empty-state">'+
+        '<h3>Корзина пустая</h3>'+
+        '<p>Найдите нужную деталь и добавьте предложение в корзину.</p>'+
+        '<button type="button" class="account-primary" data-route="home">Найти запчасть</button>'+
+      '</div>';
     const total=document.getElementById("orderCartTotal");
     if(total) total.textContent=rub(0);
     updateCheckoutMode();
     return;
   }
+
+  setCartCheckoutVisible(true);
 
   root.innerHTML=cart.map((x,index)=>{
     const subtotal=x.price*x.orderQty;
