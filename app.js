@@ -1144,6 +1144,21 @@ function renderSmartPartSearch(data,query){
     return;
   }
 
+  if(data?.mode==="catalog_provider_required"){
+    const vinPresent=Boolean(data?.vehicle_identity?.vin_present);
+    root.innerHTML=`
+      <div class="vehicle-search-state">
+        <span class="eyebrow">ПОДБОР ПО АВТОМОБИЛЮ</span>
+        <h3>Нужен расширенный каталог применимости</h3>
+        <p>Запрос понят: <b>${escapeHtml(intent.part_name||query)}</b>${label?" · "+escapeHtml(label):""}.</p>
+        <p class="vehicle-search-note">${vinPresent
+          ? "VIN сохранён, но текущий каталог не умеет автоматически расшифровать VIN для этой группы деталей. ZapFormat не будет подставлять артикул по догадке."
+          : "Для этой группы нужен источник, который подтверждает детали по точной модификации или VIN. Пока такого подтверждения нет, артикул не подставляем."}</p>
+        <div class="vehicle-search-actions"><button type="button" data-route="garage">Проверить автомобиль</button><button type="button" data-focus-catalog-search>Ввести известный артикул</button></div>
+      </div>`;
+    return;
+  }
+
   if(data?.mode==="vehicle_needs_details"){
     root.innerHTML=`
       <div class="vehicle-search-state">
@@ -1188,7 +1203,7 @@ function renderSmartPartSearch(data,query){
   if(data?.mode==="vehicle_specs"){
     root.innerHTML=`
       <div class="vehicle-search-state">
-        <span class="eyebrow">КАТАЛОГ АВТОМОБИЛЯ</span>
+        <span class="eyebrow">ПОДБОР ПО АВТОМОБИЛЮ</span>
         <h3>${escapeHtml(intent.part_name||query)} ${label?"· "+escapeHtml(label):""}</h3>
         <p class="vehicle-search-note">Данные получены из каталога выбранной модификации, а не придуманы ИИ.</p>
         <div class="smart-spec-list">${smartSpecRows(data?.specs?.data||data?.specs)}</div>
@@ -1201,10 +1216,10 @@ function renderSmartPartSearch(data,query){
     const catalogModification=data?.catalog?.modification?.name||"выбранной модификации";
     root.innerHTML=`
       <div class="vehicle-search-state smart-selection-state">
-        <span class="eyebrow">${escapeHtml(interpreter)} · КАТАЛОГ ПРОВЕРЕН</span>
+        <span class="eyebrow">${data?.fitment_status==="catalog_fitment_confirmed"?"СОВМЕСТИМОСТЬ ПОДТВЕРЖДЕНА":"ПОДБОР ПО АВТОМОБИЛЮ"}</span>
         <h3>${escapeHtml(intent.part_name||query)}</h3>
         <p>${label?"Для <b>"+escapeHtml(label)+"</b>. ":""}Найдены позиции из каталога ${escapeHtml(catalogModification)}.</p>
-        <p class="vehicle-search-note">Нажмите позицию — дальше загрузим живые цены, остатки, сроки и аналоги PartGrade.</p>
+        <p class="vehicle-search-note">Нажмите позицию — дальше загрузим живые цены, остатки, сроки и доступные аналоги.</p>
         <div class="smart-article-list">
           ${articles.map(item=>`
             <button type="button" class="smart-article"
@@ -1428,7 +1443,7 @@ async function loadLiveOffers(article,brand,description="",options={}){
     }
     return true;
   }catch(error){
-    console.error("PartGrade offers lookup failed",error);
+    console.error("Supplier offers lookup failed",error);
     setSearchHead(maker+" "+number,"Не удалось загрузить предложения.",number);
     renderSearchState("Предложения временно недоступны","Повторите поиск через несколько секунд.");
     return false;
@@ -1509,7 +1524,7 @@ async function search(query,options={}){
     }
     return true;
   }catch(error){
-    console.error("PartGrade brand lookup failed",error);
+    console.error("Supplier brand lookup failed",error);
     setSearchHead(raw,"Не удалось получить данные поставщика.",raw);
     renderSearchState("Поиск временно недоступен","Повторите попытку через несколько секунд.");
     return false;
