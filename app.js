@@ -1040,7 +1040,11 @@ async function openLiveOrderDetail(id,options={}){
         </section>` : ""}
 
       <div class="order-detail-head">
-        <div class="order-detail-toolbar"><button class="order-detail-back" data-account-tab="orders">← Заказы</button>${justCreated?"":'<button class="order-repeat-compact" data-live-repeat-order="'+escapeHtml(order.id)+'">Повторить заказ</button>'}</div>
+        <div class="order-detail-toolbar">
+          <button class="order-detail-back" data-account-tab="orders">← Заказы</button>
+          <button class="order-refresh-compact" data-refresh-order="${escapeHtml(order.id)}">Обновить статус</button>
+          ${justCreated?"":'<button class="order-repeat-compact" data-live-repeat-order="'+escapeHtml(order.id)+'">Повторить заказ</button>'}
+        </div>
         ${orderStageHtml(order.status)}
         <div class="order-detail-title">
           <div>
@@ -2512,6 +2516,24 @@ async function checkoutCart(){
 
 
 document.addEventListener("click",async e=>{
+  const refreshOrder=e.target.closest("[data-refresh-order]");
+  if(refreshOrder){
+    const id=refreshOrder.dataset.refreshOrder;
+    refreshOrder.disabled=true;
+    refreshOrder.textContent="Обновляем…";
+    try{
+      await openLiveOrderDetail(id);
+      await Promise.all([
+        hydrateAccountData().catch(()=>null),
+        refreshNotificationFeed().catch(()=>null)
+      ]);
+      showToast("Статус обновлён.");
+    }catch(error){
+      showToast("Не удалось обновить статус.","warn");
+    }
+    return;
+  }
+
   const notificationOrder=e.target.closest("[data-notification-order]");
   if(notificationOrder){
     const notificationId=notificationOrder.dataset.notificationId;
