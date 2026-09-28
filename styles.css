@@ -492,8 +492,8 @@ html,body,.app{max-width:100%;overflow-x:hidden}
 .product-title-line{
   display:flex;align-items:baseline;gap:6px;flex-wrap:wrap
 }
-.product-title a{
-  color:#2d4657;text-decoration:underline;font-size:14px
+.product-title .product-article{
+  color:#2d4657;font-size:14px;font-weight:850;overflow-wrap:anywhere
 }
 .product-title b{font-size:14px;color:#263743}
 .product-title small{
