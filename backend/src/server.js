@@ -997,6 +997,129 @@ app.get("/api/account/overview", requireUser, async (req, res, next) => {
   }
 });
 
+app.get("/api/cart", requireUser, async (req, res, next) => {
+  try {
+    const cartResult = await pool.query(
+      "SELECT id, updated_at FROM carts WHERE user_id = $1 LIMIT 1",
+      [req.user.id]
+    );
+
+    if (!cartResult.rowCount) {
+      return res.json({ items: [], updated_at: null });
+    }
+
+    const cart = cartResult.rows[0];
+    const items = await pool.query(
+      `SELECT id, client_id, article, brand, description, warehouse, delivery_days,
+              quantity, available_quantity, unit_price, comment, selected,
+              checked_at, offer_token, created_at, updated_at
+         FROM cart_items
+        WHERE cart_id = $1
+        ORDER BY created_at ASC`,
+      [cart.id]
+    );
+
+    res.json({
+      updated_at: cart.updated_at,
+      items: items.rows.map((item) => ({
+        id: item.id,
+        client_id: item.client_id,
+        article: item.article,
+        brand: item.brand,
+        description: item.description,
+        warehouse: item.warehouse,
+        delivery_days: item.delivery_days,
+        quantity: item.quantity,
+        available_quantity: item.available_quantity,
+        unit_price: Number(item.unit_price),
+        comment: item.comment,
+        selected: item.selected,
+        checked_at: item.checked_at,
+        offer_token: item.offer_token
+      }))
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+app.put("/api/cart", requireUser, async (req, res, next) => {
+  const client = await pool.connect();
+  try {
+    const rawItems = Array.isArray(req.body?.items) ? req.body.items.slice(0, 100) : [];
+    const items = rawItems.map((item) => {
+      const price = Number(item?.unit_price);
+      return {
+        client_id: String(item?.client_id || "").trim().slice(0, 160) || null,
+        article: String(item?.article || "").trim().slice(0, 120),
+        brand: String(item?.brand || "").trim().slice(0, 80),
+        description: String(item?.description || "").trim().slice(0, 300) || null,
+        warehouse: String(item?.warehouse || "").trim().slice(0, 120) || null,
+        delivery_days: item?.delivery_days === null || item?.delivery_days === undefined
+          ? null
+          : Math.max(0, Math.min(365, Math.trunc(Number(item.delivery_days) || 0))),
+        quantity: Math.max(1, Math.min(999, Math.trunc(Number(item?.quantity) || 1))),
+        available_quantity: item?.available_quantity === null || item?.available_quantity === undefined
+          ? null
+          : Math.max(0, Math.min(999999, Math.trunc(Number(item.available_quantity) || 0))),
+        unit_price: Number.isFinite(price) && price >= 0
+          ? Math.round((price + Number.EPSILON) * 100) / 100
+          : 0,
+        comment: String(item?.comment || "").trim().slice(0, 500) || null,
+        selected: item?.selected !== false,
+        offer_token: String(item?.offer_token || "").trim().slice(0, 4096) || null
+      };
+    }).filter((item) => item.article && item.brand && item.offer_token);
+
+    await client.query("BEGIN");
+
+    const cartResult = await client.query(
+      `INSERT INTO carts (user_id, updated_at)
+       VALUES ($1, now())
+       ON CONFLICT (user_id)
+       DO UPDATE SET updated_at = now()
+       RETURNING id, updated_at`,
+      [req.user.id]
+    );
+    const cart = cartResult.rows[0];
+
+    await client.query("DELETE FROM cart_items WHERE cart_id = $1", [cart.id]);
+
+    for (const item of items) {
+      await client.query(
+        `INSERT INTO cart_items
+          (cart_id, client_id, article, brand, description, warehouse, delivery_days,
+           quantity, available_quantity, unit_price, comment, selected, checked_at,
+           offer_token, created_at, updated_at)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,now(),$13,now(),now())`,
+        [
+          cart.id,
+          item.client_id,
+          item.article,
+          item.brand,
+          item.description,
+          item.warehouse,
+          item.delivery_days,
+          item.quantity,
+          item.available_quantity,
+          item.unit_price,
+          item.comment,
+          item.selected,
+          item.offer_token
+        ]
+      );
+    }
+
+    await client.query("COMMIT");
+    res.json({ ok: true, items: items.length, updated_at: cart.updated_at });
+  } catch (error) {
+    await client.query("ROLLBACK").catch(() => {});
+    next(error);
+  } finally {
+    client.release();
+  }
+});
+
 app.get("/api/account/orders", requireUser, async (req, res, next) => {
   try {
     const result = await pool.query(
