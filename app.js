@@ -1977,6 +1977,7 @@ function renderCartPage(){
     root.innerHTML='<div style="padding:24px;background:#fff;color:#7b8892">Корзина пока пустая.</div>';
     const total=document.getElementById("orderCartTotal");
     if(total) total.textContent=rub(0);
+    updateCheckoutMode();
     return;
   }
 
