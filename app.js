@@ -191,7 +191,6 @@ function cartItemFromAccount(item){
     name:String(item?.description||"Автозапчасть"),
     warehouse:String(item?.warehouse||"Поставка"),
     source:"Сохранённая корзина",
-    purchase:0,
     retailPrice:price,
     qty:available,
     days:Math.max(0,Number(item?.delivery_days)||0),
