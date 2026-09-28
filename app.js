@@ -841,22 +841,18 @@ async function refreshNotificationFeed(){
 async function hydrateAccountData(){
   if(!backendConfigured() || !sessionUser) return;
   try{
-    const [overview,orders,requests,garage,preferences,reports,returnsData,notificationsData]=await Promise.all([
+    const [overview,orders,requests,garage,preferences,notificationsData]=await Promise.all([
       apiRequest("/api/account/overview"),
       apiRequest("/api/account/orders"),
       apiRequest("/api/account/requests"),
       apiRequest("/api/garage"),
       apiRequest("/api/account/preferences"),
-      apiRequest("/api/account/reports"),
-      apiRequest("/api/account/returns"),
       apiRequest("/api/account/notifications?limit=30")
     ]);
     liveAccountOrders=orders.orders||[];
     liveAccountRequests=requests.requests||[];
     renderLiveAccount(overview,liveAccountOrders,liveAccountRequests,garage);
     renderAccountPreferences(preferences);
-    renderAccountReports(reports);
-    renderAccountReturns(returnsData);
     renderAccountNotifications(notificationsData);
     await hydrateRealGarage(garage);
     accountDataHydrated=true;
