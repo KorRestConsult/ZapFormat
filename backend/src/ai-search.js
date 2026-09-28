@@ -42,13 +42,13 @@ function fallbackIntent(query, vehicle) {
   const lower = raw.toLowerCase().replace(/ё/g, "е");
 
   const side =
-    /\b(лев(ый|ая|ое|ые)?|левая|левую|левого)\b/.test(lower) ? "left" :
-    /\b(прав(ый|ая|ое|ые)?|правая|правую|правого)\b/.test(lower) ? "right" :
+    /(лев(ый|ая|ое|ые)?|левая|левую|левого)/.test(lower) ? "left" :
+    /(прав(ый|ая|ое|ые)?|правая|правую|правого)/.test(lower) ? "right" :
     "any";
 
   const axle =
-    /\b(перед|передн|спереди)\w*/.test(lower) ? "front" :
-    /\b(зад|задн|сзади)\w*/.test(lower) ? "rear" :
+    /(перед|передн|спереди)/.test(lower) ? "front" :
+    /(зад|задн|сзади)/.test(lower) ? "rear" :
     "any";
 
   const quantityMatch = lower.match(/(?:^|\s)(\d{1,3})\s*(?:шт|штук|компл)/);
@@ -57,25 +57,25 @@ function fallbackIntent(query, vehicle) {
   let category = "unknown";
   let specialCategory = "none";
 
-  if (/\b(колодк)\w*/.test(lower)) category = "brake_pad";
-  else if (/\b(тормозн)\w*\s+(диск)\w*/.test(lower) || /\b(диск)\w*\s+(тормозн)\w*/.test(lower)) category = "brake_disk";
-  else if (/\b(тормозн)\w*\s+(барабан)\w*/.test(lower)) category = "brake_drum";
+  if (/колодк/.test(lower)) category = "brake_pad";
+  else if (/тормозн[^\s]*\s+диск/.test(lower) || /диск[^\s]*\s+тормозн/.test(lower)) category = "brake_disk";
+  else if (/тормозн[^\s]*\s+барабан/.test(lower)) category = "brake_drum";
   else if (/маслян\w*\s+фильтр|фильтр\w*\s+масл/.test(lower)) category = "oil_filter";
   else if (/воздушн\w*\s+фильтр|фильтр\w*\s+воздуш/.test(lower)) category = "air_filter";
   else if (/салонн\w*\s+фильтр|фильтр\w*\s+салон/.test(lower)) category = "cabin_filter";
   else if (/топливн\w*\s+фильтр|фильтр\w*\s+топлив/.test(lower)) category = "fuel_filter";
   else if (/сливн\w*.*(пробк|шайб|уплотн)|уплотн\w*.*сливн/.test(lower)) category = "drain_plug_seal";
-  else if (/\bсвеч\w*\b/.test(lower)) category = "spark_plugs";
-  else if (/\b(дворник|щетк)\w*/.test(lower)) specialCategory = "wipers";
-  else if (/\b(шин|резин)\w*/.test(lower)) specialCategory = "tires";
-  else if (/\b(колесн\w*\s+диск|диски колес)\b/.test(lower)) specialCategory = "wheels";
-  else if (/\bфильтр\w*\b/.test(lower)) category = "filter_ambiguous";
-  else if (/\bрадиатор\w*\b/.test(lower)) category = "radiator";
-  else if (/\b(подушк|опор)\w*.*(двигател|мотор)\w*/.test(lower)) category = "engine_mount";
-  else if (/\b(подушк|опор)\w*.*(кпп|короб)\w*/.test(lower)) category = "transmission_mount";
-  else if (/\bвтулк\w*.*стабилизатор\w*/.test(lower)) category = "stabilizer_bushing";
-  else if (/\bамортизатор\w*/.test(lower)) category = "shock_absorber";
-  else if (/\bступич\w*.*подшипник\w*/.test(lower)) category = "wheel_bearing";
+  else if (/свеч/.test(lower)) category = "spark_plugs";
+  else if (/(дворник|щетк)/.test(lower)) specialCategory = "wipers";
+  else if (/(шин|резин)/.test(lower)) specialCategory = "tires";
+  else if (/(колесн[^\s]*\s+диск|диски колес)/.test(lower)) specialCategory = "wheels";
+  else if (/фильтр/.test(lower)) category = "filter_ambiguous";
+  else if (/радиатор/.test(lower)) category = "radiator";
+  else if (/(подушк|опор).*(двигател|мотор)/.test(lower)) category = "engine_mount";
+  else if (/(подушк|опор).*(кпп|короб)/.test(lower)) category = "transmission_mount";
+  else if (/втулк.*стабилизатор/.test(lower)) category = "stabilizer_bushing";
+  else if (/амортизатор/.test(lower)) category = "shock_absorber";
+  else if (/ступич.*подшипник/.test(lower)) category = "wheel_bearing";
 
   const clarificationNeeded = category === "unknown" || category === "filter_ambiguous";
   const clarificationQuestion =
