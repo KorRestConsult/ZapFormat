@@ -4421,3 +4421,29 @@ body.guest-mode .logo{
     font-size:10px
   }
 }
+
+
+.checkout-payment-note{
+  display:grid;
+  gap:3px;
+  margin:10px 0 0;
+  padding:11px 13px;
+  border:1px solid #e0e6ea;
+  border-radius:10px;
+  background:#f8fafb
+}
+.checkout-payment-note small{
+  color:#8b98a1;
+  font-size:9px;
+  font-weight:900;
+  letter-spacing:.08em
+}
+.checkout-payment-note b{
+  color:#344b59;
+  font-size:11px
+}
+.checkout-payment-note span{
+  color:#7b8b95;
+  font-size:10px;
+  line-height:1.35
+}
