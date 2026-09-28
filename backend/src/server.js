@@ -504,7 +504,7 @@ async function saveSupplierOrderSnapshots(orderId, snapshots) {
       ["ready", "completed", "cancelled"].includes(nextOrderStatus)
     ) {
       const notes = {
-        ready: "Заказ готов к получению",
+        ready: "Заказ готов к получению. Оплата наличными при получении",
         completed: "Заказ завершён",
         cancelled: "Заказ отменён"
       };
@@ -1094,7 +1094,7 @@ app.post("/api/quote-requests", quoteLimiter, requireUser, async (req, res, next
         await client.query(
           `INSERT INTO order_status_history
             (order_id, status, source, note, created_at)
-           VALUES ($1,'new','zapformat','Заказ создан на основании проверенных предложений',$2)`,
+           VALUES ($1,'new','zapformat','Заказ создан на основании проверенных предложений. Оплата наличными при получении',$2)`,
           [order.id, now]
         );
 
@@ -1104,7 +1104,7 @@ app.post("/api/quote-requests", quoteLimiter, requireUser, async (req, res, next
           "order_status",
           "order_created",
           "Заказ #" + String(order.order_number) + " создан",
-          "Цена и наличие проверены. Заказ появился в личном кабинете."
+          "Цена и наличие проверены. Оплата — наличными при получении."
         );
 
         await client.query(
@@ -1311,7 +1311,7 @@ app.post("/api/internal/orders/:orderId/status", requireDatabase, requireInterna
 
       const notificationBody = {
         processing: "Заказ в работе. Следите за изменениями в личном кабинете.",
-        ready: "Заказ готов к получению.",
+        ready: "Заказ готов к получению. Оплата — наличными при получении.",
         completed: "Заказ завершён.",
         cancelled: "Заказ отменён."
       };

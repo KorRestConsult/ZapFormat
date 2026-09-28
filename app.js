@@ -404,7 +404,7 @@ function updateCheckoutMode(){
   }
   const note=document.querySelector(".checkout-recheck-note");
   if(note){
-    note.textContent="Перед подтверждением ещё раз проверим цену и наличие. После этого заказ появится в вашем аккаунте.";
+    note.textContent="Перед подтверждением ещё раз проверим цену и наличие. Оплата — только наличными при получении.";
   }
   renderCheckoutContact();
   renderCheckoutDelivery();
@@ -535,7 +535,7 @@ function orderNextStep(status){
     received:"Заказ принят. Следующее изменение появится здесь и в уведомлениях.",
     confirmed:"Заказ подтверждён и готов к обработке.",
     processing:"Заказ в работе. Статус каждой позиции обновляется отдельно.",
-    ready:"Заказ готов к получению.",
+    ready:"Заказ готов к получению. Оплата — наличными при получении.",
     completed:"Заказ завершён.",
     cancelled:"Заказ отменён."
   };
@@ -555,7 +555,7 @@ function orderTrackingMeta(order,items=[]){
     return {tone:"done",title:"Заказ завершён",text:"История движения сохранена в заказе.",lastUpdated};
   }
   if(status==="ready"){
-    return {tone:"ready",title:"Готов к получению",text:"Позиции готовы. Проверьте способ получения в заказе.",lastUpdated};
+    return {tone:"ready",title:"Готов к получению",text:"Позиции готовы. Оплата — наличными при получении.",lastUpdated};
   }
   if(["manual_required","configuration_required","submit_failed"].includes(supplierState)){
     return {tone:"alert",title:"Уточняем заказ",text:"Заказ сохранён. Перед запуском поставки требуется дополнительное подтверждение.",lastUpdated};
@@ -1093,11 +1093,12 @@ async function openLiveOrderDetail(id,options={}){
             <div class="order-created-steps">
               <span>1. Заказ сохранён, цена и наличие проверены</span>
               <span>2. Движение позиций появится здесь автоматически</span>
-              <span>3. Сообщим, когда заказ можно получать</span>
+              <span>3. При получении оплатите заказ наличными</span>
             </div>
           </div>
           <div class="order-created-summary">
             <b>${rub(Number(order.total_amount||0))}</b>
+            <span class="order-created-payment">Оплата: наличными при получении</span>
             ${order.delivery_address ? '<span>'+escapeHtml([order.delivery_city,order.delivery_address].filter(Boolean).join(" · "))+'</span>' : ""}
             <div class="order-created-actions">
               <button type="button" data-account-tab="orders">К заказам</button>
@@ -1119,6 +1120,7 @@ async function openLiveOrderDetail(id,options={}){
             <h2>#${order.order_number}</h2>
             <p>${formatDateRu(order.created_at)}${order.recipient_name?" · "+escapeHtml(order.recipient_name):""}${order.recipient_phone?" · "+escapeHtml(order.recipient_phone):""}</p>
             ${order.delivery_address ? '<p class="order-delivery-line">Получение: '+escapeHtml([order.delivery_city,order.delivery_address].filter(Boolean).join(" · "))+'</p>' : ""}
+            <p class="order-payment-line">Оплата: наличными при получении</p>
           </div>
           <div class="order-detail-state">
             <strong class="status ${requestStatusClass(order.status)}">${requestStatusLabel(order.status)}</strong>

@@ -6,7 +6,7 @@
   <meta name="theme-color" content="#17324a" />
   <title>ZapFormat — автозапчасти</title>
   <meta name="description" content="Поиск автозапчастей по артикулу и обычному запросу с привязкой к автомобилю" />
-  <link rel="stylesheet" href="./styles.css?v=20260928-orderslive1" />
+  <link rel="stylesheet" href="./styles.css?v=20260928-cashonly1" />
 </head>
 <body class="guest-mode session-pending">
   <div class="app">
@@ -278,7 +278,7 @@
             </section>
 
             <section class="account-pane" id="account-delivery">
-              <div class="account-head"><div><span class="eyebrow">ПОЛУЧЕНИЕ</span><h2>Получение заказов</h2><p>Город, точка выдачи и контакт получателя.</p></div></div>
+              <div class="account-head"><div><span class="eyebrow">ПОЛУЧЕНИЕ</span><h2>Получение заказов</h2><p>Город, точка выдачи и контакт получателя. Оплата — наличными при получении.</p></div></div>
               <form class="account-form" id="deliveryForm">
                 <label><span>Город</span><input name="city" value="Рязань"></label>
                 <label class="wide-field"><span>Точка выдачи / адрес</span><input name="address" placeholder="Улица, дом или название точки получения"></label>
@@ -377,14 +377,14 @@
 
           <div class="checkout-delivery-summary" id="checkoutDeliverySummary" hidden></div>
 
-          <div class="checkout-payment-note" id="checkoutPaymentNote">
+          <div class="checkout-payment-note cash-only" id="checkoutPaymentNote">
             <small>ОПЛАТА</small>
-            <b>На сайте сейчас ничего не списывается.</b>
-            <span>Сначала создаём заказ и фиксируем позиции в вашем аккаунте.</span>
+            <b>Только наличными при получении.</b>
+            <span>Онлайн-оплаты и оплаты картой на сайте нет. Деньги передаются при получении заказа.</span>
           </div>
 
           <button class="checkout-order-button" id="checkoutOrderButton" type="button">Подтвердить заказ</button>
-          <p class="checkout-recheck-note" id="checkoutRecheckNote">Перед подтверждением цена и наличие проверяются повторно.</p>
+          <p class="checkout-recheck-note" id="checkoutRecheckNote">Перед подтверждением цена и наличие проверяются повторно. Оплата — наличными при получении.</p>
         </section>
 
         <details class="cart-import">
@@ -412,7 +412,7 @@
     </nav>
 </div>
 
-  <script src="./config.js?v=20260928-orderslive1"></script>
-  <script src="./app.js?v=20260928-orderslive1"></script>
+  <script src="./config.js?v=20260928-cashonly1"></script>
+  <script src="./app.js?v=20260928-cashonly1"></script>
 </body>
 </html>

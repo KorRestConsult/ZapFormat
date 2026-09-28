@@ -4642,3 +4642,22 @@ body.guest-mode .logo{
     padding:14px
   }
 }
+
+
+/* Customer payment policy — cash only at pickup */
+.checkout-payment-note.cash-only{
+  border-color:#d8e1e6;
+  background:#fff
+}
+.checkout-payment-note.cash-only b{color:var(--navy-3)}
+.order-payment-line{
+  margin-top:5px!important;
+  color:#526977!important;
+  font-size:10px!important;
+  font-weight:800;
+  line-height:1.35!important
+}
+.order-created-payment{
+  color:#526977!important;
+  font-weight:800
+}
