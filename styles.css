@@ -3888,3 +3888,120 @@ body.guest-mode .logo{
   }
   .account-logout[hidden]{display:none!important}
 }
+
+
+.order-created-confirmation{
+  display:grid;
+  grid-template-columns:auto minmax(0,1fr) minmax(220px,auto);
+  gap:18px;
+  align-items:center;
+  margin:0 0 14px;
+  padding:20px 22px;
+  border:1px solid #cfe2d5;
+  border-radius:14px;
+  background:#f6fbf7;
+  box-shadow:0 12px 32px rgba(39,77,53,.07)
+}
+.order-created-check{
+  display:grid;
+  place-items:center;
+  width:44px;
+  height:44px;
+  border-radius:50%;
+  background:#e2f3e7;
+  color:#2d7444;
+  font-size:22px;
+  font-weight:950
+}
+.order-created-confirmation h2{
+  margin:3px 0 5px;
+  color:var(--navy-3);
+  font-size:24px;
+  letter-spacing:-.025em
+}
+.order-created-confirmation p{
+  margin:0;
+  max-width:620px;
+  color:#667b70;
+  font-size:12px;
+  line-height:1.45
+}
+.order-created-summary{
+  display:grid;
+  gap:5px;
+  justify-items:end;
+  text-align:right
+}
+.order-created-summary>b{
+  color:var(--navy-3);
+  font-size:22px
+}
+.order-created-summary>span{
+  max-width:330px;
+  color:#6f8078;
+  font-size:10px;
+  line-height:1.35
+}
+.order-created-actions{
+  display:flex;
+  gap:7px;
+  margin-top:7px
+}
+.order-created-actions button{
+  border:1px solid #c9d9cf;
+  border-radius:8px;
+  background:#fff;
+  color:#50695a;
+  padding:8px 10px;
+  font-size:10px;
+  font-weight:850
+}
+.order-created-actions button:last-child{
+  border-color:var(--navy);
+  background:var(--navy);
+  color:#fff
+}
+.order-detail-state small{
+  display:block;
+  max-width:270px;
+  margin-top:6px;
+  color:#70808a;
+  font-size:10px;
+  line-height:1.35;
+  font-weight:650
+}
+.notification-item[data-notification-order]{
+  cursor:pointer
+}
+.notification-item[data-notification-order]:hover{
+  border-color:#c6d3da;
+  background:#fbfcfd
+}
+.notification-item[data-notification-order]:focus-visible{
+  outline:2px solid rgba(31,55,74,.22);
+  outline-offset:2px
+}
+@media(max-width:760px){
+  .order-created-confirmation{
+    grid-template-columns:auto minmax(0,1fr);
+    padding:16px;
+    gap:12px
+  }
+  .order-created-summary{
+    grid-column:1/-1;
+    width:100%;
+    justify-items:start;
+    text-align:left;
+    padding-top:4px
+  }
+  .order-created-actions{
+    width:100%
+  }
+  .order-created-actions button{
+    flex:1;
+    min-height:40px
+  }
+  .order-created-confirmation h2{
+    font-size:20px
+  }
+}
