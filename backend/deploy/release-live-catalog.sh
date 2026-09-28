@@ -69,6 +69,7 @@ if [[ -n "${DATABASE_URL:-}" ]]; then
   psql "${DATABASE_URL}" -f db/001_init.sql >/dev/null
   psql "${DATABASE_URL}" -f db/002_garage_owner_app.sql >/dev/null
   psql "${DATABASE_URL}" -f db/003_quote_requests.sql >/dev/null
+  psql "${DATABASE_URL}" -f db/004_cart_persistence.sql >/dev/null
 fi
 
 systemctl restart "${SERVICE}"
@@ -162,6 +163,16 @@ echo "HTTP ${ACCOUNT_STATUS} (401 expected without login)"
 if [[ "${ACCOUNT_STATUS}" != "401" ]]; then
   echo "FAIL: account orders route is not protected/available as expected."
   cat /tmp/zf-account-orders.json || true
+  exit 1
+fi
+
+echo
+echo "Account cart route:"
+CART_STATUS="$(curl -sS -o /tmp/zf-account-cart.json -w '%{http_code}' "http://127.0.0.1:3000/api/cart")"
+echo "HTTP ${CART_STATUS} (401 expected without login)"
+if [[ "${CART_STATUS}" != "401" ]]; then
+  echo "FAIL: account cart route is not protected/available as expected."
+  cat /tmp/zf-account-cart.json || true
   exit 1
 fi
 
