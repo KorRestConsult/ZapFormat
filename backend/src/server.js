@@ -1139,6 +1139,17 @@ app.post("/api/quote-requests", quoteLimiter, async (req, res, next) => {
       await fs.appendFile(file, JSON.stringify(record) + "\n", { encoding: "utf8", mode: 0o600 });
     }
 
+    if (pool && requestUser) {
+      await addUserNotification(
+        pool,
+        requestUser.id,
+        "order_status",
+        "quote_request_created",
+        "Запрос " + requestId + " создан",
+        "Часть позиций требует подтверждения цены или наличия."
+      );
+    }
+
     res.status(201).json({
       ok: true,
       request_id: requestId,
