@@ -2207,7 +2207,7 @@ document.addEventListener("click",async e=>{
     return;
   }
 
-  const route=e.target.closest("[data-route]"); if(route){ navigate(route.dataset.route); return; }
+  const route=e.target.closest("[data-route]"); if(route){ if(route.tagName==="A") e.preventDefault(); navigate(route.dataset.route); return; }
   const query=e.target.closest("[data-query]"); if(query){ search(query.dataset.query); return; }
   if(e.target.closest("[data-focus-catalog-search]")){
     const input=document.getElementById("searchInput2");
