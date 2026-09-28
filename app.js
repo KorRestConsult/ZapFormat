@@ -1595,7 +1595,7 @@ async function loadLiveOffers(article,brand,description="",options={}){
     }
     return true;
   }catch(error){
-    console.error("Supplier offers lookup failed",error);
+    console.error("Catalog offers lookup failed",error);
     setSearchHead(maker+" "+number,"Не удалось загрузить предложения.",number);
     renderSearchState("Предложения временно недоступны","Повторите поиск через несколько секунд.");
     return false;
@@ -1622,7 +1622,7 @@ async function search(query,options={}){
 
   showRoute("search");
   setCatalogControlsVisible(false);
-  setSearchHead(raw,"Ищем артикул у поставщика…",raw);
+  setSearchHead(raw,"Ищем предложения…",raw);
   renderSearchState("Поиск","Получаем список производителей.");
 
   if(!backendConfigured()){
@@ -1700,8 +1700,8 @@ async function search(query,options={}){
     }
     return true;
   }catch(error){
-    console.error("Supplier brand lookup failed",error);
-    setSearchHead(raw,"Не удалось получить данные поставщика.",raw);
+    console.error("Catalog brand lookup failed",error);
+    setSearchHead(raw,"Не удалось загрузить каталог.",raw);
     renderSearchState("Поиск временно недоступен","Повторите попытку через несколько секунд.");
     return false;
   }
