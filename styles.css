@@ -14,6 +14,22 @@ button{cursor:pointer}
 .topbar-inner{height:76px;width:min(1280px,94vw);margin:auto;display:grid;grid-template-columns:auto minmax(320px,1fr) auto;align-items:center;gap:24px}
 .logo{text-decoration:none;display:flex;align-items:baseline;gap:3px;color:white;font-weight:950;letter-spacing:-1.2px}.logo-main{font-size:21px}.logo-ai{font-size:21px;color:var(--orange)}
 .header-actions{display:flex;align-items:center;gap:8px}.header-actions>button{border:0;background:transparent;color:#d8e2ea;padding:10px}
+.header-vehicle{
+  display:flex!important;align-items:center;gap:8px!important;
+  border:1px solid rgba(255,255,255,.16)!important;
+  background:rgba(255,255,255,.07)!important;
+  border-radius:10px!important;padding:7px 10px!important;max-width:260px
+}
+.header-vehicle[hidden]{display:none!important}
+.header-vehicle>span{
+  min-width:34px;height:28px;padding:0 7px;border-radius:7px;
+  display:grid;place-items:center;background:rgba(255,255,255,.12);
+  font-size:9px;font-weight:950;letter-spacing:.04em;color:#fff
+}
+.header-vehicle>b{
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+  font-size:11px;color:#fff
+}
 .cart-pill{border:1px solid rgba(255,255,255,.2)!important;background:rgba(255,255,255,.08)!important;border-radius:10px}.cart-pill b{display:inline-grid;place-items:center;background:var(--orange);color:white;border-radius:999px;min-width:20px;height:20px;margin-left:5px;font-size:11px}
 main{width:min(1280px,94vw);margin:auto;padding:34px 0 110px}.view{display:none}.view.active{display:block}
 .home-shell{padding:34px 0}.hero-copy{max-width:900px}.eyebrow{display:block;font-size:11px;letter-spacing:.14em;color:#778692;font-weight:850;margin-bottom:12px}.hero-copy h1{font-size:clamp(44px,6.3vw,82px);line-height:.98;letter-spacing:-.055em;margin:0 0 22px;color:var(--navy-3)}.hero-copy h1 span{color:#6c7d8b}.hero-copy p{font-size:18px;color:#6d7b87;line-height:1.6;max-width:720px}
@@ -308,6 +324,20 @@ html,body,.app{max-width:100%;overflow-x:hidden}
   padding:0 26px;
   font-size:16px;
 }
+.search-vehicle-context{
+  margin:12px auto 0;border:1px solid #d7e0e6;background:#f8fafb;color:#405767;
+  border-radius:12px;padding:9px 11px;display:flex;align-items:center;gap:9px;
+  max-width:860px;text-align:left
+}
+.search-vehicle-context[hidden]{display:none}
+.search-vehicle-dot{
+  width:9px;height:9px;border-radius:999px;background:#2e9b62;flex:0 0 auto
+}
+.search-vehicle-context>span:nth-child(2){min-width:0;flex:1}
+.search-vehicle-context small,.search-vehicle-context b{display:block}
+.search-vehicle-context small{font-size:9px;text-transform:uppercase;letter-spacing:.08em;color:#87949e}
+.search-vehicle-context b{margin-top:2px;font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.search-vehicle-change{font-size:10px;font-weight:850;color:#617482;white-space:nowrap}
 .minimal-note{
   margin:16px auto 0;
   color:#8a97a1;
@@ -315,6 +345,11 @@ html,body,.app{max-width:100%;overflow-x:hidden}
   line-height:1.5;
 }
 @media(max-width:680px){
+  .header-vehicle{max-width:150px}
+  .header-vehicle>b{max-width:92px}
+  .catalog-vehicle-context{grid-template-columns:minmax(0,1fr) auto;gap:8px}
+  .catalog-vehicle-context>span:nth-child(2){grid-column:1/2}
+  .catalog-vehicle-context>strong{grid-column:2/3;grid-row:1/3;align-self:center}
   .minimal-home{
     min-height:calc(100dvh - 145px);
     padding:7vh 8px 12vh;
@@ -360,6 +395,17 @@ html,body,.app{max-width:100%;overflow-x:hidden}
 }
 .catalog-query-head p{margin:0;color:#7b8994}
 .catalog-count{text-align:right}.catalog-count b{display:block;font-size:26px;color:var(--navy)}.catalog-count span{font-size:11px;color:#8b98a2}
+.catalog-vehicle-context{
+  width:100%;margin:10px 0 0;padding:10px 12px;
+  border:1px solid #dbe3e8;background:#f8fafb;color:#405767;
+  display:grid;grid-template-columns:minmax(0,1fr) auto auto;gap:14px;align-items:center;text-align:left
+}
+.catalog-vehicle-context[hidden]{display:none}
+.catalog-vehicle-context small,.catalog-vehicle-context b{display:block}
+.catalog-vehicle-context small{font-size:9px;text-transform:uppercase;letter-spacing:.08em;color:#8a97a1}
+.catalog-vehicle-context b{margin-top:2px;font-size:12px}
+.catalog-vehicle-context>span:nth-child(2){font-size:10px;color:#7f8d97}
+.catalog-vehicle-context>strong{font-size:10px;color:#566d7c}
 .catalog-disclaimer{
   font-size:12px;line-height:1.5;color:#5f6c76;text-decoration:underline;
   margin:12px 2px 12px
