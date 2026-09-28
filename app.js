@@ -770,13 +770,18 @@ function renderAccountNotifications(data){
     return;
   }
 
-  mount.innerHTML=rows.map(item=>
-    '<article class="notification-item'+(item.read_at?"":" unread")+'">'+
-      '<div><small>'+formatDateRu(item.created_at)+'</small><b>'+escapeHtml(item.title||"Событие")+'</b>'+
+  mount.innerHTML=rows.map(item=>{
+    const title=String(item.title||"Событие");
+    const orderMatch=title.match(/Заказ\s+#?(\d+)/i);
+    const action=orderMatch
+      ? ' data-notification-order="'+escapeHtml(orderMatch[1])+'" data-notification-id="'+escapeHtml(item.id||"")+'" tabindex="0"'
+      : "";
+    return '<article class="notification-item'+(item.read_at?"":" unread")+'"'+action+'>'+
+      '<div><small>'+formatDateRu(item.created_at)+'</small><b>'+escapeHtml(title)+'</b>'+
       (item.body?'<p>'+escapeHtml(item.body)+'</p>':"")+'</div>'+
-      (item.read_at?'<span>Прочитано</span>':'<span>Новое</span>')+
-    '</article>'
-  ).join("");
+      (orderMatch?'<span>Открыть →</span>':(item.read_at?'<span>Прочитано</span>':'<span>Новое</span>'))+
+    '</article>';
+  }).join("");
 }
 
 async function refreshNotificationFeed(){
@@ -2402,6 +2407,21 @@ async function checkoutCart(){
 
 
 document.addEventListener("click",async e=>{
+  const notificationOrder=e.target.closest("[data-notification-order]");
+  if(notificationOrder){
+    const notificationId=notificationOrder.dataset.notificationId;
+    if(notificationId){
+      await apiRequest("/api/account/notifications/read",{
+        method:"POST",
+        body:JSON.stringify({ids:[notificationId]})
+      }).catch(()=>{});
+    }
+    navigate("orders");
+    await openLiveOrderDetail(notificationOrder.dataset.notificationOrder);
+    await refreshNotificationFeed().catch(()=>{});
+    return;
+  }
+
   const brandChoice=e.target.closest("[data-brand-select]");
   if(brandChoice){
     loadLiveOffers(
@@ -3475,6 +3495,13 @@ document.getElementById("orderStatusFilter")?.addEventListener("change",filterAc
 
 document.addEventListener("keydown",e=>{
   if(e.key!=="Enter" && e.key!==" ") return;
+
+  const notificationOrder=e.target.closest?.("[data-notification-order][tabindex]");
+  if(notificationOrder){
+    e.preventDefault();
+    notificationOrder.click();
+    return;
+  }
 
   const liveOrder=e.target.closest?.("[data-live-order-detail][tabindex]");
   if(liveOrder){
