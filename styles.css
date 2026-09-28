@@ -3956,7 +3956,7 @@ body.guest-mode .logo{
   font-size:10px;
   font-weight:850
 }
-.order-created-actions button:last-child{
+.order-created-actions button:first-child{
   border-color:var(--navy);
   background:var(--navy);
   color:#fff
