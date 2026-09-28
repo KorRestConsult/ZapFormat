@@ -611,6 +611,9 @@ function renderLiveAccount(overview,orders,requests,garage){
       key:String(order.id),
       number:String(order.order_number),
       created_at:order.created_at,
+      updated_at:order.updated_at||order.created_at,
+      supplier_state:String(order.supplier_state||""),
+      supplier_synced_at:order.supplier_synced_at||null,
       items_count:Number(order.items_count||0),
       total:Number(order.total_amount||0),
       status:order.status,
@@ -621,6 +624,9 @@ function renderLiveAccount(overview,orders,requests,garage){
       key:String(request.id),
       number:String(request.id),
       created_at:request.created_at,
+      updated_at:request.created_at,
+      supplier_state:"",
+      supplier_synced_at:null,
       items_count:Number(request.items_count||0),
       total:Number(request.quoted_total||0),
       needs_confirmation:Boolean(request.needs_confirmation),
@@ -661,13 +667,14 @@ function renderLiveAccount(overview,orders,requests,garage){
       const detailAttr=isOrder
         ? `data-live-order-detail="${row.key}"`
         : `data-live-request-detail="${row.key}"`;
-      return `<div class="account-table-row" data-order-status="${escapeHtml(String(row.status||""))}" data-order-search="${escapeHtml(row.search_text||"")}">
+      const updatedAt=row.supplier_synced_at||row.updated_at||row.created_at;
+      return `<div class="account-table-row" ${detailAttr} role="button" tabindex="0" aria-label="Открыть заказ ${escapeHtml(row.number)}" data-order-status="${escapeHtml(String(row.status||""))}" data-order-search="${escapeHtml(row.search_text||"")}">
         <b class="order-list-number">#${escapeHtml(row.number)}</b>
-        <span class="order-list-date">${formatDateRu(row.created_at)}</span>
+        <span class="order-list-date">${formatDateRu(row.created_at)}<small>обновлено ${formatDateTimeRu(updatedAt)}</small></span>
         <span class="order-list-items">${row.items_count} поз.</span>
         <span class="order-list-total">${totalText}</span>
         <strong class="status order-list-status ${requestStatusClass(row.status)}">${requestStatusLabel(row.status)}</strong>
-        <button class="order-list-open" ${detailAttr}>Открыть</button>
+        <button class="order-list-open" ${detailAttr} type="button">Открыть</button>
       </div>`;
     }).join("");
     table.innerHTML=head+(rows||'<div class="account-empty"><p>Реальных заказов пока нет.</p></div>');
@@ -889,7 +896,7 @@ function renderAccountNotifications(data){
   mount.innerHTML=rows.map(item=>{
     const title=String(item.title||"Событие");
     const body=historyNoteText(item.body||"");
-    const orderMatch=title.match(/Заказ\s+#?(\d+)/i);
+    const orderMatch=(title+" "+body).match(/Заказ\s+#?(\d+)/i);
     const action=orderMatch
       ? ' data-notification-order="'+escapeHtml(orderMatch[1])+'" data-notification-id="'+escapeHtml(item.id||"")+'" tabindex="0"'
       : "";
@@ -1057,10 +1064,17 @@ async function repeatLiveOrder(orderId,button){
 
 async function openLiveOrderDetail(id,options={}){
   currentOpenOrderId=String(id||"")||null;
+  const mount=document.getElementById("orderDetailMount");
+  if(!mount) return;
+
+  if(!options.silent){
+    mount.innerHTML=
+      '<section class="order-detail-loading"><span class="order-loading-dot"></span><div><b>Открываем заказ…</b><small>Проверяем актуальный статус и движение позиций.</small></div></section>';
+    showAccountTab("order-detail");
+  }
+
   try{
     const data=await apiRequest("/api/account/orders/"+encodeURIComponent(id));
-    const mount=document.getElementById("orderDetailMount");
-    if(!mount) return;
 
     const order=data.order;
     const items=data.items||[];
@@ -1125,7 +1139,7 @@ async function openLiveOrderDetail(id,options={}){
           <div class="order-tracking-time">
             <small>Последнее обновление</small>
             <b>${tracking.lastUpdated?formatDateTimeRu(tracking.lastUpdated):"—"}</b>
-            <span>Обновляется автоматически</span>
+            <span>Автообновление · примерно раз в минуту</span>
           </div>
         </div>
       </section>
@@ -1175,6 +1189,9 @@ async function openLiveOrderDetail(id,options={}){
     showAccountTab("order-detail");
   }catch(error){
     console.error(error);
+    mount.innerHTML=
+      '<section class="order-detail-error"><b>Не удалось обновить заказ</b><p>Проверьте соединение и попробуйте ещё раз.</p><div><button type="button" data-account-tab="orders">← К заказам</button><button type="button" data-refresh-order="'+escapeHtml(id)+'">Повторить</button></div></section>';
+    showAccountTab("order-detail");
     showToast("Не удалось открыть заказ.","warn");
   }
 }
@@ -1267,7 +1284,7 @@ async function refreshForegroundAccount(){
       await hydrateAccountData();
       const detailActive=document.getElementById("account-order-detail")?.classList.contains("active");
       if(detailActive && currentOpenOrderId){
-        await openLiveOrderDetail(currentOpenOrderId);
+        await openLiveOrderDetail(currentOpenOrderId,{silent:true});
       }
     }
   }catch(error){
@@ -2595,7 +2612,7 @@ document.addEventListener("click",async e=>{
     refreshOrder.disabled=true;
     refreshOrder.textContent="Обновляем…";
     try{
-      await openLiveOrderDetail(id);
+      await openLiveOrderDetail(id,{silent:true});
       await Promise.all([
         hydrateAccountData().catch(()=>null),
         refreshNotificationFeed().catch(()=>null)

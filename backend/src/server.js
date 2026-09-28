@@ -468,8 +468,8 @@ async function saveSupplierOrderSnapshots(orderId, snapshots) {
             orderMeta.user_id,
             "item_changes",
             "item_status",
-            String(match.brand || "") + " " + String(match.article || ""),
-            "Статус поставки: " + String(nextSupplyStatus)
+            "Заказ #" + String(orderMeta.order_number) + " · " + String(match.brand || "") + " " + String(match.article || ""),
+            "Статус позиции: " + String(nextSupplyStatus)
           );
         }
 
@@ -2622,7 +2622,8 @@ app.get("/api/account/orders", requireUser, async (req, res, next) => {
       console.error("[SupplySync]", error?.message || "supplier_sync_failed");
     });
     const result = await pool.query(
-      `SELECT o.id, o.order_number, o.status, o.total_amount, o.currency, o.created_at,
+      `SELECT o.id, o.order_number, o.status, o.total_amount, o.currency,
+              o.created_at, o.updated_at, o.supplier_state, o.supplier_synced_at,
               count(i.id)::int AS items_count,
               COALESCE(string_agg(DISTINCT concat_ws(' ', i.brand, i.article), ' '),'') AS search_text
          FROM orders o

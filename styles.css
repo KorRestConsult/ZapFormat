@@ -4544,3 +4544,101 @@ body.guest-mode .logo{
   }
   .checkout-review-head h2{font-size:20px}
 }
+
+
+/* Orders live UX — list, deep links, loading states */
+#account-orders .account-table-row[data-live-order-detail],
+#account-orders .account-table-row[data-live-request-detail]{
+  cursor:pointer;
+  transition:background .16s ease,border-color .16s ease
+}
+#account-orders .account-table-row[data-live-order-detail]:hover,
+#account-orders .account-table-row[data-live-request-detail]:hover{
+  background:#fbfcfd
+}
+#account-orders .account-table-row[data-live-order-detail]:focus-visible,
+#account-orders .account-table-row[data-live-request-detail]:focus-visible{
+  outline:2px solid rgba(31,55,74,.22);
+  outline-offset:-2px
+}
+.order-list-date small{
+  display:block;
+  margin-top:2px;
+  color:#99a4ab;
+  font-size:8px;
+  font-weight:650;
+  text-transform:none;
+  white-space:nowrap
+}
+.order-detail-loading,
+.order-detail-error{
+  display:flex;
+  align-items:center;
+  gap:12px;
+  min-height:96px;
+  padding:18px;
+  border:1px solid var(--line);
+  border-radius:12px;
+  background:#fff;
+  box-shadow:var(--shadow)
+}
+.order-detail-loading>div{
+  display:grid;
+  gap:4px
+}
+.order-detail-loading b,
+.order-detail-error b{
+  color:var(--navy-3);
+  font-size:14px
+}
+.order-detail-loading small,
+.order-detail-error p{
+  margin:0;
+  color:#7b8993;
+  font-size:11px;
+  line-height:1.4
+}
+.order-loading-dot{
+  width:12px;
+  height:12px;
+  flex:0 0 auto;
+  border-radius:50%;
+  background:var(--orange);
+  box-shadow:0 0 0 5px rgba(239,113,48,.12);
+  animation:orderLoadingPulse 1.2s ease-in-out infinite
+}
+@keyframes orderLoadingPulse{
+  50%{opacity:.45;transform:scale(.86)}
+}
+.order-detail-error{
+  display:grid;
+  align-items:start
+}
+.order-detail-error>div{
+  display:flex;
+  gap:8px
+}
+.order-detail-error button{
+  border:1px solid #d1dbe1;
+  border-radius:8px;
+  background:#fff;
+  color:#526977;
+  padding:8px 10px;
+  font-size:10px;
+  font-weight:850
+}
+@media(max-width:680px){
+  #account-orders .account-table-row{
+    min-width:0
+  }
+  #account-orders .order-list-date small{
+    margin-top:1px;
+    font-size:7px;
+    white-space:normal
+  }
+  .order-detail-loading,
+  .order-detail-error{
+    min-height:84px;
+    padding:14px
+  }
+}
