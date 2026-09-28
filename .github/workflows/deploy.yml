@@ -62,7 +62,8 @@ jobs:
               STATUS="$(python3 -c 'import json,sys; print(json.load(sys.stdin).get("status",""))' <<<"${JSON}" 2>/dev/null || true)"
               DEPLOYED="$(python3 -c 'import json,sys; print(json.load(sys.stdin).get("deployed_sha") or "")' <<<"${JSON}" 2>/dev/null || true)"
               REQUESTED="$(python3 -c 'import json,sys; print(json.load(sys.stdin).get("requested_sha") or "")' <<<"${JSON}" 2>/dev/null || true)"
-              echo "status=${STATUS} requested=${REQUESTED} deployed=${DEPLOYED}"
+              MESSAGE="$(python3 -c 'import json,sys; print(json.load(sys.stdin).get("message") or "")' <<<"${JSON}" 2>/dev/null || true)"
+              echo "status=${STATUS} requested=${REQUESTED} deployed=${DEPLOYED} message=${MESSAGE}"
               if [[ "${STATUS}" == "success" && "${DEPLOYED}" == "${GITHUB_SHA}" ]]; then
                 exit 0
               fi
