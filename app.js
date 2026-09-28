@@ -1367,9 +1367,9 @@ function renderSmartPartSearch(data,query){
     root.innerHTML=`
       <div class="vehicle-search-state">
         <span class="eyebrow">${escapeHtml(interpreter)}</span>
-        <h3>Каталог применимости временно недоступен</h3>
+        <h3>Не можем подтвердить совместимость</h3>
         <p>Запрос понят: <b>${escapeHtml(intent.part_name||query)}</b>${label?" · "+escapeHtml(label):""}.</p>
-        <p class="vehicle-search-note">Артикул не подставляем наугад. Можно искать по известному номеру детали или повторить позже.</p>
+        <p class="vehicle-search-note">Не будем подставлять случайный артикул. Если номер детали известен — найдём цены сразу.</p>
         <div class="vehicle-search-actions"><button type="button" data-focus-catalog-search>Ввести артикул</button></div>
       </div>`;
     return;
@@ -1380,11 +1380,11 @@ function renderSmartPartSearch(data,query){
     root.innerHTML=`
       <div class="vehicle-search-state">
         <span class="eyebrow">ПОДБОР ПО АВТОМОБИЛЮ</span>
-        <h3>Нужен расширенный каталог применимости</h3>
+        <h3>Для этой детали нужен точный артикул</h3>
         <p>Запрос понят: <b>${escapeHtml(intent.part_name||query)}</b>${label?" · "+escapeHtml(label):""}.</p>
         <p class="vehicle-search-note">${vinPresent
-          ? "VIN сохранён, но текущий каталог не умеет автоматически расшифровать VIN для этой группы деталей. ZapFormat не будет подставлять артикул по догадке."
-          : "Для этой группы нужен источник, который подтверждает детали по точной модификации или VIN. Пока такого подтверждения нет, артикул не подставляем."}</p>
+          ? "VIN сохранён, но по этой группе деталей мы пока не можем надёжно определить артикул автоматически."
+          : "По этой группе деталей пока не можем надёжно подтвердить артикул по автомобилю."}</p>
         <div class="vehicle-search-actions"><button type="button" data-route="garage">Проверить автомобиль</button><button type="button" data-focus-catalog-search>Ввести известный артикул</button></div>
       </div>`;
     return;
@@ -1440,7 +1440,7 @@ function renderSmartPartSearch(data,query){
       <div class="vehicle-search-state">
         <span class="eyebrow">ПОДБОР ПО АВТОМОБИЛЮ</span>
         <h3>${escapeHtml(intent.part_name||query)} ${label?"· "+escapeHtml(label):""}</h3>
-        <p class="vehicle-search-note">Данные получены из каталога выбранной модификации, а не придуманы ИИ.</p>
+        <p class="vehicle-search-note">Показываем только данные, подтверждённые каталогом автомобиля.</p>
         <div class="smart-spec-list">${smartSpecRows(data?.specs?.data||data?.specs)}</div>
       </div>`;
     return;
@@ -1479,7 +1479,7 @@ function renderSmartPartSearch(data,query){
       <span class="eyebrow">${escapeHtml(interpreter)}</span>
       <h3>Подтверждённый артикул не найден</h3>
       <p>Запрос: <b>${escapeHtml(intent.part_name||query)}</b>${label?" · "+escapeHtml(label):""}.</p>
-      <p class="vehicle-search-note">Автомобиль определён, но в каталоге выбранной модификации нет надёжной позиции для этого запроса. ZapFormat не будет подставлять случайный номер.</p>
+      <p class="vehicle-search-note">Автомобиль определён, но надёжный артикул для этого запроса не найден. Случайный номер подставлять не будем.</p>
       <div class="vehicle-search-actions"><button type="button" data-focus-catalog-search>Искать по артикулу</button><button type="button" data-route="garage">Проверить автомобиль</button></div>
     </div>`;
 }
