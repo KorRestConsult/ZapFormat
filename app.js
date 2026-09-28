@@ -131,6 +131,7 @@ let cartSyncReady=false;
 let cartHydratedUserId=null;
 let lastSmartSearchQuery="";
 let smartSearchBusy=false;
+let pendingCheckoutAfterDelivery=false;
 
 function backendConfigured(){ return Boolean(API_BASE); }
 
@@ -2378,7 +2379,8 @@ async function checkoutCart(){
   }
 
   if(sessionUser && !accountPreferences?.delivery?.address){
-    showToast("Сначала выберите получение заказа.","warn");
+    pendingCheckoutAfterDelivery=true;
+    showToast("Сначала укажите получение заказа.","warn");
     navigate("profile");
     showAccountTab("delivery");
     return;
@@ -3424,6 +3426,7 @@ document.getElementById("logoutButton")?.addEventListener("click",async()=>{
   }finally{
     sessionUser=null;
     accountPreferences={delivery:null,notifications:null};
+    pendingCheckoutAfterDelivery=false;
     const quoteName=document.getElementById("quoteName");
     const quotePhone=document.getElementById("quotePhone");
     if(quoteName) quoteName.value="";
@@ -3670,7 +3673,13 @@ document.getElementById("deliveryForm")?.addEventListener("submit",async e=>{
     });
     renderAccountPreferences({delivery:result.delivery});
     btn.textContent="Сохранено";
-    showToast("Получение сохранено.");
+    if(pendingCheckoutAfterDelivery){
+      pendingCheckoutAfterDelivery=false;
+      showToast("Получение сохранено. Можно оформить заказ.");
+      navigate("cart");
+    }else{
+      showToast("Получение сохранено.");
+    }
   }catch(error){
     btn.textContent="Ошибка";
     showToast(authErrorText(error),"warn");
