@@ -345,6 +345,7 @@ app.post("/api/quote-requests", quoteLimiter, async (req, res, next) => {
       expected_price: Number.isFinite(Number(item?.expected_price))
         ? Math.max(0, Math.round(Number(item.expected_price) * 100) / 100)
         : null,
+      vehicle_id: String(item?.vehicle_id || "").trim() || null,
       quoted_price: null,
       needs_confirmation: true
     })).filter((item) => item.article);
@@ -422,6 +423,22 @@ app.post("/api/quote-requests", quoteLimiter, async (req, res, next) => {
 
     const requestUser = pool ? await currentUser(req) : null;
 
+    if (pool && requestUser) {
+      const requestedVehicleIds=[...new Set(items.map((item)=>item.vehicle_id).filter(Boolean))];
+      if(requestedVehicleIds.length){
+        const ownedVehicles=await pool.query(
+          "SELECT id::text AS id FROM vehicles WHERE user_id = $1 AND id = ANY($2::uuid[])",
+          [requestUser.id, requestedVehicleIds]
+        );
+        const ownedSet=new Set(ownedVehicles.rows.map((row)=>String(row.id)));
+        if(requestedVehicleIds.some((id)=>!ownedSet.has(String(id)))){
+          return res.status(400).json({ error: "invalid_vehicle_context" });
+        }
+      }
+    } else {
+      items.forEach((item)=>{ item.vehicle_id=null; });
+    }
+
     const allConfirmed = items.every(
       (item) => item.needs_confirmation === false && Number.isFinite(Number(item.quoted_price))
     );
@@ -462,8 +479,8 @@ app.post("/api/quote-requests", quoteLimiter, async (req, res, next) => {
           const orderItem = await client.query(
             `INSERT INTO order_items
               (order_id, article, brand, description, warehouse, delivery_days,
-               quantity, unit_price, status, created_at, updated_at)
-             VALUES ($1,$2,$3,$4,$5,$6,$7,$8,'new',$9,$9)
+               quantity, unit_price, vehicle_id, status, created_at, updated_at)
+             VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,'new',$10,$10)
              RETURNING id`,
             [
               order.id,
@@ -474,6 +491,7 @@ app.post("/api/quote-requests", quoteLimiter, async (req, res, next) => {
               deliveryDays,
               item.quantity,
               item.quoted_price,
+              item.vehicle_id,
               now
             ]
           );
@@ -536,8 +554,8 @@ app.post("/api/quote-requests", quoteLimiter, async (req, res, next) => {
         for (const item of items) {
           await client.query(
             `INSERT INTO quote_request_items
-              (request_id, brand, article, description, quantity, comment, quoted_price, needs_confirmation)
-             VALUES ($1,$2,$3,$4,$5,$6,$7,$8)`,
+              (request_id, brand, article, description, quantity, comment, quoted_price, needs_confirmation, vehicle_id)
+             VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)`,
             [
               requestId,
               item.brand || null,
@@ -546,7 +564,8 @@ app.post("/api/quote-requests", quoteLimiter, async (req, res, next) => {
               item.quantity,
               item.comment || null,
               item.quoted_price,
-              item.needs_confirmation
+              item.needs_confirmation,
+              item.vehicle_id
             ]
           );
         }
@@ -1010,13 +1029,16 @@ app.get("/api/cart", requireUser, async (req, res, next) => {
 
     const cart = cartResult.rows[0];
     const items = await pool.query(
-      `SELECT id, client_id, article, brand, description, warehouse, delivery_days,
-              quantity, available_quantity, unit_price, comment, selected,
-              checked_at, offer_token, created_at, updated_at
-         FROM cart_items
-        WHERE cart_id = $1
-        ORDER BY created_at ASC`,
-      [cart.id]
+      `SELECT ci.id, ci.client_id, ci.article, ci.brand, ci.description, ci.warehouse, ci.delivery_days,
+              ci.quantity, ci.available_quantity, ci.unit_price, ci.comment, ci.selected,
+              ci.checked_at, ci.offer_token, ci.vehicle_id, ci.created_at, ci.updated_at,
+              v.brand AS vehicle_brand, v.model AS vehicle_model, v.generation AS vehicle_generation,
+              v.vin AS vehicle_vin
+         FROM cart_items ci
+         LEFT JOIN vehicles v ON v.id = ci.vehicle_id AND v.user_id = $2
+        WHERE ci.cart_id = $1
+        ORDER BY ci.created_at ASC`,
+      [cart.id, req.user.id]
     );
 
     res.json({
@@ -1035,7 +1057,14 @@ app.get("/api/cart", requireUser, async (req, res, next) => {
         comment: item.comment,
         selected: item.selected,
         checked_at: item.checked_at,
-        offer_token: item.offer_token
+        offer_token: item.offer_token,
+        vehicle: item.vehicle_id ? {
+          id: item.vehicle_id,
+          brand: item.vehicle_brand,
+          model: item.vehicle_model,
+          generation: item.vehicle_generation,
+          vin: item.vehicle_vin
+        } : null
       }))
     });
   } catch (error) {
@@ -1067,11 +1096,25 @@ app.put("/api/cart", requireUser, async (req, res, next) => {
           : 0,
         comment: String(item?.comment || "").trim().slice(0, 500) || null,
         selected: item?.selected !== false,
-        offer_token: String(item?.offer_token || "").trim().slice(0, 4096) || null
+        offer_token: String(item?.offer_token || "").trim().slice(0, 4096) || null,
+        vehicle_id: String(item?.vehicle_id || "").trim() || null
       };
     }).filter((item) => item.article && item.brand && item.offer_token);
 
     await client.query("BEGIN");
+
+    const requestedVehicleIds=[...new Set(items.map((item)=>item.vehicle_id).filter(Boolean))];
+    if(requestedVehicleIds.length){
+      const ownedVehicles=await client.query(
+        "SELECT id::text AS id FROM vehicles WHERE user_id = $1 AND id = ANY($2::uuid[])",
+        [req.user.id, requestedVehicleIds]
+      );
+      const ownedSet=new Set(ownedVehicles.rows.map((row)=>String(row.id)));
+      if(requestedVehicleIds.some((id)=>!ownedSet.has(String(id)))){
+        await client.query("ROLLBACK");
+        return res.status(400).json({ error: "invalid_vehicle_context" });
+      }
+    }
 
     const cartResult = await client.query(
       `INSERT INTO carts (user_id, updated_at)
@@ -1090,8 +1133,8 @@ app.put("/api/cart", requireUser, async (req, res, next) => {
         `INSERT INTO cart_items
           (cart_id, client_id, article, brand, description, warehouse, delivery_days,
            quantity, available_quantity, unit_price, comment, selected, checked_at,
-           offer_token, created_at, updated_at)
-         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,now(),$13,now(),now())`,
+           offer_token, vehicle_id, created_at, updated_at)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,now(),$13,$14,now(),now())`,
         [
           cart.id,
           item.client_id,
@@ -1105,7 +1148,8 @@ app.put("/api/cart", requireUser, async (req, res, next) => {
           item.unit_price,
           item.comment,
           item.selected,
-          item.offer_token
+          item.offer_token,
+          item.vehicle_id
         ]
       );
     }
@@ -1154,11 +1198,14 @@ app.get("/api/account/orders/:orderId", requireUser, async (req, res, next) => {
     const order = orderResult.rows[0];
     const [items, history] = await Promise.all([
       pool.query(
-        `SELECT id, brand, article, description, warehouse, delivery_days, quantity,
-                unit_price, status, supplier_status, expected_at, received_at
-           FROM order_items
-          WHERE order_id = $1
-          ORDER BY created_at ASC`,
+        `SELECT i.id, i.brand, i.article, i.description, i.warehouse, i.delivery_days, i.quantity,
+                i.unit_price, i.status, i.supplier_status, i.expected_at, i.received_at,
+                i.vehicle_id, v.brand AS vehicle_brand, v.model AS vehicle_model,
+                v.generation AS vehicle_generation, v.vin AS vehicle_vin
+           FROM order_items i
+           LEFT JOIN vehicles v ON v.id = i.vehicle_id
+          WHERE i.order_id = $1
+          ORDER BY i.created_at ASC`,
         [order.id]
       ),
       pool.query(
@@ -1210,10 +1257,13 @@ app.get("/api/account/requests/:requestId", requireUser, async (req, res, next) 
     if (!request.rowCount) return res.status(404).json({ error: "request_not_found" });
 
     const items = await pool.query(
-      `SELECT brand, article, description, quantity, comment, quoted_price, needs_confirmation
-         FROM quote_request_items
-        WHERE request_id = $1
-        ORDER BY created_at ASC`,
+      `SELECT i.brand, i.article, i.description, i.quantity, i.comment, i.quoted_price, i.needs_confirmation,
+              i.vehicle_id, v.brand AS vehicle_brand, v.model AS vehicle_model,
+              v.generation AS vehicle_generation, v.vin AS vehicle_vin
+         FROM quote_request_items i
+         LEFT JOIN vehicles v ON v.id = i.vehicle_id
+        WHERE i.request_id = $1
+        ORDER BY i.created_at ASC`,
       [req.params.requestId]
     );
     res.json({ request: request.rows[0], items: items.rows });
