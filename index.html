@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
   <meta name="theme-color" content="#17324a" />
   <title>ZapFormat — автозапчасти</title>
-  <meta name="description" content="Умный поиск автозапчастей по артикулу, VIN и обычному запросу" />
+  <meta name="description" content="Поиск автозапчастей по артикулу и обычному запросу с привязкой к автомобилю" />
   <link rel="stylesheet" href="./styles.css?v=20260928-ui2" />
 </head>
 <body>
@@ -36,14 +36,14 @@
           <div class="minimal-hero">
             <span class="minimal-kicker">ZAPFORMAT</span>
             <h1>Найдём нужную запчасть.</h1>
-            <p>Артикул, VIN или обычный запрос — в одной строке.</p>
+            <p>Артикул или обычный запрос — в одной строке.</p>
 
             <form class="minimal-search" id="searchForm">
               <textarea
                 id="searchInput"
                 rows="1"
                 autocomplete="off"
-                placeholder="Артикул / VIN / деталь"
+                placeholder="Артикул / название детали"
               ></textarea>
               <button type="submit">Найти</button>
             </form>
@@ -72,7 +72,7 @@
         </div>
 
         <form class="catalog-search pg-search" id="searchForm2">
-          <input id="searchInput2" placeholder="Артикул, VIN или название детали" />
+          <input id="searchInput2" placeholder="Артикул или название детали" />
           <button type="submit">Найти</button>
         </form>
 
