@@ -17,6 +17,24 @@ jobs:
   deploy:
     runs-on: ubuntu-latest
     steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Validate application
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          node --check app.js
+          node --check backend/src/server.js
+          node --check backend/src/partgrade.js
+          node --check backend/src/offer-token.js
+          node --check backend/src/pricing.js
+          node --check backend/src/github-oidc.js
+          node --check backend/src/ai-search.js
+          node --check backend/src/secret-bootstrap.js
+          cd backend
+          npm test
+
       - name: Request GitHub OIDC token
         id: oidc
         shell: bash
