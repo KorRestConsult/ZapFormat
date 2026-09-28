@@ -3128,6 +3128,10 @@ document.getElementById("logoutButton")?.addEventListener("click",async()=>{
     if(quotePhone) quotePhone.value="";
     cartSyncReady=false;
     cartHydratedUserId=null;
+    cart=[];
+    localStorage.removeItem("zapformat-cart");
+    renderCart();
+    renderCartPage();
     garageVehicles=[];
     garageActiveVehicleId=null;
     garageState=structuredClone(defaultGarageState);
