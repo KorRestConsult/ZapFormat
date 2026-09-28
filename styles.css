@@ -4350,3 +4350,19 @@ body.guest-mode .logo{
     display:block!important
   }
 }
+
+
+.cart-check-label{display:none}
+.row-select label{
+  display:inline-flex;
+  align-items:center;
+  gap:6px
+}
+@media(max-width:680px){
+  .cart-check-label{
+    display:inline;
+    color:#6d808c;
+    font-size:10px;
+    font-weight:800
+  }
+}
