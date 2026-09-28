@@ -954,8 +954,8 @@ app.post("/api/quote-requests", quoteLimiter, async (req, res, next) => {
           const orderItem = await client.query(
             `INSERT INTO order_items
               (order_id, article, brand, description, supplier_code, supplier_offer_id,
-               warehouse, delivery_days, quantity, unit_price, vehicle_id, status, created_at, updated_at)
-             VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,'new',$12,$12)
+               warehouse, delivery_days, quantity, unit_price, vehicle_id, comment, status, created_at, updated_at)
+             VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,'new',$13,$13)
              RETURNING id`,
             [
               order.id,
@@ -969,6 +969,7 @@ app.post("/api/quote-requests", quoteLimiter, async (req, res, next) => {
               item.quantity,
               item.quoted_price,
               item.vehicle_id,
+              item.comment || null,
               now
             ]
           );
@@ -2343,7 +2344,7 @@ app.get("/api/account/orders/:orderId", requireUser, async (req, res, next) => {
     const [items, history] = await Promise.all([
       pool.query(
         `SELECT i.id, i.brand, i.article, i.description, i.warehouse, i.delivery_days, i.quantity,
-                i.unit_price, i.status, i.supplier_status, i.expected_at, i.received_at,
+                i.unit_price, i.comment, i.status, i.supplier_status, i.expected_at, i.received_at,
                 i.vehicle_id, v.brand AS vehicle_brand, v.model AS vehicle_model,
                 v.generation AS vehicle_generation, v.vin AS vehicle_vin
            FROM order_items i
