@@ -18,7 +18,10 @@ const { verifyGitHubActionsToken } = require("./github-oidc");
 const { interpretSearch, normalizeVehicle } = require("./ai-search");
 const { publicBootstrapJwk, installEncryptedOpenAIKey } = require("./secret-bootstrap");
 const {
+  ABCP_CARBASE_CAPABILITIES,
+  catalogCoverageForIntent,
   compactText,
+  createAbcpCarbaseProvider,
   resolveVehicleCatalog,
   selectVerifiedArticles,
   vehicleSpecsForIntent
@@ -36,6 +39,7 @@ const FRONTEND_ORIGINS = String(process.env.FRONTEND_ORIGINS || "")
   .filter(Boolean);
 
 const partGrade = createPartGradeClient();
+const vehicleCatalog = createAbcpCarbaseProvider(partGrade);
 const offerTokens = createOfferTokenCodec();
 
 const hasDatabase = Boolean(process.env.DATABASE_URL);
@@ -840,14 +844,24 @@ async function persistVehicleCatalogBinding(userId, vehicleId, resolved) {
 
 app.get("/api/catalog/vehicle-catalog/status", aiSearchLimiter, async (_req, res) => {
   try {
-    const rows = await partGrade.carbaseManufacturers();
+    const rows = await vehicleCatalog.manufacturers();
     const manufacturers = Array.isArray(rows)
       ? rows.length
       : (rows && typeof rows === "object" ? Object.keys(rows).length : 0);
-    return res.json({ ok: true, available: manufacturers > 0, manufacturers });
+    return res.json({
+      ok: true,
+      available: manufacturers > 0,
+      manufacturers,
+      capabilities: ABCP_CARBASE_CAPABILITIES
+    });
   } catch (error) {
     console.warn("[VehicleCatalog]", error?.code || error?.message || "unavailable");
-    return res.json({ ok: true, available: false, manufacturers: 0 });
+    return res.json({
+      ok: true,
+      available: false,
+      manufacturers: 0,
+      capabilities: ABCP_CARBASE_CAPABILITIES
+    });
   }
 });
 
@@ -896,9 +910,28 @@ app.post("/api/catalog/ai-search", requireDatabase, requireUser, aiSearchLimiter
       });
     }
 
+    const coverage = catalogCoverageForIntent(intent, vehicleCatalog.capabilities);
+    if (!coverage.supported) {
+      return res.json({
+        ok: true,
+        mode: "catalog_provider_required",
+        interpreter: interpreted.mode,
+        ai_configured: Boolean(String(process.env.OPENAI_API_KEY || "").trim()),
+        vehicle: normalizeVehicle(vehicle),
+        intent,
+        fitment_status: "catalog_source_required",
+        required_capability: coverage.required_capability,
+        vehicle_identity: {
+          vin_present: Boolean(String(vehicle.vin || "").trim()),
+          vin_decoded: false,
+          identification_source: vehicle.catalog_modification_id ? "saved_catalog_binding" : "garage_facts"
+        }
+      });
+    }
+
     let resolved;
     try {
-      resolved = await resolveVehicleCatalog(partGrade, vehicle);
+      resolved = await resolveVehicleCatalog(vehicleCatalog, vehicle);
     } catch (error) {
       console.warn("[VehicleCatalogResolve]", error?.code || error?.message || "failed");
       return res.json({
@@ -963,10 +996,16 @@ app.post("/api/catalog/ai-search", requireDatabase, requireUser, aiSearchLimiter
         vehicle: normalizeVehicle(vehicle),
         intent,
         catalog: {
-          provider: "abcp_carbase",
+          provider: vehicleCatalog.id,
           manufacturer: resolved.manufacturer || null,
           model: resolved.model || null,
           modification: resolved.modification || null
+        },
+        fitment_status: "vehicle_catalog_match",
+        vehicle_identity: {
+          vin_present: Boolean(String(vehicle.vin || "").trim()),
+          vin_decoded: false,
+          identification_source: resolved.source === "saved" ? "saved_catalog_binding" : "garage_facts"
         },
         specs: special
       });
@@ -990,8 +1029,14 @@ app.post("/api/catalog/ai-search", requireDatabase, requireUser, aiSearchLimiter
       ai_configured: Boolean(String(process.env.OPENAI_API_KEY || "").trim()),
       vehicle: normalizeVehicle(vehicle),
       intent,
+      fitment_status: "catalog_fitment_confirmed",
+      vehicle_identity: {
+        vin_present: Boolean(String(vehicle.vin || "").trim()),
+        vin_decoded: false,
+        identification_source: resolved.source === "saved" ? "saved_catalog_binding" : "garage_facts"
+      },
       catalog: {
-        provider: "abcp_carbase",
+        provider: vehicleCatalog.id,
         manufacturer: resolved.manufacturer || null,
         model: resolved.model || null,
         modification: resolved.modification || null
