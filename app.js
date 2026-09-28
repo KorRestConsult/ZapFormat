@@ -2774,18 +2774,11 @@ function renderGarageApp(){
 
   if(!garageState.vehicle?.id){
     root.innerHTML=`
-      <div class="garage-owner-head">
-        <div>
-          <span class="eyebrow">ГАРАЖ</span>
-          <h2>Мои автомобили</h2>
-          <p>Сохраните автомобиль один раз — дальше VIN, пробег, история и подбор будут связаны с ним.</p>
-        </div>
-        <button class="account-primary" data-garage-add-vehicle>+ Добавить автомобиль</button>
-      </div>
-      <section class="garage-empty-state">
+      <section class="garage-empty-state garage-empty-first">
+        <span class="eyebrow">МОЙ АВТОМОБИЛЬ</span>
         <div class="garage-empty-icon">+</div>
-        <h3>В гараже пока нет автомобилей</h3>
-        <p>Добавьте марку, модель и при возможности VIN. Никаких демонстрационных BMW — здесь будут только ваши реальные автомобили.</p>
+        <h3>Добавьте автомобиль</h3>
+        <p>Марка и модель помогут хранить заказы и поиск в контексте вашей машины. VIN можно указать сейчас или позже.</p>
         <button class="garage-primary" data-garage-add-vehicle>Добавить автомобиль</button>
       </section>
     `;
@@ -2882,11 +2875,16 @@ function openGarageVehicleEditor(mode="edit"){
         <label><span>Марка</span><input name="brand" value="${esc(v.brand)}" placeholder="Ford" required></label>
         <label><span>Модель</span><input name="model" value="${esc(v.model)}" placeholder="Focus" required></label>
         <label><span>Год</span><input name="year" inputmode="numeric" value="${esc(v.year)}" placeholder="2010"></label>
-        <label><span>Поколение</span><input name="generation" value="${esc(v.generation)}" placeholder="F25 / Mk2"></label>
         <label><span>Двигатель</span><input name="engine" value="${esc(v.engine)}" placeholder="1.8 бензин"></label>
-        <label><span>Госномер</span><input name="plate" value="${esc(v.plate)}" placeholder="А123ВС62"></label>
         <label class="wide"><span>VIN</span><input name="vin" maxlength="17" autocomplete="off" autocapitalize="characters" value="${esc(v.vin)}" placeholder="17 символов"></label>
-        <label class="wide"><span>Пробег, км</span><input name="mileage" inputmode="numeric" value="${esc(v.mileage||"")}" placeholder="0"></label>
+        <details class="vehicle-editor-more wide">
+          <summary>Дополнительно</summary>
+          <div class="vehicle-editor-more-grid">
+            <label><span>Поколение</span><input name="generation" value="${esc(v.generation)}" placeholder="F25 / Mk2"></label>
+            <label><span>Госномер</span><input name="plate" value="${esc(v.plate)}" placeholder="А123ВС62"></label>
+            <label class="wide"><span>Пробег, км</span><input name="mileage" inputmode="numeric" value="${esc(v.mileage||"")}" placeholder="0"></label>
+          </div>
+        </details>
         <div class="vehicle-editor-actions">
           <button type="button" data-close-vehicle-editor>Отмена</button>
           <button type="submit" class="account-primary">${isNew?"Добавить":"Сохранить"}</button>
