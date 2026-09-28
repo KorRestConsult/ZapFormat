@@ -936,11 +936,18 @@ app.post("/api/catalog/ai-search", requireDatabase, requireUser, aiSearchLimiter
       console.warn("[VehicleCatalogResolve]", error?.code || error?.message || "failed");
       return res.json({
         ok: true,
-        mode: "vehicle_catalog_unavailable",
+        mode: "catalog_provider_required",
         interpreter: interpreted.mode,
         ai_configured: Boolean(String(process.env.OPENAI_API_KEY || "").trim()),
         vehicle: normalizeVehicle(vehicle),
-        intent
+        intent,
+        fitment_status: "catalog_source_required",
+        required_capability: "verified_fitment_catalog",
+        vehicle_identity: {
+          vin_present: Boolean(String(vehicle.vin || "").trim()),
+          vin_decoded: false,
+          identification_source: vehicle.catalog_modification_id ? "saved_catalog_binding" : "garage_facts"
+        }
       });
     }
 
