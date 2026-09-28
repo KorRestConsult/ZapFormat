@@ -3312,16 +3312,39 @@ document.getElementById("profileForm")?.addEventListener("submit",async e=>{
   }
 });
 
-document.getElementById("deliveryForm")?.addEventListener("submit",e=>{
+document.getElementById("deliveryForm")?.addEventListener("submit",async e=>{
   e.preventDefault();
   const form=e.currentTarget;
   const data=Object.fromEntries(new FormData(form).entries());
-  try{ localStorage.setItem("zapformat-delivery",JSON.stringify(data)); }catch{}
   const btn=form.querySelector("button[type=submit]");
   const old=btn.textContent;
-  btn.textContent="Сохранено";
-  showToast("Настройки получения сохранены.");
-  setTimeout(()=>btn.textContent=old,900);
+  btn.disabled=true;
+  try{
+    if(backendConfigured() && sessionUser){
+      const result=await apiRequest("/api/account/delivery",{
+        method:"PUT",
+        body:JSON.stringify({
+          city:data.city,
+          address:data.address,
+          recipient_name:data.recipient,
+          recipient_phone:data.phone
+        })
+      });
+      renderAccountPreferences({delivery:result.delivery});
+    }else{
+      localStorage.setItem("zapformat-delivery",JSON.stringify(data));
+    }
+    btn.textContent="Сохранено";
+    showToast("Получение сохранено.");
+  }catch(error){
+    btn.textContent="Ошибка";
+    showToast(authErrorText(error),"warn");
+  }finally{
+    setTimeout(()=>{
+      btn.textContent=old;
+      btn.disabled=false;
+    },900);
+  }
 });
 
 document.addEventListener("click",e=>{
@@ -3363,13 +3386,7 @@ try{
 
   const savedTab=localStorage.getItem("zapformat-account-tab");
   if(savedTab==="order-detail"){
-    const savedOrder=localStorage.getItem("zapformat-order-detail");
-    if(savedOrder && demoOrders[savedOrder]){
-      renderOrderDetail(savedOrder);
-      showAccountTab("order-detail");
-    }else{
-      showAccountTab("orders");
-    }
+    showAccountTab("orders");
   }else if(savedTab){
     showAccountTab(savedTab);
   }
@@ -3377,11 +3394,29 @@ try{
 }catch{}
 
 
-document.addEventListener("change",e=>{
+document.addEventListener("change",async e=>{
   const notification=e.target.closest?.("[data-notification]");
   if(!notification) return;
   const state={};
   document.querySelectorAll("[data-notification]").forEach(input=>state[input.dataset.notification]=input.checked);
-  try{localStorage.setItem("zapformat-notifications",JSON.stringify(state))}catch{}
-  showToast("Настройки уведомлений сохранены.");
+
+  try{
+    if(backendConfigured() && sessionUser){
+      await apiRequest("/api/account/notifications",{
+        method:"PUT",
+        body:JSON.stringify({
+          order_status:state.orderStatus,
+          item_changes:state.positionChange,
+          returns:state.returns,
+          marketing:state.marketing
+        })
+      });
+    }else{
+      localStorage.setItem("zapformat-notifications",JSON.stringify(state));
+    }
+    showToast("Настройки уведомлений сохранены.");
+  }catch(error){
+    showToast("Не удалось сохранить уведомления.","warn");
+    await hydrateAccountData().catch(()=>{});
+  }
 });
