@@ -273,7 +273,7 @@ async function hydrateCartFromAccount(){
 function authErrorText(error){
   const code=error?.code||error?.message;
   const map={
-    backend_not_configured:"Backend авторизации подготовлен, но публичный HTTPS-адрес API ещё не указан.",
+    backend_not_configured:"Сервис временно недоступен. Попробуйте ещё раз позже.",
     invalid_credentials:"Неверный телефон/email или пароль.",
     password_too_short:"Пароль должен быть не короче 8 символов.",
     user_already_exists:"Аккаунт с таким телефоном или email уже существует.",
@@ -1557,7 +1557,7 @@ async function loadLiveOffers(article,brand,description="",options={}){
   if(!number || !maker) return;
 
   setCatalogControlsVisible(false);
-  setSearchHead(maker+" "+number,"Загружаем реальные предложения…",number);
+  setSearchHead(maker+" "+number,"Загружаем предложения…",number);
   renderSearchState("Загрузка","Получаем цены, наличие, сроки и аналоги.");
 
   try{
@@ -1609,7 +1609,7 @@ async function loadLiveOffers(article,brand,description="",options={}){
 
     setSearchHead(
       datasets[key].title,
-      datasets[key].subtitle+" · реальные данные поставщика"+
+      datasets[key].subtitle+" · актуальные цены и наличие"+
         (searchVehicle?" · контекст: "+vehicleLabel(searchVehicle):""),
       number
     );
@@ -2739,7 +2739,7 @@ function renderGarageOverview(){
           ` : `
             <div class="garage-empty-inline">
               <b>Пока нет сохранённых работ ТО.</b>
-              <span>Гараж уже хранит автомобиль, VIN, пробег, замеры и историю. План ТО добавим следующим слоем.</span>
+              <span>План обслуживания пока пуст. Его можно будет заполнить по фактическим работам и пробегу.</span>
             </div>
           `}
         </section>
