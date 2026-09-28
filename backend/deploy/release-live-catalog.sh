@@ -47,6 +47,7 @@ git merge --ff-only origin/main
 node --check app.js
 node --check backend/src/server.js
 node --check backend/src/partgrade.js
+node --check backend/src/offer-token.js
 node --check backend/src/pricing.js
 
 cd backend
@@ -119,6 +120,38 @@ if not b:
     raise SystemExit("FAIL: no brand results")
 if not exact and not analogs:
     raise SystemExit("FAIL: supplier returned no offers")
+
+candidate=(exact or analogs)[0]
+token=candidate.get("offer_token")
+if not token:
+    raise SystemExit("FAIL: offer token missing")
+
+with open("/tmp/zf-revalidate-request.json","w",encoding="utf-8") as fh:
+    json.dump({
+        "items":[{
+            "id":"smoke-1",
+            "offer_token":token,
+            "quantity":1
+        }]
+    },fh)
+PY
+
+echo
+echo "Cart revalidation smoke test:"
+curl -fsS -X POST   -H "Content-Type: application/json"   --data-binary @/tmp/zf-revalidate-request.json   "http://127.0.0.1:3000/api/catalog/revalidate" > /tmp/zf-revalidate.json
+
+python3 - <<'PY'
+import json
+data=json.load(open("/tmp/zf-revalidate.json",encoding="utf-8"))
+items=data.get("items") or []
+if not items:
+    raise SystemExit("FAIL: empty revalidation response")
+item=items[0]
+print("status:",item.get("status"))
+print("price_ZapFormat:",item.get("price"))
+print("availability:",item.get("availability"))
+if item.get("status") not in ("ok","insufficient"):
+    raise SystemExit("FAIL: offer token could not be revalidated")
 PY
 
 echo
