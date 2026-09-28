@@ -575,7 +575,7 @@ function renderLiveAccount(overview,orders,requests,garage){
         <article class="account-order" ${detailAttr} tabindex="0">
           <div>
             <small>#${row.number} · ${formatDateRu(row.created_at)}</small>
-            <b>${isOrder?"Заказ ZapFormat":"Запрос на запчасти"}</b>
+            <b>${isOrder?"Заказ ZapFormat":"Заказ на уточнении"}</b>
             <span>${row.items_count} поз. · ${isOrder?rub(row.total):(row.needs_confirmation&&row.total===0?"сумма уточняется":rub(row.total))}</span>
           </div>
           ${orderProgressHtml(row.status)}
@@ -1085,20 +1085,20 @@ async function openLiveRequestDetail(id,options={}){
         <section class="order-created-confirmation request-created">
           <span class="order-created-check">✓</span>
           <div>
-            <span class="eyebrow">ЗАПРОС ПРИНЯТ</span>
+            <span class="eyebrow">ЗАКАЗ НА УТОЧНЕНИИ</span>
             <h2>${escapeHtml(req.id)}</h2>
-            <p>Позиции, которым нужно подтверждение цены или наличия, уже сохранены. Изменения появятся в заказах и уведомлениях.</p>
+            <p>Некоторые позиции требуют подтверждения цены или наличия. Мы сохранили заказ и обновим его, как только данные будут подтверждены.</p>
           </div>
         </section>` : ""}
       <div class="order-detail-head">
         <div class="order-detail-toolbar"><button class="order-detail-back" data-account-tab="orders">← Заказы</button></div>
         <div class="order-detail-title">
-          <div><span class="eyebrow">ЗАПРОС</span><h2>#${req.id}</h2><p>${formatDateRu(req.created_at)}</p></div>
+          <div><span class="eyebrow">ЗАКАЗ НА УТОЧНЕНИИ</span><h2>#${req.id}</h2><p>${formatDateRu(req.created_at)}</p></div>
           <div class="order-detail-state"><strong class="status ${requestStatusClass(req.status)}">${requestStatusLabel(req.status)}</strong></div>
         </div>
       </div>
       <section class="order-detail-block positions-block">
-        <div class="order-detail-block-head"><span class="eyebrow">ПОЗИЦИИ</span><h3>Состав запроса</h3></div>
+        <div class="order-detail-block-head"><span class="eyebrow">ПОЗИЦИИ</span><h3>Позиции на уточнении</h3></div>
         <div class="order-positions">
           ${items.map((item,index)=>`
             <article class="order-position">
@@ -1107,7 +1107,7 @@ async function openLiveRequestDetail(id,options={}){
                 <div class="position-title">
                   <h3>${escapeHtml(item.brand||"")} ${escapeHtml(item.article||"")}</h3>
                   <p>${escapeHtml(item.description||"")}</p>
-                  ${item.vehicle_id ? '<small class="order-vehicle-context">Для: '+escapeHtml([item.vehicle_brand,item.vehicle_model,item.vehicle_generation].filter(Boolean).join(" "))+(item.vehicle_vin?" · "+escapeHtml(shortVin(item.vehicle_vin)):"")+' · контекст запроса</small>' : ""}
+                  ${item.vehicle_id ? '<small class="order-vehicle-context">Для: '+escapeHtml([item.vehicle_brand,item.vehicle_model,item.vehicle_generation].filter(Boolean).join(" "))+(item.vehicle_vin?" · "+escapeHtml(shortVin(item.vehicle_vin)):"")+' · контекст заказа</small>' : ""}
                 </div>
                 <strong class="status ${item.needs_confirmation?"review":"ready"}">${item.needs_confirmation?"Цена уточняется":"Цена подтверждена"}</strong>
               </div>
@@ -2479,7 +2479,7 @@ async function checkoutCart(){
         await openLiveOrderDetail(result.order_id || result.order_number,{created:true});
       }
     }else{
-      showToast("Запрос "+result.request_id+" принят.");
+      showToast("Заказ принят на уточнение.");
       if(sessionUser){
         accountDataHydrated=false;
         await hydrateAccountData();
