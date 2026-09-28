@@ -346,6 +346,7 @@ function updateCheckoutMode(){
 }
 
 function applySessionUser(){
+  document.body.classList.remove("session-pending");
   document.body.classList.toggle("guest-mode",!sessionUser);
   const headerProfile=document.getElementById("accountEntryButton");
   if(headerProfile){
