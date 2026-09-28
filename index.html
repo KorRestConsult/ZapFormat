@@ -6,7 +6,7 @@
   <meta name="theme-color" content="#17324a" />
   <title>ZapFormat — автозапчасти</title>
   <meta name="description" content="Поиск автозапчастей по артикулу и обычному запросу с привязкой к автомобилю" />
-  <link rel="stylesheet" href="./styles.css?v=20260928-ordertrack1" />
+  <link rel="stylesheet" href="./styles.css?v=20260928-checkoutstep1" />
 </head>
 <body class="guest-mode session-pending">
   <div class="app">
@@ -325,7 +325,7 @@
 
         <div id="cartChangeNotice" class="cart-change-notice" hidden></div>
 
-        <button class="checkout-order-button cart-checkout-top" type="button" data-cart-action="checkout">Оформить заказ</button>
+        <button class="checkout-order-button cart-checkout-top" type="button" data-cart-action="start-checkout">Перейти к оформлению</button>
 
 <div class="order-table-wrap">
           <div class="order-table-head">
@@ -356,22 +356,36 @@
           <button id="clearCartButton" type="button">Очистить корзину</button>
         </div>
 
-        <div class="checkout-contact-summary" id="checkoutContactSummary"></div>
-        <div class="quote-contact" id="checkoutContactFallback" hidden>
-          <label><span>Имя</span><input id="quoteName" autocomplete="name" placeholder="Как к вам обращаться"></label>
-          <label><span>Телефон</span><input id="quotePhone" type="tel" autocomplete="tel" placeholder="+7 900 000-00-00"></label>
-        </div>
+        <section class="checkout-review" id="checkoutReview" hidden>
+          <div class="checkout-review-head">
+            <div>
+              <span class="eyebrow">ОФОРМЛЕНИЕ</span>
+              <h2>Проверьте заказ</h2>
+              <p>Контакт, получение и выбранные позиции. До подтверждения заказ не создаётся.</p>
+            </div>
+            <div class="checkout-review-head-actions">
+              <strong id="checkoutReviewSummary">—</strong>
+              <button type="button" data-cart-action="close-checkout">Изменить состав</button>
+            </div>
+          </div>
 
-        <div class="checkout-delivery-summary" id="checkoutDeliverySummary" hidden></div>
+          <div class="checkout-contact-summary" id="checkoutContactSummary"></div>
+          <div class="quote-contact" id="checkoutContactFallback" hidden>
+            <label><span>Имя</span><input id="quoteName" autocomplete="name" placeholder="Как к вам обращаться"></label>
+            <label><span>Телефон</span><input id="quotePhone" type="tel" autocomplete="tel" placeholder="+7 900 000-00-00"></label>
+          </div>
 
-        <div class="checkout-payment-note" id="checkoutPaymentNote">
-          <small>ОПЛАТА</small>
-          <b>На сайте сейчас ничего не списывается.</b>
-          <span>Сначала создаём заказ и фиксируем позиции в вашем аккаунте.</span>
-        </div>
+          <div class="checkout-delivery-summary" id="checkoutDeliverySummary" hidden></div>
 
-        <button class="checkout-order-button" id="checkoutOrderButton" type="button">Оформить заказ</button>
-        <p class="checkout-recheck-note" id="checkoutRecheckNote">Перед оформлением цена и наличие проверяются повторно.</p>
+          <div class="checkout-payment-note" id="checkoutPaymentNote">
+            <small>ОПЛАТА</small>
+            <b>На сайте сейчас ничего не списывается.</b>
+            <span>Сначала создаём заказ и фиксируем позиции в вашем аккаунте.</span>
+          </div>
+
+          <button class="checkout-order-button" id="checkoutOrderButton" type="button">Подтвердить заказ</button>
+          <p class="checkout-recheck-note" id="checkoutRecheckNote">Перед подтверждением цена и наличие проверяются повторно.</p>
+        </section>
 
         <details class="cart-import">
           <summary>Добавить список из файла</summary>
@@ -398,7 +412,7 @@
     </nav>
 </div>
 
-  <script src="./config.js?v=20260928-ordertrack1"></script>
-  <script src="./app.js?v=20260928-ordertrack1"></script>
+  <script src="./config.js?v=20260928-checkoutstep1"></script>
+  <script src="./app.js?v=20260928-checkoutstep1"></script>
 </body>
 </html>

@@ -134,6 +134,7 @@ let lastSmartSearchQuery="";
 let smartSearchBusy=false;
 let pendingSmartSearchAfterVehicle=null;
 let pendingCheckoutAfterDelivery=false;
+let checkoutReviewOpen=false;
 let clearCartArmedUntil=0;
 
 function backendConfigured(){ return Boolean(API_BASE); }
@@ -362,22 +363,48 @@ function renderCheckoutDelivery(){
 }
 
 function checkoutButtons(){
-  return [...document.querySelectorAll('#checkoutOrderButton,[data-cart-action="checkout"]')];
+  return [...document.querySelectorAll("#checkoutOrderButton")];
+}
+
+function checkoutEntryButtons(){
+  return [...document.querySelectorAll('[data-cart-action="start-checkout"]')];
+}
+
+function setCheckoutReviewOpen(open,{scroll=false}={}){
+  checkoutReviewOpen=Boolean(open) && cart.length>0;
+  const review=document.getElementById("checkoutReview");
+  if(review) review.hidden=!checkoutReviewOpen;
+  updateCheckoutMode();
+  if(checkoutReviewOpen && scroll){
+    requestAnimationFrame(()=>review?.scrollIntoView({behavior:"smooth",block:"start"}));
+  }
 }
 
 function updateCheckoutMode(){
-  const selectedCount=selectedCartItems().length;
-  const baseLabel="Оформить заказ";
-  const label=selectedCount ? baseLabel+" · "+selectedCount : baseLabel;
+  const selected=selectedCartItems();
+  const selectedCount=selected.length;
+  const selectedTotal=selected.reduce((sum,item)=>sum+Number(item.price||0)*Number(item.orderQty||0),0);
+  const finalLabel=selectedCount ? "Подтвердить заказ · "+selectedCount : "Подтвердить заказ";
+  const entryLabel=selectedCount ? "Перейти к оформлению · "+selectedCount : "Перейти к оформлению";
+
   checkoutButtons().forEach(button=>{
     if(!button.dataset.busy){
       button.disabled=selectedCount===0;
-      button.textContent=label;
+      button.textContent=finalLabel;
     }
   });
+  checkoutEntryButtons().forEach(button=>{
+    button.disabled=selectedCount===0;
+    button.textContent=entryLabel;
+  });
+
+  const summary=document.getElementById("checkoutReviewSummary");
+  if(summary){
+    summary.textContent=selectedCount ? selectedCount+" поз. · "+rub(selectedTotal) : "Нет выбранных позиций";
+  }
   const note=document.querySelector(".checkout-recheck-note");
   if(note){
-    note.textContent="Перед оформлением ещё раз проверим цену и наличие. Заказ сразу появится в вашем аккаунте.";
+    note.textContent="Перед подтверждением ещё раз проверим цену и наличие. После этого заказ появится в вашем аккаунте.";
   }
   renderCheckoutContact();
   renderCheckoutDelivery();
@@ -2316,21 +2343,17 @@ function setCartCheckoutVisible(visible){
   const ids=[
     "cartTotalBlock",
     "cartBulkActions",
-    "checkoutContactSummary",
-    "checkoutContactFallback",
-    "checkoutDeliverySummary",
-    "checkoutPaymentNote",
-    "checkoutOrderButton",
-    "checkoutRecheckNote",
     "cartOrderWarning"
   ];
   ids.forEach(id=>{
     const el=document.getElementById(id);
     if(el) el.hidden=!visible;
   });
-  document.querySelectorAll('[data-cart-action="checkout"]').forEach(button=>{
+  checkoutEntryButtons().forEach(button=>{
     button.hidden=!visible;
   });
+  const review=document.getElementById("checkoutReview");
+  if(review) review.hidden=!visible || !checkoutReviewOpen;
 }
 
 function renderCartPage(){
@@ -2338,6 +2361,7 @@ function renderCartPage(){
   if(!root) return;
 
   if(!cart.length){
+    checkoutReviewOpen=false;
     setCartCheckoutVisible(false);
     root.innerHTML=
       '<div class="cart-empty-state">'+
@@ -2524,6 +2548,7 @@ async function checkoutCart(){
 
     const sentIds=new Set(selected.map(x=>x.id));
     cart=cart.filter(x=>!sentIds.has(x.id));
+    checkoutReviewOpen=false;
     saveCart();
 
     localStorage.removeItem("zapformat-quote-name");
@@ -2612,7 +2637,11 @@ document.addEventListener("click",async e=>{
     const action=cartAction.dataset.cartAction;
     if(action==="clear") clearCart();
     else if(action==="delete-selected") deleteSelected();
-        else if(action==="checkout") checkoutCart();
+    else if(action==="start-checkout") setCheckoutReviewOpen(true,{scroll:true});
+    else if(action==="close-checkout"){
+      setCheckoutReviewOpen(false);
+      document.querySelector(".checkout-title")?.scrollIntoView({behavior:"smooth",block:"start"});
+    }
     return;
   }
 
@@ -3819,8 +3848,9 @@ document.getElementById("deliveryForm")?.addEventListener("submit",async e=>{
     btn.textContent="Сохранено";
     if(pendingCheckoutAfterDelivery){
       pendingCheckoutAfterDelivery=false;
-      showToast("Получение сохранено. Можно оформить заказ.");
+      showToast("Получение сохранено. Проверьте заказ и подтвердите.");
       navigate("cart");
+      setCheckoutReviewOpen(true,{scroll:true});
     }else{
       showToast("Получение сохранено.");
     }
