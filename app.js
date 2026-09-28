@@ -523,6 +523,7 @@ function applySessionUser(){
   }
 
   updateCheckoutMode();
+  updateVehicleContextUi();
 }
 
 function formatDateRu(value){
@@ -654,6 +655,7 @@ async function hydrateRealGarage(garage){
     garageState=structuredClone(defaultGarageState);
     saveGarageState();
     renderGarageApp();
+    updateVehicleContextUi();
     return;
   }
 
@@ -701,6 +703,7 @@ async function hydrateRealGarage(garage){
     };
     saveGarageState();
     renderGarageApp();
+    updateVehicleContextUi();
   }catch(error){
     console.warn("Garage hydration failed",error);
   }
@@ -942,6 +945,120 @@ function looksLikeArticle(value){
   return /^[A-Za-zА-Яа-я0-9._\/-]+$/.test(raw);
 }
 
+function normalizeVin(value){
+  return String(value||"").trim().toUpperCase().replace(/[^A-HJ-NPR-Z0-9]/g,"");
+}
+
+function looksLikeVin(value){
+  return /^[A-HJ-NPR-Z0-9]{17}$/.test(normalizeVin(value));
+}
+
+function extractArticleCandidate(value){
+  const raw=String(value||"").trim();
+  if(looksLikeArticle(raw) && !looksLikeVin(raw)) return raw;
+  const tokens=raw
+    .split(/\s+/)
+    .map(token=>token.replace(/^[^A-Za-zА-Яа-я0-9]+|[^A-Za-zА-Яа-я0-9._\/-]+$/g,""))
+    .filter(Boolean)
+    .filter(token=>looksLikeArticle(token) && /\d/.test(token) && !looksLikeVin(token));
+  return tokens.length===1 ? tokens[0] : null;
+}
+
+function currentSearchVehicle(){
+  if(!sessionUser || !garageState?.vehicle?.id) return null;
+  return garageState.vehicle;
+}
+
+function vehicleLabel(vehicle){
+  if(!vehicle) return "";
+  return [vehicle.brand,vehicle.model,vehicle.generation].filter(Boolean).join(" ");
+}
+
+function shortVin(vin){
+  const value=normalizeVin(vin);
+  if(!value) return "VIN не указан";
+  return "VIN ••••"+value.slice(-6);
+}
+
+function updateVehicleContextUi(){
+  const vehicle=currentSearchVehicle();
+  const header=document.getElementById("headerVehicleButton");
+  const home=document.getElementById("homeVehicleContext");
+  const catalog=document.getElementById("catalogVehicleContext");
+  const searchInput=document.getElementById("searchInput");
+  const searchInput2=document.getElementById("searchInput2");
+  const disclaimer=document.getElementById("catalogDisclaimer");
+
+  if(!vehicle){
+    if(header) header.hidden=true;
+    if(home) home.hidden=true;
+    if(catalog) catalog.hidden=true;
+    if(searchInput) searchInput.placeholder="Артикул / VIN / деталь";
+    if(searchInput2) searchInput2.placeholder="Артикул, VIN или название детали";
+    if(disclaimer) disclaimer.textContent="Информация по аналогам справочная. Перед заказом совместимость уточняется по автомобилю или VIN.";
+    return;
+  }
+
+  const label=vehicleLabel(vehicle)||"Мой автомобиль";
+  if(header){
+    header.hidden=false;
+    const mark=document.getElementById("headerVehicleMark");
+    const name=document.getElementById("headerVehicleName");
+    if(mark) mark.textContent=String(vehicle.brand||"AUTO").slice(0,5).toUpperCase();
+    if(name) name.textContent=label;
+  }
+  if(home){
+    home.hidden=false;
+    const name=document.getElementById("homeVehicleName");
+    if(name) name.textContent=label+(vehicle.vin?" · "+shortVin(vehicle.vin):"");
+  }
+  if(catalog){
+    catalog.hidden=false;
+    const name=document.getElementById("catalogVehicleName");
+    const vin=document.getElementById("catalogVehicleVin");
+    if(name) name.textContent=label;
+    if(vin) vin.textContent=shortVin(vehicle.vin);
+  }
+  if(searchInput) searchInput.placeholder="Что найти для "+label+"? Артикул / деталь";
+  if(searchInput2) searchInput2.placeholder="Артикул или деталь для "+label;
+  if(disclaimer){
+    disclaimer.textContent="Выбран "+label+". Автомобиль используется как контекст поиска и заказа; это не подтверждение применимости конкретной детали.";
+  }
+}
+
+function renderVehicleSearchState(query,vehicle,options={}){
+  setCatalogControlsVisible(false);
+  const exactRoot=document.getElementById("exactResults");
+  const analogRoot=document.getElementById("analogResults");
+  const analogSection=document.getElementById("analogSection");
+  const countEl=document.getElementById("offerCount");
+  const countLabel=document.getElementById("offerCountLabel");
+  if(analogRoot) analogRoot.innerHTML="";
+  if(analogSection) analogSection.style.display="none";
+  if(countEl) countEl.textContent="0";
+  if(countLabel) countLabel.textContent="предложений";
+  if(!exactRoot) return;
+
+  const label=vehicle ? vehicleLabel(vehicle) : "";
+  const vin=vehicle?.vin ? shortVin(vehicle.vin) : "";
+  const isVin=Boolean(options.vin);
+  exactRoot.innerHTML=`
+    <div class="vehicle-search-state">
+      <span class="eyebrow">${isVin?"VIN":"УМНЫЙ ПОИСК"}</span>
+      <h3>${isVin?"Автомобиль распознан как контекст":"Запрос привязан к автомобилю"}</h3>
+      <p><b>${escapeHtml(query)}</b>${label?" · "+escapeHtml(label):""}${vin?" · "+escapeHtml(vin):""}</p>
+      <p class="vehicle-search-note">
+        ${isVin
+          ? "VIN сохранён в контексте. Для выдачи точных артикулов нужен подключённый оригинальный каталог применимости."
+          : "По номеру детали ZapFormat уже показывает живые цены PartGrade. Поиск по названию с безопасным подбором артикулов подключаем отдельным AI-контуром — случайные артикулы не подставляем."}
+      </p>
+      <div class="vehicle-search-actions">
+        ${vehicle?'<button type="button" data-route="garage">Открыть гараж</button>':""}
+        <button type="button" data-focus-catalog-search>Ввести артикул</button>
+      </div>
+    </div>`;
+}
+
 function setCatalogControlsVisible(visible){
   document.querySelector(".catalog-actions")?.toggleAttribute("hidden",!visible);
   document.querySelector(".compact-filters")?.toggleAttribute("hidden",!visible);
@@ -1035,6 +1152,7 @@ async function loadLiveOffers(article,brand,description="",options={}){
     const offers=Array.isArray(offersData?.offers) ? offersData.offers : [];
     const analogOffers=Array.isArray(offersData?.analogs) ? offersData.analogs : [];
 
+    const searchVehicle=currentSearchVehicle();
     const mapOffer=(o,index,type)=>({
       id:"live-"+type+"-"+index+"-"+String(o.brand||maker).replace(/[^A-Za-zА-Яа-я0-9_-]/g,"")+"-"+String(o.article||number).replace(/[^A-Za-zА-Яа-я0-9_-]/g,""),
       type,
@@ -1049,7 +1167,12 @@ async function loadLiveOffers(article,brand,description="",options={}){
       days:Math.max(0,Math.ceil(Number(o.delivery_hours||0)/24)),
       deliveryProbability:o.delivery_probability??null,
       offerToken:o.offer_token||null,
-      live:true
+      live:true,
+      vehicleContext:searchVehicle ? {
+        id:searchVehicle.id,
+        label:vehicleLabel(searchVehicle),
+        vin:searchVehicle.vin||""
+      } : null
     });
 
     const exact=offers.map((o,index)=>mapOffer(o,index,"exact"));
@@ -1071,7 +1194,8 @@ async function loadLiveOffers(article,brand,description="",options={}){
 
     setSearchHead(
       datasets[key].title,
-      datasets[key].subtitle+" · реальные данные поставщика",
+      datasets[key].subtitle+" · реальные данные поставщика"+
+        (searchVehicle?" · контекст: "+vehicleLabel(searchVehicle):""),
       number
     );
     setCatalogControlsVisible(true);
@@ -1114,30 +1238,49 @@ async function search(query,options={}){
     return false;
   }
 
-  if(!looksLikeArticle(raw)){
-    renderSearchState("Нужен артикул","Поиск по VIN и названию подключим отдельно. Сейчас введите точный номер детали.");
-    setSearchHead(raw,"Введите точный артикул детали.",raw);
-    return false;
+  const vehicle=currentSearchVehicle();
+
+  if(looksLikeVin(raw)){
+    const vin=normalizeVin(raw);
+    const matched=garageVehicles.find(x=>normalizeVin(x.vin)===vin);
+    if(matched && sessionUser){
+      await selectGarageVehicle(matched.id);
+    }
+    const active=matched || currentSearchVehicle();
+    setSearchHead(vin,active ? "VIN связан с "+vehicleLabel(active) : "VIN распознан",vin);
+    renderVehicleSearchState(vin,active,{vin:true});
+    return true;
+  }
+
+  const article=extractArticleCandidate(raw);
+  if(!article){
+    setSearchHead(
+      raw,
+      vehicle ? "Поиск для "+vehicleLabel(vehicle) : "Умный поиск по названию",
+      raw
+    );
+    renderVehicleSearchState(raw,vehicle);
+    return true;
   }
 
   try{
-    const brandsData=await apiRequest("/api/catalog/brands?number="+encodeURIComponent(raw));
+    const brandsData=await apiRequest("/api/catalog/brands?number="+encodeURIComponent(article));
     const brands=(Array.isArray(brandsData?.brands)?brandsData.brands:[])
       .filter(x=>x?.brand)
       .sort((a,b)=>String(a.brand).localeCompare(String(b.brand),"ru",{sensitivity:"base"}));
 
-    const key="brands:"+raw.toUpperCase();
-    datasets[key]={title:raw,subtitle:"Выберите производителя",exact:[],analogs:[]};
+    const key="brands:"+article.toUpperCase();
+    datasets[key]={title:article,subtitle:"Выберите производителя",exact:[],analogs:[]};
     currentKey=key;
 
-    setSearchHead(raw,brands.length ? "Выберите производителя — затем покажем цены и аналоги." : "Артикул не найден.",raw);
-    renderBrandChoices(raw,brands);
+    setSearchHead(article,brands.length ? "Выберите производителя — затем покажем цены и аналоги." : "Артикул не найден.",raw);
+    renderBrandChoices(article,brands);
 
     if(options.push!==false){
       const url=new URL(location.href);
       url.search="";
-      url.searchParams.set("q",raw);
-      history.pushState({route:"search",query:raw},"",url.pathname+url.search);
+      url.searchParams.set("q",article);
+      history.pushState({route:"search",query:article},"",url.pathname+url.search);
     }
 
     const requestedBrand=String(options.brand||"").trim();
@@ -1145,7 +1288,7 @@ async function search(query,options={}){
       const match=brands.find(x=>String(x.brand||"").toLowerCase()===requestedBrand.toLowerCase());
       if(match){
         return loadLiveOffers(
-          match.article||raw,
+          match.article||article,
           match.brand,
           match.description||"",
           {push:false}
@@ -1699,6 +1842,12 @@ document.addEventListener("click",e=>{
 
   const route=e.target.closest("[data-route]"); if(route){ navigate(route.dataset.route); return; }
   const query=e.target.closest("[data-query]"); if(query){ search(query.dataset.query); return; }
+  if(e.target.closest("[data-focus-catalog-search]")){
+    const input=document.getElementById("searchInput2");
+    input?.focus();
+    input?.select?.();
+    return;
+  }
 
   const filtersToggle=e.target.closest(".filters-toggle");
   if(filtersToggle){
@@ -2649,6 +2798,7 @@ document.getElementById("logoutButton")?.addEventListener("click",async()=>{
     clearTimeout(cartSyncTimer);
     saveGarageState();
     renderGarageApp();
+    updateVehicleContextUi();
     applySessionUser();
     pendingAccountRoute="profile";
     navigate("auth");
