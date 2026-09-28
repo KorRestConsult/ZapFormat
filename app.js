@@ -160,6 +160,7 @@ const API_BASE = (() => {
   return location.hostname.endsWith("github.io") ? "" : location.origin;
 })();
 let sessionUser=null;
+let accountPreferences={delivery:null,notifications:null};
 let pendingAccountRoute="profile";
 let liveAccountRequests=[];
 let liveAccountOrders=[];
@@ -337,6 +338,30 @@ function showAuthTab(tab){
   setAuthStatus("");
 }
 
+function renderCheckoutDelivery(){
+  const mount=document.getElementById("checkoutDeliverySummary");
+  if(!mount) return;
+
+  if(!sessionUser){
+    mount.hidden=true;
+    mount.innerHTML="";
+    return;
+  }
+
+  const delivery=accountPreferences?.delivery||null;
+  mount.hidden=false;
+  if(delivery?.address){
+    mount.innerHTML=
+      '<div><small>ПОЛУЧЕНИЕ</small><b>'+escapeHtml([delivery.city,delivery.address].filter(Boolean).join(" · "))+'</b>'+
+      '<span>'+escapeHtml(delivery.recipient_name||sessionUser.name||"")+(delivery.recipient_phone?" · "+escapeHtml(delivery.recipient_phone):"")+'</span></div>'+
+      '<button type="button" data-checkout-delivery>Изменить</button>';
+  }else{
+    mount.innerHTML=
+      '<div><small>ПОЛУЧЕНИЕ</small><b>Не настроено</b><span>Можно оформить заказ сейчас и указать получение в кабинете.</span></div>'+
+      '<button type="button" data-checkout-delivery>Настроить</button>';
+  }
+}
+
 function updateCheckoutMode(){
   const button=document.getElementById("checkoutOrderButton");
   const note=document.querySelector(".checkout-recheck-note");
@@ -348,6 +373,7 @@ function updateCheckoutMode(){
       ? "Цена и наличие проверяются повторно. После оформления заказ сразу появится в личном кабинете."
       : "Без входа отправим запрос менеджеру. Войдите, чтобы создать заказ сразу и видеть его статус.";
   }
+  renderCheckoutDelivery();
 }
 
 function applySessionUser(){
@@ -508,7 +534,11 @@ function renderLiveAccount(overview,orders,requests,garage){
 
 
 function renderAccountPreferences(preferences){
-  const delivery=preferences?.delivery||null;
+  accountPreferences={
+    delivery:preferences?.delivery||accountPreferences.delivery||null,
+    notifications:preferences?.notifications||accountPreferences.notifications||null
+  };
+  const delivery=accountPreferences.delivery;
   const form=document.getElementById("deliveryForm");
   if(form){
     const values={
@@ -530,7 +560,7 @@ function renderAccountPreferences(preferences){
       : "Укажите основную точку или адрес получения.";
   }
 
-  const notifications=preferences?.notifications||{};
+  const notifications=accountPreferences.notifications||{};
   const map={orderStatus:"order_status",positionChange:"item_changes",returns:"returns",marketing:"marketing"};
   document.querySelectorAll("[data-notification]").forEach(input=>{
     const key=map[input.dataset.notification];
@@ -833,6 +863,7 @@ async function openLiveOrderDetail(id){
             <span class="eyebrow">ЗАКАЗ ZAPFORMAT</span>
             <h2>#${order.order_number}</h2>
             <p>${formatDateRu(order.created_at)}${order.recipient_name?" · "+escapeHtml(order.recipient_name):""}${order.recipient_phone?" · "+escapeHtml(order.recipient_phone):""}</p>
+            ${order.delivery_address ? '<p class="order-delivery-line">Получение: '+escapeHtml([order.delivery_city,order.delivery_address].filter(Boolean).join(" · "))+'</p>' : ""}
           </div>
           <div class="order-detail-state">
             <strong class="status">${requestStatusLabel(order.status)}</strong>
@@ -2189,6 +2220,13 @@ document.addEventListener("click",async e=>{
     return;
   }
 
+  const checkoutDelivery=e.target.closest("[data-checkout-delivery]");
+  if(checkoutDelivery){
+    navigate("profile");
+    showAccountTab("delivery");
+    return;
+  }
+
   const route=e.target.closest("[data-route]"); if(route){ navigate(route.dataset.route); return; }
   const query=e.target.closest("[data-query]"); if(query){ search(query.dataset.query); return; }
   if(e.target.closest("[data-focus-catalog-search]")){
@@ -2927,6 +2965,7 @@ document.getElementById("logoutButton")?.addEventListener("click",async()=>{
     console.warn("ZapFormat logout failed",error);
   }finally{
     sessionUser=null;
+    accountPreferences={delivery:null,notifications:null};
     cartSyncReady=false;
     cartHydratedUserId=null;
     garageVehicles=[];
