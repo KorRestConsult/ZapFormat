@@ -430,6 +430,19 @@ function showAuthTab(tab){
   setAuthStatus("");
 }
 
+function updateCheckoutMode(){
+  const button=document.getElementById("checkoutOrderButton");
+  const note=document.querySelector(".checkout-recheck-note");
+  if(button && !button.disabled){
+    button.textContent=sessionUser ? "Оформить заказ" : "Отправить запрос";
+  }
+  if(note){
+    note.textContent=sessionUser
+      ? "Цена и наличие проверяются повторно. После оформления заказ сразу появится в личном кабинете."
+      : "Без входа отправим запрос менеджеру. Войдите, чтобы создать заказ сразу и видеть его статус.";
+  }
+}
+
 function applySessionUser(){
   const headerProfile=document.getElementById("accountEntryButton");
   if(headerProfile){
@@ -464,6 +477,16 @@ function applySessionUser(){
       if(input) input.value=value;
     }
   }
+
+  if(sessionUser){
+    const quoteName=document.getElementById("quoteName");
+    const quotePhone=document.getElementById("quotePhone");
+    const fullName=[sessionUser.name,sessionUser.surname].filter(Boolean).join(" ");
+    if(quoteName && !String(quoteName.value||"").trim() && fullName) quoteName.value=fullName;
+    if(quotePhone && !String(quotePhone.value||"").trim() && sessionUser.phone) quotePhone.value=sessionUser.phone;
+  }
+
+  updateCheckoutMode();
 }
 
 function formatDateRu(value){
@@ -663,7 +686,7 @@ async function openLiveOrderDetail(id){
           <div>
             <span class="eyebrow">ЗАКАЗ ZAPFORMAT</span>
             <h2>#${order.order_number}</h2>
-            <p>${formatDateRu(order.created_at)}</p>
+            <p>${formatDateRu(order.created_at)}${order.recipient_name?" · "+escapeHtml(order.recipient_name):""}${order.recipient_phone?" · "+escapeHtml(order.recipient_phone):""}</p>
           </div>
           <div class="order-detail-state">
             <strong class="status">${requestStatusLabel(order.status)}</strong>
@@ -1246,6 +1269,7 @@ function renderCart(){
 
 async function refreshCartOffers(options={}){
   const silent=Boolean(options.silent);
+  const checkoutIds=new Set((options.checkoutIds||[]).map(String));
   const refreshable=cart.filter(x=>x.offerToken);
   const status=document.getElementById("cartRefreshStatus");
   const time=document.getElementById("cartRefreshTime");
@@ -1285,12 +1309,15 @@ async function refreshCartOffers(options={}){
     const byId=new Map((data?.items||[]).map(item=>[String(item.id),item]));
     let changed=0;
     let blocked=0;
+    let checkoutChanged=0;
+    let checkoutBlocked=0;
 
     cart.forEach(item=>{
       if(!item.offerToken){
         item.stale=true;
         item.selected=false;
         blocked++;
+        if(checkoutIds.has(String(item.id))) checkoutBlocked++;
         return;
       }
 
@@ -1301,6 +1328,7 @@ async function refreshCartOffers(options={}){
         item.availableQty=0;
         item.availabilityChanged=true;
         blocked++;
+        if(checkoutIds.has(String(item.id))) checkoutBlocked++;
         return;
       }
 
@@ -1313,7 +1341,10 @@ async function refreshCartOffers(options={}){
       item.previousPrice=priceChanged ? item.price : null;
       item.priceChanged=priceChanged;
       item.availabilityChanged=availabilityChanged;
-      if(priceChanged || availabilityChanged) changed++;
+      if(priceChanged || availabilityChanged){
+        changed++;
+        if(checkoutIds.has(String(item.id))) checkoutChanged++;
+      }
 
       item.price=nextPrice;
       item.availableQty=nextAvailable;
@@ -1324,6 +1355,7 @@ async function refreshCartOffers(options={}){
       if(checked.status==="insufficient" || nextAvailable<item.orderQty){
         item.selected=false;
         blocked++;
+        if(checkoutIds.has(String(item.id))) checkoutBlocked++;
       }
     });
 
@@ -1347,7 +1379,7 @@ async function refreshCartOffers(options={}){
     }
 
     if(!silent && !blocked && !changed) showToast("Цены и наличие актуальны.");
-    return {ok:true,changed,blocked};
+    return {ok:true,changed,blocked,checkoutChanged,checkoutBlocked};
   }catch(error){
     console.error("Cart revalidation failed",error);
     if(status) status.textContent="Не удалось обновить цены";
@@ -1356,7 +1388,13 @@ async function refreshCartOffers(options={}){
       notice.hidden=false;
       notice.textContent="Связь с каталогом временно недоступна. Заказ не отправлен.";
     }
-    return {ok:false,changed:0,blocked:cart.length||1};
+    return {
+      ok:false,
+      changed:0,
+      blocked:cart.length||1,
+      checkoutChanged:0,
+      checkoutBlocked:checkoutIds.size||1
+    };
   }finally{
     if(button) button.disabled=false;
   }
@@ -1480,13 +1518,14 @@ async function checkoutCart(){
   if(button){ button.disabled=true; button.textContent="Проверяем цену и наличие…"; }
 
   try{
-    const check=await refreshCartOffers({silent:true});
-    if(!check.ok || check.blocked){
-      showToast("Часть позиций недоступна. Проверьте корзину.","warn");
+    const checkoutIds=selected.map(x=>x.id);
+    const check=await refreshCartOffers({silent:true,checkoutIds});
+    if(!check.ok || check.checkoutBlocked){
+      showToast("Одна из выбранных позиций недоступна. Проверьте корзину.","warn");
       return;
     }
-    if(check.changed){
-      showToast("Цена или наличие изменились. Проверьте корзину и подтвердите заказ ещё раз.","warn");
+    if(check.checkoutChanged){
+      showToast("У выбранных позиций изменились цена или наличие. Проверьте и подтвердите заказ ещё раз.","warn");
       return;
     }
 
@@ -1522,15 +1561,23 @@ async function checkoutCart(){
 
     localStorage.setItem("zapformat-quote-name",name);
     localStorage.setItem("zapformat-quote-phone",phone);
+
     if(result.kind==="order" && result.order_number){
       showToast("Заказ #"+result.order_number+" создан.");
+      if(sessionUser){
+        accountDataHydrated=false;
+        await hydrateAccountData();
+        navigate("orders");
+        await openLiveOrderDetail(result.order_id || result.order_number);
+      }
     }else{
       showToast("Запрос "+result.request_id+" принят.");
-    }
-
-    if(sessionUser){
-      accountDataHydrated=false;
-      await hydrateAccountData();
+      if(sessionUser){
+        accountDataHydrated=false;
+        await hydrateAccountData();
+        navigate("orders");
+        await openLiveRequestDetail(result.request_id);
+      }
     }
   }catch(error){
     console.error(error);
@@ -1541,7 +1588,8 @@ async function checkoutCart(){
       showToast("Не удалось отправить заказ. Попробуйте ещё раз.","warn");
     }
   }finally{
-    if(button){ button.disabled=false; button.textContent="Отправить заказ"; }
+    if(button) button.disabled=false;
+    updateCheckoutMode();
   }
 }
 
@@ -1627,6 +1675,7 @@ const quoteNameInput=document.getElementById("quoteName");
 const quotePhoneInput=document.getElementById("quotePhone");
 if(quoteNameInput) quoteNameInput.value=localStorage.getItem("zapformat-quote-name")||"";
 if(quotePhoneInput) quotePhoneInput.value=localStorage.getItem("zapformat-quote-phone")||"";
+updateCheckoutMode();
 const aiInput=document.getElementById("searchInput");
 if(aiInput && aiInput.tagName==="TEXTAREA"){
   aiInput.addEventListener("input",()=>{
