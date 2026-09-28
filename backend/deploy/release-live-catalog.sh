@@ -130,6 +130,19 @@ echo "Health:"
 curl -fsS http://127.0.0.1:3000/api/health
 echo
 
+mark_stage "checkout_auth_smoke"
+echo "Checkout auth smoke test:"
+checkout_code="$(curl -sS -o /tmp/zf-checkout-auth.json -w "%{http_code}" -X POST \
+  -H "Content-Type: application/json" \
+  --data '{"name":"Smoke","phone":"+79990000000","items":[]}' \
+  http://127.0.0.1:3000/api/quote-requests)"
+if [ "$checkout_code" != "401" ]; then
+  echo "FAIL: unauthenticated checkout returned HTTP $checkout_code"
+  cat /tmp/zf-checkout-auth.json || true
+  exit 1
+fi
+echo "OK: unauthenticated checkout is blocked"
+
 mark_stage "ai_search_smoke"
 echo
 echo "AI search health:"
