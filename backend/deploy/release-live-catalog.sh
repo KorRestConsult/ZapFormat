@@ -71,6 +71,7 @@ node --check backend/src/offer-token.js
 node --check backend/src/pricing.js
 node --check backend/src/github-oidc.js
 node --check backend/src/ai-search.js
+node --check backend/src/vehicle-catalog.js
 node --check backend/src/secret-bootstrap.js
 
 cd backend
@@ -93,6 +94,7 @@ if [[ -n "${DATABASE_URL:-}" ]]; then
   psql "${DATABASE_URL}" -f db/003_quote_requests.sql >/dev/null
   psql "${DATABASE_URL}" -f db/004_cart_persistence.sql >/dev/null
   psql "${DATABASE_URL}" -f db/005_vehicle_context.sql >/dev/null
+  psql "${DATABASE_URL}" -f db/006_vehicle_catalog.sql >/dev/null
 fi
 
 mkdir -p /etc/systemd/system/zapformat-api.service.d
@@ -125,9 +127,14 @@ intent=data.get("intent") or {}
 print("mode:",data.get("mode"))
 print("category:",intent.get("category"))
 print("axle:",intent.get("axle"))
-if intent.get("category") != "brake_pads":
+if intent.get("category") != "brake_pad":
     raise SystemExit("FAIL: AI search parser smoke test")
 PY
+
+echo
+echo "Vehicle catalog capability:"
+curl -fsS "http://127.0.0.1:3000/api/catalog/vehicle-catalog/status" || true
+echo
 
 echo
 echo "Catalog smoke test:"
