@@ -1149,8 +1149,8 @@ app.post("/api/quote-requests", quoteLimiter, requireUser, async (req, res, next
         requestUser.id,
         "order_status",
         "quote_request_created",
-        "Запрос " + requestId + " создан",
-        "Часть позиций требует подтверждения цены или наличия."
+        "Заказ на уточнении",
+        "Некоторые позиции требуют подтверждения цены или наличия. Статус обновится в личном кабинете."
       );
     }
 
