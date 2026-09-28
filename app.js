@@ -656,22 +656,8 @@ async function hydrateSession(){
 }
 
 function resolveDataset(query){
-  const raw=(query||"").trim();
-  const q=raw.toUpperCase().replace(/\s+/g,"");
-  if(datasets[q]) return q;
-
-  const natural=raw.toLowerCase();
-  if(q.includes("0250603006") || natural.includes("свеч") || natural.includes("накал")) return "0250603006";
-  if(q.includes("11277810456")) return "11277810456";
-  if(
-    q.includes("MIPE475") ||
-    q.includes("MIP-E475") ||
-    natural.includes("натяж") ||
-    natural.includes("ролик") ||
-    natural.includes("ремн")
-  ) return "MIP-E475";
-  if(natural.includes("bmw") && natural.includes("x3")) return "MIP-E475";
-  return "0250603006";
+  const q=String(query||"").trim().toUpperCase().replace(/\s+/g,"");
+  return datasets[q] ? q : null;
 }
 
 function syncMobileNav(route){
@@ -714,98 +700,170 @@ function navigate(route, push=true){
   }
 }
 
-async function tryLiveArticle(raw){
-  if(!backendConfigured()) return false;
+function escapeHtml(value){
+  return String(value??"")
+    .replace(/&/g,"&amp;")
+    .replace(/</g,"&lt;")
+    .replace(/>/g,"&gt;")
+    .replace(/"/g,"&quot;")
+    .replace(/'/g,"&#039;");
+}
 
-  const article=String(raw||"").trim();
-  const compact=article.replace(/[^A-Za-zА-Яа-я0-9-]/g,"");
-  if(compact.length<4 || compact.length>32 || /\s/.test(article)) return false;
+function looksLikeArticle(value){
+  const raw=String(value||"").trim();
+  if(raw.length<3 || raw.length>40 || /\s/.test(raw)) return false;
+  return /^[A-Za-zА-Яа-я0-9._\/-]+$/.test(raw);
+}
 
-  let brands=[];
-  try{
-    const brandsData=await apiRequest("/api/catalog/brands?number="+encodeURIComponent(article));
-    brands=(brandsData?.brands||[]).filter(x=>x?.brand);
-  }catch(error){
-    console.warn("PartGrade brand lookup unavailable",error);
+function setCatalogControlsVisible(visible){
+  document.querySelector(".catalog-actions")?.toggleAttribute("hidden",!visible);
+  document.querySelector(".compact-filters")?.toggleAttribute("hidden",!visible);
+}
+
+function setSearchHead(titleText,subtitleText,query){
+  const title=document.getElementById("resultTitle");
+  const subtitle=document.getElementById("resultSubtitle");
+  const heading=document.getElementById("exactHeading");
+  const secondary=document.getElementById("searchInput2");
+  if(title) title.textContent=titleText||"—";
+  if(subtitle) subtitle.textContent=subtitleText||"";
+  if(heading) heading.textContent=titleText||"";
+  if(secondary) secondary.value=query||"";
+}
+
+function renderSearchState(titleText,detailText){
+  const exactRoot=document.getElementById("exactResults");
+  const analogRoot=document.getElementById("analogResults");
+  const analogSection=document.getElementById("analogSection");
+  const countEl=document.getElementById("offerCount");
+  if(countEl) countEl.textContent="0";
+  if(analogRoot) analogRoot.innerHTML="";
+  if(analogSection) analogSection.style.display="none";
+  if(exactRoot){
+    exactRoot.innerHTML=
+      '<div class="product-group search-state-card"><div class="product-group-head">'+
+      '<div class="product-title"><b>'+escapeHtml(titleText)+'</b><small>'+escapeHtml(detailText||"")+'</small></div>'+
+      '</div></div>';
+  }
+}
+
+function renderBrandChoices(article,brands){
+  const exactRoot=document.getElementById("exactResults");
+  const analogRoot=document.getElementById("analogResults");
+  const analogSection=document.getElementById("analogSection");
+  const countEl=document.getElementById("offerCount");
+  setCatalogControlsVisible(false);
+  if(analogRoot) analogRoot.innerHTML="";
+  if(analogSection) analogSection.style.display="none";
+  if(countEl) countEl.textContent=String(brands.length);
+  if(!exactRoot) return;
+
+  if(!brands.length){
+    renderSearchState("Артикул не найден","Проверьте номер и попробуйте ещё раз.");
+    return;
   }
 
-  const preferred=brands.find(x=>x.available) || brands[0] || {
-    brand:"Уточняем",
-    article,
-    description:"Запрос по артикулу"
-  };
+  exactRoot.innerHTML=brands.map((item,index)=>{
+    const brand=String(item.brand||"").trim();
+    const number=String(item.article||article).trim();
+    const description=String(item.description||"Запчасть").trim();
+    return `
+      <article class="brand-choice">
+        <button type="button" class="brand-choice-button"
+          data-brand-select="${escapeHtml(brand)}"
+          data-brand-number="${escapeHtml(number)}"
+          data-brand-description="${escapeHtml(description)}">
+          <span class="brand-choice-logo">${escapeHtml(brand.slice(0,5)||"—")}</span>
+          <span class="brand-choice-main">
+            <span class="brand-choice-line">
+              <b>${escapeHtml(brand||"Без бренда")}</b>
+              <code>${escapeHtml(number)}</code>
+            </span>
+            <small>${escapeHtml(description)}</small>
+          </span>
+          <span class="brand-choice-action">Цены и аналоги ›</span>
+        </button>
+      </article>`;
+  }).join("");
+}
+
+async function loadLiveOffers(article,brand,description="",options={}){
+  const number=String(article||"").trim();
+  const maker=String(brand||"").trim();
+  if(!number || !maker) return;
+
+  setCatalogControlsVisible(false);
+  setSearchHead(maker+" "+number,"Загружаем реальные предложения…",number);
+  renderSearchState("Загрузка","Получаем цены, наличие, сроки и аналоги.");
 
   try{
     const offersData=await apiRequest(
-      "/api/catalog/offers?number="+encodeURIComponent(preferred.article||article)+
-      "&brand="+encodeURIComponent(preferred.brand)
+      "/api/catalog/offers?number="+encodeURIComponent(number)+
+      "&brand="+encodeURIComponent(maker)
     );
     const offers=Array.isArray(offersData?.offers) ? offersData.offers : [];
     const analogOffers=Array.isArray(offersData?.analogs) ? offersData.analogs : [];
-    if(offers.length || analogOffers.length){
-      const key="live:"+article.toUpperCase();
-      const mapOffer=(o,index,type)=>({
-        id:"live-"+type+"-"+Date.now()+"-"+index,
-        type,
-        brand:o.brand||preferred.brand,
-        article:o.article||preferred.article||article,
-        name:o.description||preferred.description||"Автозапчасть",
-        warehouse:"Поставка",
-        source:type==="analog"?"Аналог":"Точное предложение",
-        purchase:0,
-        retailPrice:Number(o.price||0),
-        qty:Number(o.availability||0),
-        days:Math.max(0,Math.ceil(Number(o.delivery_hours||0)/24)),
-        deliveryProbability:o.delivery_probability??null,
-        live:true
-      }));
-      const exact=offers.map((o,index)=>mapOffer(o,index,"exact"));
-      const analogs=analogOffers.map((o,index)=>mapOffer(o,index,"analog"));
 
-      datasets[key]={
-        title:(preferred.brand+" "+(preferred.article||article)).trim(),
-        subtitle:preferred.description||(exact[0]?.name||analogs[0]?.name)||"Результат PartGrade",
-        exact,
-        analogs
-      };
-      currentKey=key;
-      return true;
+    const mapOffer=(o,index,type)=>({
+      id:"live-"+type+"-"+index+"-"+String(o.brand||maker).replace(/[^A-Za-zА-Яа-я0-9_-]/g,"")+"-"+String(o.article||number).replace(/[^A-Za-zА-Яа-я0-9_-]/g,""),
+      type,
+      brand:o.brand||maker,
+      article:o.article||number,
+      name:o.description||description||"Автозапчасть",
+      warehouse:"Поставка",
+      source:type==="analog"?"Аналог":"Точное предложение",
+      purchase:0,
+      retailPrice:Number(o.price||0),
+      qty:Number(o.availability||0),
+      days:Math.max(0,Math.ceil(Number(o.delivery_hours||0)/24)),
+      deliveryProbability:o.delivery_probability??null,
+      live:true
+    });
+
+    const exact=offers.map((o,index)=>mapOffer(o,index,"exact"));
+    const analogs=analogOffers.map((o,index)=>mapOffer(o,index,"analog"));
+    const key="live:"+maker.toUpperCase()+":"+number.toUpperCase();
+
+    datasets[key]={
+      title:(maker+" "+number).trim(),
+      subtitle:description||(exact[0]?.name||analogs[0]?.name)||"Результат поиска",
+      exact,
+      analogs
+    };
+    currentKey=key;
+    currentFilter="all";
+    currentSort="price";
+
+    document.querySelectorAll("[data-filter]").forEach(x=>x.classList.toggle("active",x.dataset.filter==="all"));
+    document.querySelectorAll("[data-sort]").forEach(x=>x.classList.toggle("active",x.dataset.sort==="price"));
+
+    setSearchHead(
+      datasets[key].title,
+      datasets[key].subtitle+" · реальные данные поставщика",
+      number
+    );
+    setCatalogControlsVisible(true);
+    renderCatalog();
+
+    if(options.push!==false){
+      const url=new URL(location.href);
+      url.search="";
+      url.searchParams.set("q",number);
+      url.searchParams.set("brand",maker);
+      history.pushState({route:"search",query:number,brand:maker},"",url.pathname+url.search);
     }
+    return true;
   }catch(error){
-    console.warn("PartGrade offers require confirmation",error);
+    console.error("PartGrade offers lookup failed",error);
+    setSearchHead(maker+" "+number,"Не удалось загрузить предложения.",number);
+    renderSearchState("Предложения временно недоступны","Повторите поиск через несколько секунд.");
+    return false;
   }
-
-  const key="quote:"+article.toUpperCase();
-  const candidates=(brands.length ? brands.slice(0,100) : [preferred]).map((item,index)=>({
-    id:"quote-"+article.toUpperCase()+"-"+index,
-    type:"exact",
-    brand:item.brand||"Уточняем",
-    article:item.article||item.number||article,
-    name:item.description||"Запрос по артикулу",
-    warehouse:"PartGrade",
-    source:brands.length ? "Артикул распознан · цена после подтверждения" : "Запрос принят · цена после подтверждения",
-    purchase:0,
-    retailPrice:null,
-    qty:1,
-    days:null,
-    quoteOnly:true,
-    live:true
-  }));
-
-  datasets[key]={
-    title:brands.length ? ((preferred.brand+" "+(preferred.article||article)).trim()) : article,
-    subtitle:brands.length ? (preferred.description||"Артикул найден в PartGrade") : "Запрос по артикулу",
-    exact:candidates,
-    analogs:[],
-    quoteOnly:true
-  };
-  currentKey=key;
-  return true;
 }
 
-async function search(query){
-  const raw=(query||"").trim();
-  if(!raw) return;
+async function search(query,options={}){
+  const raw=String(query||"").trim();
+  if(!raw) return false;
 
   document.querySelector(".compact-filters")?.classList.remove("open");
   const filtersToggle=document.querySelector(".filters-toggle");
@@ -814,23 +872,61 @@ async function search(query){
     filtersToggle.setAttribute("aria-expanded","false");
   }
 
-  const liveLoaded=await tryLiveArticle(raw);
-  if(!liveLoaded) currentKey=resolveDataset(raw);
-  const data=datasets[currentKey];
-
-  const title=document.getElementById("resultTitle");
-  const subtitle=document.getElementById("resultSubtitle");
-  const heading=document.getElementById("exactHeading");
-  const secondary=document.getElementById("searchInput2");
-
-  if(title) title.textContent=data.title;
-  if(subtitle) subtitle.textContent=data.subtitle+(String(currentKey).startsWith("live:")?" · живые данные PartGrade":String(currentKey).startsWith("quote:")?" · цену и наличие подтвердим перед заказом":" · точные предложения и аналоги");
-  if(heading) heading.textContent=data.subtitle;
-  if(secondary) secondary.value=raw;
-
   showRoute("search");
-  renderCatalog();
-  history.pushState({route:"search",query:raw}, "", location.pathname+"?q="+encodeURIComponent(raw));
+  setCatalogControlsVisible(false);
+  setSearchHead(raw,"Ищем артикул у поставщика…",raw);
+  renderSearchState("Поиск","Получаем список производителей.");
+
+  if(!backendConfigured()){
+    renderSearchState("Сервер каталога недоступен","Откройте серверную версию ZapFormat.");
+    return false;
+  }
+
+  if(!looksLikeArticle(raw)){
+    renderSearchState("Нужен артикул","Поиск по VIN и названию подключим отдельно. Сейчас введите точный номер детали.");
+    setSearchHead(raw,"Введите точный артикул детали.",raw);
+    return false;
+  }
+
+  try{
+    const brandsData=await apiRequest("/api/catalog/brands?number="+encodeURIComponent(raw));
+    const brands=(Array.isArray(brandsData?.brands)?brandsData.brands:[])
+      .filter(x=>x?.brand)
+      .sort((a,b)=>String(a.brand).localeCompare(String(b.brand),"ru",{sensitivity:"base"}));
+
+    const key="brands:"+raw.toUpperCase();
+    datasets[key]={title:raw,subtitle:"Выберите производителя",exact:[],analogs:[]};
+    currentKey=key;
+
+    setSearchHead(raw,brands.length ? "Выберите производителя — затем покажем цены и аналоги." : "Артикул не найден.",raw);
+    renderBrandChoices(raw,brands);
+
+    if(options.push!==false){
+      const url=new URL(location.href);
+      url.search="";
+      url.searchParams.set("q",raw);
+      history.pushState({route:"search",query:raw},"",url.pathname+url.search);
+    }
+
+    const requestedBrand=String(options.brand||"").trim();
+    if(requestedBrand){
+      const match=brands.find(x=>String(x.brand||"").toLowerCase()===requestedBrand.toLowerCase());
+      if(match){
+        return loadLiveOffers(
+          match.article||raw,
+          match.brand,
+          match.description||"",
+          {push:false}
+        );
+      }
+    }
+    return true;
+  }catch(error){
+    console.error("PartGrade brand lookup failed",error);
+    setSearchHead(raw,"Не удалось получить данные поставщика.",raw);
+    renderSearchState("Поиск временно недоступен","Повторите попытку через несколько секунд.");
+    return false;
+  }
 }
 
 function baseList(type){
@@ -1183,6 +1279,16 @@ async function checkoutCart(){
 
 
 document.addEventListener("click",e=>{
+  const brandChoice=e.target.closest("[data-brand-select]");
+  if(brandChoice){
+    loadLiveOffers(
+      brandChoice.dataset.brandNumber,
+      brandChoice.dataset.brandSelect,
+      brandChoice.dataset.brandDescription||""
+    );
+    return;
+  }
+
   const cartAction=e.target.closest("[data-cart-action]");
   if(cartAction){
     const action=cartAction.dataset.cartAction;
@@ -1264,16 +1370,10 @@ if(aiInput && aiInput.tagName==="TEXTAREA"){
 function restoreFromUrl(){
   const params=new URLSearchParams(location.search);
   const q=params.get("q");
+  const brand=params.get("brand");
   const view=params.get("view");
   if(q){
-    currentKey=resolveDataset(q);
-    const data=datasets[currentKey];
-    document.getElementById("resultTitle") && (document.getElementById("resultTitle").textContent=data.title);
-    document.getElementById("resultSubtitle") && (document.getElementById("resultSubtitle").textContent=data.subtitle+" · точные предложения и аналоги");
-    document.getElementById("exactHeading") && (document.getElementById("exactHeading").textContent=data.subtitle);
-    document.getElementById("searchInput2") && (document.getElementById("searchInput2").value=q);
-    showRoute("search");
-    renderCatalog();
+    search(q,{push:false,brand});
   } else if(view){
     showRoute(view);
   } else {
