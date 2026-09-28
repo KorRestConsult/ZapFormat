@@ -3133,3 +3133,113 @@ html{scroll-padding-bottom:calc(88px + env(safe-area-inset-bottom))}
 .quote-request-btn{border:0;background:#263843;color:#fff;border-radius:9px;padding:10px 12px;font-weight:800}
 .quote-request-btn.added{background:#2b7d53}
 @media(max-width:680px){.quote-contact{grid-template-columns:1fr}}
+
+
+/* Live PartGrade two-stage catalog */
+[hidden]{display:none!important}
+.brand-choice{
+  overflow:hidden;
+  background:#fff;
+  border:1px solid var(--line);
+  border-radius:11px;
+  box-shadow:0 3px 12px rgba(31,55,74,.035)
+}
+.brand-choice-button{
+  width:100%;
+  min-width:0;
+  display:grid;
+  grid-template-columns:46px minmax(0,1fr) auto;
+  align-items:center;
+  gap:12px;
+  padding:13px 14px;
+  border:0;
+  background:#fff;
+  color:inherit;
+  text-align:left
+}
+.brand-choice-button:hover{background:#f8fafb}
+.brand-choice-logo{
+  width:46px;
+  height:40px;
+  display:grid;
+  place-items:center;
+  overflow:hidden;
+  border:1px solid #dbe3e8;
+  border-radius:8px;
+  background:#f4f7f8;
+  color:#5e707c;
+  font-size:10px;
+  font-weight:900
+}
+.brand-choice-main{min-width:0;display:grid;gap:4px}
+.brand-choice-line{
+  min-width:0;
+  display:flex;
+  align-items:baseline;
+  gap:10px;
+  flex-wrap:wrap
+}
+.brand-choice-line b{
+  color:var(--navy-3);
+  font-size:14px
+}
+.brand-choice-line code{
+  color:#556974;
+  font-size:12px;
+  overflow-wrap:anywhere
+}
+.brand-choice-main small{
+  min-width:0;
+  color:#7c8993;
+  font-size:12px;
+  line-height:1.35
+}
+.brand-choice-action{
+  white-space:nowrap;
+  color:var(--navy);
+  font-size:12px;
+  font-weight:850
+}
+.search-state-card .product-group-head{grid-template-columns:1fr}
+.search-state-card .product-title small{display:block;margin-top:5px}
+.catalog-actions,.compact-filters{max-width:100%}
+.sort-row{
+  max-width:100%;
+  overflow-x:auto;
+  scrollbar-width:none;
+  -webkit-overflow-scrolling:touch
+}
+.sort-row::-webkit-scrollbar{display:none}
+.sort-row button,.sort-row>span{flex:0 0 auto}
+
+@media(max-width:680px){
+  .brand-choice-button{
+    grid-template-columns:40px minmax(0,1fr);
+    gap:10px;
+    padding:11px
+  }
+  .brand-choice-logo{
+    width:40px;
+    height:38px
+  }
+  .brand-choice-action{
+    grid-column:2;
+    justify-self:start;
+    white-space:normal
+  }
+  .catalog-actions{min-width:0;overflow:hidden}
+  .sort-row{
+    width:100%;
+    margin-left:0;
+    padding-bottom:2px
+  }
+  .sort-row button{
+    min-width:max-content;
+    padding-left:10px;
+    padding-right:10px
+  }
+  #view-search{min-width:0}
+  #view-search .compact-results,
+  #view-search .product-group,
+  #view-search .supply-list{min-width:0}
+}
