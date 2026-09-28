@@ -3038,6 +3038,7 @@ function renderGarageHistory(){
 function renderGarageApp(){
   const root=document.getElementById("garageApp");
   if(!root) return;
+  if(!garageState.maintenance?.length && garageTab==="maintenance") garageTab="overview";
 
   if(!garageState.vehicle?.id){
     root.innerHTML=`
@@ -3081,7 +3082,7 @@ function renderGarageApp(){
 
     <nav class="garage-tabs" aria-label="Разделы автомобиля">
       <button class="${garageTab==="overview"?"active":""}" data-garage-tab="overview">Обзор</button>
-      <button class="${garageTab==="maintenance"?"active":""}" data-garage-tab="maintenance">ТО</button>
+      ${garageState.maintenance?.length ? '<button class="'+(garageTab==="maintenance"?"active":"")+'" data-garage-tab="maintenance">ТО</button>' : ""}
       <button class="${garageTab==="measurements"?"active":""}" data-garage-tab="measurements">Замеры</button>
       <button class="${garageTab==="history"?"active":""}" data-garage-tab="history">История</button>
     </nav>
