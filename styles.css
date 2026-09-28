@@ -4316,3 +4316,26 @@ body.guest-mode .logo{
     justify-self:start!important
   }
 }
+
+
+.nav-notification-badge{
+  display:inline-grid;
+  place-items:center;
+  min-width:18px;
+  height:18px;
+  padding:0 5px;
+  margin-left:4px;
+  border-radius:999px;
+  background:var(--orange);
+  color:#fff;
+  font-size:9px;
+  line-height:1;
+  font-weight:900
+}
+.nav-notification-badge[hidden]{display:none!important}
+.mobile-nav .nav-notification-badge{
+  min-width:16px;
+  height:16px;
+  padding:0 4px;
+  font-size:8px
+}
