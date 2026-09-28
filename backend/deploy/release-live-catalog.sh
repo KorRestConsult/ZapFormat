@@ -110,6 +110,8 @@ if [[ -n "${DATABASE_URL:-}" ]]; then
   psql "${DATABASE_URL}" -f db/004_cart_persistence.sql >/dev/null
   psql "${DATABASE_URL}" -f db/005_vehicle_context.sql >/dev/null
   psql "${DATABASE_URL}" -f db/006_vehicle_catalog.sql >/dev/null
+  psql "${DATABASE_URL}" -f db/007_supplier_orders.sql >/dev/null
+  psql "${DATABASE_URL}" -f db/008_order_item_comments.sql >/dev/null
 fi
 
 mkdir -p /etc/systemd/system/zapformat-api.service.d
