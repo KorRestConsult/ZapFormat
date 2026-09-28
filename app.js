@@ -1,66 +1,8 @@
-const MARKUP = 15;
+const datasets = {};
 
-const datasets = {
-  "0250603006": {
-    title: "BOSCH 0 250 603 006",
-    subtitle: "Свеча накаливания",
-    exact: [
-      {id:"b1",type:"exact",brand:"BOSCH",article:"0250603006",name:"Свеча накаливания",warehouse:"03",source:"Поставка 1",purchase:1803,qty:10,days:2},
-      {id:"b2",type:"exact",brand:"BOSCH",article:"0250603006",name:"Свеча накаливания",warehouse:"07",source:"Поставка 2",purchase:1865,qty:22,days:1},
-      {id:"b3",type:"exact",brand:"BOSCH",article:"0250603006",name:"Свеча накаливания",warehouse:"11",source:"Поставка 3",purchase:1940,qty:5,days:1},
-      {id:"b4",type:"exact",brand:"BOSCH",article:"0250603006",name:"Свеча накаливания",warehouse:"18",source:"Поставка 4",purchase:1725,qty:40,days:5},
-      {id:"b5",type:"exact",brand:"BOSCH",article:"0250603006",name:"Свеча накаливания",warehouse:"24",source:"Поставка 5",purchase:1768,qty:12,days:2},
-      {id:"b6",type:"exact",brand:"BOSCH",article:"0250603006",name:"Свеча накаливания",warehouse:"31",source:"Поставка 6",purchase:1792,qty:8,days:3},
-      {id:"b7",type:"exact",brand:"BOSCH",article:"0250603006",name:"Свеча накаливания",warehouse:"44",source:"Поставка 7",purchase:1840,qty:20,days:2}
-    ],
-    analogs: [
-      {id:"ba1",type:"analog",brand:"BERU",article:"GE102",name:"Свеча накаливания",warehouse:"02",source:"Аналог",purchase:1510,qty:12,days:1},
-      {id:"ba2",type:"analog",brand:"NGK",article:"97256",name:"Свеча накаливания",warehouse:"05",source:"Аналог",purchase:1640,qty:7,days:2},
-      {id:"ba3",type:"analog",brand:"DENSO",article:"DG-193",name:"Свеча накаливания",warehouse:"09",source:"Аналог",purchase:1435,qty:3,days:2},
-      {id:"ba4",type:"analog",brand:"FEBI",article:"176214",name:"Свеча накаливания",warehouse:"13",source:"Аналог",purchase:1190,qty:16,days:3},
-      {id:"ba5",type:"analog",brand:"SWAG",article:"20 94 6721",name:"Свеча накаливания",warehouse:"21",source:"Аналог",purchase:1280,qty:9,days:4},
-      {id:"ba6",type:"analog",brand:"MEYLE",article:"314 860 0004",name:"Свеча накаливания",warehouse:"25",source:"Аналог",purchase:1345,qty:6,days:2},
-      {id:"ba7",type:"analog",brand:"STELLOX",article:"202 084-SX",name:"Свеча накаливания",warehouse:"31",source:"Аналог",purchase:790,qty:28,days:3},
-      {id:"ba8",type:"analog",brand:"PATRON",article:"PGP002",name:"Свеча накаливания",warehouse:"44",source:"Аналог",purchase:860,qty:34,days:5},
-      {id:"ba9",type:"analog",brand:"STELLOX",article:"201095-SX",name:"Свеча накаливания",warehouse:"31",source:"Аналог",purchase:930,qty:0,days:4}
-    ]
-  },
-  "11277810456": {
-    title: "BMW 11 27 7 810 456",
-    subtitle: "Элемент привода / ролик",
-    exact: [
-      {id:"bm1",type:"exact",brand:"BMW",article:"11277810456",name:"Ролик / элемент привода",warehouse:"03",source:"Оригинал",purchase:2713,qty:5,days:2},
-      {id:"bm2",type:"exact",brand:"BMW",article:"11277810456",name:"Ролик / элемент привода",warehouse:"15",source:"Оригинал",purchase:2950,qty:2,days:1},
-      {id:"bm3",type:"exact",brand:"BMW",article:"11277810456",name:"Ролик / элемент привода",warehouse:"28",source:"Оригинал",purchase:2480,qty:12,days:6}
-    ],
-    analogs: [
-      {id:"bma1",type:"analog",brand:"INA",article:"532 0792 10",name:"Ролик приводного ремня",warehouse:"01",source:"Аналог",purchase:2420,qty:17,days:1},
-      {id:"bma2",type:"analog",brand:"GATES",article:"T39198",name:"Натяжитель приводного ремня",warehouse:"07",source:"Аналог",purchase:6810,qty:7,days:1},
-      {id:"bma3",type:"analog",brand:"SNR",article:"GA350.89",name:"Ролик натяжной",warehouse:"09",source:"Аналог",purchase:2260,qty:9,days:2},
-      {id:"bma4",type:"analog",brand:"DAYCO",article:"APV3126",name:"Ролик приводного ремня",warehouse:"17",source:"Аналог",purchase:1970,qty:4,days:2},
-      {id:"bma5",type:"analog",brand:"FEBI",article:"106256",name:"Ролик",warehouse:"22",source:"Аналог",purchase:1835,qty:11,days:3},
-      {id:"bma6",type:"analog",brand:"MEYLE",article:"314 009 0008",name:"Ролик",warehouse:"30",source:"Аналог",purchase:1740,qty:20,days:4}
-    ]
-  },
-  "MIP-E475": {
-    title: "MASUMA MIP-E475",
-    subtitle: "Натяжитель приводного ремня",
-    exact: [
-      {id:"m1",type:"exact",brand:"MASUMA",article:"MIP-E475",name:"Натяжитель приводного ремня",warehouse:"03",source:"Точная позиция",purchase:3147,qty:1,days:2},
-      {id:"m2",type:"exact",brand:"MASUMA",article:"MIP-E475",name:"Натяжитель приводного ремня",warehouse:"19",source:"Точная позиция",purchase:3290,qty:3,days:1}
-    ],
-    analogs: [
-      {id:"ma1",type:"analog",brand:"GATES",article:"T39198",name:"Натяжитель приводного ремня",warehouse:"03",source:"Аналог",purchase:6810,qty:2,days:1},
-      {id:"ma2",type:"analog",brand:"INA",article:"534 0533 10",name:"Натяжитель ремня",warehouse:"08",source:"Аналог",purchase:5980,qty:5,days:2},
-      {id:"ma3",type:"analog",brand:"DAYCO",article:"APV3165",name:"Натяжитель ремня",warehouse:"12",source:"Аналог",purchase:5140,qty:4,days:3},
-      {id:"ma4",type:"analog",brand:"FEBI",article:"102981",name:"Натяжитель ремня",warehouse:"24",source:"Аналог",purchase:4490,qty:7,days:4}
-    ]
-  }
-};
-
-let currentKey = "0250603006";
+let currentKey = null;
 let currentFilter = "all";
-let currentSort = "recommended";
+let currentSort = "price";
 let quantities = {};
 let expandedGroups = new Set();
 let cart = loadCart();
@@ -101,11 +43,9 @@ function saveGarageState(){
 }
 
 
-function retail(p){ return Math.round(p * (1 + MARKUP/100)); }
 function itemRetail(item){
-  const live=Number(item?.retailPrice);
-  if(Number.isFinite(live) && live>=0) return Math.round(live);
-  return retail(Number(item?.purchase||0));
+  const price=Number(item?.retailPrice ?? item?.price);
+  return Number.isFinite(price) && price>=0 ? price : 0;
 }
 function rub(n){ return new Intl.NumberFormat("ru-RU").format(n) + " ₽"; }
 
@@ -796,8 +736,7 @@ async function repeatLiveOrder(orderId,button){
             name:offer.description||item.description||"Автозапчасть",
             warehouse:"Поставка",
             source:"Повтор заказа",
-            purchase:0,
-            retailPrice:Number(offer.price||0),
+                  retailPrice:Number(offer.price||0),
             qty:Number(offer.availability||0),
             days:Math.max(0,Math.ceil(Number(offer.delivery_hours||0)/24)),
             deliveryProbability:offer.delivery_probability??null,
@@ -991,11 +930,6 @@ async function hydrateSession(){
     applySessionUser();
     return null;
   }
-}
-
-function resolveDataset(query){
-  const q=String(query||"").trim().toUpperCase().replace(/\s+/g,"");
-  return datasets[q] ? q : null;
 }
 
 function syncMobileNav(route){
@@ -1507,7 +1441,6 @@ async function loadLiveOffers(article,brand,description="",options={}){
       name:o.description||description||"Автозапчасть",
       warehouse:"Поставка",
       source:type==="analog"?"Аналог":"Точное предложение",
-      purchase:0,
       retailPrice:Number(o.price||0),
       qty:Number(o.availability||0),
       days:Math.max(0,Math.ceil(Number(o.delivery_hours||0)/24)),
@@ -1645,7 +1578,8 @@ async function search(query,options={}){
 }
 
 function baseList(type){
-  const data=datasets[currentKey];
+  const data=currentKey ? datasets[currentKey] : null;
+  if(!data) return [];
   let list=type==="exact" ? [...data.exact] : [...data.analogs];
   if(currentFilter==="exact" && type!=="exact") return [];
   if(currentFilter==="analog" && type!=="analog") return [];
@@ -2472,8 +2406,7 @@ document.getElementById("cartFileInput")?.addEventListener("change",async e=>{
             name:offer.description||"Автозапчасть",
             warehouse:"Поставка",
             source:"Импорт корзины",
-            purchase:0,
-            retailPrice:Number(offer.price||0),
+                  retailPrice:Number(offer.price||0),
             qty:Number(offer.availability||0),
             days:Math.max(0,Math.ceil(Number(offer.delivery_hours||0)/24)),
             deliveryProbability:offer.delivery_probability??null,
