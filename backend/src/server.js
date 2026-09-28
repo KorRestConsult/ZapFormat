@@ -1239,6 +1239,7 @@ app.get("/api/garage", requireUser, async (req, res, next) => {
 });
 
 app.post("/api/garage/vehicles", requireUser, async (req, res, next) => {
+  const client = await pool.connect();
   try {
     const brand = String(req.body?.brand || "").trim();
     const model = String(req.body?.model || "").trim();
@@ -1253,25 +1254,43 @@ app.post("/api/garage/vehicles", requireUser, async (req, res, next) => {
       return res.status(400).json({ error: "brand_and_model_required" });
     }
 
-    const result = await pool.query(
+    await client.query("BEGIN");
+    const existing = await client.query(
+      "SELECT count(*)::int AS count FROM vehicles WHERE user_id = $1",
+      [req.user.id]
+    );
+    const isDefault = existing.rows[0].count === 0 || req.body?.is_default === true;
+
+    if (isDefault) {
+      await client.query(
+        "UPDATE vehicles SET is_default = false, updated_at = now() WHERE user_id = $1",
+        [req.user.id]
+      );
+    }
+
+    const result = await client.query(
       `INSERT INTO vehicles
-        (user_id, brand, model, generation, year, engine, vin, plate_number, current_mileage, mileage_updated_at)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,CASE WHEN $9::int IS NULL THEN NULL ELSE now() END)
+        (user_id, brand, model, generation, year, engine, vin, plate_number, current_mileage, mileage_updated_at, is_default)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,CASE WHEN $9::int IS NULL THEN NULL ELSE now() END,$10)
        RETURNING *`,
-      [req.user.id, brand, model, generation, year, engine, vin, plate, mileage]
+      [req.user.id, brand, model, generation, year, engine, vin, plate, mileage, isDefault]
     );
 
     if (mileage !== null && Number.isFinite(mileage)) {
-      await pool.query(
+      await client.query(
         `INSERT INTO vehicle_mileage_logs (vehicle_id, user_id, mileage)
          VALUES ($1,$2,$3)`,
         [result.rows[0].id, req.user.id, mileage]
       );
     }
 
+    await client.query("COMMIT");
     res.status(201).json({ vehicle: result.rows[0] });
   } catch (error) {
+    await client.query("ROLLBACK").catch(() => {});
     next(error);
+  } finally {
+    client.release();
   }
 });
 
@@ -1317,8 +1336,9 @@ app.get("/api/garage/vehicles/:vehicleId", requireUser, async (req, res, next) =
 });
 
 app.patch("/api/garage/vehicles/:vehicleId", requireUser, async (req, res, next) => {
+  const client = await pool.connect();
   try {
-    const current = await pool.query(
+    const current = await client.query(
       "SELECT * FROM vehicles WHERE id = $1 AND user_id = $2 LIMIT 1",
       [req.params.vehicleId, req.user.id]
     );
@@ -1332,13 +1352,28 @@ app.patch("/api/garage/vehicles/:vehicleId", requireUser, async (req, res, next)
     const plate = req.body?.plate_number === undefined ? vehicle.plate_number : String(req.body.plate_number || "").trim().toUpperCase() || null;
     const vin = req.body?.vin === undefined ? vehicle.vin : String(req.body.vin || "").trim().toUpperCase() || null;
     const year = req.body?.year === undefined ? vehicle.year : (req.body.year ? Number(req.body.year) : null);
+    const requestedMileage = req.body?.current_mileage === undefined
+      ? vehicle.current_mileage
+      : (req.body.current_mileage === null || req.body.current_mileage === "" ? null : Number(req.body.current_mileage));
 
     if (!brand || !model) return res.status(400).json({ error: "brand_and_model_required" });
     if (vin && !/^[A-HJ-NPR-Z0-9]{17}$/.test(vin)) {
       return res.status(400).json({ error: "invalid_vin" });
     }
+    if (requestedMileage !== null && (!Number.isInteger(requestedMileage) || requestedMileage < 0)) {
+      return res.status(400).json({ error: "invalid_mileage" });
+    }
 
-    const result = await pool.query(
+    await client.query("BEGIN");
+
+    if (req.body?.is_default === true) {
+      await client.query(
+        "UPDATE vehicles SET is_default = false, updated_at = now() WHERE user_id = $1",
+        [req.user.id]
+      );
+    }
+
+    const result = await client.query(
       `UPDATE vehicles
           SET brand = $3,
               model = $4,
@@ -1347,15 +1382,82 @@ app.patch("/api/garage/vehicles/:vehicleId", requireUser, async (req, res, next)
               engine = $7,
               vin = $8,
               plate_number = $9,
+              current_mileage = $10,
+              mileage_updated_at = CASE
+                WHEN $10::int IS DISTINCT FROM current_mileage THEN now()
+                ELSE mileage_updated_at
+              END,
+              is_default = CASE WHEN $11::boolean THEN true ELSE is_default END,
               updated_at = now()
         WHERE id = $1 AND user_id = $2
         RETURNING *`,
-      [req.params.vehicleId, req.user.id, brand, model, generation, year, engine, vin, plate]
+      [
+        req.params.vehicleId,
+        req.user.id,
+        brand,
+        model,
+        generation,
+        year,
+        engine,
+        vin,
+        plate,
+        requestedMileage,
+        req.body?.is_default === true
+      ]
     );
 
+    if (
+      requestedMileage !== null &&
+      Number(requestedMileage) !== Number(vehicle.current_mileage)
+    ) {
+      await client.query(
+        `INSERT INTO vehicle_mileage_logs (vehicle_id, user_id, mileage)
+         VALUES ($1,$2,$3)`,
+        [req.params.vehicleId, req.user.id, requestedMileage]
+      );
+    }
+
+    await client.query("COMMIT");
     res.json({ vehicle: result.rows[0] });
   } catch (error) {
+    await client.query("ROLLBACK").catch(() => {});
     next(error);
+  } finally {
+    client.release();
+  }
+});
+
+app.post("/api/garage/vehicles/:vehicleId/default", requireUser, async (req, res, next) => {
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+    const owned = await client.query(
+      "SELECT id FROM vehicles WHERE id = $1 AND user_id = $2 LIMIT 1",
+      [req.params.vehicleId, req.user.id]
+    );
+    if (!owned.rowCount) {
+      await client.query("ROLLBACK");
+      return res.status(404).json({ error: "vehicle_not_found" });
+    }
+
+    await client.query(
+      "UPDATE vehicles SET is_default = false, updated_at = now() WHERE user_id = $1",
+      [req.user.id]
+    );
+    const result = await client.query(
+      `UPDATE vehicles
+          SET is_default = true, updated_at = now()
+        WHERE id = $1 AND user_id = $2
+        RETURNING *`,
+      [req.params.vehicleId, req.user.id]
+    );
+    await client.query("COMMIT");
+    res.json({ vehicle: result.rows[0] });
+  } catch (error) {
+    await client.query("ROLLBACK").catch(() => {});
+    next(error);
+  } finally {
+    client.release();
   }
 });
 
