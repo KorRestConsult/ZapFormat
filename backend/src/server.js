@@ -1173,7 +1173,7 @@ app.get("/api/integration/status", async (_req, res, next) => {
   }
 });
 
-app.post("/api/internal/orders/:orderId/status", requireInternal, async (req, res, next) => {
+app.post("/api/internal/orders/:orderId/status", requireDatabase, requireInternal, async (req, res, next) => {
   const client = await pool.connect();
   try {
     const orderId = String(req.params.orderId || "").trim();
