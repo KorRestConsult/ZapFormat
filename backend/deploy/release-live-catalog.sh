@@ -90,6 +90,7 @@ if [[ -n "${DATABASE_URL:-}" ]]; then
   psql "${DATABASE_URL}" -f db/002_garage_owner_app.sql >/dev/null
   psql "${DATABASE_URL}" -f db/003_quote_requests.sql >/dev/null
   psql "${DATABASE_URL}" -f db/004_cart_persistence.sql >/dev/null
+  psql "${DATABASE_URL}" -f db/005_vehicle_context.sql >/dev/null
 fi
 
 systemctl restart "${SERVICE}"
