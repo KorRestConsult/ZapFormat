@@ -953,6 +953,11 @@ app.post("/api/catalog/ai-search", requireDatabase, requireUser, aiSearchLimiter
         ai_configured: Boolean(String(process.env.OPENAI_API_KEY || "").trim()),
         vehicle: normalizeVehicle(vehicle),
         intent,
+        vehicle_identity: {
+          vin_present: Boolean(String(vehicle.vin || "").trim()),
+          vin_decoded: false,
+          identification_source: "garage_facts"
+        },
         candidates: (resolved.candidates || []).slice(0, 8).map(publicVehicleCatalogCandidate)
       });
     }
@@ -966,6 +971,11 @@ app.post("/api/catalog/ai-search", requireDatabase, requireUser, aiSearchLimiter
         ai_configured: Boolean(String(process.env.OPENAI_API_KEY || "").trim()),
         vehicle: normalizeVehicle(vehicle),
         intent,
+        vehicle_identity: {
+          vin_present: Boolean(String(vehicle.vin || "").trim()),
+          vin_decoded: false,
+          identification_source: "garage_facts"
+        },
         manufacturer: resolved.manufacturer || null,
         model: resolved.model || null,
         candidates: (resolved.candidates || []).slice(0, 12).map(publicVehicleCatalogCandidate)
@@ -983,8 +993,6 @@ app.post("/api/catalog/ai-search", requireDatabase, requireUser, aiSearchLimiter
         articles: []
       });
     }
-
-    await persistVehicleCatalogBinding(req.user.id, vehicle.id, resolved);
 
     const special = vehicleSpecsForIntent(resolved.info, intent);
     if (special) {
@@ -1029,7 +1037,9 @@ app.post("/api/catalog/ai-search", requireDatabase, requireUser, aiSearchLimiter
       ai_configured: Boolean(String(process.env.OPENAI_API_KEY || "").trim()),
       vehicle: normalizeVehicle(vehicle),
       intent,
-      fitment_status: "catalog_fitment_confirmed",
+      fitment_status: resolved.source === "saved"
+        ? "catalog_fitment_confirmed"
+        : "vehicle_catalog_match",
       vehicle_identity: {
         vin_present: Boolean(String(vehicle.vin || "").trim()),
         vin_decoded: false,
