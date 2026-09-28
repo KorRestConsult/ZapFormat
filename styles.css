@@ -4114,3 +4114,73 @@ body.guest-mode .logo{
     content:none!important
   }
 }
+
+
+.order-stage{
+  display:grid;
+  grid-template-columns:repeat(4,minmax(0,1fr));
+  gap:0;
+  margin:0 0 18px;
+  padding:14px 16px;
+  border:1px solid #dfe7eb;
+  border-radius:12px;
+  background:#fff
+}
+.order-stage>div{
+  position:relative;
+  display:grid;
+  justify-items:center;
+  gap:7px;
+  color:#9aa7af;
+  font-size:10px;
+  font-weight:800;
+  text-align:center
+}
+.order-stage>div::after{
+  content:"";
+  position:absolute;
+  top:7px;
+  left:50%;
+  width:100%;
+  height:2px;
+  background:#e4eaee;
+  z-index:0
+}
+.order-stage>div:last-child::after{display:none}
+.order-stage i{
+  position:relative;
+  z-index:1;
+  width:16px;
+  height:16px;
+  border-radius:50%;
+  border:2px solid #d8e0e5;
+  background:#fff
+}
+.order-stage .done,
+.order-stage .current{color:var(--navy-3)}
+.order-stage .done i{
+  border-color:var(--navy);
+  background:var(--navy)
+}
+.order-stage .current i{
+  border-color:var(--orange);
+  box-shadow:0 0 0 4px rgba(239,113,48,.12)
+}
+.order-stage .done::after{background:var(--navy)}
+.order-stage.cancelled .current,
+.order-stage.cancelled .done{color:#a66363}
+.order-stage.cancelled .current i,
+.order-stage.cancelled .done i{
+  border-color:#c88b8b;
+  background:#fff
+}
+@media(max-width:680px){
+  .order-stage{
+    padding:12px 8px;
+    margin-bottom:12px
+  }
+  .order-stage>div{
+    font-size:9px;
+    line-height:1.2
+  }
+}
