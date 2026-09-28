@@ -617,6 +617,7 @@ function renderAccountPreferences(preferences){
       input.checked=Boolean(notifications[key]);
     }
   });
+  renderCheckoutContact();
   renderCheckoutDelivery();
 }
 
