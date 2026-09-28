@@ -485,14 +485,24 @@ app.get("/api/catalog/offers", async (req, res, next) => {
       }
     }
 
-    const offers = (Array.isArray(rows) ? rows : [])
+    const normalizeArticle = (value) => String(value || "").toUpperCase().replace(/[^A-ZА-Я0-9]/gi, "");
+    const normalizeBrand = (value) => String(value || "").trim().toUpperCase();
+
+    const mapped = (Array.isArray(rows) ? rows : [])
       .map((row) => {
         const price = customerPrice(row.price);
         if (price === null) return null;
 
+        const rowBrand = row.brand || brand;
+        const rowArticle = row.number || number;
+        const inferredAnalog =
+          normalizeBrand(rowBrand) !== normalizeBrand(brand) ||
+          normalizeArticle(rowArticle) !== normalizeArticle(number);
+        const isAnalog = typeof row.isAnalog === "boolean" ? row.isAnalog : inferredAnalog;
+
         return {
-          brand: row.brand || brand,
-          article: row.number || number,
+          brand: rowBrand,
+          article: rowArticle,
           article_normalized: row.numberFix || null,
           description: row.description || null,
           availability: Number(row.availability || 0),
@@ -501,18 +511,24 @@ app.get("/api/catalog/offers", async (req, res, next) => {
           delivery_hours_max: Number(row.deliveryPeriodMax || row.deliveryPeriod || 0),
           delivery_probability: row.deliveryProbability ?? null,
           returnable: row.noReturn ? false : true,
+          is_analog: Boolean(isAnalog),
           price,
           currency: "RUB"
         };
       })
-      .filter(Boolean)
-      .sort((a, b) => a.price - b.price || a.delivery_hours - b.delivery_hours);
+      .filter(Boolean);
+
+    const sortOffers = (list) => list.sort((a, b) => a.price - b.price || a.delivery_hours - b.delivery_hours);
+    const offers = sortOffers(mapped.filter((row) => !row.is_analog));
+    const analogs = sortOffers(mapped.filter((row) => row.is_analog));
 
     res.json({
       source: "PartGrade",
       mode,
       query: { number, brand },
-      offers
+      offers,
+      analogs,
+      total: mapped.length
     });
   } catch (error) {
     next(error);
