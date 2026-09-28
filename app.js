@@ -473,12 +473,12 @@ function orderNextStep(status){
 
 function orderProgressHtml(status){
   const value=String(status||"").toLowerCase();
-  const steps=value==="completed" ? 4
-    : value==="ready" ? 3
-      : value==="processing" ? 2
-        : value==="new" ? 1
-          : 0;
-  const cancelled=value==="cancelled";
+  const stageOne=["new","received","created","review"].includes(value);
+  const stageTwo=["confirmed","processing","approved"].includes(value);
+  const stageThree=value==="ready";
+  const stageFour=["completed","refunded"].includes(value);
+  const steps=stageFour ? 4 : stageThree ? 3 : stageTwo ? 2 : stageOne ? 1 : 0;
+  const cancelled=["cancelled","rejected"].includes(value);
   return '<div class="order-progress'+(cancelled?' cancelled':'')+'">'+
     [0,1,2,3].map(index=>'<i class="'+(index<steps?'done':'')+'"></i>').join("")+
   '</div>';
@@ -3488,7 +3488,7 @@ function filterAccountOrders(){
     const rawStatus=String(row.dataset.orderStatus||"").trim().toLowerCase();
     const matchesQuery=!query || text.includes(query);
     const matchesStatus=!status || (status==="active"
-      ? ["new","processing"].includes(rawStatus)
+      ? ["new","received","created","review","confirmed","processing","approved"].includes(rawStatus)
       : rawStatus===status);
     row.hidden=!(matchesQuery && matchesStatus);
   });
