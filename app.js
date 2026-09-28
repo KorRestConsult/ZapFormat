@@ -2119,41 +2119,51 @@ function renderGarageOverview(){
     .filter(x=>x.nextKm)
     .sort((a,b)=>a.nextKm-b.nextKm)[0];
 
+  const measures=garageState.measurements.slice(0,4);
+  const history=garageState.history.slice(0,2);
+
   return `
     <div class="garage-owner-grid">
       <section class="garage-owner-main">
         <div class="garage-car-hero">
-          <div class="garage-car-badge">${v.brand}</div>
+          <div class="garage-car-badge">${escapeHtml((v.brand||"ZF").slice(0,5))}</div>
           <div class="garage-car-title">
-            <span class="eyebrow">МОЙ АВТОМОБИЛЬ</span>
-            <h2>${v.brand} ${v.model}</h2>
-            <p>${v.year} · ${v.engine}</p>
+            <span class="eyebrow">ОСНОВНОЙ АВТОМОБИЛЬ</span>
+            <h2>${escapeHtml(v.brand)} ${escapeHtml(v.model)}</h2>
+            <p>${escapeHtml(v.year||"—")} · ${escapeHtml(v.engine||"Двигатель не указан")}${v.vin?" · VIN "+escapeHtml(v.vin):""}</p>
           </div>
-          <button class="garage-outline" data-garage-search="${v.brand} ${v.model} ${v.engine}">Найти запчасть</button>
+          <button class="garage-outline" data-garage-search="${escapeHtml([v.brand,v.model,v.engine].filter(Boolean).join(" "))}">Найти запчасть</button>
         </div>
 
         <div class="garage-mileage-card">
           <div>
             <small>Текущий пробег</small>
-            <strong>${new Intl.NumberFormat("ru-RU").format(v.mileage)} км</strong>
-            <span>Обновляйте пробег — от него считаются ближайшие работы.</span>
+            <strong>${new Intl.NumberFormat("ru-RU").format(v.mileage||0)} км</strong>
+            <span>Пробег хранится в аккаунте и используется для плана обслуживания.</span>
           </div>
           <div class="garage-mileage-edit">
-            <input id="garageMileageInput" inputmode="numeric" value="${v.mileage}" aria-label="Пробег">
+            <input id="garageMileageInput" inputmode="numeric" value="${v.mileage||0}" aria-label="Пробег">
             <button data-garage-save-mileage>Сохранить</button>
           </div>
         </div>
 
         <section class="garage-panel">
           <div class="garage-panel-head">
-            <div><span class="eyebrow">БЛИЖАЙШЕЕ ТО</span><h3>${next?.title||"План обслуживания"}</h3></div>
+            <div><span class="eyebrow">БЛИЖАЙШЕЕ ТО</span><h3>${next?.title||"План обслуживания пока пуст"}</h3></div>
             <button data-garage-tab="maintenance">Все работы →</button>
           </div>
-          <div class="garage-next-service">
-            <div><small>Следующий рубеж</small><b>${next?.nextKm ? new Intl.NumberFormat("ru-RU").format(next.nextKm)+" км" : "по состоянию"}</b></div>
-            <div><small>Осталось</small><b>${next ? maintenanceRemaining(next) : "—"}</b></div>
-            <button class="garage-primary" data-garage-service="${next?.id||"oil"}">Открыть комплект ТО</button>
-          </div>
+          ${next ? `
+            <div class="garage-next-service">
+              <div><small>Следующий рубеж</small><b>${next.nextKm ? new Intl.NumberFormat("ru-RU").format(next.nextKm)+" км" : "по состоянию"}</b></div>
+              <div><small>Осталось</small><b>${maintenanceRemaining(next)}</b></div>
+              <button class="garage-primary" data-garage-prefill="${escapeHtml(next.query||([v.brand,v.model,next.title].filter(Boolean).join(" ")))}">Найти детали</button>
+            </div>
+          ` : `
+            <div class="garage-empty-inline">
+              <b>Пока нет сохранённых работ ТО.</b>
+              <span>Гараж уже хранит автомобиль, VIN, пробег, замеры и историю. План ТО добавим следующим слоем.</span>
+            </div>
+          `}
         </section>
       </section>
 
@@ -2161,18 +2171,18 @@ function renderGarageOverview(){
         <section class="garage-panel">
           <div class="garage-panel-head"><div><span class="eyebrow">ЗАМЕРЫ</span><h3>Состояние</h3></div><button data-garage-tab="measurements">Все →</button></div>
           <div class="garage-measure-mini">
-            ${garageState.measurements.slice(0,4).map(x=>`
-              <div><span>${x.type}</span><b>${x.value} ${x.unit}</b></div>
-            `).join("")}
+            ${measures.length ? measures.map(x=>`
+              <div><span>${escapeHtml(x.type)}</span><b>${escapeHtml(x.value)} ${escapeHtml(x.unit)}</b></div>
+            `).join("") : '<div class="garage-empty-mini">Замеров пока нет</div>'}
           </div>
         </section>
 
         <section class="garage-panel">
           <div class="garage-panel-head"><div><span class="eyebrow">ИСТОРИЯ</span><h3>Последние работы</h3></div><button data-garage-tab="history">Вся история →</button></div>
           <div class="garage-history-mini">
-            ${garageState.history.slice(0,2).map(x=>`
-              <article><small>${x.date} · ${new Intl.NumberFormat("ru-RU").format(x.mileage)} км</small><b>${x.title}</b><span>${x.note}</span></article>
-            `).join("")}
+            ${history.length ? history.map(x=>`
+              <article><small>${escapeHtml(x.date)} · ${new Intl.NumberFormat("ru-RU").format(x.mileage||0)} км</small><b>${escapeHtml(x.title)}</b><span>${escapeHtml(x.note||"")}</span></article>
+            `).join("") : '<div class="garage-empty-mini">История пока пуста</div>'}
           </div>
         </section>
       </aside>
@@ -2181,22 +2191,28 @@ function renderGarageOverview(){
 }
 
 function renderGarageMaintenance(){
+  const v=garageState.vehicle;
   return `
     <section class="garage-panel garage-full-panel">
       <div class="garage-panel-head">
-        <div><span class="eyebrow">ТЕХОБСЛУЖИВАНИЕ</span><h3>План ТО</h3><p>Пробег, состояние и быстрый переход к подбору нужных деталей.</p></div>
+        <div><span class="eyebrow">ТЕХОБСЛУЖИВАНИЕ</span><h3>План ТО</h3><p>Пробег, состояние и быстрый переход к поиску деталей именно для выбранного автомобиля.</p></div>
       </div>
       <div class="garage-maintenance-list">
-        ${garageState.maintenance.map(item=>`
+        ${garageState.maintenance.length ? garageState.maintenance.map(item=>`
           <article class="garage-maintenance-row">
             <div class="garage-maintenance-main">
               ${maintenanceStateLabel(item)}
-              <b>${item.title}</b>
+              <b>${escapeHtml(item.title)}</b>
               <small>${item.nextKm ? "Следующее: "+new Intl.NumberFormat("ru-RU").format(item.nextKm)+" км · "+maintenanceRemaining(item) : "Интервал определяется по состоянию и замерам"}</small>
             </div>
-            <button data-garage-service="${item.id}">Открыть</button>
+            <button data-garage-prefill="${escapeHtml(item.query||([v.brand,v.model,item.title].filter(Boolean).join(" ")))}">Найти детали</button>
           </article>
-        `).join("")}
+        `).join("") : `
+          <div class="garage-empty-inline">
+            <b>План ТО ещё не заполнен.</b>
+            <span>Мы не подставляем выдуманные регламенты или детали. План будет строиться по данным автомобиля, пробегу и подтверждённым работам.</span>
+          </div>
+        `}
       </div>
     </section>
   `;
@@ -2336,25 +2352,57 @@ function renderGarageHistory(){
 function renderGarageApp(){
   const root=document.getElementById("garageApp");
   if(!root) return;
+
+  if(!garageState.vehicle?.id){
+    root.innerHTML=`
+      <div class="garage-owner-head">
+        <div>
+          <span class="eyebrow">ГАРАЖ</span>
+          <h2>Мои автомобили</h2>
+          <p>Сохраните автомобиль один раз — дальше VIN, пробег, история и подбор будут связаны с ним.</p>
+        </div>
+        <button class="account-primary" data-garage-add-vehicle>+ Добавить автомобиль</button>
+      </div>
+      <section class="garage-empty-state">
+        <div class="garage-empty-icon">+</div>
+        <h3>В гараже пока нет автомобилей</h3>
+        <p>Добавьте марку, модель и при возможности VIN. Никаких демонстрационных BMW — здесь будут только ваши реальные автомобили.</p>
+        <button class="garage-primary" data-garage-add-vehicle>Добавить автомобиль</button>
+      </section>
+    `;
+    return;
+  }
+
   const v=garageState.vehicle;
+  const vehicles=garageVehicles.length ? garageVehicles : [v];
+
   root.innerHTML=`
     <div class="garage-owner-head">
       <div>
         <span class="eyebrow">ГАРАЖ</span>
-        <h2>Мой автомобиль</h2>
-        <p>Мини-приложение владельца: ТО, замеры, история и заказ деталей из одного места.</p>
+        <h2>Мои автомобили</h2>
+        <p>Выберите основной автомобиль. По нему открываются пробег, замеры, история и поиск деталей.</p>
       </div>
-      <button class="account-primary" id="addCarButton">Изменить автомобиль</button>
+      <button class="account-primary" data-garage-add-vehicle>+ Добавить автомобиль</button>
     </div>
 
     <div class="garage-vehicle-strip">
-      <button class="active"><span class="car-mark">${v.brand}</span><span><b>${v.brand} ${v.model}</b><small>${v.year} · ${v.engine}</small></span></button>
-      <button class="garage-add-small" id="addCarButtonCompact" aria-label="Изменить автомобиль">✎</button>
+      ${vehicles.map(car=>`
+        <button class="${String(car.id)===String(v.id)?"active":""}" data-garage-vehicle="${escapeHtml(car.id)}">
+          <span class="car-mark">${escapeHtml((car.brand||"ZF").slice(0,5))}</span>
+          <span>
+            <b>${escapeHtml(car.brand)} ${escapeHtml(car.model)}</b>
+            <small>${escapeHtml(car.year||"—")} · ${escapeHtml(car.engine||"двигатель не указан")}${car.isDefault?" · основной":""}</small>
+          </span>
+        </button>
+      `).join("")}
+      <button class="garage-add-small" data-garage-edit-vehicle aria-label="Изменить выбранный автомобиль">✎</button>
+      <button class="garage-add-small garage-add-new" data-garage-add-vehicle aria-label="Добавить автомобиль">+</button>
     </div>
 
     <nav class="garage-tabs" aria-label="Разделы автомобиля">
       <button class="${garageTab==="overview"?"active":""}" data-garage-tab="overview">Обзор</button>
-      <button class="${garageTab==="maintenance"||garageTab==="service"?"active":""}" data-garage-tab="maintenance">ТО</button>
+      <button class="${garageTab==="maintenance"?"active":""}" data-garage-tab="maintenance">ТО</button>
       <button class="${garageTab==="measurements"?"active":""}" data-garage-tab="measurements">Замеры</button>
       <button class="${garageTab==="history"?"active":""}" data-garage-tab="history">История</button>
     </nav>
@@ -2363,7 +2411,6 @@ function renderGarageApp(){
       ${garageTab==="overview" ? renderGarageOverview() :
         garageTab==="maintenance" ? renderGarageMaintenance() :
         garageTab==="measurements" ? renderGarageMeasurements() :
-        garageTab==="service" ? renderGarageService() :
         renderGarageHistory()}
     </div>
   `;
@@ -2447,9 +2494,10 @@ function closeGarageVehicleEditor(){
   document.getElementById("garageVehicleEditor")?.remove();
 }
 
-function openGarageVehicleEditor(){
+function openGarageVehicleEditor(mode="edit"){
   closeGarageVehicleEditor();
-  const v=garageState.vehicle;
+  const isNew=mode==="new" || !garageState.vehicle?.id;
+  const v=isNew ? structuredClone(defaultGarageState.vehicle) : garageState.vehicle;
   const esc=value=>String(value??"").replace(/&/g,"&amp;").replace(/"/g,"&quot;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
   const root=document.createElement("div");
   root.id="garageVehicleEditor";
@@ -2457,19 +2505,19 @@ function openGarageVehicleEditor(){
   root.innerHTML=`
     <div class="vehicle-editor" role="dialog" aria-modal="true" aria-labelledby="vehicleEditorTitle">
       <div class="vehicle-editor-head">
-        <div><span class="eyebrow">ГАРАЖ</span><h3 id="vehicleEditorTitle">Автомобиль</h3></div>
+        <div><span class="eyebrow">ГАРАЖ</span><h3 id="vehicleEditorTitle">${isNew?"Добавить автомобиль":"Изменить автомобиль"}</h3></div>
         <button type="button" class="vehicle-editor-close" data-close-vehicle-editor aria-label="Закрыть">×</button>
       </div>
-      <form id="garageVehicleForm" class="vehicle-editor-form">
-        <label><span>Марка</span><input name="brand" value="${esc(v.brand)}" required></label>
-        <label><span>Модель</span><input name="model" value="${esc(v.model)}" required></label>
-        <label><span>Год</span><input name="year" inputmode="numeric" value="${esc(v.year)}" required></label>
-        <label><span>Двигатель</span><input name="engine" value="${esc(v.engine)}" required></label>
-        <label class="wide"><span>VIN</span><input name="vin" maxlength="17" autocomplete="off" value="${esc(v.vin)}" placeholder="17 символов"></label>
-        <label class="wide"><span>Пробег, км</span><input name="mileage" inputmode="numeric" value="${esc(v.mileage)}"></label>
+      <form id="garageVehicleForm" class="vehicle-editor-form" data-vehicle-mode="${isNew?"new":"edit"}">
+        <label><span>Марка</span><input name="brand" value="${esc(v.brand)}" placeholder="Ford" required></label>
+        <label><span>Модель</span><input name="model" value="${esc(v.model)}" placeholder="Focus" required></label>
+        <label><span>Год</span><input name="year" inputmode="numeric" value="${esc(v.year)}" placeholder="2010"></label>
+        <label><span>Двигатель</span><input name="engine" value="${esc(v.engine)}" placeholder="1.8 бензин"></label>
+        <label class="wide"><span>VIN</span><input name="vin" maxlength="17" autocomplete="off" autocapitalize="characters" value="${esc(v.vin)}" placeholder="17 символов"></label>
+        <label class="wide"><span>Пробег, км</span><input name="mileage" inputmode="numeric" value="${esc(v.mileage||"")}" placeholder="0"></label>
         <div class="vehicle-editor-actions">
           <button type="button" data-close-vehicle-editor>Отмена</button>
-          <button type="submit" class="account-primary">Сохранить</button>
+          <button type="submit" class="account-primary">${isNew?"Добавить":"Сохранить"}</button>
         </div>
       </form>
     </div>`;
@@ -2480,58 +2528,68 @@ function openGarageVehicleEditor(){
 
 async function saveGarageVehicleForm(form){
   const data=Object.fromEntries(new FormData(form).entries());
+  const mode=form.dataset.vehicleMode||"edit";
   const vin=String(data.vin||"").trim().toUpperCase().replace(/[^A-HJ-NPR-Z0-9]/g,"");
   if(vin && vin.length!==17){
     showToast("VIN должен содержать 17 символов.","warn");
     form.querySelector('[name="vin"]')?.focus();
     return;
   }
-  const year=Math.max(1900,Math.min(2100,parseInt(data.year,10)||garageState.vehicle.year));
-  const mileage=Math.max(0,parseInt(String(data.mileage||"0").replace(/\D/g,""),10)||0);
-  garageState.vehicle={
-    ...garageState.vehicle,
-    brand:String(data.brand||"").trim().toUpperCase(),
-    model:String(data.model||"").trim(),
-    year,
-    engine:String(data.engine||"").trim(),
-    vin,
-    mileage
-  };
-  saveGarageState();
-  renderGarageApp();
 
-  if(backendConfigured() && sessionUser){
-    try{
-      const payload={
-        brand:garageState.vehicle.brand,
-        model:garageState.vehicle.model,
-        year:garageState.vehicle.year,
-        engine:garageState.vehicle.engine,
-        vin:garageState.vehicle.vin||null,
-        current_mileage:garageState.vehicle.mileage||null
-      };
-      let result;
-      if(garageState.vehicle.id){
-        result=await apiRequest("/api/garage/vehicles/"+encodeURIComponent(garageState.vehicle.id),{
-          method:"PATCH",
-          body:JSON.stringify(payload)
-        });
-      }else{
-        result=await apiRequest("/api/garage/vehicles",{
-          method:"POST",
-          body:JSON.stringify(payload)
-        });
-      }
-      if(result?.vehicle?.id) garageState.vehicle.id=result.vehicle.id;
-      accountDataHydrated=false;
-      await hydrateAccountData();
-    }catch(error){
-      showToast("Автомобиль сохранён локально, но сервер не ответил.","warn");
-    }
+  const brand=String(data.brand||"").trim().toUpperCase();
+  const model=String(data.model||"").trim();
+  if(!brand || !model){
+    showToast("Укажите марку и модель.","warn");
+    return;
   }
 
-  closeGarageVehicleEditor();
-  showToast("Автомобиль сохранён.");
+  const yearRaw=parseInt(data.year,10);
+  const year=Number.isFinite(yearRaw) ? Math.max(1900,Math.min(2100,yearRaw)) : null;
+  const mileage=Math.max(0,parseInt(String(data.mileage||"0").replace(/\D/g,""),10)||0);
+  const payload={
+    brand,
+    model,
+    year,
+    engine:String(data.engine||"").trim(),
+    vin:vin||null,
+    current_mileage:mileage
+  };
+
+  if(!backendConfigured() || !sessionUser){
+    showToast("Войдите в аккаунт, чтобы сохранить автомобиль.","warn");
+    return;
+  }
+
+  const button=form.querySelector('button[type="submit"]');
+  if(button) button.disabled=true;
+
+  try{
+    let result;
+    if(mode==="new"){
+      result=await apiRequest("/api/garage/vehicles",{
+        method:"POST",
+        body:JSON.stringify({...payload,is_default:garageVehicles.length===0})
+      });
+      garageActiveVehicleId=result?.vehicle?.id||null;
+    }else{
+      if(!garageState.vehicle?.id) throw new Error("vehicle_not_selected");
+      result=await apiRequest("/api/garage/vehicles/"+encodeURIComponent(garageState.vehicle.id),{
+        method:"PATCH",
+        body:JSON.stringify(payload)
+      });
+      garageActiveVehicleId=result?.vehicle?.id||garageState.vehicle.id;
+    }
+
+    closeGarageVehicleEditor();
+    accountDataHydrated=false;
+    await hydrateAccountData();
+    showToast(mode==="new" ? "Автомобиль добавлен." : "Автомобиль обновлён.");
+  }catch(error){
+    console.error("Garage vehicle save failed",error);
+    showToast(error?.code==="conflict" ? "Этот VIN уже есть в вашем гараже." : "Не удалось сохранить автомобиль.","warn");
+  }finally{
+    if(button) button.disabled=false;
+  }
 }
 
 function prefillGarageSearch(query){
