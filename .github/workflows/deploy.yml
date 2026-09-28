@@ -1,0 +1,59 @@
+name: Deploy ZapFormat
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: zapformat-production
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Request GitHub OIDC token
+        id: oidc
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          JSON="$(curl -fsSL             -H "Authorization: Bearer ${ACTIONS_ID_TOKEN_REQUEST_TOKEN}"             "${ACTIONS_ID_TOKEN_REQUEST_URL}&audience=zapformat-deploy")"
+          TOKEN="$(python3 -c 'import json,sys; print(json.load(sys.stdin)["value"])' <<<"${JSON}")"
+          echo "token=${TOKEN}" >> "${GITHUB_OUTPUT}"
+
+      - name: Queue production deploy
+        shell: bash
+        env:
+          OIDC_TOKEN: ${{ steps.oidc.outputs.token }}
+        run: |
+          set -Eeuo pipefail
+          curl -fsS -X POST             -H "Authorization: Bearer ${OIDC_TOKEN}"             -H "Content-Type: application/json"             --data "{"sha":"${GITHUB_SHA}"}"             https://api.201.51.28.68.sslip.io/api/internal/deploy
+
+      - name: Wait for deploy
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          for i in $(seq 1 90); do
+            JSON="$(curl -fsS https://api.201.51.28.68.sslip.io/api/deploy/status || true)"
+            if [[ -n "${JSON}" ]]; then
+              STATUS="$(python3 -c 'import json,sys; print(json.load(sys.stdin).get("status",""))' <<<"${JSON}" 2>/dev/null || true)"
+              DEPLOYED="$(python3 -c 'import json,sys; print(json.load(sys.stdin).get("deployed_sha") or "")' <<<"${JSON}" 2>/dev/null || true)"
+              REQUESTED="$(python3 -c 'import json,sys; print(json.load(sys.stdin).get("requested_sha") or "")' <<<"${JSON}" 2>/dev/null || true)"
+              echo "status=${STATUS} requested=${REQUESTED} deployed=${DEPLOYED}"
+              if [[ "${STATUS}" == "success" && "${DEPLOYED}" == "${GITHUB_SHA}" ]]; then
+                exit 0
+              fi
+              if [[ "${STATUS}" == "failed" && "${REQUESTED}" == "${GITHUB_SHA}" ]]; then
+                exit 1
+              fi
+            fi
+            sleep 2
+          done
+          echo "Timed out waiting for production deploy"
+          exit 1
