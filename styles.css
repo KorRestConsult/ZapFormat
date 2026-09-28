@@ -1560,11 +1560,15 @@ html,body,.app{max-width:100%;overflow-x:hidden}
 .order-detail-toolbar{
   display:flex;
   align-items:center;
-  justify-content:space-between;
-  gap:12px;
+  justify-content:flex-start;
+  flex-wrap:wrap;
+  gap:8px;
   margin-bottom:12px
 }
-.order-detail-toolbar .order-detail-back{margin:0}
+.order-detail-toolbar .order-detail-back{
+  margin:0 auto 0 0
+}
+.order-refresh-compact,
 .order-repeat-compact{
   border:1px solid #cbd6dd;
   background:#fff;
@@ -1666,6 +1670,7 @@ html,body,.app{max-width:100%;overflow-x:hidden}
     font-size:11px;
     font-weight:850
   }
+  .order-refresh-compact,
   .order-repeat-compact{
     padding:6px 9px;
     font-size:10px
