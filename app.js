@@ -572,6 +572,7 @@ function renderAccountPreferences(preferences){
       input.checked=Boolean(notifications[key]);
     }
   });
+  renderCheckoutDelivery();
 }
 
 function renderAccountReports(report){
