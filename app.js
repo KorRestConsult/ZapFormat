@@ -415,8 +415,8 @@ function applySessionUser(){
     const quoteName=document.getElementById("quoteName");
     const quotePhone=document.getElementById("quotePhone");
     const fullName=[sessionUser.name,sessionUser.surname].filter(Boolean).join(" ");
-    if(quoteName && !String(quoteName.value||"").trim() && fullName) quoteName.value=fullName;
-    if(quotePhone && !String(quotePhone.value||"").trim() && sessionUser.phone) quotePhone.value=sessionUser.phone;
+    if(quoteName && fullName) quoteName.value=fullName;
+    if(quotePhone && sessionUser.phone) quotePhone.value=sessionUser.phone;
   }
 
   updateCheckoutMode();
@@ -1028,6 +1028,15 @@ function navigate(route, push=true){
     const url = route==="home" ? location.pathname : location.pathname+"?view="+encodeURIComponent(route);
     history.pushState({route}, "", url);
   }
+}
+
+function safeBack(fallback="home"){
+  const stateRoute=history.state?.route;
+  if(stateRoute || location.search){
+    history.back();
+    return;
+  }
+  navigate(fallback);
 }
 
 function escapeHtml(value){
@@ -2316,7 +2325,7 @@ function restoreFromUrl(){
   }
 }
 window.addEventListener("popstate",restoreFromUrl);
-document.getElementById("backButton")?.addEventListener("click",()=>history.back());
+document.getElementById("backButton")?.addEventListener("click",()=>safeBack("home"));
 restoreFromUrl();
 hydrateSession();
 
@@ -2336,7 +2345,7 @@ document.getElementById("clearCartButton")?.addEventListener("click",clearCart);
 document.getElementById("deleteSelectedButton")?.addEventListener("click",deleteSelected);
 document.getElementById("saveCartButton")?.addEventListener("click",saveCartManual);
 document.getElementById("checkoutOrderButton")?.addEventListener("click",checkoutCart);
-document.getElementById("cartBackButton")?.addEventListener("click",()=>history.back());
+document.getElementById("cartBackButton")?.addEventListener("click",()=>safeBack("home"));
 
 document.getElementById("cartFileInput")?.addEventListener("change",async e=>{
   const file=e.target.files?.[0]; if(!file) return;
@@ -2966,6 +2975,10 @@ document.getElementById("logoutButton")?.addEventListener("click",async()=>{
   }finally{
     sessionUser=null;
     accountPreferences={delivery:null,notifications:null};
+    const quoteName=document.getElementById("quoteName");
+    const quotePhone=document.getElementById("quotePhone");
+    if(quoteName) quoteName.value="";
+    if(quotePhone) quotePhone.value="";
     cartSyncReady=false;
     cartHydratedUserId=null;
     garageVehicles=[];
