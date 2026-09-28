@@ -4452,3 +4452,23 @@ body.guest-mode .logo{
   font-size:10px;
   line-height:1.35
 }
+
+
+/* Order tracking — cart → checkout → created → live status */
+.order-tracking-card{padding:16px 18px}
+.order-tracking-live{display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:12px;align-items:center}
+.order-tracking-dot{width:12px;height:12px;border-radius:50%;background:#e1a15c;box-shadow:0 0 0 5px rgba(225,161,92,.13)}
+.order-tracking-live h3{margin:2px 0 4px;color:var(--navy-3);font-size:18px}
+.order-tracking-live p{margin:0;max-width:680px;color:#6f7f89;font-size:11px;line-height:1.45}
+.order-tracking-time{display:grid;justify-items:end;gap:3px;text-align:right}
+.order-tracking-time small,.order-tracking-time span{color:#8a979f;font-size:9px}
+.order-tracking-time b{color:#526875;font-size:11px}
+.order-tracking-card.live .order-tracking-dot,
+.order-tracking-card.ready .order-tracking-dot,
+.order-tracking-card.done .order-tracking-dot{background:#3c9d70;box-shadow:0 0 0 5px rgba(60,157,112,.12)}
+.order-tracking-card.alert .order-tracking-dot{background:#b66e6e;box-shadow:0 0 0 5px rgba(182,110,110,.12)}
+@media(max-width:680px){
+  .order-tracking-live{grid-template-columns:auto minmax(0,1fr)}
+  .order-tracking-time{grid-column:1/-1;justify-items:start;text-align:left;padding-top:4px}
+  .order-tracking-live h3{font-size:16px}
+}

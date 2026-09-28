@@ -504,7 +504,7 @@ function historyNoteText(note){
 function orderNextStep(status){
   const value=String(status||"").toLowerCase();
   const map={
-    new:"Мы приняли заказ. Дальше проверяем и запускаем его в работу.",
+    new:"Мы приняли заказ. Следующий этап появится здесь автоматически.",
     received:"Заказ принят. Следующее изменение появится здесь и в уведомлениях.",
     confirmed:"Заказ подтверждён и готов к обработке.",
     processing:"Заказ в работе. Статус каждой позиции обновляется отдельно.",
@@ -513,6 +513,30 @@ function orderNextStep(status){
     cancelled:"Заказ отменён."
   };
   return map[value]||"Все изменения по заказу будут появляться здесь.";
+}
+
+function orderTrackingMeta(order,items=[]){
+  const status=String(order?.status||"").toLowerCase();
+  const supplierState=String(order?.supplier_state||"").toLowerCase();
+  const hasSupply=items.some(item=>Boolean(item?.supplier_status)) || supplierState==="submitted";
+  const lastUpdated=order?.supplier_synced_at || order?.updated_at || order?.created_at || null;
+
+  if(["cancelled","rejected"].includes(status)){
+    return {tone:"alert",title:"Заказ остановлен",text:"Дальнейшее движение по этому заказу остановлено.",lastUpdated};
+  }
+  if(["completed","refunded"].includes(status)){
+    return {tone:"done",title:"Заказ завершён",text:"История движения сохранена в заказе.",lastUpdated};
+  }
+  if(status==="ready"){
+    return {tone:"ready",title:"Готов к получению",text:"Позиции готовы. Проверьте способ получения в заказе.",lastUpdated};
+  }
+  if(["manual_required","configuration_required","submit_failed"].includes(supplierState)){
+    return {tone:"alert",title:"Уточняем заказ",text:"Заказ сохранён. Перед запуском поставки требуется дополнительное подтверждение.",lastUpdated};
+  }
+  if(hasSupply){
+    return {tone:"live",title:"Отслеживание активно",text:"Движение поставки синхронизируется автоматически. Изменения также появятся в уведомлениях.",lastUpdated};
+  }
+  return {tone:"pending",title:"Заказ создан",text:"Позиции и цена зафиксированы. Как только начнётся движение поставки, статус обновится здесь автоматически.",lastUpdated};
 }
 
 function orderStageHtml(status){
@@ -1005,6 +1029,7 @@ async function repeatLiveOrder(orderId,button){
 }
 
 async function openLiveOrderDetail(id,options={}){
+  currentOpenOrderId=String(id||"")||null;
   try{
     const data=await apiRequest("/api/account/orders/"+encodeURIComponent(id));
     const mount=document.getElementById("orderDetailMount");
@@ -1014,6 +1039,7 @@ async function openLiveOrderDetail(id,options={}){
     const items=data.items||[];
     const history=data.history||[];
     const justCreated=Boolean(options.created);
+    const tracking=orderTrackingMeta(order,items);
 
     mount.innerHTML=`
       ${justCreated ? `
@@ -1024,9 +1050,9 @@ async function openLiveOrderDetail(id,options={}){
             <h2>Заказ #${escapeHtml(order.order_number)} принят</h2>
             <p>${escapeHtml(orderNextStep(order.status))}</p>
             <div class="order-created-steps">
-              <span>1. Проверяем и запускаем заказ</span>
-              <span>2. Обновляем движение позиций</span>
-              <span>3. Сообщаем, когда можно получать</span>
+              <span>1. Заказ сохранён, цена и наличие проверены</span>
+              <span>2. Движение позиций появится здесь автоматически</span>
+              <span>3. Сообщим, когда заказ можно получать</span>
             </div>
           </div>
           <div class="order-created-summary">
@@ -1060,6 +1086,22 @@ async function openLiveOrderDetail(id,options={}){
           </div>
         </div>
       </div>
+
+      <section class="order-detail-block order-tracking-card ${escapeHtml(tracking.tone)}">
+        <div class="order-tracking-live">
+          <span class="order-tracking-dot" aria-hidden="true"></span>
+          <div>
+            <span class="eyebrow">ОТСЛЕЖИВАНИЕ</span>
+            <h3>${escapeHtml(tracking.title)}</h3>
+            <p>${escapeHtml(tracking.text)}</p>
+          </div>
+          <div class="order-tracking-time">
+            <small>Последнее обновление</small>
+            <b>${tracking.lastUpdated?formatDateTimeRu(tracking.lastUpdated):"—"}</b>
+            <span>Обновляется автоматически</span>
+          </div>
+        </div>
+      </section>
 
       <section class="order-detail-block positions-block">
         <div class="order-detail-block-head"><span class="eyebrow">ПОЗИЦИИ</span><h3>Состав заказа</h3></div>
@@ -1186,6 +1228,7 @@ async function hydrateSession(){
 }
 
 let accountRefreshBusy=false;
+let currentOpenOrderId=null;
 
 async function refreshForegroundAccount(){
   if(accountRefreshBusy || !sessionUser || document.visibilityState!=="visible") return;
@@ -1195,6 +1238,10 @@ async function refreshForegroundAccount(){
     const profileActive=document.getElementById("view-profile")?.classList.contains("active");
     if(profileActive){
       await hydrateAccountData();
+      const detailActive=document.getElementById("account-order-detail")?.classList.contains("active");
+      if(detailActive && currentOpenOrderId){
+        await openLiveOrderDetail(currentOpenOrderId);
+      }
     }
   }catch(error){
     console.warn("Foreground account refresh failed",error);
@@ -3283,6 +3330,7 @@ function prefillGarageSearch(query){
 
 function showAccountTab(tab){
   const allowed=new Set(["overview","orders","garage","profile","delivery","notifications","order-detail"]);
+  if(tab!=="order-detail") currentOpenOrderId=null;
   if(!allowed.has(tab)) tab="overview";
   const profileView=document.getElementById("view-profile");
   if(profileView){

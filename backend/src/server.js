@@ -2610,6 +2610,7 @@ app.get("/api/account/orders/:orderId", requireUser, async (req, res, next) => {
     const orderResult = await pool.query(
       `SELECT o.id, o.order_number, o.status, o.total_amount, o.currency, o.comment,
               o.pickup_point_id, o.delivery_address_id, o.recipient_name, o.recipient_phone,
+              o.supplier_state, o.supplier_submitted_at, o.supplier_synced_at,
               o.created_at, o.updated_at,
               a.city AS delivery_city, a.address AS delivery_address
          FROM orders o
