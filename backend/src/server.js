@@ -1173,6 +1173,132 @@ app.get("/api/integration/status", async (_req, res, next) => {
   }
 });
 
+app.post("/api/internal/orders/:orderId/status", requireInternal, async (req, res, next) => {
+  const client = await pool.connect();
+  try {
+    const orderId = String(req.params.orderId || "").trim();
+    const target = String(req.body?.status || "").trim().toLowerCase();
+    const note = String(req.body?.note || "").trim().slice(0, 500) || null;
+    const allowedTargets = new Set(["processing", "ready", "completed", "cancelled"]);
+
+    if (!allowedTargets.has(target)) {
+      return res.status(400).json({ error: "invalid_order_status" });
+    }
+
+    await client.query("BEGIN");
+    const found = await client.query(
+      `SELECT id, user_id, order_number, status
+         FROM orders
+        WHERE id::text = $1 OR order_number::text = $1
+        FOR UPDATE
+        LIMIT 1`,
+      [orderId]
+    );
+
+    if (!found.rowCount) {
+      await client.query("ROLLBACK");
+      return res.status(404).json({ error: "order_not_found" });
+    }
+
+    const order = found.rows[0];
+    const current = String(order.status || "new").toLowerCase();
+
+    const transitions = {
+      new: new Set(["processing", "ready", "cancelled"]),
+      received: new Set(["processing", "ready", "cancelled"]),
+      confirmed: new Set(["processing", "ready", "cancelled"]),
+      processing: new Set(["ready", "completed", "cancelled"]),
+      ready: new Set(["completed", "cancelled"]),
+      completed: new Set(),
+      cancelled: new Set()
+    };
+
+    if (current !== target && !(transitions[current] || new Set()).has(target)) {
+      await client.query("ROLLBACK");
+      return res.status(409).json({
+        error: "invalid_order_status_transition",
+        current_status: current,
+        requested_status: target
+      });
+    }
+
+    if (current !== target) {
+      await client.query(
+        `UPDATE orders
+            SET status = $2, updated_at = now()
+          WHERE id = $1`,
+        [order.id, target]
+      );
+
+      if (target === "ready" || target === "completed" || target === "cancelled") {
+        await client.query(
+          `UPDATE order_items
+              SET status = CASE
+                    WHEN status = 'cancelled' THEN status
+                    ELSE $2
+                  END,
+                  received_at = CASE
+                    WHEN $2 = 'completed' THEN COALESCE(received_at, now())
+                    ELSE received_at
+                  END,
+                  updated_at = now()
+            WHERE order_id = $1`,
+          [order.id, target]
+        );
+      }
+
+      const defaultNotes = {
+        processing: "Заказ запущен в работу",
+        ready: "Заказ готов к получению",
+        completed: "Заказ завершён",
+        cancelled: "Заказ отменён"
+      };
+
+      await client.query(
+        `INSERT INTO order_status_history
+          (order_id, status, source, note, created_at)
+         VALUES ($1,$2,'zapformat',$3,now())`,
+        [order.id, target, note || defaultNotes[target]]
+      );
+
+      const notificationBody = {
+        processing: "Заказ в работе. Следите за изменениями в личном кабинете.",
+        ready: "Заказ готов к получению.",
+        completed: "Заказ завершён.",
+        cancelled: "Заказ отменён."
+      };
+
+      await addUserNotification(
+        client,
+        order.user_id,
+        "order_status",
+        "order_status",
+        "Заказ #" + String(order.order_number) + " — " + (
+          target === "processing" ? "в работе" :
+          target === "ready" ? "готов к получению" :
+          target === "completed" ? "завершён" :
+          "отменён"
+        ),
+        note || notificationBody[target]
+      );
+    }
+
+    await client.query("COMMIT");
+    res.json({
+      ok: true,
+      order_id: order.id,
+      order_number: order.order_number,
+      previous_status: current,
+      status: target
+    });
+  } catch (error) {
+    await client.query("ROLLBACK").catch(() => {});
+    next(error);
+  } finally {
+    client.release();
+  }
+});
+
 app.post("/api/internal/orders/:orderId/supplier-submit", requireInternal, async (req, res, next) => {
   try {
     const result = await submitSupplierOrder(req.params.orderId);
