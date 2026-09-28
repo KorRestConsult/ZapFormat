@@ -2387,7 +2387,8 @@ app.get("/api/account/overview", requireUser, async (req, res, next) => {
   try {
     const [orders, vehicles, returns, requests] = await Promise.all([
       pool.query(
-        `SELECT count(*) FILTER (WHERE status NOT IN ('completed','cancelled'))::int AS active,
+        `SELECT count(*)::int AS total,
+                count(*) FILTER (WHERE status NOT IN ('completed','cancelled'))::int AS active,
                 count(*) FILTER (WHERE status = 'ready')::int AS ready
            FROM orders WHERE user_id = $1`,
         [req.user.id]
@@ -2408,6 +2409,7 @@ app.get("/api/account/overview", requireUser, async (req, res, next) => {
       stats: {
         active_orders: orders.rows[0].active + requests.rows[0].count,
         ready_orders: orders.rows[0].ready,
+        total_orders: orders.rows[0].total,
         quote_requests: requests.rows[0].count,
         vehicles: vehicles.rows[0].count,
         active_returns: returns.rows[0].count
