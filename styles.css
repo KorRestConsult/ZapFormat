@@ -1231,6 +1231,16 @@ html,body,.app{max-width:100%;overflow-x:hidden}
 .garage-measure-list small{font-size:10px;color:#939ea6;margin-top:3px}
 .garage-measure-list strong{font-size:19px;color:var(--navy-3);white-space:nowrap}
 .garage-measure-list strong span{font-size:11px;color:#7b8993;font-weight:700}
+.garage-history-form{
+  display:grid;grid-template-columns:1.2fr .55fr .55fr;gap:9px;
+  background:#f6f9fb;border:1px solid #dce5ea;border-radius:9px;padding:12px;margin-bottom:12px
+}
+.garage-history-form label span{display:block;font-size:10px;color:#7d8993;margin-bottom:4px}
+.garage-history-form input{
+  width:100%;min-width:0;border:1px solid #cfd9df;background:#fff;border-radius:7px;padding:9px
+}
+.garage-history-form .wide{grid-column:1/4}
+.garage-history-form .garage-measure-actions.wide{grid-column:1/4}
 .garage-history-list{display:grid}
 .garage-history-list article{
   display:grid;grid-template-columns:140px minmax(0,1fr);gap:20px;padding:14px 0;border-top:1px solid #edf1f3
@@ -1270,7 +1280,11 @@ html,body,.app{max-width:100%;overflow-x:hidden}
   .garage-measure-form label:first-child{grid-column:1/3}
   .garage-measure-note{grid-column:1/3}
   .garage-measure-actions{grid-column:1/3;display:grid;grid-template-columns:1fr 1fr}
-  .garage-history-list article{grid-template-columns:1fr;gap:6px}
+  .garage-history-form{grid-template-columns:1fr 1fr}
+  .garage-history-form label:first-child{grid-column:1/3}
+  .garage-history-form .wide{grid-column:1/3}
+  .garage-history-form .garage-measure-actions.wide{grid-column:1/3}
+    .garage-history-list article{grid-template-columns:1fr;gap:6px}
 }
 
 
