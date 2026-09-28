@@ -350,7 +350,8 @@ function cartPayload(){
       unit_price:Math.max(0,Number(item.price)||0),
       comment:item.comment||"",
       selected:item.selected!==false,
-      offer_token:item.offerToken
+      offer_token:item.offerToken,
+      vehicle_id:item.vehicleContext?.id||null
     }));
 }
 
@@ -400,7 +401,12 @@ function cartItemFromAccount(item){
     priceChanged:false,
     availabilityChanged:false,
     stale,
-    offerToken:item?.offer_token||null
+    offerToken:item?.offer_token||null,
+    vehicleContext:item?.vehicle?.id ? {
+      id:item.vehicle.id,
+      label:[item.vehicle.brand,item.vehicle.model,item.vehicle.generation].filter(Boolean).join(" "),
+      vin:item.vehicle.vin||""
+    } : null
   };
 }
 
@@ -787,7 +793,8 @@ async function openLiveOrderDetail(id){
                 <span class="position-index">${index+1}</span>
                 <div class="position-title">
                   <h3>${item.brand||""} ${item.article}</h3>
-                  <p>${item.description||""}</p>
+                  <p>${escapeHtml(item.description||"")}</p>
+                  ${item.vehicle_id ? '<small class="order-vehicle-context">Для: '+escapeHtml([item.vehicle_brand,item.vehicle_model,item.vehicle_generation].filter(Boolean).join(" "))+(item.vehicle_vin?" · "+escapeHtml(shortVin(item.vehicle_vin)):"")+' · контекст заказа</small>' : ""}
                 </div>
                 <strong class="status">${requestStatusLabel(item.status)}</strong>
               </div>
@@ -846,7 +853,11 @@ async function openLiveRequestDetail(id){
             <article class="order-position">
               <div class="position-top">
                 <span class="position-index">${index+1}</span>
-                <div class="position-title"><h3>${item.brand||""} ${item.article}</h3><p>${item.description||""}</p></div>
+                <div class="position-title">
+                  <h3>${escapeHtml(item.brand||"")} ${escapeHtml(item.article||"")}</h3>
+                  <p>${escapeHtml(item.description||"")}</p>
+                  ${item.vehicle_id ? '<small class="order-vehicle-context">Для: '+escapeHtml([item.vehicle_brand,item.vehicle_model,item.vehicle_generation].filter(Boolean).join(" "))+(item.vehicle_vin?" · "+escapeHtml(shortVin(item.vehicle_vin)):"")+' · контекст запроса</small>' : ""}
+                </div>
                 <strong class="status">${item.needs_confirmation?"Цена уточняется":"Цена подтверждена"}</strong>
               </div>
               <div class="position-meta">
@@ -1455,6 +1466,7 @@ function addToCart(id,btn){
   if(existing){
     existing.orderQty+=orderQty;
     existing.selected=true;
+    if(item.vehicleContext) existing.vehicleContext=item.vehicleContext;
   } else {
     cart.push({
       ...item,
@@ -1662,7 +1674,10 @@ function renderCartPage(){
         <div class="row-select"><input class="cart-check" type="checkbox" data-cart-select="${x.id}" ${x.selected?"checked":""} ${unavailable?"disabled":""}></div>
         <div class="brand-cell">${x.brand}</div>
         <div class="article-cell"><span class="cart-article">${x.article}</span></div>
-        <div class="description-cell cart-description">${x.name}</div>
+        <div class="description-cell cart-description">
+          <span>${escapeHtml(x.name)}</span>
+          ${x.vehicleContext?.label ? '<small class="cart-vehicle-context">'+escapeHtml(x.vehicleContext.label)+(x.vehicleContext.vin?" · "+escapeHtml(shortVin(x.vehicleContext.vin)):"")+'</small>' : ""}
+        </div>
         <div class="warehouse-cell">${x.warehouse}</div>
         <div class="term-cell">${x.stale?"обновить":(x.days===0?"Сегодня":x.days===1?"1 день":x.days+" дня")}</div>
         <div class="qty-cell">
@@ -1775,7 +1790,8 @@ async function checkoutCart(){
           quantity:x.orderQty,
           comment:x.comment||"",
           offer_token:x.offerToken,
-          expected_price:x.price
+          expected_price:x.price,
+          vehicle_id:x.vehicleContext?.id||null
         }))
       })
     });
