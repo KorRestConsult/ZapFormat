@@ -11,6 +11,7 @@ const bcrypt = require("bcryptjs");
 const { rateLimit } = require("express-rate-limit");
 const { Pool } = require("pg");
 const { PartGradeError, createPartGradeClient } = require("./partgrade");
+const { createOfferTokenCodec } = require("./offer-token");
 const { customerPrice } = require("./pricing");
 
 const app = express();
@@ -25,6 +26,7 @@ const FRONTEND_ORIGINS = String(process.env.FRONTEND_ORIGINS || "")
   .filter(Boolean);
 
 const partGrade = createPartGradeClient();
+const offerTokens = createOfferTokenCodec();
 
 const hasDatabase = Boolean(process.env.DATABASE_URL);
 const pool = hasDatabase
@@ -98,6 +100,118 @@ function normalizePhone(value) {
   if (raw.startsWith("8") && raw.length === 11) return "+7" + raw.slice(1);
   if (raw.startsWith("7") && raw.length === 11) return "+" + raw;
   return raw.startsWith("+") ? raw : "+" + raw;
+}
+
+function normalizeArticle(value) {
+  return String(value || "").toUpperCase().replace(/[^A-ZА-Я0-9]/gi, "");
+}
+
+function normalizeBrand(value) {
+  return String(value || "").trim().toUpperCase();
+}
+
+async function searchSupplierOffers(number, brand) {
+  try {
+    return await partGrade.searchArticles(number, brand);
+  } catch (error) {
+    if (error instanceof PartGradeError && Number(error.upstreamCode) === 103) {
+      return partGrade.searchBatch([{ number, brand }]);
+    }
+    throw error;
+  }
+}
+
+function supplierIdentity(row) {
+  return {
+    supplierCode: row?.supplierCode ?? null,
+    itemKey: row?.itemKey ?? null
+  };
+}
+
+function publicSupplierOffer(row, queryNumber, queryBrand) {
+  const price = customerPrice(row?.price);
+  if (price === null) return null;
+
+  const rowBrand = row?.brand || queryBrand;
+  const rowArticle = row?.number || queryNumber;
+  const inferredAnalog =
+    normalizeBrand(rowBrand) !== normalizeBrand(queryBrand) ||
+    normalizeArticle(rowArticle) !== normalizeArticle(queryNumber);
+  const isAnalog = typeof row?.isAnalog === "boolean" ? row.isAnalog : inferredAnalog;
+  const identity = supplierIdentity(row);
+
+  const offerToken =
+    (identity.supplierCode != null || identity.itemKey != null)
+      ? offerTokens.seal({
+          v: 1,
+          qn: String(queryNumber || "").trim(),
+          qb: String(queryBrand || "").trim(),
+          n: String(rowArticle || "").trim(),
+          b: String(rowBrand || "").trim(),
+          s: identity.supplierCode,
+          k: identity.itemKey
+        })
+      : null;
+
+  return {
+    brand: rowBrand,
+    article: rowArticle,
+    article_normalized: row?.numberFix || null,
+    description: row?.description || null,
+    availability: Number(row?.availability || 0),
+    packing: Number(row?.packing || 1),
+    delivery_hours: Number(row?.deliveryPeriod || 0),
+    delivery_hours_max: Number(row?.deliveryPeriodMax || row?.deliveryPeriod || 0),
+    delivery_probability: row?.deliveryProbability ?? null,
+    returnable: row?.noReturn ? false : true,
+    is_analog: Boolean(isAnalog),
+    price,
+    currency: "RUB",
+    offer_token: offerToken
+  };
+}
+
+function rowMatchesOfferPayload(row, payload) {
+  const supplierCode = row?.supplierCode ?? null;
+  const itemKey = row?.itemKey ?? null;
+
+  if (payload.s != null && String(supplierCode) !== String(payload.s)) return false;
+  if (payload.k != null && String(itemKey) !== String(payload.k)) return false;
+
+  if (payload.b && normalizeBrand(row?.brand) !== normalizeBrand(payload.b)) return false;
+  if (payload.n && normalizeArticle(row?.number) !== normalizeArticle(payload.n)) return false;
+
+  return true;
+}
+
+async function revalidateOfferToken(token, quantity = 1, cache = new Map()) {
+  let payload;
+  try {
+    payload = offerTokens.open(token);
+  } catch (_error) {
+    return { status: "invalid" };
+  }
+
+  const cacheKey = normalizeBrand(payload.qb) + "|" + normalizeArticle(payload.qn);
+  let rowsPromise = cache.get(cacheKey);
+  if (!rowsPromise) {
+    rowsPromise = searchSupplierOffers(payload.qn, payload.qb);
+    cache.set(cacheKey, rowsPromise);
+  }
+
+  const rows = await rowsPromise;
+  const found = (Array.isArray(rows) ? rows : []).find((row) => rowMatchesOfferPayload(row, payload));
+  if (!found) return { status: "unavailable" };
+
+  const offer = publicSupplierOffer(found, payload.qn, payload.qb);
+  if (!offer) return { status: "unavailable" };
+
+  const requested = Math.max(1, Math.min(999, Number(quantity || 1)));
+  return {
+    status: offer.availability >= requested ? "ok" : "insufficient",
+    requested_quantity: requested,
+    ...offer
+  };
 }
 
 function publicUser(row) {
@@ -219,19 +333,82 @@ app.post("/api/quote-requests", quoteLimiter, async (req, res, next) => {
     }
 
     const items = rawItems.map((item) => ({
+      client_id: String(item?.client_id || "").trim().slice(0, 160),
       brand: String(item?.brand || "").trim().slice(0, 80),
       article: String(item?.article || "").trim().slice(0, 120),
       description: String(item?.description || "").trim().slice(0, 300),
       quantity: Math.max(1, Math.min(999, Number(item?.quantity || 1))),
       comment: String(item?.comment || "").trim().slice(0, 500),
-      quoted_price: Number.isFinite(Number(item?.quoted_price))
-        ? Math.max(0, Math.round(Number(item.quoted_price) * 100) / 100)
+      offer_token: String(item?.offer_token || "").trim().slice(0, 4096),
+      expected_price: Number.isFinite(Number(item?.expected_price))
+        ? Math.max(0, Math.round(Number(item.expected_price) * 100) / 100)
         : null,
-      needs_confirmation: Boolean(item?.needs_confirmation)
+      quoted_price: null,
+      needs_confirmation: true
     })).filter((item) => item.article);
 
     if (!items.length) {
       return res.status(400).json({ error: "items_required" });
+    }
+
+    const validationCache = new Map();
+    const validation = await Promise.all(items.map(async (item) => {
+      if (!item.offer_token) {
+        return {
+          client_id: item.client_id,
+          status: "manual",
+          brand: item.brand,
+          article: item.article,
+          quantity: item.quantity
+        };
+      }
+
+      const result = await revalidateOfferToken(item.offer_token, item.quantity, validationCache);
+      return { client_id: item.client_id, ...result };
+    }));
+
+    let cartChanged = false;
+    for (let index = 0; index < items.length; index++) {
+      const item = items[index];
+      const checked = validation[index];
+
+      if (!item.offer_token) continue;
+
+      if (checked.status !== "ok") {
+        cartChanged = true;
+        continue;
+      }
+
+      if (
+        item.expected_price !== null &&
+        Math.abs(Number(checked.price) - item.expected_price) > 0.009
+      ) {
+        cartChanged = true;
+      }
+
+      item.brand = checked.brand || item.brand;
+      item.article = checked.article || item.article;
+      item.description = checked.description || item.description;
+      item.quoted_price = checked.price;
+      item.needs_confirmation = false;
+      item.offer_token = checked.offer_token || item.offer_token;
+    }
+
+    if (cartChanged) {
+      return res.status(409).json({
+        error: "cart_changed",
+        items: validation.map((item) => ({
+          client_id: item.client_id || "",
+          status: item.status,
+          brand: item.brand || null,
+          article: item.article || null,
+          description: item.description || null,
+          price: item.price ?? null,
+          availability: item.availability ?? 0,
+          delivery_hours: item.delivery_hours ?? null,
+          offer_token: item.offer_token || null
+        }))
+      });
     }
 
     const now = new Date();
@@ -472,50 +649,9 @@ app.get("/api/catalog/offers", async (req, res, next) => {
       return res.status(400).json({ error: "article_and_brand_required" });
     }
 
-    let rows;
-    let mode = "articles";
-    try {
-      rows = await partGrade.searchArticles(number, brand);
-    } catch (error) {
-      if (error instanceof PartGradeError && Number(error.upstreamCode) === 103) {
-        rows = await partGrade.searchBatch([{ number, brand }]);
-        mode = "batch";
-      } else {
-        throw error;
-      }
-    }
-
-    const normalizeArticle = (value) => String(value || "").toUpperCase().replace(/[^A-ZА-Я0-9]/gi, "");
-    const normalizeBrand = (value) => String(value || "").trim().toUpperCase();
-
+    const rows = await searchSupplierOffers(number, brand);
     const mapped = (Array.isArray(rows) ? rows : [])
-      .map((row) => {
-        const price = customerPrice(row.price);
-        if (price === null) return null;
-
-        const rowBrand = row.brand || brand;
-        const rowArticle = row.number || number;
-        const inferredAnalog =
-          normalizeBrand(rowBrand) !== normalizeBrand(brand) ||
-          normalizeArticle(rowArticle) !== normalizeArticle(number);
-        const isAnalog = typeof row.isAnalog === "boolean" ? row.isAnalog : inferredAnalog;
-
-        return {
-          brand: rowBrand,
-          article: rowArticle,
-          article_normalized: row.numberFix || null,
-          description: row.description || null,
-          availability: Number(row.availability || 0),
-          packing: Number(row.packing || 1),
-          delivery_hours: Number(row.deliveryPeriod || 0),
-          delivery_hours_max: Number(row.deliveryPeriodMax || row.deliveryPeriod || 0),
-          delivery_probability: row.deliveryProbability ?? null,
-          returnable: row.noReturn ? false : true,
-          is_analog: Boolean(isAnalog),
-          price,
-          currency: "RUB"
-        };
-      })
+      .map((row) => publicSupplierOffer(row, number, brand))
       .filter(Boolean);
 
     const sortOffers = (list) => list.sort((a, b) => a.price - b.price || a.delivery_hours - b.delivery_hours);
@@ -524,12 +660,53 @@ app.get("/api/catalog/offers", async (req, res, next) => {
 
     res.json({
       source: "PartGrade",
-      mode,
+      mode: "articles",
       query: { number, brand },
       offers,
       analogs,
       total: mapped.length
     });
+  } catch (error) {
+    next(error);
+  }
+});
+
+app.post("/api/catalog/revalidate", async (req, res, next) => {
+  try {
+    const items = Array.isArray(req.body?.items) ? req.body.items.slice(0, 50) : [];
+    if (!items.length) {
+      return res.status(400).json({ error: "items_required" });
+    }
+
+    const cache = new Map();
+    const results = await Promise.all(items.map(async (item, index) => {
+      const clientId = String(item?.id || index).slice(0, 160);
+      const token = String(item?.offer_token || "").trim();
+      const quantity = Math.max(1, Math.min(999, Number(item?.quantity || 1)));
+
+      if (!token) {
+        return { id: clientId, status: "invalid" };
+      }
+
+      const result = await revalidateOfferToken(token, quantity, cache);
+      return {
+        id: clientId,
+        status: result.status,
+        brand: result.brand || null,
+        article: result.article || null,
+        description: result.description || null,
+        price: result.price ?? null,
+        availability: result.availability ?? 0,
+        packing: result.packing ?? 1,
+        delivery_hours: result.delivery_hours ?? null,
+        delivery_hours_max: result.delivery_hours_max ?? null,
+        delivery_probability: result.delivery_probability ?? null,
+        returnable: result.returnable ?? null,
+        offer_token: result.offer_token || null
+      };
+    }));
+
+    res.json({ ok: true, items: results });
   } catch (error) {
     next(error);
   }
