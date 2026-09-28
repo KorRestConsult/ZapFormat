@@ -370,6 +370,7 @@ const API_BASE = (() => {
 let sessionUser=null;
 let pendingAccountRoute="profile";
 let liveAccountRequests=[];
+let liveAccountOrders=[];
 let accountDataHydrated=false;
 
 function backendConfigured(){ return Boolean(API_BASE); }
@@ -484,7 +485,7 @@ function requestStatusLabel(status){
   return map[String(status||"").toLowerCase()] || String(status||"Принят");
 }
 
-function renderLiveAccount(overview,requests,garage){
+function renderLiveAccount(overview,orders,requests,garage){
   const stats=document.getElementById("accountLiveStats");
   if(stats){
     stats.innerHTML=`
@@ -494,27 +495,67 @@ function renderLiveAccount(overview,requests,garage){
       <article><span>Возвраты</span><b>${overview?.stats?.active_returns ?? 0}</b><small>активные заявки</small></article>`;
   }
 
+  const entries=[
+    ...(orders||[]).map(order=>({
+      kind:"order",
+      key:String(order.id),
+      number:String(order.order_number),
+      created_at:order.created_at,
+      items_count:Number(order.items_count||0),
+      total:Number(order.total_amount||0),
+      status:order.status
+    })),
+    ...(requests||[]).map(request=>({
+      kind:"request",
+      key:String(request.id),
+      number:String(request.id),
+      created_at:request.created_at,
+      items_count:Number(request.items_count||0),
+      total:Number(request.quoted_total||0),
+      needs_confirmation:Boolean(request.needs_confirmation),
+      status:request.status
+    }))
+  ].sort((a,b)=>new Date(b.created_at)-new Date(a.created_at));
+
   const recent=document.getElementById("accountRecentRequests");
   if(recent){
-    const rows=(requests||[]).slice(0,3);
-    recent.innerHTML=rows.length ? rows.map(r=>`
-      <article class="account-order" data-live-request-detail="${r.id}" tabindex="0">
-        <div><small>#${r.id} · ${formatDateRu(r.created_at)}</small><b>Запрос на запчасти</b><span>${r.items_count} поз.</span></div>
-        <div class="order-progress"><i class="done"></i><i></i><i></i><i></i></div>
-        <strong class="status">${requestStatusLabel(r.status)}</strong>
-      </article>`).join("") : '<div class="account-empty"><p>Пока нет заказов. Найдите запчасть и отправьте первый запрос.</p></div>';
+    const rows=entries.slice(0,3);
+    recent.innerHTML=rows.length ? rows.map(row=>{
+      const isOrder=row.kind==="order";
+      const detailAttr=isOrder
+        ? `data-live-order-detail="${row.key}"`
+        : `data-live-request-detail="${row.key}"`;
+      return `
+        <article class="account-order" ${detailAttr} tabindex="0">
+          <div>
+            <small>#${row.number} · ${formatDateRu(row.created_at)}</small>
+            <b>${isOrder?"Заказ ZapFormat":"Запрос на запчасти"}</b>
+            <span>${row.items_count} поз. · ${isOrder?rub(row.total):(row.needs_confirmation&&row.total===0?"сумма уточняется":rub(row.total))}</span>
+          </div>
+          <div class="order-progress"><i class="done"></i><i></i><i></i><i></i></div>
+          <strong class="status">${requestStatusLabel(row.status)}</strong>
+        </article>`;
+    }).join("") : '<div class="account-empty"><p>Пока нет заказов. Найдите запчасть и оформите первый заказ.</p></div>';
   }
 
   const table=document.getElementById("accountOrdersTable");
   if(table){
     const head='<div class="account-table-head"><span>Заказ</span><span>Дата</span><span>Позиций</span><span>Сумма</span><span>Статус</span><span></span></div>';
-    const rows=(requests||[]).map(r=>{
-      const total=Number(r.quoted_total||0);
-      const totalText=r.needs_confirmation && total===0 ? "уточняется" : rub(total);
+    const rows=entries.map(row=>{
+      const isOrder=row.kind==="order";
+      const totalText=isOrder
+        ? rub(row.total)
+        : (row.needs_confirmation&&row.total===0 ? "уточняется" : rub(row.total));
+      const detailAttr=isOrder
+        ? `data-live-order-detail="${row.key}"`
+        : `data-live-request-detail="${row.key}"`;
       return `<div class="account-table-row">
-        <b>#${r.id}</b><span>${formatDateRu(r.created_at)}</span><span>${r.items_count}</span>
-        <span>${totalText}</span><strong class="status">${requestStatusLabel(r.status)}</strong>
-        <button data-live-request-detail="${r.id}">Подробнее</button>
+        <b>#${row.number}</b>
+        <span>${formatDateRu(row.created_at)}</span>
+        <span>${row.items_count}</span>
+        <span>${totalText}</span>
+        <strong class="status">${requestStatusLabel(row.status)}</strong>
+        <button ${detailAttr}>Подробнее</button>
       </div>`;
     }).join("");
     table.innerHTML=head+(rows||'<div class="account-empty"><p>Реальных заказов пока нет.</p></div>');
