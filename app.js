@@ -3362,10 +3362,12 @@ document.getElementById("registerForm")?.addEventListener("submit",async e=>{
   const form=e.currentTarget;
   const button=form.querySelector('button[type="submit"]');
   const data=Object.fromEntries(new FormData(form).entries());
-  if(!String(data.phone||"").trim() && !String(data.email||"").trim()){
+  const identity=String(data.identity||"").trim();
+  if(!identity){
     setAuthStatus("Укажите телефон или email.","error");
     return;
   }
+  const isEmail=identity.includes("@");
   button.disabled=true;
   setAuthStatus("Создаём аккаунт…");
   try{
@@ -3373,9 +3375,9 @@ document.getElementById("registerForm")?.addEventListener("submit",async e=>{
       method:"POST",
       body:JSON.stringify({
         name:data.name,
-        surname:data.surname,
-        phone:data.phone,
-        email:data.email,
+        surname:"",
+        phone:isEmail?"":identity,
+        email:isEmail?identity:"",
         password:data.password
       })
     });
