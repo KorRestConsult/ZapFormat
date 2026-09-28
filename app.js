@@ -1890,9 +1890,9 @@ function supplyRowHtml(x){
         <div class="supply-left">
           <div class="supply-term">
             <b>Подтверждение</b>
-            <small>${escapeHtml(x.warehouse||"")}</small>
+            <small>Ожидаемый срок</small>
           </div>
-          <span class="supply-warehouse">${escapeHtml(x.source||"")}</span>
+          <span class="supply-warehouse">${x.type==="analog"?"Аналог":"Точная позиция"}</span>
         </div>
         <div class="supply-price"><span class="quote-only-label">Цена по запросу</span></div>
         <div class="supply-stock">—</div>
@@ -1922,6 +1922,7 @@ function groupCardHtml(items, key){
   const expanded=expandedGroups.has(key);
   const visible=expanded ? items : items.slice(0,5);
   const hiddenCount=Math.max(0,items.length-visible.length);
+  const kindLabel=first.type==="analog" ? "Аналог по артикулу" : "Точное совпадение";
   return `
     <article class="product-group">
       <div class="product-group-head">
@@ -1930,6 +1931,7 @@ function groupCardHtml(items, key){
           <div class="product-title-line">
             <span class="product-article">${escapeHtml(first.article||"")}</span>
             <b>${escapeHtml(first.brand||"")}</b>
+            <em class="product-kind ${first.type==="analog"?"analog":"exact"}">${kindLabel}</em>
           </div>
           <small>${escapeHtml(first.name||"")}</small>
         </div>
