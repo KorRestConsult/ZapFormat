@@ -1165,7 +1165,9 @@ function renderSmartPartSearch(data,query){
         <span class="eyebrow">${escapeHtml(interpreter)}</span>
         <h3>Нужно точнее определить автомобиль</h3>
         <p><b>${escapeHtml(label||"Автомобиль")}</b> найден не однозначно. Уточните поколение, двигатель или год в гараже.</p>
-        <p class="vehicle-search-note">Это защита от неверного подбора: ZapFormat не выбирает модификацию по догадке.</p>
+        <p class="vehicle-search-note">${data?.vehicle_identity?.vin_present
+          ? "VIN сохранён, но текущий каталог не умеет автоматически определить модификацию по VIN. ZapFormat не выбирает её по догадке."
+          : "Это защита от неверного подбора: ZapFormat не выбирает модификацию по догадке."}</p>
         <div class="vehicle-search-actions"><button type="button" data-route="garage">Уточнить автомобиль</button></div>
       </div>`;
     return;
@@ -1177,7 +1179,9 @@ function renderSmartPartSearch(data,query){
       <div class="vehicle-search-state smart-selection-state">
         <span class="eyebrow">${escapeHtml(interpreter)}</span>
         <h3>Выберите модификацию ${label?"· "+escapeHtml(label):""}</h3>
-        <p class="vehicle-search-note">Выбор сохранится в гараже. После этого ZapFormat сможет брать артикулы именно из каталога этой модификации.</p>
+        <p class="vehicle-search-note">${data?.vehicle_identity?.vin_present
+          ? "VIN сохранён, но текущий каталог не расшифровывает его до модификации автоматически. Выберите точную модификацию — выбор сохранится в гараже."
+          : "Выберите точную модификацию — выбор сохранится в гараже. После этого ZapFormat сможет брать артикулы именно из каталога этой модификации."}</p>
         <div class="smart-candidate-list">
           ${candidates.map(c=>`
             <button type="button" class="smart-candidate"
