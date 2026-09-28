@@ -419,6 +419,98 @@ app.post("/api/quote-requests", quoteLimiter, async (req, res, next) => {
       crypto.randomBytes(3).toString("hex").toUpperCase();
 
     const requestUser = pool ? await currentUser(req) : null;
+
+    const allConfirmed = items.every(
+      (item) => item.needs_confirmation === false && Number.isFinite(Number(item.quoted_price))
+    );
+
+    if (pool && requestUser && allConfirmed) {
+      const client = await pool.connect();
+      try {
+        await client.query("BEGIN");
+
+        const totalAmount = items.reduce(
+          (sum, item) => sum + Number(item.quoted_price) * Number(item.quantity),
+          0
+        );
+
+        const orderResult = await client.query(
+          `INSERT INTO orders
+            (user_id, status, total_amount, currency, recipient_name, recipient_phone, created_at, updated_at)
+           VALUES ($1,'new',$2,'RUB',$3,$4,$5,$5)
+           RETURNING id, order_number, status, total_amount, currency, created_at`,
+          [
+            requestUser.id,
+            Math.round((totalAmount + Number.EPSILON) * 100) / 100,
+            name || requestUser.name || null,
+            phone,
+            now
+          ]
+        );
+
+        const order = orderResult.rows[0];
+
+        for (let index = 0; index < items.length; index++) {
+          const item = items[index];
+          const checked = validation[index];
+          const deliveryDays = Number.isFinite(Number(checked?.delivery_hours))
+            ? Math.max(0, Math.ceil(Number(checked.delivery_hours) / 24))
+            : null;
+
+          const orderItem = await client.query(
+            `INSERT INTO order_items
+              (order_id, article, brand, description, warehouse, delivery_days,
+               quantity, unit_price, status, created_at, updated_at)
+             VALUES ($1,$2,$3,$4,$5,$6,$7,$8,'new',$9,$9)
+             RETURNING id`,
+            [
+              order.id,
+              item.article,
+              item.brand || "",
+              item.description || null,
+              "Поставка",
+              deliveryDays,
+              item.quantity,
+              item.quoted_price,
+              now
+            ]
+          );
+
+          await client.query(
+            `INSERT INTO order_status_history
+              (order_id, order_item_id, status, source, note, created_at)
+             VALUES ($1,$2,'new','zapformat','Цена и наличие проверены перед оформлением',$3)`,
+            [order.id, orderItem.rows[0].id, now]
+          );
+        }
+
+        await client.query(
+          `INSERT INTO order_status_history
+            (order_id, status, source, note, created_at)
+           VALUES ($1,'new','zapformat','Заказ создан на основании проверенных предложений',$2)`,
+          [order.id, now]
+        );
+
+        await client.query("COMMIT");
+
+        return res.status(201).json({
+          ok: true,
+          kind: "order",
+          order_id: order.id,
+          order_number: String(order.order_number),
+          status: order.status,
+          total_amount: Number(order.total_amount),
+          currency: order.currency,
+          items: items.length
+        });
+      } catch (error) {
+        await client.query("ROLLBACK").catch(() => {});
+        throw error;
+      } finally {
+        client.release();
+      }
+    }
+
     const record = {
       id: requestId,
       created_at: now.toISOString(),
