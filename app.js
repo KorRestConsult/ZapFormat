@@ -1239,6 +1239,11 @@ function showRoute(route){
   if(route==="profile") showAccountTab("overview");
   if(route==="orders") showAccountTab("orders");
   if(route==="garage") showAccountTab("garage");
+
+  if(sessionUser && ["profile","orders","garage"].includes(route)){
+    hydrateAccountData().catch(()=>{});
+  }
+
   syncMobileNav(route);
   window.scrollTo({top:0,behavior:"auto"});
 }
