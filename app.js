@@ -3385,11 +3385,11 @@ document.getElementById("registerForm")?.addEventListener("submit",async e=>{
   const button=form.querySelector('button[type="submit"]');
   const data=Object.fromEntries(new FormData(form).entries());
   const identity=String(data.identity||"").trim();
-  if(!identity){
-    setAuthStatus("Укажите телефон или email.","error");
+  if(identity.replace(/\D/g,"").length<10){
+    setAuthStatus("Укажите номер телефона.","error");
+    form.querySelector('[name="identity"]')?.focus();
     return;
   }
-  const isEmail=identity.includes("@");
   button.disabled=true;
   setAuthStatus("Создаём аккаунт…");
   try{
@@ -3398,8 +3398,8 @@ document.getElementById("registerForm")?.addEventListener("submit",async e=>{
       body:JSON.stringify({
         name:data.name,
         surname:"",
-        phone:isEmail?"":identity,
-        email:isEmail?identity:"",
+        phone:identity,
+        email:"",
         password:data.password
       })
     });
