@@ -377,12 +377,12 @@
           <div id="orderCartRows"></div>
         </div>
 
-        <div class="cart-total-row">
+        <div class="cart-total-row" id="cartTotalBlock">
           <span>Сумма:</span>
           <strong id="orderCartTotal">0 ₽</strong>
         </div>
 
-        <div class="cart-bulk-actions">
+        <div class="cart-bulk-actions" id="cartBulkActions">
           <button id="deleteSelectedButton" type="button">Удалить отмеченное</button>
           <button id="clearCartButton" type="button">Очистить корзину</button>
         </div>
@@ -395,8 +395,8 @@
 
         <div class="checkout-delivery-summary" id="checkoutDeliverySummary" hidden></div>
 
-        <button class="checkout-order-button" id="checkoutOrderButton" type="button">Отправить заказ</button>
-        <p class="checkout-recheck-note">Перед оформлением цена и наличие проверяются повторно.</p>
+        <button class="checkout-order-button" id="checkoutOrderButton" type="button">Оформить заказ</button>
+        <p class="checkout-recheck-note" id="checkoutRecheckNote">Перед оформлением цена и наличие проверяются повторно.</p>
 
         <details class="cart-import">
           <summary>Добавить список из файла</summary>
@@ -406,7 +406,7 @@
           </div>
         </details>
 
-        <div class="order-warning">
+        <div class="order-warning" id="cartOrderWarning">
           Оформятся только отмеченные позиции. Остальные останутся в корзине.
         </div>
       </section>
