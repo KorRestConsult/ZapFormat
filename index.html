@@ -156,29 +156,19 @@
             </form>
 
             <form class="auth-form" id="registerForm" data-auth-pane="register">
-              <div class="auth-form-grid">
-                <label>
-                  <span>Имя</span>
-                  <input name="name" autocomplete="given-name" required>
-                </label>
-                <label>
-                  <span>Фамилия</span>
-                  <input name="surname" autocomplete="family-name">
-                </label>
-              </div>
               <label>
-                <span>Телефон</span>
-                <input name="phone" type="tel" autocomplete="tel" placeholder="+7 900 000-00-00">
+                <span>Имя</span>
+                <input name="name" autocomplete="given-name" required>
               </label>
               <label>
-                <span>Email</span>
-                <input name="email" type="email" autocomplete="email" placeholder="name@example.ru">
+                <span>Телефон или email</span>
+                <input name="identity" autocomplete="username" placeholder="+7 900 000-00-00 или name@example.ru" required>
               </label>
               <label>
                 <span>Пароль</span>
                 <input name="password" type="password" autocomplete="new-password" minlength="8" placeholder="Минимум 8 символов" required>
               </label>
-              <small class="auth-hint">Укажите телефон или email — этого достаточно для аккаунта.</small>
+              <small class="auth-hint">Остальные данные можно добавить позже в профиле.</small>
               <button class="account-primary auth-submit" type="submit">Создать аккаунт и начать</button>
             </form>
 
