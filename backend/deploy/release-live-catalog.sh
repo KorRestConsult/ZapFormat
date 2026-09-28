@@ -6,6 +6,7 @@ ENV_FILE="/etc/zapformat/zapformat-api.env"
 SERVICE="zapformat-api"
 STAMP="$(date +%Y%m%d-%H%M%S)"
 BEFORE=""
+TARGET_SHA="${ZAPFORMAT_TARGET_SHA:-}"
 
 if [[ "${EUID}" -ne 0 ]]; then
   echo "Run from root Timeweb console."
@@ -42,7 +43,24 @@ rollback() {
 trap rollback EXIT
 
 git fetch origin main
-git merge --ff-only origin/main
+
+if [[ -n "${TARGET_SHA}" ]]; then
+  if [[ ! "${TARGET_SHA}" =~ ^[a-f0-9]{40}$ ]]; then
+    echo "STOP: invalid target commit SHA."
+    exit 3
+  fi
+  git cat-file -e "${TARGET_SHA}^{commit}" 2>/dev/null || {
+    echo "STOP: requested commit is not available after fetch."
+    exit 3
+  }
+  if [[ "${BEFORE}" != "${TARGET_SHA}" ]] && ! git merge-base --is-ancestor "${BEFORE}" "${TARGET_SHA}"; then
+    echo "STOP: requested commit is not a fast-forward from the live checkout."
+    exit 3
+  fi
+  git merge --ff-only "${TARGET_SHA}"
+else
+  git merge --ff-only origin/main
+fi
 
 node --check app.js
 node --check backend/src/server.js
