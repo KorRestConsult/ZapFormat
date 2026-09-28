@@ -122,7 +122,7 @@ const API_BASE = (() => {
 })();
 let sessionUser=null;
 let accountPreferences={delivery:null,notifications:null};
-let pendingAccountRoute="profile";
+let pendingAccountRoute="home";
 let liveAccountRequests=[];
 let liveAccountOrders=[];
 let accountDataHydrated=false;
@@ -346,6 +346,7 @@ function updateCheckoutMode(){
 }
 
 function applySessionUser(){
+  document.body.classList.toggle("guest-mode",!sessionUser);
   const headerProfile=document.getElementById("accountEntryButton");
   if(headerProfile){
     headerProfile.textContent=sessionUser?.name || "Войти";
@@ -1030,11 +1031,16 @@ function syncMobileNav(route){
 }
 
 function showRoute(route){
-  const protectedAccountRoute=route==="profile" || route==="orders" || route==="garage";
-  if(protectedAccountRoute && backendConfigured() && !sessionUser){
-    pendingAccountRoute=route;
+  if(route==="auth" && sessionUser){
+    route="home";
+  }
+
+  const protectedProductRoute=route!=="auth";
+  if(protectedProductRoute && backendConfigured() && !sessionUser){
+    pendingAccountRoute=route==="search" ? "home" : route;
     document.querySelectorAll(".view").forEach(v=>v.classList.remove("active"));
     document.getElementById("view-auth")?.classList.add("active");
+    showAuthTab("login");
     syncMobileNav("");
     window.scrollTo({top:0,behavior:"auto"});
     return;
@@ -1592,6 +1598,13 @@ async function loadLiveOffers(article,brand,description="",options={}){
 async function search(query,options={}){
   const raw=String(query||"").trim();
   if(!raw) return false;
+
+  if(backendConfigured() && !sessionUser){
+    pendingAccountRoute="home";
+    showRoute("auth");
+    setAuthStatus("Войдите или создайте аккаунт, чтобы начать поиск.");
+    return false;
+  }
 
   document.querySelector(".compact-filters")?.classList.remove("open");
   const filtersToggle=document.querySelector(".filters-toggle");
@@ -3111,7 +3124,7 @@ document.getElementById("loginForm")?.addEventListener("submit",async e=>{
     await hydrateCartFromAccount();
     await hydrateAccountData();
     setAuthStatus("Готово.","success");
-    navigate(pendingAccountRoute||"profile");
+    navigate(pendingAccountRoute||"home");
   }catch(error){
     setAuthStatus(authErrorText(error),"error");
   }finally{
@@ -3146,7 +3159,7 @@ document.getElementById("registerForm")?.addEventListener("submit",async e=>{
     await hydrateCartFromAccount();
     await hydrateAccountData();
     setAuthStatus("Аккаунт создан.","success");
-    navigate(pendingAccountRoute||"profile");
+    navigate(pendingAccountRoute||"home");
   }catch(error){
     setAuthStatus(authErrorText(error),"error");
   }finally{
@@ -3180,7 +3193,7 @@ document.getElementById("logoutButton")?.addEventListener("click",async()=>{
     renderGarageApp();
     updateVehicleContextUi();
     applySessionUser();
-    pendingAccountRoute="profile";
+    pendingAccountRoute="home";
     navigate("auth");
   }
 });
