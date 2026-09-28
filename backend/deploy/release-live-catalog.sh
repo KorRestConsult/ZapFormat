@@ -197,6 +197,16 @@ if [[ "${CART_STATUS}" != "401" ]]; then
 fi
 
 echo
+echo "Garage route:"
+GARAGE_STATUS="$(curl -sS -o /tmp/zf-garage.json -w '%{http_code}' "http://127.0.0.1:3000/api/garage")"
+echo "HTTP ${GARAGE_STATUS} (401 expected without login)"
+if [[ "${GARAGE_STATUS}" != "401" ]]; then
+  echo "FAIL: garage route is not protected/available as expected."
+  cat /tmp/zf-garage.json || true
+  exit 1
+fi
+
+echo
 echo "Public site:"
 curl -fsS "https://zap.201.51.28.68.sslip.io/api/health"
 echo
