@@ -132,6 +132,7 @@ let cartHydratedUserId=null;
 let lastSmartSearchQuery="";
 let smartSearchBusy=false;
 let pendingCheckoutAfterDelivery=false;
+let clearCartArmedUntil=0;
 
 function backendConfigured(){ return Boolean(API_BASE); }
 
@@ -2318,8 +2319,16 @@ function setCartComment(id,value){
 }
 
 function clearCart(){
+  const now=Date.now();
+  if(now>clearCartArmedUntil){
+    clearCartArmedUntil=now+3000;
+    showToast("Нажмите «Очистить корзину» ещё раз для подтверждения.","warn");
+    return;
+  }
+  clearCartArmedUntil=0;
   cart=[];
   saveCart();
+  showToast("Корзина очищена.");
 }
 
 function deleteSelected(){
