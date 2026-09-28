@@ -357,7 +357,7 @@ function renderCheckoutDelivery(){
       '<button type="button" data-checkout-delivery>Изменить</button>';
   }else{
     mount.innerHTML=
-      '<div><small>ПОЛУЧЕНИЕ</small><b>Не настроено</b><span>Можно оформить заказ сейчас и указать получение в кабинете.</span></div>'+
+      '<div><small>ПОЛУЧЕНИЕ</small><b>Не настроено</b><span>Для оформления заказа выберите адрес или точку получения.</span></div>'+
       '<button type="button" data-checkout-delivery>Настроить</button>';
   }
 }
@@ -2099,6 +2099,13 @@ async function checkoutCart(){
   if(phone.replace(/\D/g,"").length<10){
     showToast("Укажите телефон для заказа.","warn");
     document.getElementById("quotePhone")?.focus();
+    return;
+  }
+
+  if(sessionUser && !accountPreferences?.delivery?.address){
+    showToast("Сначала выберите получение заказа.","warn");
+    navigate("profile");
+    showAccountTab("delivery");
     return;
   }
 
