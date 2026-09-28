@@ -322,7 +322,7 @@ function renderCheckoutContact(){
 
   if(needsContact){
     summary.innerHTML=
-      '<div><small>КОНТАКТ</small><b>Нужно дополнить данные</b><span>Для заказа нужны имя и телефон.</span></div>'+
+      '<div><small>КОНТАКТ</small><b>Нужно дополнить данные</b><span>Для заказа нужны имя и телефон. Сохраним их в профиле.</span></div>'+
       '<button type="button" data-account-profile>Профиль</button>';
     fallback.hidden=false;
     return;
@@ -2376,6 +2376,20 @@ async function checkoutCart(){
     showToast("Укажите телефон для заказа.","warn");
     document.getElementById("quotePhone")?.focus();
     return;
+  }
+
+  if(sessionUser && String(sessionUser.phone||"").replace(/\D/g,"")!==phone.replace(/\D/g,"")){
+    try{
+      const updated=await apiRequest("/api/account/profile",{
+        method:"PATCH",
+        body:JSON.stringify({phone})
+      });
+      sessionUser=updated.user;
+      applySessionUser();
+    }catch(error){
+      showToast(authErrorText(error),"warn");
+      return;
+    }
   }
 
   if(sessionUser && !accountPreferences?.delivery?.address){
