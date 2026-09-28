@@ -4366,3 +4366,34 @@ body.guest-mode .logo{
     font-weight:800
   }
 }
+
+
+.product-kind{
+  display:inline-flex;
+  align-items:center;
+  min-height:20px;
+  margin-left:4px;
+  padding:3px 7px;
+  border-radius:999px;
+  font-style:normal;
+  font-size:9px;
+  font-weight:900;
+  white-space:nowrap
+}
+.product-kind.exact{
+  background:#e8f4ec;
+  color:#2f7447
+}
+.product-kind.analog{
+  background:#eef2f5;
+  color:#607380
+}
+@media(max-width:680px){
+  .product-title-line{
+    flex-wrap:wrap
+  }
+  .product-kind{
+    font-size:8px;
+    min-height:18px
+  }
+}
