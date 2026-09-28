@@ -1008,6 +1008,20 @@ function groupCardHtml(items, key){
     </article>`;
 }
 
+function groupOffersByPart(items){
+  const groups=new Map();
+  for(const item of items){
+    const key=[
+      String(item.brand||"").trim().toUpperCase(),
+      String(item.article||"").trim().toUpperCase(),
+      String(item.name||"").trim().toUpperCase()
+    ].join("|");
+    if(!groups.has(key)) groups.set(key,[]);
+    groups.get(key).push(item);
+  }
+  return [...groups.values()];
+}
+
 function renderCatalog(){
   const exact=baseList("exact");
   const analog=baseList("analog");
@@ -1016,22 +1030,22 @@ function renderCatalog(){
   const analogRoot=document.getElementById("analogResults");
 
   if(exactRoot){
-    const quoteMode=String(currentKey).startsWith("quote:");
     exactRoot.innerHTML=exact.length
-      ? (quoteMode
-          ? exact.map(x=>groupCardHtml([x],"quote-"+x.id)).join("")
-          : groupCardHtml(exact,"exact-"+currentKey))
-      : '<div class="product-group"><div class="product-group-head"><div class="product-title"><b>Нет точных предложений</b></div></div></div>';
+      ? groupCardHtml(exact,"exact-"+currentKey)
+      : '<div class="product-group"><div class="product-group-head"><div class="product-title"><b>Нет точных предложений</b><small>Ниже могут быть доступны аналоги.</small></div></div></div>';
   }
 
   if(analogRoot){
-    analogRoot.innerHTML=analog.length
-      ? analog.map(x=>groupCardHtml([x],"analog-"+x.id)).join("")
+    const analogGroups=groupOffersByPart(analog);
+    analogRoot.innerHTML=analogGroups.length
+      ? analogGroups.map((items,index)=>groupCardHtml(items,"analog-"+currentKey+"-"+index)).join("")
       : '<div class="product-group"><div class="product-group-head"><div class="product-title"><b>Нет аналогов</b></div></div></div>';
   }
 
   const analogSection=document.getElementById("analogSection");
-  if(analogSection) analogSection.style.display=(currentFilter==="exact")?"none":"block";
+  if(analogSection){
+    analogSection.style.display=(currentFilter==="exact" || !analog.length)?"none":"block";
+  }
 
   const count=exact.length+analog.length;
   const countEl=document.getElementById("offerCount");
