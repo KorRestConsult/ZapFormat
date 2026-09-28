@@ -838,7 +838,7 @@ app.get("/api/health", async (_req, res, next) => {
   }
 });
 
-app.post("/api/quote-requests", quoteLimiter, async (req, res, next) => {
+app.post("/api/quote-requests", quoteLimiter, requireUser, async (req, res, next) => {
   try {
     const name = String(req.body?.name || "").trim().slice(0, 120);
     const phone = normalizePhone(req.body?.phone);
