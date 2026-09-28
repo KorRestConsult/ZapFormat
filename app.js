@@ -884,6 +884,7 @@ async function openLiveOrderDetail(id){
                 <div><small>Сумма</small><b>${rub(Number(item.unit_price||0)*Number(item.quantity||0))}</b></div>
                 <div><small>Срок</small><b>${item.delivery_days===0?"Сегодня":item.delivery_days===1?"1 день":item.delivery_days!=null?item.delivery_days+" дн.":"—"}</b></div>
               </div>
+              ${(item.received_at || item.status==="completed") ? '<details class="return-details"><summary>Оформить возврат</summary><form class="return-form" data-live-return-form="'+item.id+'" data-live-return-order="'+order.id+'"><div class="return-form-grid"><label><span>Причина</span><select name="reason" required><option value="">Выберите причину</option><option>Не подошла деталь</option><option>Повреждение</option><option>Не соответствует заказу</option><option>Другая причина</option></select></label><label><span>Количество</span><input name="quantity" type="number" min="1" max="'+item.quantity+'" value="1" required></label><label class="return-comment"><span>Комментарий</span><textarea name="comment" rows="2" placeholder="Комментарий"></textarea></label></div><div class="return-form-actions"><button class="account-primary" type="submit">Создать возврат</button></div></form></details>' : ""}
             </article>`).join("")}
         </div>
       </section>
@@ -3225,6 +3226,33 @@ document.addEventListener("submit",async e=>{
       console.error("Garage history save failed",error);
       showToast("Не удалось сохранить работу.","warn");
     }finally{
+      if(submit) submit.disabled=false;
+    }
+    return;
+  }
+
+  const liveReturnForm=e.target.closest("[data-live-return-form]");
+  if(liveReturnForm){
+    e.preventDefault();
+    const data=Object.fromEntries(new FormData(liveReturnForm).entries());
+    const submit=liveReturnForm.querySelector('button[type="submit"]');
+    if(submit) submit.disabled=true;
+    try{
+      const result=await apiRequest("/api/account/returns",{
+        method:"POST",
+        body:JSON.stringify({
+          order_item_id:liveReturnForm.dataset.liveReturnForm,
+          quantity:Number(data.quantity||1),
+          reason:data.reason,
+          comment:data.comment||""
+        })
+      });
+      showToast("Возврат #"+result.return.return_number+" создан.");
+      accountDataHydrated=false;
+      await hydrateAccountData();
+      await openLiveOrderDetail(liveReturnForm.dataset.liveReturnOrder);
+    }catch(error){
+      showToast(authErrorText(error),"warn");
       if(submit) submit.disabled=false;
     }
     return;
