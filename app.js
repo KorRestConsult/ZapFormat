@@ -2625,7 +2625,7 @@ function showAccountTab(tab){
   try{ localStorage.setItem("zapformat-account-tab",tab); }catch{}
 }
 
-document.addEventListener("click",e=>{
+document.addEventListener("click",async e=>{
   const authTab=e.target.closest("[data-auth-tab]");
   if(authTab){ showAuthTab(authTab.dataset.authTab); return; }
 
