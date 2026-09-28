@@ -153,6 +153,10 @@ echo "Vehicle catalog capability:"
 curl -fsS "http://127.0.0.1:3000/api/catalog/vehicle-catalog/status" || true
 echo
 
+echo "Supplier integration:"
+curl -fsS "http://127.0.0.1:3000/api/integration/status"
+echo
+
 mark_stage "catalog_smoke"
 echo
 echo "Catalog smoke test:"
