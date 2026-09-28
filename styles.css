@@ -3870,3 +3870,21 @@ body.guest-mode .logo{
     padding:0 3px
   }
 }
+
+
+/* Keep logout reachable on mobile. */
+@media(max-width:900px){
+  .account-logout{
+    display:block!important;
+    width:100%;
+    margin-top:8px;
+    border:1px solid #d8e1e6;
+    border-radius:9px;
+    background:#fff;
+    color:#657985;
+    padding:11px 12px;
+    font-size:12px;
+    font-weight:850
+  }
+  .account-logout[hidden]{display:none!important}
+}
