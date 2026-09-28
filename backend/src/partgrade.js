@@ -132,6 +132,24 @@ function createPartGradeClient(options = {}) {
     return data;
   }
 
+  function indexedPositions(items) {
+    const params = {};
+    (Array.isArray(items) ? items : []).slice(0, 500).forEach((item, index) => {
+      const prefix = `positions[${index}]`;
+      if (item?.number) params[`${prefix}[number]`] = String(item.number).trim();
+      if (item?.brand) params[`${prefix}[brand]`] = String(item.brand).trim();
+      if (item?.supplierCode !== undefined && item?.supplierCode !== null) {
+        params[`${prefix}[supplierCode]`] = String(item.supplierCode);
+      }
+      if (item?.itemKey !== undefined && item?.itemKey !== null) {
+        params[`${prefix}[itemKey]`] = String(item.itemKey);
+      }
+      params[`${prefix}[quantity]`] = Math.max(1, Number(item?.quantity || 1));
+      if (item?.comment) params[`${prefix}[comment]`] = String(item.comment).slice(0, 500);
+    });
+    return params;
+  }
+
   return {
     baseUrl,
     configured,
@@ -192,6 +210,32 @@ function createPartGradeClient(options = {}) {
     basketContent() {
       return request("basket/content");
     },
+    basketOptions() {
+      return request("basket/options");
+    },
+    basketAdd(items, options = {}) {
+      return request("basket/add", {
+        ...indexedPositions(items),
+        basketId: options.basketId
+      }, { method: "POST" });
+    },
+    basketOrder(options = {}) {
+      const params = {
+        paymentMethod: options.paymentMethod,
+        shipmentMethod: options.shipmentMethod,
+        shipmentAddress: options.shipmentAddress,
+        shipmentOffice: options.shipmentOffice,
+        shipmentDate: options.shipmentDate,
+        comment: options.comment,
+        basketId: options.basketId,
+        wholeOrderOnly: options.wholeOrderOnly ?? 1,
+        clientOrderNumber: options.clientOrderNumber
+      };
+      (Array.isArray(options.positionIds) ? options.positionIds : []).forEach((id, index) => {
+        params[`positionIds[${index}]`] = String(id);
+      });
+      return request("basket/order", params, { method: "POST" });
+    },
     paymentMethods() {
       return request("basket/paymentMethods");
     },
@@ -201,14 +245,57 @@ function createPartGradeClient(options = {}) {
     shipmentAddresses() {
       return request("basket/shipmentAddresses");
     },
+    shipmentOffices() {
+      return request("basket/shipmentOffices");
+    },
+    shipmentDates(params = {}) {
+      return request("basket/shipmentDates", {
+        minDeadlineTime: params.minDeadlineTime,
+        maxDeadlineTime: params.maxDeadlineTime,
+        shipmentAddress: params.shipmentAddress
+      });
+    },
     orderStatuses() {
       return request("orders/statuses");
+    },
+    orderList(orderNumbers = []) {
+      const params = {};
+      (Array.isArray(orderNumbers) ? orderNumbers : []).slice(0, 500).forEach((number, index) => {
+        params[`orders[${index}]`] = String(number);
+      });
+      return request("orders/list", params);
     },
     orders(params = {}) {
       return request("orders/", {
         skip: params.skip ?? 0,
-        limit: params.limit ?? 50
+        limit: params.limit ?? 50,
+        format: params.format
       });
+    },
+    instantOrder(items, options = {}) {
+      return request("orders/instant", {
+        ...indexedPositions(items),
+        paymentMethod: options.paymentMethod,
+        shipmentMethod: options.shipmentMethod,
+        shipmentAddress: options.shipmentAddress,
+        shipmentOffice: options.shipmentOffice,
+        shipmentDate: options.shipmentDate,
+        comment: options.comment,
+        basketId: options.basketId,
+        wholeOrderOnly: options.wholeOrderOnly ?? 1,
+        clientOrderNumber: options.clientOrderNumber
+      }, { method: "POST" });
+    },
+    cancelOrderPosition(positionId) {
+      return request("orders/cancelPosition", {
+        positionId: String(positionId || "").trim()
+      }, { method: "POST" });
+    },
+    ordersVersion() {
+      return request("orders/version");
+    },
+    userGarage() {
+      return request("user/garage");
     }
   };
 }
