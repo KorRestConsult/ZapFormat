@@ -16,6 +16,7 @@ const { createOfferTokenCodec } = require("./offer-token");
 const { customerPrice } = require("./pricing");
 const { verifyGitHubActionsToken } = require("./github-oidc");
 const { interpretSearch, normalizeVehicle } = require("./ai-search");
+const { publicBootstrapJwk, installEncryptedOpenAIKey } = require("./secret-bootstrap");
 
 const app = express();
 const isProduction = process.env.NODE_ENV === "production";
@@ -1772,6 +1773,34 @@ app.all("/mcp/timeweb/:accessKey", async (req, res, next) => {
   return proxyTimewebMcp(req, res, next);
 });
 
+
+app.get("/api/search/key-setup/public-key", async (_req, res, next) => {
+  try {
+    const jwk = await publicBootstrapJwk();
+    res.json({ ok: true, public_key_jwk: jwk });
+  } catch (error) {
+    next(error);
+  }
+});
+
+app.post("/api/internal/openai-key", async (req, res) => {
+  try {
+    const auth = String(req.get("authorization") || "");
+    const token = auth.replace(/^Bearer\s+/i, "").trim();
+    const claims = await verifyGitHubActionsToken(token);
+
+    const requestedSha = String(req.body?.sha || "").trim().toLowerCase();
+    if (!/^[a-f0-9]{40}$/.test(requestedSha) || requestedSha !== String(claims.sha || "").toLowerCase()) {
+      return res.status(400).json({ error: "sha_mismatch" });
+    }
+
+    const result = await installEncryptedOpenAIKey(req.body);
+    return res.status(201).json({ ok: true, configured: result.configured, model: result.model });
+  } catch (error) {
+    console.error("[AIKeySetup]", error?.message || "setup_failed");
+    return res.status(401).json({ error: "unauthorized_or_invalid_payload" });
+  }
+});
 
 app.post("/api/internal/deploy", async (req, res) => {
   try {
