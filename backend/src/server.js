@@ -1345,7 +1345,7 @@ app.post("/api/garage/vehicles/:vehicleId/maintenance", requireUser, async (req,
 });
 
 const TIMEWEB_MCP_UPSTREAM = "https://timeweb.cloud/api/v1/mcp";
-const TIMEWEB_PROXY_KEY_SHA256 = "31ff5e9df7dea9e2b529077bea83b6f9a09f9ac78b9997ba65ef85439e3fca3f";
+const TIMEWEB_PROXY_KEY_SHA256 = "4bd620c416824cd52273b3fc270d2d176833f2da2a8cfe4b4f7392464d9d601b";
 
 function validTimewebProxyKey(value) {
   const candidate = crypto.createHash("sha256").update(String(value || "")).digest("hex");
