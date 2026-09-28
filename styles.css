@@ -3243,3 +3243,31 @@ html{scroll-padding-bottom:calc(88px + env(safe-area-inset-bottom))}
   #view-search .product-group,
   #view-search .supply-list{min-width:0}
 }
+
+
+/* Live cart verification */
+.checkout-recheck-note{
+  margin:8px 2px 0;
+  color:#74828c;
+  font-size:11px;
+  line-height:1.4;
+  text-align:right
+}
+.order-cart-row.unavailable{
+  opacity:.64
+}
+.order-cart-row.unavailable .cart-price-cell,
+.order-cart-row.unavailable .cart-availability{
+  color:#8a969e
+}
+#refreshCartButton:disabled,
+#checkoutOrderButton:disabled{
+  cursor:wait;
+  opacity:.65
+}
+@media(max-width:680px){
+  .checkout-recheck-note{
+    text-align:left;
+    font-size:10px
+  }
+}
