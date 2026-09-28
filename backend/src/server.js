@@ -982,6 +982,10 @@ app.post("/api/quote-requests", quoteLimiter, async (req, res, next) => {
           [requestUser.id]
         );
         const delivery = deliveryResult.rows[0] || null;
+        if (!delivery?.id) {
+          await client.query("ROLLBACK");
+          return res.status(409).json({ error: "delivery_required" });
+        }
 
         const orderResult = await client.query(
           `INSERT INTO orders
