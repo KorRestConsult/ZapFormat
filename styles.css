@@ -410,6 +410,21 @@ html,body,.app{max-width:100%;overflow-x:hidden}
   font-size:12px;line-height:1.5;color:#5f6c76;text-decoration:underline;
   margin:12px 2px 12px
 }
+.vehicle-search-state{
+  background:#fff;border:1px solid #dce4e9;border-radius:10px;padding:20px;
+  box-shadow:0 5px 18px rgba(31,55,74,.04)
+}
+.vehicle-search-state .eyebrow{margin-bottom:8px}
+.vehicle-search-state h3{margin:0;color:var(--navy-3);font-size:21px}
+.vehicle-search-state p{margin:8px 0 0;color:#62737f;font-size:12px;line-height:1.5}
+.vehicle-search-state p>b{color:#344d5e}
+.vehicle-search-note{max-width:780px}
+.vehicle-search-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:15px}
+.vehicle-search-actions button{
+  border:1px solid #ccd7de;background:#fff;color:#405969;border-radius:7px;
+  padding:9px 11px;font-size:11px;font-weight:850
+}
+.vehicle-search-actions button:last-child{background:var(--navy);border-color:var(--navy);color:#fff}
 .catalog-actions{margin-top:8px}
 .filters-toggle{
   width:100%;border:0;background:#263843;color:#fff;font-weight:800;
