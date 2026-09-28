@@ -1023,6 +1023,11 @@ async function openLiveOrderDetail(id,options={}){
             <span class="eyebrow">ЗАКАЗ СОЗДАН</span>
             <h2>Заказ #${escapeHtml(order.order_number)} принят</h2>
             <p>${escapeHtml(orderNextStep(order.status))}</p>
+            <div class="order-created-steps">
+              <span>1. Проверяем и запускаем заказ</span>
+              <span>2. Обновляем движение позиций</span>
+              <span>3. Сообщаем, когда можно получать</span>
+            </div>
           </div>
           <div class="order-created-summary">
             <b>${rub(Number(order.total_amount||0))}</b>
