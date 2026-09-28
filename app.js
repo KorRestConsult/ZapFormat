@@ -431,6 +431,7 @@ function applySessionUser(){
   renderCheckoutContact();
   updateCheckoutMode();
   updateVehicleContextUi();
+  startNotificationRefresh();
 }
 
 function formatDateRu(value){
@@ -857,6 +858,19 @@ async function refreshNotificationFeed(){
   }catch(error){
     console.warn("Notification feed refresh failed",error);
   }
+}
+
+let notificationRefreshTimer=null;
+
+function startNotificationRefresh(){
+  clearInterval(notificationRefreshTimer);
+  notificationRefreshTimer=null;
+  if(!sessionUser || !backendConfigured()) return;
+
+  notificationRefreshTimer=setInterval(()=>{
+    if(document.visibilityState!=="visible" || !sessionUser) return;
+    refreshNotificationFeed().catch(()=>{});
+  },60000);
 }
 
 async function hydrateAccountData(){
@@ -2667,6 +2681,12 @@ function restoreFromUrl(){
     showRoute("home");
   }
 }
+document.addEventListener("visibilitychange",()=>{
+  if(document.visibilityState==="visible" && sessionUser){
+    refreshNotificationFeed().catch(()=>{});
+  }
+});
+
 window.addEventListener("popstate",restoreFromUrl);
 document.getElementById("backButton")?.addEventListener("click",()=>safeBack("home"));
 hydrateSession()
