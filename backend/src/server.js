@@ -16,6 +16,11 @@ const { createOfferTokenCodec } = require("./offer-token");
 const { customerPrice } = require("./pricing");
 const { verifyGitHubActionsToken } = require("./github-oidc");
 const { interpretSearch, normalizeVehicle } = require("./ai-search");
+const {
+  resolveVehicleCatalog,
+  selectVerifiedArticles,
+  vehicleSpecsForIntent
+} = require("./vehicle-catalog");
 const { publicBootstrapJwk, installEncryptedOpenAIKey } = require("./secret-bootstrap");
 const {
   compactText,
@@ -777,6 +782,182 @@ app.get("/api/search/health", (_req, res) => {
     ai_configured: Boolean(String(process.env.OPENAI_API_KEY || "").trim()),
     model: String(process.env.OPENAI_SEARCH_MODEL || "gpt-5.6-luna")
   });
+});
+
+function verifiedIntent(intent) {
+  const category = String(intent?.category || "unknown");
+  const groupMap = {
+    brake_pads: ["brake_pad"],
+    brake_disc: ["brake_disk"],
+    oil_filter: ["oil_filter"],
+    air_filter: ["air_filter"],
+    cabin_filter: ["cabin_filter"],
+    fuel_filter: ["fuel_filter"],
+    spark_plug: ["spark_plugs"]
+  };
+  return {
+    ...intent,
+    axle: intent?.axle || "any",
+    side: intent?.side || "any",
+    goods_group_hints: groupMap[category] || [],
+    special_category: category === "wiper" ? "wipers" : "none"
+  };
+}
+
+function publicVehicleCandidate(candidate) {
+  return {
+    id: candidate?.id ? String(candidate.id) : null,
+    name: candidate?.name || null,
+    group_name: candidate?.groupName || null,
+    year_from: candidate?.yearFrom || null,
+    year_to: candidate?.yearTo || null,
+    fuel_type: candidate?.fuelType || null,
+    power_hp: candidate?.powerHP || null,
+    motor_codes: candidate?.motorCodes || null,
+    cylinder_capacity_ccm: candidate?.cylinderCapacityCcm || null
+  };
+}
+
+app.post("/api/catalog/ai-search", requireUser, aiSearchLimiter, async (req, res, next) => {
+  try {
+    const query = String(req.body?.query || "").trim().replace(/\s+/g, " ").slice(0, 400);
+    if (!query) return res.status(400).json({ error: "query_required" });
+
+    const requestedVehicleId = String(req.body?.vehicle_id || "").trim();
+    const vehicleResult = await pool.query(
+      `SELECT id, brand, model, generation, year, engine, vin, plate_number,
+              current_mileage, is_default
+         FROM vehicles
+        WHERE user_id = $1
+          AND ($2::text = '' OR id::text = $2)
+        ORDER BY CASE WHEN id::text = $2 THEN 0 WHEN is_default THEN 1 ELSE 2 END, created_at ASC
+        LIMIT 1`,
+      [req.user.id, requestedVehicleId]
+    );
+    const vehicle = vehicleResult.rows[0] || null;
+    const interpreted = await interpretSearch(query, vehicle);
+    const intent = verifiedIntent(interpreted.intent);
+
+    if (!vehicle) {
+      return res.json({
+        ok: true,
+        mode: "needs_vehicle",
+        interpreter: interpreted.mode,
+        ai_configured: Boolean(String(process.env.OPENAI_API_KEY || "").trim()),
+        intent
+      });
+    }
+
+    if (intent.clarification_needed) {
+      return res.json({
+        ok: true,
+        mode: "clarification",
+        interpreter: interpreted.mode,
+        ai_configured: Boolean(String(process.env.OPENAI_API_KEY || "").trim()),
+        vehicle: normalizeVehicle(vehicle),
+        intent,
+        question: intent.clarification_question || "Уточните деталь."
+      });
+    }
+
+    let resolved;
+    try {
+      resolved = await resolveVehicleCatalog(partGrade, vehicle);
+    } catch (error) {
+      console.warn("[VehicleCatalogResolve]", error?.code || error?.message || "failed");
+      return res.json({
+        ok: true,
+        mode: "vehicle_catalog_unavailable",
+        interpreter: interpreted.mode,
+        ai_configured: Boolean(String(process.env.OPENAI_API_KEY || "").trim()),
+        vehicle: normalizeVehicle(vehicle),
+        intent
+      });
+    }
+
+    if (["manufacturer_not_found","model_ambiguous","modification_not_found"].includes(resolved.status)) {
+      return res.json({
+        ok: true,
+        mode: "vehicle_needs_details",
+        resolver_status: resolved.status,
+        interpreter: interpreted.mode,
+        ai_configured: Boolean(String(process.env.OPENAI_API_KEY || "").trim()),
+        vehicle: normalizeVehicle(vehicle),
+        intent,
+        candidates: (resolved.candidates || []).slice(0, 8).map(publicVehicleCandidate)
+      });
+    }
+
+    if (resolved.status === "modification_ambiguous") {
+      return res.json({
+        ok: true,
+        mode: "choose_modification",
+        resolver_status: resolved.status,
+        interpreter: interpreted.mode,
+        ai_configured: Boolean(String(process.env.OPENAI_API_KEY || "").trim()),
+        vehicle: normalizeVehicle(vehicle),
+        intent,
+        candidates: (resolved.candidates || []).slice(0, 12).map(publicVehicleCandidate)
+      });
+    }
+
+    if (resolved.status !== "resolved") {
+      return res.json({
+        ok: true,
+        mode: "no_verified_match",
+        resolver_status: resolved.status,
+        interpreter: interpreted.mode,
+        vehicle: normalizeVehicle(vehicle),
+        intent,
+        articles: []
+      });
+    }
+
+    const specs = vehicleSpecsForIntent(resolved.info, intent);
+    if (specs) {
+      return res.json({
+        ok: true,
+        mode: "vehicle_specs",
+        interpreter: interpreted.mode,
+        ai_configured: Boolean(String(process.env.OPENAI_API_KEY || "").trim()),
+        vehicle: normalizeVehicle(vehicle),
+        intent,
+        catalog: {
+          manufacturer: resolved.manufacturer || null,
+          model: resolved.model || null,
+          modification: resolved.modification || null
+        },
+        specs
+      });
+    }
+
+    const articles = selectVerifiedArticles(resolved.info, intent, query, 10)
+      .filter((item) => item.brand && item.article)
+      .map((item) => ({
+        brand: String(item.brand),
+        article: String(item.article),
+        description: item.description || item.goods_group_name || "Запчасть",
+        goods_group_name: item.goods_group_name || null,
+        fit_axle: item.fit_axle || null
+      }));
+
+    return res.json({
+      ok: true,
+      mode: articles.length ? "verified_articles" : "no_verified_match",
+      interpreter: interpreted.mode,
+      ai_configured: Boolean(String(process.env.OPENAI_API_KEY || "").trim()),
+      vehicle: normalizeVehicle(vehicle),
+      intent,
+      catalog: {
+        manufacturer: resolved.manufacturer || null,
+        model: resolved.model || null,
+        modification: resolved.modification || null
+      },
+      articles
+    });
+  } catch (error) {
+    next(error);
+  }
 });
 
 function publicVehicleCatalogCandidate(candidate) {
