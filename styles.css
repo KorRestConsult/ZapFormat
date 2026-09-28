@@ -3824,3 +3824,20 @@ body.guest-mode .logo{
     padding:30px 16px
   }
 }
+
+
+.search-vehicle-setup{
+  margin:12px auto 0;
+  border:0;
+  background:transparent;
+  color:#657985;
+  font-size:12px;
+  font-weight:800
+}
+.search-vehicle-setup small{
+  color:#9aa6ae;
+  font-size:10px;
+  font-weight:700;
+  margin-left:4px
+}
+.search-vehicle-setup:hover{color:var(--navy)}
