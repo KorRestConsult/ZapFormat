@@ -49,6 +49,7 @@ node --check backend/src/server.js
 node --check backend/src/partgrade.js
 node --check backend/src/offer-token.js
 node --check backend/src/pricing.js
+node --check backend/src/github-oidc.js
 
 cd backend
 if [[ -f package-lock.json ]]; then
