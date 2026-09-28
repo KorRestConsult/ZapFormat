@@ -123,6 +123,7 @@ const API_BASE = (() => {
 let sessionUser=null;
 let accountPreferences={delivery:null,notifications:null};
 let pendingAccountRoute="home";
+let pendingSearchAfterAuth=null;
 let liveAccountRequests=[];
 let liveAccountOrders=[];
 let accountDataHydrated=false;
@@ -1763,8 +1764,12 @@ async function search(query,options={}){
 
   if(!sessionUser){
     pendingAccountRoute="home";
+    pendingSearchAfterAuth={
+      query:raw,
+      brand:String(options.brand||"").trim()||null
+    };
     showRoute("auth");
-    setAuthStatus("Войдите или создайте аккаунт, чтобы начать поиск.");
+    setAuthStatus("Войдите или создайте аккаунт, чтобы продолжить поиск.");
     return false;
   }
 
@@ -3421,7 +3426,14 @@ document.getElementById("loginForm")?.addEventListener("submit",async e=>{
     await hydrateCartFromAccount();
     await hydrateAccountData();
     setAuthStatus("Готово.","success");
-    navigate(pendingAccountRoute||"home");
+    const pendingSearch=pendingSearchAfterAuth;
+    pendingSearchAfterAuth=null;
+    if(pendingSearch?.query){
+      navigate("home");
+      await search(pendingSearch.query,{brand:pendingSearch.brand||undefined});
+    }else{
+      navigate(pendingAccountRoute||"home");
+    }
   }catch(error){
     setAuthStatus(authErrorText(error),"error");
   }finally{
@@ -3458,7 +3470,14 @@ document.getElementById("registerForm")?.addEventListener("submit",async e=>{
     await hydrateCartFromAccount();
     await hydrateAccountData();
     setAuthStatus("Аккаунт создан.","success");
-    navigate(pendingAccountRoute||"home");
+    const pendingSearch=pendingSearchAfterAuth;
+    pendingSearchAfterAuth=null;
+    if(pendingSearch?.query){
+      navigate("home");
+      await search(pendingSearch.query,{brand:pendingSearch.brand||undefined});
+    }else{
+      navigate(pendingAccountRoute||"home");
+    }
   }catch(error){
     setAuthStatus(authErrorText(error),"error");
   }finally{
@@ -3494,6 +3513,7 @@ document.getElementById("logoutButton")?.addEventListener("click",async()=>{
     updateVehicleContextUi();
     applySessionUser();
     pendingAccountRoute="home";
+    pendingSearchAfterAuth=null;
     navigate("auth");
   }
 });
