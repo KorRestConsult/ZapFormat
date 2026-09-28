@@ -2272,6 +2272,7 @@ function setCartCheckoutVisible(visible){
     "checkoutContactSummary",
     "checkoutContactFallback",
     "checkoutDeliverySummary",
+    "checkoutPaymentNote",
     "checkoutOrderButton",
     "checkoutRecheckNote",
     "cartOrderWarning"
