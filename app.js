@@ -71,8 +71,9 @@ function loadCart(){
       .filter(x=>x && (x.offerToken || x.live===true))
       .map(x=>{
         const stale=Boolean(x.stale || !x.offerToken);
+        const {purchase: _legacyPurchase, supplierCode: _legacySupplierCode, itemKey: _legacyItemKey, ...safe}=x;
         return {
-          ...x,
+          ...safe,
           orderQty:x.orderQty ?? x.qty ?? 1,
           availableQty:x.availableQty ?? x.available ?? x.qty ?? 0,
           selected:stale ? false : (x.selected ?? true),
