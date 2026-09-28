@@ -64,7 +64,7 @@ set +e
 {
   echo
   echo "===== AUTODEPLOY $(date -u +%Y-%m-%dT%H:%M:%SZ) requested=${REQUESTED_SHA} ====="
-  bash "${APP_DIR}/backend/deploy/release-live-catalog.sh"
+  ZAPFORMAT_TARGET_SHA="${REQUESTED_SHA}" bash "${APP_DIR}/backend/deploy/release-live-catalog.sh"
 } >>"${LOG_FILE}" 2>&1
 CODE=$?
 set -e
