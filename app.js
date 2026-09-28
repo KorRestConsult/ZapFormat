@@ -439,6 +439,18 @@ function formatDateRu(value){
   return d.toLocaleDateString("ru-RU");
 }
 
+function formatDateTimeRu(value){
+  const d=new Date(value);
+  if(Number.isNaN(d.getTime())) return "—";
+  return d.toLocaleString("ru-RU",{
+    day:"2-digit",
+    month:"2-digit",
+    year:"numeric",
+    hour:"2-digit",
+    minute:"2-digit"
+  });
+}
+
 function requestStatusLabel(status){
   const map={
     new:"Принят",
@@ -830,7 +842,7 @@ function renderAccountNotifications(data){
       ? ' data-notification-order="'+escapeHtml(orderMatch[1])+'" data-notification-id="'+escapeHtml(item.id||"")+'" tabindex="0"'
       : "";
     return '<article class="notification-item'+(item.read_at?"":" unread")+'"'+action+'>'+
-      '<div><small>'+formatDateRu(item.created_at)+'</small><b>'+escapeHtml(title)+'</b>'+
+      '<div><small>'+formatDateTimeRu(item.created_at)+'</small><b>'+escapeHtml(title)+'</b>'+
       (body?'<p>'+escapeHtml(body)+'</p>':"")+'</div>'+
       (orderMatch?'<span>Открыть →</span>':(item.read_at?'<span>Прочитано</span>':'<span>Новое</span>'))+
     '</article>';
@@ -1059,7 +1071,7 @@ async function openLiveOrderDetail(id,options={}){
             <div class="timeline-step done">
               <span class="timeline-dot"></span>
               <div class="timeline-copy">
-                <small>${formatDateRu(step.created_at)}</small>
+                <small>${formatDateTimeRu(step.created_at)}</small>
                 <b>${requestStatusLabel(step.status)}</b>
                 ${step.note?`<p>${escapeHtml(historyNoteText(step.note))}</p>`:""}
               </div>
