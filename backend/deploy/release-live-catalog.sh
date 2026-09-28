@@ -155,6 +155,16 @@ if item.get("status") not in ("ok","insufficient"):
 PY
 
 echo
+echo "Account orders route:"
+ACCOUNT_STATUS="$(curl -sS -o /tmp/zf-account-orders.json -w '%{http_code}' "http://127.0.0.1:3000/api/account/orders")"
+echo "HTTP ${ACCOUNT_STATUS} (401 expected without login)"
+if [[ "${ACCOUNT_STATUS}" != "401" ]]; then
+  echo "FAIL: account orders route is not protected/available as expected."
+  cat /tmp/zf-account-orders.json || true
+  exit 1
+fi
+
+echo
 echo "Public site:"
 curl -fsS "https://zap.201.51.28.68.sslip.io/api/health"
 echo
