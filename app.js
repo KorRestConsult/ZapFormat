@@ -1037,7 +1037,7 @@ function showRoute(route){
   }
 
   const protectedProductRoute=route!=="auth";
-  if(protectedProductRoute && backendConfigured() && !sessionUser){
+  if(protectedProductRoute && !sessionUser){
     pendingAccountRoute=route==="search" ? "home" : route;
     document.querySelectorAll(".view").forEach(v=>v.classList.remove("active"));
     document.getElementById("view-auth")?.classList.add("active");
@@ -1606,7 +1606,7 @@ async function search(query,options={}){
   const raw=String(query||"").trim();
   if(!raw) return false;
 
-  if(backendConfigured() && !sessionUser){
+  if(!sessionUser){
     pendingAccountRoute="home";
     showRoute("auth");
     setAuthStatus("Войдите или создайте аккаунт, чтобы начать поиск.");
