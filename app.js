@@ -1522,7 +1522,11 @@ async function checkoutCart(){
 
     localStorage.setItem("zapformat-quote-name",name);
     localStorage.setItem("zapformat-quote-phone",phone);
-    showToast("Заказ "+result.request_id+" принят.");
+    if(result.kind==="order" && result.order_number){
+      showToast("Заказ #"+result.order_number+" создан.");
+    }else{
+      showToast("Запрос "+result.request_id+" принят.");
+    }
 
     if(sessionUser){
       accountDataHydrated=false;
@@ -2438,6 +2442,12 @@ document.addEventListener("click",e=>{
 
   const tab=e.target.closest("[data-account-tab]");
   if(tab){ showAccountTab(tab.dataset.accountTab); return; }
+
+  const liveOrderDetail=e.target.closest("[data-live-order-detail]");
+  if(liveOrderDetail){
+    openLiveOrderDetail(liveOrderDetail.dataset.liveOrderDetail);
+    return;
+  }
 
   const liveDetail=e.target.closest("[data-live-request-detail]");
   if(liveDetail){
