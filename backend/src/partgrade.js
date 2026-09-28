@@ -166,6 +166,29 @@ function createPartGradeClient(options = {}) {
       });
       return request("search/batch", params, { method: "POST" });
     },
+    carbaseManufacturers() {
+      return request("carbase/manufacturers", {
+        locale: "ru_RU"
+      });
+    },
+    carbaseModels(manufacturerId) {
+      return request("carbase/models", {
+        manufacturerId: String(manufacturerId || "").trim(),
+        locale: "ru_RU"
+      });
+    },
+    carbaseModifications(modelId) {
+      return request("carbase/modifications", {
+        modelId: String(modelId || "").trim(),
+        locale: "ru_RU"
+      });
+    },
+    carbaseModificationInfo(modificationId) {
+      return request("carbase/modificationInfo", {
+        modificationId: String(modificationId || "").trim(),
+        locale: "ru_RU"
+      });
+    },
     basketContent() {
       return request("basket/content");
     },
