@@ -1143,12 +1143,18 @@ function updateVehicleContextUi(){
   const disclaimer=document.getElementById("catalogDisclaimer");
 
   if(!vehicle){
-    if(header) header.hidden=true;
+    if(header){
+      header.hidden=false;
+      const mark=document.getElementById("headerVehicleMark");
+      const name=document.getElementById("headerVehicleName");
+      if(mark) mark.textContent="AUTO";
+      if(name) name.textContent="Мой автомобиль";
+    }
     if(home) home.hidden=true;
     if(catalog) catalog.hidden=true;
     if(searchInput) searchInput.placeholder="Артикул / название детали";
     if(searchInput2) searchInput2.placeholder="Артикул или название детали";
-    if(disclaimer) disclaimer.textContent="Информация по аналогам справочная. Перед заказом совместимость уточняется по автомобилю или VIN.";
+    if(disclaimer) disclaimer.textContent="Информация по аналогам справочная. Перед заказом совместимость уточняется по автомобилю.";
     return;
   }
 
