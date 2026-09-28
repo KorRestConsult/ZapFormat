@@ -360,6 +360,7 @@ function saveCart(){
   localStorage.setItem("zapformat-cart", JSON.stringify(cart));
   renderCart();
   renderCartPage();
+  scheduleCartSync();
 }
 
 const API_BASE = (() => {
@@ -372,6 +373,9 @@ let pendingAccountRoute="profile";
 let liveAccountRequests=[];
 let liveAccountOrders=[];
 let accountDataHydrated=false;
+let cartSyncTimer=null;
+let cartSyncReady=false;
+let cartHydratedUserId=null;
 
 function backendConfigured(){ return Boolean(API_BASE); }
 
@@ -400,6 +404,110 @@ async function apiRequest(path,options={}){
     throw error;
   }
   return data;
+}
+
+function cartPayload(){
+  return cart
+    .filter(item=>item && item.offerToken && item.article && item.brand)
+    .slice(0,100)
+    .map(item=>({
+      client_id:String(item.id||"").slice(0,160),
+      article:item.article,
+      brand:item.brand,
+      description:item.name||"",
+      warehouse:item.warehouse||"",
+      delivery_days:Number.isFinite(Number(item.days)) ? Number(item.days) : null,
+      quantity:Math.max(1,Math.trunc(Number(item.orderQty)||1)),
+      available_quantity:Number.isFinite(Number(item.availableQty)) ? Math.max(0,Math.trunc(Number(item.availableQty))) : null,
+      unit_price:Math.max(0,Number(item.price)||0),
+      comment:item.comment||"",
+      selected:item.selected!==false,
+      offer_token:item.offerToken
+    }));
+}
+
+async function syncCartToAccount(){
+  if(!cartSyncReady || !backendConfigured() || !sessionUser) return;
+  try{
+    await apiRequest("/api/cart",{
+      method:"PUT",
+      body:JSON.stringify({items:cartPayload()})
+    });
+  }catch(error){
+    console.warn("ZapFormat cart sync failed",error);
+  }
+}
+
+function scheduleCartSync(){
+  if(!cartSyncReady || !backendConfigured() || !sessionUser) return;
+  clearTimeout(cartSyncTimer);
+  cartSyncTimer=setTimeout(()=>syncCartToAccount(),650);
+}
+
+function cartItemFromAccount(item){
+  const price=Math.max(0,Number(item?.unit_price)||0);
+  const available=Math.max(0,Number(item?.available_quantity)||0);
+  const stale=!item?.offer_token;
+  return {
+    id:String(item?.client_id||("saved-"+item?.id)),
+    type:"saved",
+    brand:String(item?.brand||""),
+    article:String(item?.article||""),
+    name:String(item?.description||"Автозапчасть"),
+    warehouse:String(item?.warehouse||"Поставка"),
+    source:"Сохранённая корзина",
+    purchase:0,
+    retailPrice:price,
+    qty:available,
+    days:Math.max(0,Number(item?.delivery_days)||0),
+    live:true,
+    quoteOnly:false,
+    price,
+    priceAtAdd:price,
+    previousPrice:null,
+    orderQty:Math.max(1,Math.trunc(Number(item?.quantity)||1)),
+    availableQty:available,
+    selected:stale ? false : item?.selected!==false,
+    comment:String(item?.comment||""),
+    priceChanged:false,
+    availabilityChanged:false,
+    stale,
+    offerToken:item?.offer_token||null
+  };
+}
+
+async function hydrateCartFromAccount(){
+  if(!backendConfigured() || !sessionUser) return;
+  const userId=String(sessionUser.id||"");
+  if(cartHydratedUserId===userId) return;
+
+  cartSyncReady=false;
+  try{
+    const data=await apiRequest("/api/cart");
+    const remote=(data?.items||[]).map(cartItemFromAccount);
+    const merged=new Map();
+
+    for(const item of remote){
+      merged.set(String(item.id),item);
+    }
+    for(const item of cart){
+      if(item?.id) merged.set(String(item.id),item);
+    }
+
+    cart=[...merged.values()];
+    localStorage.setItem("zapformat-cart",JSON.stringify(cart));
+    renderCart();
+    renderCartPage();
+    scheduleCartSync();
+
+    cartHydratedUserId=userId;
+    cartSyncReady=true;
+    await syncCartToAccount();
+  }catch(error){
+    console.warn("ZapFormat cart hydration failed",error);
+    cartHydratedUserId=userId;
+    cartSyncReady=true;
+  }
 }
 
 function authErrorText(error){
@@ -788,6 +896,7 @@ async function hydrateSession(){
     const data=await apiRequest("/api/auth/me");
     sessionUser=data.user;
     applySessionUser();
+    await hydrateCartFromAccount();
     await hydrateAccountData();
     if(document.getElementById("view-auth")?.classList.contains("active")){
       showRoute(pendingAccountRoute||"profile");
@@ -1472,6 +1581,7 @@ function setCartComment(id,value){
   const item=cart.find(x=>x.id===id); if(!item) return;
   item.comment=value;
   localStorage.setItem("zapformat-cart",JSON.stringify(cart));
+  scheduleCartSync();
 }
 
 function clearCart(){
@@ -2542,6 +2652,7 @@ document.getElementById("loginForm")?.addEventListener("submit",async e=>{
     });
     sessionUser=result.user;
     applySessionUser();
+    await hydrateCartFromAccount();
     await hydrateAccountData();
     setAuthStatus("Готово.","success");
     navigate(pendingAccountRoute||"profile");
@@ -2576,6 +2687,7 @@ document.getElementById("registerForm")?.addEventListener("submit",async e=>{
     });
     sessionUser=result.user;
     applySessionUser();
+    await hydrateCartFromAccount();
     await hydrateAccountData();
     setAuthStatus("Аккаунт создан.","success");
     navigate(pendingAccountRoute||"profile");
@@ -2593,6 +2705,9 @@ document.getElementById("logoutButton")?.addEventListener("click",async()=>{
     console.warn("ZapFormat logout failed",error);
   }finally{
     sessionUser=null;
+    cartSyncReady=false;
+    cartHydratedUserId=null;
+    clearTimeout(cartSyncTimer);
     applySessionUser();
     pendingAccountRoute="profile";
     navigate("auth");
