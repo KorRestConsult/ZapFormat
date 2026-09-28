@@ -676,6 +676,30 @@ async function supplierIntegrationStatus() {
   };
 }
 
+async function addUserNotification(db, userId, setting, type, title, body = null) {
+  const columns = {
+    order_status: "order_status",
+    item_changes: "item_changes",
+    returns: "returns"
+  };
+  const column = columns[setting];
+  if (!column || !userId || !title) return false;
+
+  const result = await db.query(
+    `INSERT INTO notifications (user_id, type, title, body, created_at)
+     SELECT $1,$2,$3,$4,now()
+      WHERE NOT EXISTS (
+        SELECT 1
+          FROM user_notification_settings
+         WHERE user_id = $1
+           AND ${column} = false
+      )
+     RETURNING id`,
+    [userId, String(type || "info").slice(0, 80), String(title).slice(0, 200), body ? String(body).slice(0, 1000) : null]
+  );
+  return result.rowCount > 0;
+}
+
 function publicUser(row) {
   return {
     id: row.id,
@@ -1954,6 +1978,68 @@ app.put("/api/account/notifications", requireUser, async (req, res, next) => {
     );
 
     res.json({ notifications: result.rows[0] });
+  } catch (error) {
+    next(error);
+  }
+});
+
+app.get("/api/account/notifications", requireUser, async (req, res, next) => {
+  try {
+    const limit = Math.max(1, Math.min(100, Number(req.query?.limit || 30)));
+    const [feed, unread] = await Promise.all([
+      pool.query(
+        `SELECT id, type, title, body, read_at, created_at
+           FROM notifications
+          WHERE user_id = $1
+          ORDER BY created_at DESC
+          LIMIT $2`,
+        [req.user.id, limit]
+      ),
+      pool.query(
+        `SELECT count(*)::int AS count
+           FROM notifications
+          WHERE user_id = $1 AND read_at IS NULL`,
+        [req.user.id]
+      )
+    ]);
+
+    res.json({
+      notifications: feed.rows,
+      unread_count: Number(unread.rows[0]?.count || 0)
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+app.post("/api/account/notifications/read", requireUser, async (req, res, next) => {
+  try {
+    const ids = Array.isArray(req.body?.ids)
+      ? req.body.ids.map((id) => String(id || "").trim()).filter(Boolean).slice(0, 100)
+      : [];
+
+    let result;
+    if (ids.length) {
+      result = await pool.query(
+        `UPDATE notifications
+            SET read_at = COALESCE(read_at, now())
+          WHERE user_id = $1
+            AND id = ANY($2::uuid[])
+        RETURNING id`,
+        [req.user.id, ids]
+      );
+    } else {
+      result = await pool.query(
+        `UPDATE notifications
+            SET read_at = COALESCE(read_at, now())
+          WHERE user_id = $1
+            AND read_at IS NULL
+        RETURNING id`,
+        [req.user.id]
+      );
+    }
+
+    res.json({ ok: true, updated: result.rowCount });
   } catch (error) {
     next(error);
   }
