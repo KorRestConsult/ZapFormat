@@ -2295,7 +2295,8 @@ app.get("/api/account/orders", requireUser, async (req, res, next) => {
     });
     const result = await pool.query(
       `SELECT o.id, o.order_number, o.status, o.total_amount, o.currency, o.created_at,
-              count(i.id)::int AS items_count
+              count(i.id)::int AS items_count,
+              COALESCE(string_agg(DISTINCT concat_ws(' ', i.brand, i.article), ' '),'') AS search_text
          FROM orders o
          LEFT JOIN order_items i ON i.order_id = o.id
         WHERE o.user_id = $1
@@ -2377,7 +2378,8 @@ app.get("/api/account/requests", requireUser, async (req, res, next) => {
       `SELECT q.id, q.status, q.name, q.phone, q.created_at,
               count(i.id)::int AS items_count,
               COALESCE(sum(CASE WHEN i.quoted_price IS NULL THEN 0 ELSE i.quoted_price * i.quantity END),0)::numeric(14,2) AS quoted_total,
-              bool_or(i.needs_confirmation) AS needs_confirmation
+              bool_or(i.needs_confirmation) AS needs_confirmation,
+              COALESCE(string_agg(DISTINCT concat_ws(' ', i.brand, i.article), ' '),'') AS search_text
          FROM quote_requests q
          LEFT JOIN quote_request_items i ON i.request_id = q.id
         WHERE q.user_id = $1
