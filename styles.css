@@ -1074,20 +1074,44 @@ html,body,.app{max-width:100%;overflow-x:hidden}
 .garage-owner-head h2{margin:0 0 5px;font-size:36px;letter-spacing:-.04em;color:var(--navy-3)}
 .garage-owner-head p{margin:0;color:#7c8994;max-width:720px}
 .garage-vehicle-strip{
-  display:flex;gap:8px;align-items:center;margin-bottom:10px
+  display:flex;gap:8px;align-items:center;margin-bottom:10px;
+  overflow-x:auto;scrollbar-width:none;padding-bottom:1px
 }
+.garage-vehicle-strip::-webkit-scrollbar{display:none}
 .garage-vehicle-strip>button{
   border:1px solid #d6dfe5;background:#fff;border-radius:10px;padding:9px 11px;color:#566a78
 }
+.garage-vehicle-strip>button[data-garage-vehicle]{
+  display:flex;align-items:center;gap:10px;text-align:left;min-width:max-content
+}
 .garage-vehicle-strip>button.active{
-  display:flex;align-items:center;gap:10px;text-align:left;border-color:#b9c9d4;
-  box-shadow:0 4px 14px rgba(31,55,74,.05)
+  display:flex;align-items:center;gap:10px;text-align:left;border-color:#849baa;
+  background:#f8fafb;box-shadow:0 4px 14px rgba(31,55,74,.07)
 }
 .garage-vehicle-strip .car-mark{flex:0 0 auto}
 .garage-vehicle-strip b,.garage-vehicle-strip small{display:block}
 .garage-vehicle-strip b{color:var(--navy-3);font-size:12px}
 .garage-vehicle-strip small{color:#8b98a2;font-size:10px;margin-top:2px}
-.garage-add-small{width:42px;height:42px;font-size:20px}
+.garage-add-small{width:42px;height:42px;min-width:42px;font-size:20px}
+.garage-add-new{font-weight:500}
+.garage-empty-state{
+  min-height:330px;background:#fff;border:1px dashed #cad5dc;border-radius:12px;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;
+  padding:36px 22px;box-shadow:var(--shadow)
+}
+.garage-empty-state h3{margin:12px 0 6px;color:var(--navy-3);font-size:22px}
+.garage-empty-state p{max-width:560px;margin:0 0 18px;color:#7c8994;font-size:13px;line-height:1.55}
+.garage-empty-icon{
+  width:52px;height:52px;border-radius:14px;background:#eef3f6;color:var(--navy);
+  display:grid;place-items:center;font-size:28px
+}
+.garage-empty-inline{
+  display:flex;flex-direction:column;gap:5px;background:#f7f9fb;border:1px solid #e2e8ec;
+  border-radius:9px;padding:16px;color:#74828d
+}
+.garage-empty-inline b{color:#425967;font-size:13px}
+.garage-empty-inline span{font-size:11px;line-height:1.5}
+.garage-empty-mini{padding:10px 0;color:#8b98a2;font-size:11px}
 .garage-tabs{
   display:flex;gap:5px;background:#e9eef2;border:1px solid #dce3e8;border-radius:10px;
   padding:4px;margin-bottom:10px;overflow:auto;scrollbar-width:none
@@ -1226,6 +1250,9 @@ html,body,.app{max-width:100%;overflow-x:hidden}
   .garage-owner-head h2{font-size:28px}
   .garage-owner-head p{font-size:12px}
   .garage-owner-head .account-primary{display:none}
+  .garage-vehicle-strip{margin-left:-2px;margin-right:-2px;padding:0 2px 3px}
+  .garage-vehicle-strip>button[data-garage-vehicle]{max-width:260px}
+  .garage-empty-state{min-height:280px;padding:28px 18px}
   .garage-car-hero{grid-template-columns:46px minmax(0,1fr);padding:14px}
   .garage-car-badge{width:44px;height:44px;border-radius:9px;font-size:11px}
   .garage-car-title h2{font-size:22px}
