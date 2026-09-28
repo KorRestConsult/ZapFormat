@@ -1071,7 +1071,7 @@ async function openLiveOrderDetail(id,options={}){
                 <div class="position-title">
                   <h3>${escapeHtml(item.brand||"")} ${escapeHtml(item.article||"")}</h3>
                   <p>${escapeHtml(item.description||"")}</p>
-                  ${item.vehicle_id ? '<small class="order-vehicle-context">Автомобиль: '+escapeHtml([item.vehicle_brand,item.vehicle_model,item.vehicle_generation].filter(Boolean).join(" "))+(item.vehicle_vin?" · "+escapeHtml(shortVin(item.vehicle_vin)):"")</small>' : ""}\n                  ${item.supplier_status ? '<small class="order-vehicle-context">Статус позиции: '+escapeHtml(supplyStatusLabel(item.supplier_status))+'</small>' : ""}
+                  ${item.vehicle_id ? '<small class="order-vehicle-context">Автомобиль: '+escapeHtml([item.vehicle_brand,item.vehicle_model,item.vehicle_generation].filter(Boolean).join(" "))+(item.vehicle_vin?" · "+escapeHtml(shortVin(item.vehicle_vin)):"")+'</small>' : ""}\n                  ${item.supplier_status ? '<small class="order-vehicle-context">Статус позиции: '+escapeHtml(supplyStatusLabel(item.supplier_status))+'</small>' : ""}
                   ${item.comment ? '<small class="order-item-comment">Комментарий: '+escapeHtml(item.comment)+'</small>' : ""}
                 </div>
                 <strong class="status ${requestStatusClass(item.status)}">${requestStatusLabel(item.status)}</strong>
@@ -1145,7 +1145,7 @@ async function openLiveRequestDetail(id,options={}){
                 <div class="position-title">
                   <h3>${escapeHtml(item.brand||"")} ${escapeHtml(item.article||"")}</h3>
                   <p>${escapeHtml(item.description||"")}</p>
-                  ${item.vehicle_id ? '<small class="order-vehicle-context">Автомобиль: '+escapeHtml([item.vehicle_brand,item.vehicle_model,item.vehicle_generation].filter(Boolean).join(" "))+(item.vehicle_vin?" · "+escapeHtml(shortVin(item.vehicle_vin)):"")</small>' : ""}
+                  ${item.vehicle_id ? '<small class="order-vehicle-context">Автомобиль: '+escapeHtml([item.vehicle_brand,item.vehicle_model,item.vehicle_generation].filter(Boolean).join(" "))+(item.vehicle_vin?" · "+escapeHtml(shortVin(item.vehicle_vin)):"")+'</small>' : ""}
                 </div>
                 <strong class="status ${item.needs_confirmation?"review":"ready"}">${item.needs_confirmation?"Цена уточняется":"Цена подтверждена"}</strong>
               </div>
