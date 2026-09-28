@@ -4302,7 +4302,8 @@ body.guest-mode .logo{
 }
 @media(max-width:390px){
   .mobile-nav button{
-    font-size:8.5px!important;
+    min-height:44px!important;
+    font-size:10px!important;
     padding-inline:2px!important
   }
   .mobile-nav b{margin-left:1px!important}
