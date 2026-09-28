@@ -471,7 +471,7 @@ function supplyStatusLabel(status){
   const value=raw.toLowerCase().replace(/[\s_-]+/g,"");
   if(/cancel|canceled|cancelled|отмен|reject/.test(value)) return "Отменено";
   if(/complete|completed|delivered|issued|выдан|заверш/.test(value)) return "Завершено";
-  if(/ready|готов/.test(value)) return "Готово у поставщика";
+  if(/ready|готов/.test(value)) return "Готово к отправке";
   if(/ship|transit|delivery|dispatch|впути|достав/.test(value)) return "В пути";
   if(/process|work|ordered|confirmed|обработ|работ/.test(value)) return "В работе";
   if(/new|created|received|accepted|принят|создан/.test(value)) return "Принято";
@@ -1469,7 +1469,7 @@ function renderSmartPartSearch(data,query){
         <h3>Нужно точнее определить автомобиль</h3>
         <p><b>${escapeHtml(label||"Автомобиль")}</b> найден не однозначно. Уточните поколение, двигатель или год в гараже.</p>
         <p class="vehicle-search-note">${data?.vehicle_identity?.vin_present
-          ? "VIN сохранён, но текущий каталог не умеет автоматически определить модификацию по VIN. ZapFormat не выбирает её по догадке."
+          ? "VIN сохранён, но по нему пока не можем автоматически определить точную модификацию. Выберите её вручную."
           : "Это защита от неверного подбора: ZapFormat не выбирает модификацию по догадке."}</p>
         <div class="vehicle-search-actions"><button type="button" data-edit-vehicle-for-search>Уточнить автомобиль</button></div>
       </div>`;
@@ -1483,7 +1483,7 @@ function renderSmartPartSearch(data,query){
         <span class="eyebrow">${escapeHtml(interpreter)}</span>
         <h3>Выберите модификацию ${label?"· "+escapeHtml(label):""}</h3>
         <p class="vehicle-search-note">${data?.vehicle_identity?.vin_present
-          ? "VIN сохранён, но текущий каталог не расшифровывает его до модификации автоматически. Выберите точную модификацию — выбор сохранится в гараже."
+          ? "VIN сохранён. Выберите точную модификацию вручную — выбор сохранится в гараже."
           : "Выберите точную модификацию — выбор сохранится в гараже. После этого ZapFormat сможет брать артикулы именно из каталога этой модификации."}</p>
         <div class="smart-candidate-list">
           ${candidates.map(c=>`
@@ -1780,7 +1780,7 @@ async function search(query,options={}){
   renderSearchState("Поиск","Получаем список производителей.");
 
   if(!backendConfigured()){
-    renderSearchState("Сервер каталога недоступен","Откройте серверную версию ZapFormat.");
+    renderSearchState("Каталог временно недоступен","Попробуйте ещё раз чуть позже.");
     return false;
   }
 
