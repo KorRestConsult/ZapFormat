@@ -565,6 +565,13 @@ html,body,.app{max-width:100%;overflow-x:hidden}
   color:#8c6b2d;
   font-size:12px
 }
+.cart-description>span{display:block}
+.cart-vehicle-context{
+  display:block;margin-top:4px;color:#6d7f8b;font-size:9px;line-height:1.3
+}
+.order-vehicle-context{
+  display:block;margin-top:5px;color:#6c7f8c;font-size:10px;line-height:1.35;font-weight:650
+}
 .order-table-wrap{
   width:100%;
   overflow-x:auto;
