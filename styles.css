@@ -3670,3 +3670,16 @@ body.guest-mode #view-auth{
   }
   .vehicle-editor-more-grid .wide{grid-column:auto}
 }
+
+
+/* Session boot prevents auth/home flicker while cookies are checked. */
+body.session-pending main,
+body.session-pending .mobile-nav{
+  visibility:hidden
+}
+body.guest-mode .topbar-inner{
+  grid-template-columns:1fr!important
+}
+body.guest-mode .logo{
+  justify-self:center
+}
