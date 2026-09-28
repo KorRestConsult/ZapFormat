@@ -736,7 +736,9 @@ function renderSearchState(titleText,detailText){
   const analogRoot=document.getElementById("analogResults");
   const analogSection=document.getElementById("analogSection");
   const countEl=document.getElementById("offerCount");
+  const countLabel=document.getElementById("offerCountLabel");
   if(countEl) countEl.textContent="0";
+  if(countLabel) countLabel.textContent="предложений";
   if(analogRoot) analogRoot.innerHTML="";
   if(analogSection) analogSection.style.display="none";
   if(exactRoot){
@@ -752,10 +754,12 @@ function renderBrandChoices(article,brands){
   const analogRoot=document.getElementById("analogResults");
   const analogSection=document.getElementById("analogSection");
   const countEl=document.getElementById("offerCount");
+  const countLabel=document.getElementById("offerCountLabel");
   setCatalogControlsVisible(false);
   if(analogRoot) analogRoot.innerHTML="";
   if(analogSection) analogSection.style.display="none";
   if(countEl) countEl.textContent=String(brands.length);
+  if(countLabel) countLabel.textContent=brands.length===1?"производитель":"производителей";
   if(!exactRoot) return;
 
   if(!brands.length){
@@ -1013,8 +1017,7 @@ function groupOffersByPart(items){
   for(const item of items){
     const key=[
       String(item.brand||"").trim().toUpperCase(),
-      String(item.article||"").trim().toUpperCase(),
-      String(item.name||"").trim().toUpperCase()
+      String(item.article||"").trim().toUpperCase()
     ].join("|");
     if(!groups.has(key)) groups.set(key,[]);
     groups.get(key).push(item);
@@ -1049,7 +1052,15 @@ function renderCatalog(){
 
   const count=exact.length+analog.length;
   const countEl=document.getElementById("offerCount");
+  const countLabel=document.getElementById("offerCountLabel");
   if(countEl) countEl.textContent=count;
+  if(countLabel){
+    countLabel.textContent=currentFilter==="exact"
+      ? exact.length+" точных"
+      : currentFilter==="analog"
+        ? analog.length+" аналогов"
+        : exact.length+" точных · "+analog.length+" аналогов";
+  }
 }
 
 function findItem(id){
