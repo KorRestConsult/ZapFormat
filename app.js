@@ -203,32 +203,19 @@ let expandedGroups = new Set();
 let cart = loadCart();
 const defaultGarageState = {
   vehicle:{
-    id:"demo-bmw-x3",
-    brand:"BMW",
-    model:"X3 F25",
-    year:2010,
-    engine:"2.0 Diesel · N47",
+    id:null,
+    brand:"",
+    model:"",
+    year:"",
+    engine:"",
     vin:"",
     plate:"",
-    mileage:186420
+    mileage:0,
+    isDefault:false
   },
-  maintenance:[
-    {id:"oil",title:"Масло двигателя + фильтр",intervalKm:10000,lastKm:180000,nextKm:190000,status:"soon",query:"BMW X3 F25 N47 масло двигателя масляный фильтр комплект ТО"},
-    {id:"air",title:"Воздушный фильтр",intervalKm:20000,lastKm:180000,nextKm:200000,status:"ok",query:"BMW X3 F25 N47 воздушный фильтр"},
-    {id:"cabin",title:"Салонный фильтр",intervalKm:15000,lastKm:180000,nextKm:195000,status:"ok",query:"BMW X3 F25 салонный фильтр"},
-    {id:"fuel",title:"Топливный фильтр",intervalKm:30000,lastKm:180000,nextKm:210000,status:"ok",query:"BMW X3 F25 N47 топливный фильтр"},
-    {id:"brakes",title:"Тормоза",intervalKm:null,lastKm:null,nextKm:null,status:"measure",query:"BMW X3 F25 тормозные колодки диски по VIN"}
-  ],
-  measurements:[
-    {id:"m1",type:"Передние колодки",value:"6",unit:"мм",date:"24.09.2026",note:"пример замера"},
-    {id:"m2",type:"Протектор перед",value:"5.2",unit:"мм",date:"24.09.2026",note:"пример замера"},
-    {id:"m3",type:"Протектор зад",value:"4.8",unit:"мм",date:"24.09.2026",note:"пример замера"},
-    {id:"m4",type:"АКБ без нагрузки",value:"12.6",unit:"В",date:"24.09.2026",note:"пример замера"}
-  ],
-  history:[
-    {id:"h1",date:"12.07.2026",mileage:180000,title:"ТО",note:"Масло двигателя, масляный фильтр, салонный фильтр"},
-    {id:"h2",date:"20.03.2026",mileage:174600,title:"Замена",note:"Передние тормозные колодки"}
-  ]
+  maintenance:[],
+  measurements:[],
+  history:[]
 };
 const garageServicePackages = {
   oil:{
@@ -295,12 +282,15 @@ function ensureGarageServiceSelection(serviceId){
 
 let garageTab="overview";
 let garageMeasurementOpen=false;
+let garageVehicles=[];
+let garageActiveVehicleId=null;
 let garageState=loadGarageState();
 
 function loadGarageState(){
   try{
     const saved=JSON.parse(localStorage.getItem("zapformat-garage")||"null");
-    return saved ? {...structuredClone(defaultGarageState),...saved,vehicle:{...defaultGarageState.vehicle,...saved.vehicle}} : structuredClone(defaultGarageState);
+    if(!saved || String(saved?.vehicle?.id||"").startsWith("demo-")) return structuredClone(defaultGarageState);
+    return {...structuredClone(defaultGarageState),...saved,vehicle:{...defaultGarageState.vehicle,...saved.vehicle}};
   }catch{
     return structuredClone(defaultGarageState);
   }
@@ -701,41 +691,60 @@ function renderLiveAccount(overview,orders,requests,garage){
   }
 }
 
+function normalizeGarageVehicle(vehicle){
+  return {
+    id:vehicle?.id||null,
+    brand:String(vehicle?.brand||""),
+    model:String(vehicle?.model||""),
+    generation:String(vehicle?.generation||""),
+    year:vehicle?.year||"",
+    engine:String(vehicle?.engine||""),
+    vin:String(vehicle?.vin||""),
+    plate:String(vehicle?.plate_number||vehicle?.plate||""),
+    mileage:Number(vehicle?.current_mileage??vehicle?.mileage??0)||0,
+    isDefault:Boolean(vehicle?.is_default)
+  };
+}
+
 async function hydrateRealGarage(garage){
   if(!sessionUser) return;
-  const vehicle=garage?.vehicles?.[0];
-  if(!vehicle){
-    garageState={
-      vehicle:{id:null,brand:"",model:"",year:new Date().getFullYear(),engine:"",vin:"",plate:"",mileage:0},
-      maintenance:[],
-      measurements:[],
-      history:[]
-    };
+
+  garageVehicles=(garage?.vehicles||[]).map(normalizeGarageVehicle);
+
+  if(!garageVehicles.length){
+    garageActiveVehicleId=null;
+    garageState=structuredClone(defaultGarageState);
+    saveGarageState();
     renderGarageApp();
     return;
   }
+
+  let vehicle=
+    garageVehicles.find(x=>String(x.id)===String(garageActiveVehicleId)) ||
+    garageVehicles.find(x=>x.isDefault) ||
+    garageVehicles[0];
+
+  garageActiveVehicleId=vehicle.id;
+
   try{
     const detail=await apiRequest("/api/garage/vehicles/"+encodeURIComponent(vehicle.id));
+    const currentMileage=Number(detail.vehicle.current_mileage||0);
     garageState={
-      vehicle:{
-        id:detail.vehicle.id,
-        brand:detail.vehicle.brand||"",
-        model:detail.vehicle.model||"",
-        year:detail.vehicle.year||"",
-        engine:detail.vehicle.engine||"",
-        vin:detail.vehicle.vin||"",
-        plate:detail.vehicle.plate_number||"",
-        mileage:detail.vehicle.current_mileage||0
-      },
-      maintenance:(detail.maintenance||[]).map(x=>({
-        id:x.code||x.id,
-        title:x.title,
-        intervalKm:x.interval_km,
-        lastKm:x.last_service_mileage,
-        nextKm:x.next_service_mileage,
-        status:"ok",
-        query:x.part_search_query||""
-      })),
+      vehicle:normalizeGarageVehicle(detail.vehicle),
+      maintenance:(detail.maintenance||[]).map(x=>{
+        const nextMileage=x.next_service_mileage===null ? null : Number(x.next_service_mileage);
+        const remaining=nextMileage===null ? null : nextMileage-currentMileage;
+        return {
+          id:x.id,
+          code:x.code||"",
+          title:x.title,
+          intervalKm:x.interval_km,
+          lastKm:x.last_service_mileage,
+          nextKm:nextMileage,
+          status:remaining===null ? "measure" : remaining<=2500 ? "soon" : "ok",
+          query:x.part_search_query||""
+        };
+      }),
       measurements:(detail.measurements||[]).map(x=>({
         id:x.id,
         type:x.measurement_type,
@@ -752,9 +761,33 @@ async function hydrateRealGarage(garage){
         note:x.note||""
       }))
     };
+    saveGarageState();
     renderGarageApp();
   }catch(error){
     console.warn("Garage hydration failed",error);
+  }
+}
+
+async function selectGarageVehicle(vehicleId){
+  if(!sessionUser || !vehicleId || String(vehicleId)===String(garageActiveVehicleId)) return;
+  const target=garageVehicles.find(x=>String(x.id)===String(vehicleId));
+  if(!target) return;
+
+  garageActiveVehicleId=target.id;
+  garageTab="overview";
+  garageMeasurementOpen=false;
+
+  try{
+    await apiRequest("/api/garage/vehicles/"+encodeURIComponent(target.id)+"/default",{method:"POST"});
+    garageVehicles=garageVehicles.map(x=>({...x,isDefault:String(x.id)===String(target.id)}));
+    await hydrateRealGarage({vehicles:garageVehicles.map(x=>({
+      id:x.id,brand:x.brand,model:x.model,generation:x.generation,year:x.year,engine:x.engine,
+      vin:x.vin,plate_number:x.plate,current_mileage:x.mileage,is_default:x.isDefault
+    }))});
+    accountDataHydrated=false;
+  }catch(error){
+    console.error("Garage vehicle switch failed",error);
+    showToast("Не удалось переключить автомобиль.","warn");
   }
 }
 
