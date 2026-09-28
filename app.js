@@ -515,7 +515,7 @@ function renderLiveAccount(overview,orders,requests,garage){
       const detailAttr=isOrder
         ? `data-live-order-detail="${row.key}"`
         : `data-live-request-detail="${row.key}"`;
-      return `<div class="account-table-row">
+      return `<div class="account-table-row" data-order-status="${escapeHtml(String(row.status||""))}">
         <b>#${row.number}</b>
         <span>${formatDateRu(row.created_at)}</span>
         <span>${row.items_count}</span>
@@ -1840,6 +1840,16 @@ async function refreshCartOffers(options={}){
   const button=document.getElementById("refreshCartButton");
 
   if(!refreshable.length){
+    if(!cart.length){
+      if(status) status.textContent="Корзина пустая";
+      if(time) time.textContent="";
+      if(notice){
+        notice.hidden=true;
+        notice.textContent="";
+      }
+      return {ok:true,changed:0,blocked:0};
+    }
+
     cart.forEach(item=>{
       item.stale=true;
       item.selected=false;
@@ -2346,6 +2356,10 @@ function restoreFromUrl(){
     search(q,{push:false,brand});
   } else if(view){
     showRoute(view);
+    if(view==="cart"){
+      renderCartPage();
+      refreshCartOffers({silent:true});
+    }
   } else {
     showRoute("home");
   }
@@ -3242,9 +3256,11 @@ function filterAccountOrders(){
   const status=String(document.getElementById("orderStatusFilter")?.value||"").trim().toLowerCase();
   document.querySelectorAll("#account-orders .account-table-row").forEach(row=>{
     const text=row.textContent.toLowerCase();
-    const rowStatus=String(row.querySelector(".status")?.textContent||"").trim().toLowerCase();
+    const rawStatus=String(row.dataset.orderStatus||"").trim().toLowerCase();
     const matchesQuery=!query || text.includes(query);
-    const matchesStatus=!status || rowStatus.includes(status);
+    const matchesStatus=!status || (status==="active"
+      ? ["new","processing"].includes(rawStatus)
+      : rawStatus===status);
     row.hidden=!(matchesQuery && matchesStatus);
   });
 }
