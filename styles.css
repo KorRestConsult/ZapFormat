@@ -3475,3 +3475,12 @@ html{scroll-padding-bottom:calc(88px + env(safe-area-inset-bottom))}
     font-size:9px
   }
 }
+
+.order-item-comment{
+  display:block;
+  margin-top:5px;
+  color:#6c7f8c;
+  font-size:10px;
+  line-height:1.35;
+  font-weight:650
+}
