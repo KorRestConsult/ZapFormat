@@ -741,28 +741,32 @@ async function tryLiveArticle(raw){
       "&brand="+encodeURIComponent(preferred.brand)
     );
     const offers=Array.isArray(offersData?.offers) ? offersData.offers : [];
-    if(offers.length){
+    const analogOffers=Array.isArray(offersData?.analogs) ? offersData.analogs : [];
+    if(offers.length || analogOffers.length){
       const key="live:"+article.toUpperCase();
-      const exact=offers.map((o,index)=>({
-        id:"live-"+Date.now()+"-"+index,
-        type:"exact",
+      const mapOffer=(o,index,type)=>({
+        id:"live-"+type+"-"+Date.now()+"-"+index,
+        type,
         brand:o.brand||preferred.brand,
         article:o.article||preferred.article||article,
         name:o.description||preferred.description||"Автозапчасть",
-        warehouse:"PartGrade",
-        source:"Живое предложение",
+        warehouse:"Поставка",
+        source:type==="analog"?"Аналог":"Точное предложение",
         purchase:0,
         retailPrice:Number(o.price||0),
         qty:Number(o.availability||0),
         days:Math.max(0,Math.ceil(Number(o.delivery_hours||0)/24)),
+        deliveryProbability:o.delivery_probability??null,
         live:true
       }));
+      const exact=offers.map((o,index)=>mapOffer(o,index,"exact"));
+      const analogs=analogOffers.map((o,index)=>mapOffer(o,index,"analog"));
 
       datasets[key]={
         title:(preferred.brand+" "+(preferred.article||article)).trim(),
-        subtitle:preferred.description||exact[0].name||"Результат PartGrade",
+        subtitle:preferred.description||(exact[0]?.name||analogs[0]?.name)||"Результат PartGrade",
         exact,
-        analogs:[]
+        analogs
       };
       currentKey=key;
       return true;
