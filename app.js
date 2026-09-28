@@ -1135,7 +1135,7 @@ async function hydrateSession(){
     await hydrateCartFromAccount();
     await hydrateAccountData();
     if(document.getElementById("view-auth")?.classList.contains("active")){
-      showRoute(pendingAccountRoute||"profile");
+      showRoute(pendingAccountRoute||"home");
     }
     return sessionUser;
   }catch(error){
