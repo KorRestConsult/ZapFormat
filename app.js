@@ -2712,7 +2712,6 @@ document.addEventListener("input",e=>{
 document.getElementById("refreshCartButton")?.addEventListener("click",refreshCartOffers);
 document.getElementById("clearCartButton")?.addEventListener("click",clearCart);
 document.getElementById("deleteSelectedButton")?.addEventListener("click",deleteSelected);
-document.getElementById("saveCartButton")?.addEventListener("click",saveCartManual);
 document.getElementById("checkoutOrderButton")?.addEventListener("click",checkoutCart);
 document.getElementById("cartBackButton")?.addEventListener("click",()=>safeBack("home"));
 
