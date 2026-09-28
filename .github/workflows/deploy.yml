@@ -86,3 +86,6 @@ jobs:
           echo "Vehicle catalog:"
           curl -fsS https://api.201.51.28.68.sslip.io/api/catalog/vehicle-catalog/status
           echo
+          echo "Supplier integration:"
+          curl -fsS https://api.201.51.28.68.sslip.io/api/integration/status
+          echo
