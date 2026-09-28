@@ -2000,14 +2000,40 @@ function deleteSelected(){
   saveCart();
 }
 
-function saveCartManual(){
+async function saveCartManual(){
   localStorage.setItem("zapformat-cart",JSON.stringify(cart));
-  const buttons=document.querySelectorAll('#saveCartButton,[data-cart-action="save"]');
+  const buttons=[...document.querySelectorAll('#saveCartButton,[data-cart-action="save"]')];
+  const labels=buttons.map(btn=>btn.textContent);
   buttons.forEach(btn=>{
-    const old=btn.textContent;
-    btn.textContent="✓ Сохранено";
-    setTimeout(()=>btn.textContent=old,900);
+    btn.disabled=true;
+    btn.textContent="Сохраняем…";
   });
+
+  try{
+    if(backendConfigured() && sessionUser){
+      await apiRequest("/api/cart",{
+        method:"PUT",
+        body:JSON.stringify({items:cartPayload()})
+      });
+      cartSyncReady=true;
+      showToast("Корзина сохранена в аккаунте.");
+    }else{
+      showToast("Корзина сохранена на этом устройстве.");
+    }
+
+    buttons.forEach(btn=>btn.textContent="✓ Сохранено");
+  }catch(error){
+    console.error("Manual cart save failed",error);
+    buttons.forEach(btn=>btn.textContent="Ошибка");
+    showToast("Не удалось сохранить корзину на сервере.","warn");
+  }finally{
+    setTimeout(()=>{
+      buttons.forEach((btn,index)=>{
+        btn.textContent=labels[index]||"Сохранить";
+        btn.disabled=false;
+      });
+    },900);
+  }
 }
 
 async function checkoutCart(){
@@ -2127,7 +2153,7 @@ document.addEventListener("click",async e=>{
     const action=cartAction.dataset.cartAction;
     if(action==="clear") clearCart();
     else if(action==="delete-selected") deleteSelected();
-    else if(action==="save") saveCartManual();
+    else if(action==="save") await saveCartManual();
     else if(action==="checkout") checkoutCart();
     return;
   }
