@@ -74,12 +74,7 @@ if [[ "${CODE}" -eq 0 ]]; then
   write_state "success" "${DEPLOYED_SHA}" "Deployment completed"
 else
   CURRENT_SHA="$(git -C "${APP_DIR}" rev-parse HEAD 2>/dev/null || true)"
-  FAILURE_STAGE="$(cat "${STATE_DIR}/release-stage" 2>/dev/null || true)"
-  if [[ -n "${FAILURE_STAGE}" ]]; then
-    write_state "failed" "${CURRENT_SHA}" "Deployment failed at stage: ${FAILURE_STAGE}; rollback attempted"
-  else
-    write_state "failed" "${CURRENT_SHA}" "Deployment failed; release script attempted rollback"
-  fi
+  write_state "failed" "${CURRENT_SHA}" "Deployment failed; release script attempted rollback"
 fi
 
 exit "${CODE}"

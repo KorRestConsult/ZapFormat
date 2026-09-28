@@ -3,18 +3,6 @@
 const DEFAULT_MODEL = "gpt-5.6-luna";
 const DEFAULT_TIMEOUT_MS = 9000;
 
-const CATEGORY_HINTS = {
-  brake_pad: ["brake_pad"],
-  brake_disk: ["brake_disk"],
-  brake_drum: ["brake_drum"],
-  oil_filter: ["oil_filter"],
-  air_filter: ["air_filter"],
-  cabin_filter: ["cabin_filter"],
-  fuel_filter: ["fuel_filter"],
-  drain_plug_seal: ["drain_plug_seal"],
-  spark_plugs: ["spark_plugs"]
-};
-
 function cleanText(value, max = 240) {
   return String(value || "").trim().replace(/\s+/g, " ").slice(0, max);
 }
@@ -33,57 +21,46 @@ function normalizeVehicle(vehicle) {
   };
 }
 
-function catalogHints(category) {
-  return CATEGORY_HINTS[String(category || "")] || [];
-}
-
 function fallbackIntent(query, vehicle) {
   const raw = cleanText(query, 400);
-  const lower = raw.toLowerCase().replace(/ё/g, "е");
+  const lower = raw.toLowerCase();
 
   const side =
-    /(лев(ый|ая|ое|ые)?|левая|левую|левого)/.test(lower) ? "left" :
-    /(прав(ый|ая|ое|ые)?|правая|правую|правого)/.test(lower) ? "right" :
-    "any";
-
+    /\b(лев(ый|ая|ое|ые)?|левая|левую|левого)\b/.test(lower) ? "left" :
+    /\b(прав(ый|ая|ое|ые)?|правая|правую|правого)\b/.test(lower) ? "right" :
+    null;
   const axle =
-    /(перед|передн|спереди)/.test(lower) ? "front" :
-    /(зад|задн|сзади)/.test(lower) ? "rear" :
-    "any";
+    /\b(перед|передн|спереди)\w*/.test(lower) ? "front" :
+    /\b(зад|задн|сзади)\w*/.test(lower) ? "rear" :
+    null;
 
   const quantityMatch = lower.match(/(?:^|\s)(\d{1,3})\s*(?:шт|штук|компл)/);
   const quantity = quantityMatch ? Math.max(1, Math.min(99, Number(quantityMatch[1]))) : 1;
 
+  const categories = [
+    ["brake_pads", ["колодк", "тормозные колодки"]],
+    ["brake_disc", ["тормозн", "диск"]],
+    ["oil_filter", ["масляный фильтр", "фильтр масла"]],
+    ["air_filter", ["воздушн", "фильтр"]],
+    ["cabin_filter", ["салонн", "фильтр"]],
+    ["fuel_filter", ["топливн", "фильтр"]],
+    ["wiper", ["щетк", "дворник"]],
+    ["radiator", ["радиатор"]],
+    ["engine_mount", ["подушк", "двигател"]],
+    ["transmission_mount", ["опор", "кпп"]],
+    ["stabilizer_bushing", ["втулк", "стабилизатор"]],
+    ["spark_plug", ["свеч", "зажиган"]],
+    ["shock_absorber", ["амортизатор"]],
+    ["wheel_bearing", ["ступич", "подшипник"]]
+  ];
+
   let category = "unknown";
-  let specialCategory = "none";
-
-  if (/колодк/.test(lower)) category = "brake_pad";
-  else if (/тормозн[^\s]*\s+диск/.test(lower) || /диск[^\s]*\s+тормозн/.test(lower)) category = "brake_disk";
-  else if (/тормозн[^\s]*\s+барабан/.test(lower)) category = "brake_drum";
-  else if (/маслян\w*\s+фильтр|фильтр\w*\s+масл/.test(lower)) category = "oil_filter";
-  else if (/воздушн\w*\s+фильтр|фильтр\w*\s+воздуш/.test(lower)) category = "air_filter";
-  else if (/салонн\w*\s+фильтр|фильтр\w*\s+салон/.test(lower)) category = "cabin_filter";
-  else if (/топливн\w*\s+фильтр|фильтр\w*\s+топлив/.test(lower)) category = "fuel_filter";
-  else if (/сливн\w*.*(пробк|шайб|уплотн)|уплотн\w*.*сливн/.test(lower)) category = "drain_plug_seal";
-  else if (/свеч/.test(lower)) category = "spark_plugs";
-  else if (/(дворник|щетк)/.test(lower)) specialCategory = "wipers";
-  else if (/(шин|резин)/.test(lower)) specialCategory = "tires";
-  else if (/(колесн[^\s]*\s+диск|диски колес)/.test(lower)) specialCategory = "wheels";
-  else if (/фильтр/.test(lower)) category = "filter_ambiguous";
-  else if (/радиатор/.test(lower)) category = "radiator";
-  else if (/(подушк|опор).*(двигател|мотор)/.test(lower)) category = "engine_mount";
-  else if (/(подушк|опор).*(кпп|короб)/.test(lower)) category = "transmission_mount";
-  else if (/втулк.*стабилизатор/.test(lower)) category = "stabilizer_bushing";
-  else if (/амортизатор/.test(lower)) category = "shock_absorber";
-  else if (/ступич.*подшипник/.test(lower)) category = "wheel_bearing";
-
-  const clarificationNeeded = category === "unknown" || category === "filter_ambiguous";
-  const clarificationQuestion =
-    category === "filter_ambiguous"
-      ? "Какой фильтр нужен: масляный, воздушный, салонный или топливный?"
-      : category === "unknown"
-        ? "Уточните, какую именно деталь нужно подобрать."
-        : null;
+  for (const [code, terms] of categories) {
+    if (terms.every((term) => lower.includes(term)) || (terms.length === 1 && lower.includes(terms[0]))) {
+      category = code;
+      break;
+    }
+  }
 
   return {
     kind: "part_request",
@@ -94,46 +71,25 @@ function fallbackIntent(query, vehicle) {
     axle,
     quantity,
     wants_oem: /\b(oem|оригинал|оригинальный|ориг)\b/i.test(raw),
-    special_category: specialCategory,
-    goods_group_hints: catalogHints(category),
-    clarification_needed: clarificationNeeded,
-    clarification_question: clarificationQuestion,
-    fitment_status: vehicle ? "vehicle_context_only" : "vehicle_required"
+    article: null,
+    brand: null,
+    clarification_needed: category === "unknown",
+    clarification_question: category === "unknown"
+      ? "Уточните, какую именно деталь нужно подобрать."
+      : null,
+    fitment_status: vehicle ? "vehicle_context_only" : "vehicle_required",
+    safe_to_search_by_article: false
   };
 }
 
 function responseText(data) {
   if (typeof data?.output_text === "string" && data.output_text.trim()) return data.output_text.trim();
   for (const item of Array.isArray(data?.output) ? data.output : []) {
-    for (const part of Array.isArray(item?.content) ? item.content : []) {
-      if (part?.type === "output_text" && typeof part.text === "string") return part.text.trim();
+    for (const content of Array.isArray(item?.content) ? item.content : []) {
+      if (content?.type === "output_text" && typeof content.text === "string") return content.text.trim();
     }
   }
   return "";
-}
-
-function normalizeIntent(value, fallback) {
-  const category = cleanText(value?.category || fallback.category, 80) || "unknown";
-  const special = ["none","wipers","tires","wheels"].includes(value?.special_category)
-    ? value.special_category
-    : fallback.special_category;
-  return {
-    kind: "part_request",
-    normalized_query: cleanText(value?.normalized_query || fallback.normalized_query, 400),
-    category,
-    part_name: cleanText(value?.part_name || fallback.part_name, 180),
-    side: ["left","right","any"].includes(value?.side) ? value.side : fallback.side,
-    axle: ["front","rear","any"].includes(value?.axle) ? value.axle : fallback.axle,
-    quantity: Math.max(1, Math.min(99, Number(value?.quantity || fallback.quantity || 1))),
-    wants_oem: Boolean(value?.wants_oem),
-    special_category: special,
-    goods_group_hints: catalogHints(category),
-    clarification_needed: Boolean(value?.clarification_needed),
-    clarification_question: value?.clarification_question
-      ? cleanText(value.clarification_question, 180)
-      : null,
-    fitment_status: fallback.fitment_status
-  };
 }
 
 async function interpretWithOpenAI(query, vehicle, options = {}) {
@@ -146,33 +102,34 @@ async function interpretWithOpenAI(query, vehicle, options = {}) {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
 
-  const categories = [
-    "brake_pad","brake_disk","brake_drum","oil_filter","air_filter","cabin_filter",
-    "fuel_filter","drain_plug_seal","spark_plugs","radiator","engine_mount",
-    "transmission_mount","stabilizer_bushing","shock_absorber","wheel_bearing",
-    "filter_ambiguous","unknown"
-  ];
-
   const schema = {
     type: "object",
     additionalProperties: false,
     properties: {
+      kind: { type: "string", enum: ["part_request", "article_search", "vin", "unknown"] },
       normalized_query: { type: "string" },
-      category: { type: "string", enum: categories },
+      category: { type: "string" },
       part_name: { type: "string" },
-      side: { type: "string", enum: ["left","right","any"] },
-      axle: { type: "string", enum: ["front","rear","any"] },
+      side: { type: ["string", "null"], enum: ["left", "right", null] },
+      axle: { type: ["string", "null"], enum: ["front", "rear", null] },
       quantity: { type: "integer", minimum: 1, maximum: 99 },
       wants_oem: { type: "boolean" },
-      special_category: { type: "string", enum: ["none","wipers","tires","wheels"] },
+      article: { type: ["string", "null"] },
+      brand: { type: ["string", "null"] },
       clarification_needed: { type: "boolean" },
-      clarification_question: { type: ["string","null"] }
+      clarification_question: { type: ["string", "null"] },
+      fitment_status: { type: "string", enum: ["vehicle_required", "vehicle_context_only", "article_explicit", "unknown"] },
+      safe_to_search_by_article: { type: "boolean" }
     },
     required: [
-      "normalized_query","category","part_name","side","axle","quantity",
-      "wants_oem","special_category","clarification_needed","clarification_question"
+      "kind","normalized_query","category","part_name","side","axle","quantity","wants_oem",
+      "article","brand","clarification_needed","clarification_question","fitment_status","safe_to_search_by_article"
     ]
   };
+
+  const vehicleText = vehicle
+    ? JSON.stringify(normalizeVehicle(vehicle))
+    : "null";
 
   const body = {
     model,
@@ -182,19 +139,19 @@ async function interpretWithOpenAI(query, vehicle, options = {}) {
         content: [{
           type: "input_text",
           text:
-            "You normalize Russian automotive-parts search intent. " +
-            "Never invent or output OEM numbers, aftermarket article numbers, brands, VIN facts, engine codes, or compatibility. " +
-            "The vehicle catalog, not the model, will decide applicability. " +
-            "Choose only the semantic category and position requested. " +
-            "For a bare word 'фильтр', require clarification. " +
-            "Use special_category=wipers for дворники/щетки стеклоочистителя, tires for шины/резина, wheels for колесные диски."
+            "You are the intent parser for a Russian automotive-parts shop. " +
+            "Extract what the customer wants. Never invent an OEM number, aftermarket article, brand, VIN fact, compatibility claim, engine code, or vehicle modification. " +
+            "Only set article/brand when the user explicitly supplied them in the query. " +
+            "A saved vehicle is context only, never proof that a part fits. " +
+            "Use short Russian normalized_query and part_name. " +
+            "If the request is ambiguous in a way that prevents safe part selection, set clarification_needed=true and ask one concise Russian question."
         }]
       },
       {
         role: "user",
         content: [{
           type: "input_text",
-          text: "Query: " + cleanText(query, 400) + "\nSaved vehicle context: " + JSON.stringify(normalizeVehicle(vehicle))
+          text: "Query: " + cleanText(query, 400) + "\nSaved vehicle: " + vehicleText
         }]
       }
     ],
@@ -206,14 +163,14 @@ async function interpretWithOpenAI(query, vehicle, options = {}) {
         schema
       }
     },
-    max_output_tokens: 450
+    max_output_tokens: 500
   };
 
   try {
     const response = await fetchImpl("https://api.openai.com/v1/responses", {
       method: "POST",
       headers: {
-        Authorization: "Bearer " + apiKey,
+        "Authorization": "Bearer " + apiKey,
         "Content-Type": "application/json"
       },
       body: JSON.stringify(body),
@@ -228,7 +185,7 @@ async function interpretWithOpenAI(query, vehicle, options = {}) {
     }
     const text = responseText(data);
     if (!text) throw new Error("openai_search_empty");
-    return { value: JSON.parse(text), model };
+    return { intent: JSON.parse(text), model };
   } finally {
     clearTimeout(timer);
   }
@@ -239,7 +196,7 @@ async function interpretSearch(query, vehicle, options = {}) {
   try {
     const ai = await interpretWithOpenAI(query, vehicle, options);
     if (!ai) return { mode: "fallback", model: null, intent: fallback };
-    return { mode: "ai", model: ai.model, intent: normalizeIntent(ai.value, fallback) };
+    return { mode: "ai", model: ai.model, intent: ai.intent };
   } catch (error) {
     if (options.throwOnAIError) throw error;
     return {
@@ -252,10 +209,7 @@ async function interpretSearch(query, vehicle, options = {}) {
 }
 
 module.exports = {
-  CATEGORY_HINTS,
-  catalogHints,
   fallbackIntent,
   interpretSearch,
-  normalizeIntent,
   normalizeVehicle
 };

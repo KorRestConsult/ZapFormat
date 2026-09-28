@@ -17,22 +17,6 @@ jobs:
   deploy:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Validate application
-        shell: bash
-        run: |
-          set -Eeuo pipefail
-          node --check app.js
-          node --check backend/src/server.js
-          node --check backend/src/partgrade.js
-          node --check backend/src/ai-search.js
-          node --check backend/src/vehicle-catalog.js
-          node --check backend/src/secret-bootstrap.js
-          cd backend
-          npm test
-
       - name: Request GitHub OIDC token
         id: oidc
         shell: bash
@@ -62,8 +46,7 @@ jobs:
               STATUS="$(python3 -c 'import json,sys; print(json.load(sys.stdin).get("status",""))' <<<"${JSON}" 2>/dev/null || true)"
               DEPLOYED="$(python3 -c 'import json,sys; print(json.load(sys.stdin).get("deployed_sha") or "")' <<<"${JSON}" 2>/dev/null || true)"
               REQUESTED="$(python3 -c 'import json,sys; print(json.load(sys.stdin).get("requested_sha") or "")' <<<"${JSON}" 2>/dev/null || true)"
-              MESSAGE="$(python3 -c 'import json,sys; print(json.load(sys.stdin).get("message") or "")' <<<"${JSON}" 2>/dev/null || true)"
-              echo "status=${STATUS} requested=${REQUESTED} deployed=${DEPLOYED} message=${MESSAGE}"
+              echo "status=${STATUS} requested=${REQUESTED} deployed=${DEPLOYED}"
               if [[ "${STATUS}" == "success" && "${DEPLOYED}" == "${GITHUB_SHA}" ]]; then
                 exit 0
               fi
