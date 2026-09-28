@@ -6,7 +6,8 @@ const {
   resolveSupplierCheckout,
   normalizeSupplierOrders,
   positionKey,
-  internalItemStatusFromSupply
+  internalItemStatusFromSupply,
+  aggregateOrderStatusFromItems
 } = require("../src/supplier-orders");
 
 test("supplier checkout auto-selects unique options", () => {
@@ -38,5 +39,18 @@ test("supplier order helpers normalize payloads and statuses", () => {
   assert.equal(normalizeSupplierOrders({ orders: { a: { number: 10 } } }).length, 1);
   assert.equal(positionKey("Patron", "PRS-3420"), "PATRON|PRS3420");
   assert.equal(internalItemStatusFromSupply("supOrderCanceled"), "cancelled");
+  assert.equal(internalItemStatusFromSupply("canceled"), "cancelled");
   assert.equal(internalItemStatusFromSupply("delivery"), "processing");
+  assert.equal(internalItemStatusFromSupply("orderPicking"), "processing");
+  assert.equal(internalItemStatusFromSupply("finished"), "completed");
+  assert.equal(internalItemStatusFromSupply(null, "Готов к выдаче"), "ready");
+});
+
+test("supplier item statuses roll up to a customer order status", () => {
+  assert.equal(aggregateOrderStatusFromItems(["processing", "ready"], "new"), "processing");
+  assert.equal(aggregateOrderStatusFromItems(["ready", "completed"], "processing"), "ready");
+  assert.equal(aggregateOrderStatusFromItems(["completed", "completed"], "processing"), "completed");
+  assert.equal(aggregateOrderStatusFromItems(["completed", "cancelled"], "processing"), "completed");
+  assert.equal(aggregateOrderStatusFromItems(["cancelled", "cancelled"], "processing"), "cancelled");
+  assert.equal(aggregateOrderStatusFromItems(["processing"], "completed"), "completed");
 });

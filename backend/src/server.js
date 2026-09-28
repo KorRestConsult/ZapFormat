@@ -36,7 +36,8 @@ const {
   supplierPositionStatus,
   supplierPositionStatusCode,
   positionKey,
-  internalItemStatusFromSupply
+  internalItemStatusFromSupply,
+  aggregateOrderStatusFromItems
 } = require("./supplier-orders");
 
 const app = express();
@@ -342,7 +343,7 @@ async function saveSupplierOrderSnapshots(orderId, snapshots) {
   try {
     await client.query("BEGIN");
     const orderMetaResult = await client.query(
-      "SELECT user_id, order_number FROM orders WHERE id = $1 LIMIT 1",
+      "SELECT user_id, order_number, status FROM orders WHERE id = $1 LIMIT 1",
       [orderId]
     );
     const orderMeta = orderMetaResult.rows[0] || null;
@@ -436,8 +437,14 @@ async function saveSupplierOrderSnapshots(orderId, snapshots) {
                   supplier_position_id = $3,
                   supplier_status = $4,
                   status = CASE
-                    WHEN status IN ('ready','completed') THEN status
+                    WHEN status = 'completed' THEN status
+                    WHEN $5 = 'completed' THEN 'completed'
+                    WHEN status = 'ready' AND $5 = 'processing' THEN status
                     ELSE $5
+                  END,
+                  received_at = CASE
+                    WHEN $5 = 'completed' THEN COALESCE(received_at, now())
+                    ELSE received_at
                   END,
                   updated_at = now()
             WHERE id = $1`,
@@ -470,17 +477,58 @@ async function saveSupplierOrderSnapshots(orderId, snapshots) {
       }
     }
 
+    const finalItemRows = await client.query(
+      "SELECT status FROM order_items WHERE order_id = $1 ORDER BY created_at ASC",
+      [orderId]
+    );
+    const nextOrderStatus = aggregateOrderStatusFromItems(
+      finalItemRows.rows.map((row) => row.status),
+      orderMeta?.status
+    );
+
     await client.query(
       `UPDATE orders
           SET supplier_state = 'submitted',
               supplier_last_error = NULL,
               supplier_submitted_at = COALESCE(supplier_submitted_at, now()),
               supplier_synced_at = now(),
-              status = CASE WHEN status = 'new' THEN 'processing' ELSE status END,
+              status = $2,
               updated_at = now()
         WHERE id = $1`,
-      [orderId]
+      [orderId, nextOrderStatus]
     );
+
+    const previousOrderStatus = String(orderMeta?.status || "").toLowerCase();
+    if (
+      nextOrderStatus !== previousOrderStatus &&
+      ["ready", "completed", "cancelled"].includes(nextOrderStatus)
+    ) {
+      const notes = {
+        ready: "Заказ готов к получению",
+        completed: "Заказ завершён",
+        cancelled: "Заказ отменён"
+      };
+      await client.query(
+        `INSERT INTO order_status_history
+          (order_id, status, source, note, created_at)
+         VALUES ($1,$2,'supply',$3,now())`,
+        [orderId, nextOrderStatus, notes[nextOrderStatus]]
+      );
+      if (orderMeta?.user_id) {
+        await addUserNotification(
+          client,
+          orderMeta.user_id,
+          "order_status",
+          "order_status",
+          "Заказ #" + String(orderMeta.order_number) + " — " + (
+            nextOrderStatus === "ready" ? "готов к получению" :
+            nextOrderStatus === "completed" ? "завершён" :
+            "отменён"
+          ),
+          notes[nextOrderStatus]
+        );
+      }
+    }
 
     await client.query("COMMIT");
     return { orders: normalized.length, positions: positionUpdates };

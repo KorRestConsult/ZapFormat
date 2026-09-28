@@ -144,9 +144,38 @@ function positionKey(brand, article) {
 }
 
 function internalItemStatusFromSupply(statusCode, statusName) {
-  const value = String(statusCode || statusName || "").trim().toLowerCase();
+  const value = String(statusCode || statusName || "")
+    .trim()
+    .toLowerCase()
+    .replace(/[\s_-]+/g, "");
+
   if (!value) return "processing";
-  if (/cancel|отмен|аннулир|supordercanceled/.test(value)) return "cancelled";
+  if (/cancel|canceled|cancelled|reject|отмен|аннулир|supordercanceled/.test(value)) {
+    return "cancelled";
+  }
+  if (/finished|complete|completed|delivered|issued|выдан|заверш/.test(value)) {
+    return "completed";
+  }
+  if (/ready|готов|pickupready|availableforpickup/.test(value)) {
+    return "ready";
+  }
+  return "processing";
+}
+
+function aggregateOrderStatusFromItems(statuses, currentStatus = "") {
+  const current = String(currentStatus || "").trim().toLowerCase();
+  if (["completed", "cancelled"].includes(current)) return current;
+
+  const values = (Array.isArray(statuses) ? statuses : [])
+    .map((status) => String(status || "").trim().toLowerCase())
+    .filter(Boolean);
+
+  if (!values.length) return current || "processing";
+
+  const active = values.filter((status) => status !== "cancelled");
+  if (!active.length) return "cancelled";
+  if (active.every((status) => status === "completed")) return "completed";
+  if (active.every((status) => status === "ready" || status === "completed")) return "ready";
   return "processing";
 }
 
@@ -161,5 +190,6 @@ module.exports = {
   supplierPositionStatus,
   supplierPositionStatusCode,
   positionKey,
-  internalItemStatusFromSupply
+  internalItemStatusFromSupply,
+  aggregateOrderStatusFromItems
 };
