@@ -161,14 +161,14 @@
                 <input name="name" autocomplete="given-name" required>
               </label>
               <label>
-                <span>Телефон или email</span>
-                <input name="identity" autocomplete="username" placeholder="+7 900 000-00-00 или name@example.ru" required>
+                <span>Телефон</span>
+                <input name="identity" type="tel" inputmode="tel" autocomplete="tel" placeholder="+7 900 000-00-00" required>
               </label>
               <label>
                 <span>Пароль</span>
                 <input name="password" type="password" autocomplete="new-password" minlength="8" placeholder="Минимум 8 символов" required>
               </label>
-              <small class="auth-hint">Остальные данные можно добавить позже в профиле.</small>
+              <small class="auth-hint">Телефон нужен для заказов и статусов. Остальные данные можно добавить позже.</small>
               <button class="account-primary auth-submit" type="submit">Создать аккаунт и начать</button>
             </form>
 
