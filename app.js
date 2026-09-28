@@ -3042,10 +3042,19 @@ document.getElementById("orderSearch")?.addEventListener("input",filterAccountOr
 document.getElementById("orderStatusFilter")?.addEventListener("change",filterAccountOrders);
 
 document.addEventListener("keydown",e=>{
-  const order=e.target.closest?.("[data-order-detail][tabindex]");
-  if(order && (e.key==="Enter" || e.key===" ")){
+  if(e.key!=="Enter" && e.key!==" ") return;
+
+  const liveOrder=e.target.closest?.("[data-live-order-detail][tabindex]");
+  if(liveOrder){
     e.preventDefault();
-    openOrderDetail(order.dataset.orderDetail);
+    openLiveOrderDetail(liveOrder.dataset.liveOrderDetail);
+    return;
+  }
+
+  const liveRequest=e.target.closest?.("[data-live-request-detail][tabindex]");
+  if(liveRequest){
+    e.preventDefault();
+    openLiveRequestDetail(liveRequest.dataset.liveRequestDetail);
   }
 });
 
