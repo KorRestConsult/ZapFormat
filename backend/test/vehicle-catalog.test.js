@@ -3,6 +3,8 @@
 const test = require("node:test");
 const assert = require("node:assert/strict");
 const {
+  ABCP_CARBASE_CAPABILITIES,
+  catalogCoverageForIntent,
   resolveVehicleCatalog,
   selectVerifiedArticles
 } = require("../src/vehicle-catalog");
@@ -142,4 +144,27 @@ test("vehicle catalog does not guess between ambiguous modifications", async () 
   });
   assert.equal(result.status, "modification_ambiguous");
   assert.equal(result.candidates.length, 2);
+});
+
+
+test("catalog capabilities allow only real ABCP Carbase coverage", () => {
+  const supported = catalogCoverageForIntent(
+    { category: "brake_pad", goods_group_hints: ["brake_pad"], special_category: "none" },
+    ABCP_CARBASE_CAPABILITIES
+  );
+  assert.equal(supported.supported, true);
+  assert.equal(supported.kind, "verified_articles");
+
+  const unsupported = catalogCoverageForIntent(
+    { category: "radiator", goods_group_hints: [], special_category: "none" },
+    ABCP_CARBASE_CAPABILITIES
+  );
+  assert.equal(unsupported.supported, false);
+  assert.equal(unsupported.required_capability, "parts_by_vehicle_or_vin");
+});
+
+test("ABCP Carbase capability contract does not claim VIN decoding", () => {
+  assert.equal(ABCP_CARBASE_CAPABILITIES.vehicle_tree, true);
+  assert.equal(ABCP_CARBASE_CAPABILITIES.vin_decode, false);
+  assert.equal(ABCP_CARBASE_CAPABILITIES.free_text_part_fitment, false);
 });
