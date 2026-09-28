@@ -1644,7 +1644,7 @@ function groupCardHtml(items, key){
         <div class="product-thumb">${first.brand.slice(0,5)}</div>
         <div class="product-title">
           <div class="product-title-line">
-            <a href="javascript:void(0)">${first.article}</a>
+            <span class="product-article">${first.article}</span>
             <b>${first.brand}</b>
           </div>
           <small>${first.name}</small>
