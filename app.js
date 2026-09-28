@@ -395,6 +395,19 @@ function requestStatusLabel(status){
   return map[String(status||"").toLowerCase()] || String(status||"Принят");
 }
 
+function orderProgressHtml(status){
+  const value=String(status||"").toLowerCase();
+  const steps=value==="completed" ? 4
+    : value==="ready" ? 3
+      : value==="processing" ? 2
+        : value==="new" ? 1
+          : 0;
+  const cancelled=value==="cancelled";
+  return '<div class="order-progress'+(cancelled?' cancelled':'')+'">'+
+    [0,1,2,3].map(index=>'<i class="'+(index<steps?'done':'')+'"></i>').join("")+
+  '</div>';
+}
+
 function renderLiveAccount(overview,orders,requests,garage){
   const stats=document.getElementById("accountLiveStats");
   if(stats){
@@ -444,7 +457,7 @@ function renderLiveAccount(overview,orders,requests,garage){
             <b>${isOrder?"Заказ ZapFormat":"Запрос на запчасти"}</b>
             <span>${row.items_count} поз. · ${isOrder?rub(row.total):(row.needs_confirmation&&row.total===0?"сумма уточняется":rub(row.total))}</span>
           </div>
-          <div class="order-progress"><i class="done"></i><i></i><i></i><i></i></div>
+          ${orderProgressHtml(row.status)}
           <strong class="status">${requestStatusLabel(row.status)}</strong>
         </article>`;
     }).join("") : '<div class="account-empty"><p>Пока нет заказов. Найдите запчасть и оформите первый заказ.</p></div>';
