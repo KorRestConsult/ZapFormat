@@ -469,7 +469,8 @@ function renderLiveAccount(overview,orders,requests,garage){
       created_at:order.created_at,
       items_count:Number(order.items_count||0),
       total:Number(order.total_amount||0),
-      status:order.status
+      status:order.status,
+      search_text:String(order.search_text||"")
     })),
     ...(requests||[]).map(request=>({
       kind:"request",
@@ -479,7 +480,8 @@ function renderLiveAccount(overview,orders,requests,garage){
       items_count:Number(request.items_count||0),
       total:Number(request.quoted_total||0),
       needs_confirmation:Boolean(request.needs_confirmation),
-      status:request.status
+      status:request.status,
+      search_text:String(request.search_text||"")
     }))
   ].sort((a,b)=>new Date(b.created_at)-new Date(a.created_at));
 
@@ -515,7 +517,7 @@ function renderLiveAccount(overview,orders,requests,garage){
       const detailAttr=isOrder
         ? `data-live-order-detail="${row.key}"`
         : `data-live-request-detail="${row.key}"`;
-      return `<div class="account-table-row" data-order-status="${escapeHtml(String(row.status||""))}">
+      return `<div class="account-table-row" data-order-status="${escapeHtml(String(row.status||""))}" data-order-search="${escapeHtml(row.search_text||"")}">
         <b>#${row.number}</b>
         <span>${formatDateRu(row.created_at)}</span>
         <span>${row.items_count}</span>
@@ -3259,7 +3261,7 @@ function filterAccountOrders(){
   const query=String(document.getElementById("orderSearch")?.value||"").trim().toLowerCase();
   const status=String(document.getElementById("orderStatusFilter")?.value||"").trim().toLowerCase();
   document.querySelectorAll("#account-orders .account-table-row").forEach(row=>{
-    const text=row.textContent.toLowerCase();
+    const text=(row.textContent+" "+String(row.dataset.orderSearch||"")).toLowerCase();
     const rawStatus=String(row.dataset.orderStatus||"").trim().toLowerCase();
     const matchesQuery=!query || text.includes(query);
     const matchesStatus=!status || (status==="active"
