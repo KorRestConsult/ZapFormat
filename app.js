@@ -801,11 +801,15 @@ async function selectGarageVehicle(vehicleId){
 function renderAccountNotifications(data){
   const rows=Array.isArray(data?.notifications)?data.notifications:[];
   const unread=Number(data?.unread_count||0);
-  const badge=document.getElementById("notificationUnreadBadge");
-  if(badge){
+  const badges=[
+    document.getElementById("notificationUnreadBadge"),
+    document.getElementById("headerNotificationBadge"),
+    document.getElementById("mobileNotificationBadge")
+  ].filter(Boolean);
+  badges.forEach(badge=>{
     badge.hidden=unread<=0;
     badge.textContent=unread>99?"99+":String(unread);
-  }
+  });
 
   const mount=document.getElementById("notificationFeed");
   if(!mount) return;
