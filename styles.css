@@ -3683,3 +3683,35 @@ body.guest-mode .topbar-inner{
 body.guest-mode .logo{
   justify-self:center
 }
+
+
+.cart-add-text{
+  border:0;
+  border-radius:8px;
+  background:var(--navy);
+  color:#fff;
+  min-height:38px;
+  padding:8px 12px;
+  font-size:11px;
+  font-weight:900;
+  white-space:nowrap
+}
+.cart-add-text:hover{filter:brightness(.96)}
+.cart-add-text:disabled{
+  background:#e7ecef;
+  color:#9aa6ae;
+  cursor:not-allowed
+}
+.supply-row.unavailable{
+  opacity:.72
+}
+@media(max-width:680px){
+  .cart-add-text{
+    width:100%;
+    min-height:42px;
+    font-size:12px
+  }
+  .supply-row.unavailable{
+    opacity:.62
+  }
+}
