@@ -2629,6 +2629,22 @@ document.addEventListener("click",e=>{
   const authTab=e.target.closest("[data-auth-tab]");
   if(authTab){ showAuthTab(authTab.dataset.authTab); return; }
 
+  const garageVehicle=e.target.closest("[data-garage-vehicle]");
+  if(garageVehicle){
+    selectGarageVehicle(garageVehicle.dataset.garageVehicle);
+    return;
+  }
+
+  if(e.target.closest("[data-garage-add-vehicle]")){
+    openGarageVehicleEditor("new");
+    return;
+  }
+
+  if(e.target.closest("[data-garage-edit-vehicle]")){
+    openGarageVehicleEditor("edit");
+    return;
+  }
+
   const garageServiceButton=e.target.closest("[data-garage-service]");
   if(garageServiceButton){
     openGarageService(garageServiceButton.dataset.garageService);
@@ -2674,17 +2690,27 @@ document.addEventListener("click",e=>{
 
   if(e.target.closest("[data-garage-save-mileage]")){
     const input=document.getElementById("garageMileageInput");
-    const value=Math.max(0,parseInt(String(input?.value||"").replace(/\D/g,""),10)||0);
-    if(value){
-      garageState.vehicle.mileage=value;
-      saveGarageState();
-      renderGarageApp();
+    const raw=parseInt(String(input?.value||"").replace(/\D/g,""),10);
+    const value=Number.isFinite(raw) ? Math.max(0,raw) : null;
+    if(value===null){
+      showToast("Укажите пробег числом.","warn");
+      return;
+    }
 
-      if(backendConfigured() && sessionUser && garageState.vehicle.id && !String(garageState.vehicle.id).startsWith("demo-")){
-        apiRequest("/api/garage/vehicles/"+encodeURIComponent(garageState.vehicle.id)+"/mileage",{
+    if(backendConfigured() && sessionUser && garageState.vehicle.id){
+      try{
+        const result=await apiRequest("/api/garage/vehicles/"+encodeURIComponent(garageState.vehicle.id)+"/mileage",{
           method:"PATCH",
           body:JSON.stringify({mileage:value})
-        }).catch(error=>console.warn("ZapFormat mileage sync failed",error));
+        });
+        garageState.vehicle=normalizeGarageVehicle(result.vehicle);
+        garageVehicles=garageVehicles.map(x=>String(x.id)===String(result.vehicle.id)?normalizeGarageVehicle(result.vehicle):x);
+        saveGarageState();
+        renderGarageApp();
+        showToast("Пробег сохранён.");
+      }catch(error){
+        console.warn("ZapFormat mileage sync failed",error);
+        showToast("Не удалось сохранить пробег.","warn");
       }
     }
     return;
@@ -2798,7 +2824,12 @@ document.getElementById("logoutButton")?.addEventListener("click",async()=>{
     sessionUser=null;
     cartSyncReady=false;
     cartHydratedUserId=null;
+    garageVehicles=[];
+    garageActiveVehicleId=null;
+    garageState=structuredClone(defaultGarageState);
     clearTimeout(cartSyncTimer);
+    saveGarageState();
+    renderGarageApp();
     applySessionUser();
     pendingAccountRoute="profile";
     navigate("auth");
@@ -2809,19 +2840,37 @@ document.addEventListener("submit",async e=>{
   const garageMeasureForm=e.target.closest("#garageMeasurementForm");
   if(garageMeasureForm){
     e.preventDefault();
+    if(!sessionUser || !garageState.vehicle?.id){
+      showToast("Сначала добавьте автомобиль.","warn");
+      return;
+    }
+
     const data=Object.fromEntries(new FormData(garageMeasureForm).entries());
-    const now=new Date();
-    garageState.measurements.unshift({
-      id:"m"+Date.now(),
-      type:String(data.type||"").trim(),
-      value:String(data.value||"").trim(),
-      unit:String(data.unit||"").trim(),
-      note:String(data.note||"").trim(),
-      date:now.toLocaleDateString("ru-RU")
-    });
-    garageMeasurementOpen=false;
-    saveGarageState();
-    renderGarageApp();
+    const submit=garageMeasureForm.querySelector('button[type="submit"]');
+    if(submit) submit.disabled=true;
+
+    try{
+      await apiRequest("/api/garage/vehicles/"+encodeURIComponent(garageState.vehicle.id)+"/measurements",{
+        method:"POST",
+        body:JSON.stringify({
+          measurement_type:String(data.type||"").trim(),
+          value:String(data.value||"").trim(),
+          unit:String(data.unit||"").trim(),
+          note:String(data.note||"").trim()
+        })
+      });
+      garageMeasurementOpen=false;
+      await hydrateRealGarage({vehicles:garageVehicles.map(x=>({
+        id:x.id,brand:x.brand,model:x.model,generation:x.generation,year:x.year,engine:x.engine,
+        vin:x.vin,plate_number:x.plate,current_mileage:x.mileage,is_default:x.isDefault
+      }))});
+      showToast("Замер сохранён.");
+    }catch(error){
+      console.error("Garage measurement save failed",error);
+      showToast("Не удалось сохранить замер.","warn");
+    }finally{
+      if(submit) submit.disabled=false;
+    }
     return;
   }
 
@@ -2920,10 +2969,6 @@ document.getElementById("deliveryForm")?.addEventListener("submit",e=>{
 });
 
 document.addEventListener("click",e=>{
-  if(e.target.closest("#addCarButton, #addCarButtonCompact")){
-    openGarageVehicleEditor();
-    return;
-  }
   if(e.target.closest("[data-close-vehicle-editor]") || (e.target.classList?.contains("vehicle-editor-backdrop"))){
     closeGarageVehicleEditor();
   }
