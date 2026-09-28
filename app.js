@@ -2897,7 +2897,7 @@ function renderGarageOverview(){
 
         <section class="garage-panel">
           <div class="garage-panel-head">
-            <div><span class="eyebrow">БЛИЖАЙШЕЕ ТО</span><h3>${next?.title||"План обслуживания пока пуст"}</h3></div>
+            <div><span class="eyebrow">БЛИЖАЙШЕЕ ТО</span><h3>${next?.title||"Нет запланированных работ"}</h3></div>
             <button data-garage-tab="maintenance">Все работы →</button>
           </div>
           ${next ? `
@@ -2908,7 +2908,7 @@ function renderGarageOverview(){
             </div>
           ` : `
             <div class="garage-empty-inline">
-              <b>Пока нет сохранённых работ ТО.</b>
+              <b>Запланированных работ пока нет.</b>
               <span>План обслуживания пока пуст. Его можно будет заполнить по фактическим работам и пробегу.</span>
             </div>
           `}
@@ -2957,8 +2957,8 @@ function renderGarageMaintenance(){
           </article>
         `).join("") : `
           <div class="garage-empty-inline">
-            <b>План ТО ещё не заполнен.</b>
-            <span>Мы не подставляем выдуманные регламенты или детали. План будет строиться по данным автомобиля, пробегу и подтверждённым работам.</span>
+            <b>Запланированных работ пока нет.</b>
+            <span>История обслуживания и пробег помогут держать работы по автомобилю в одном месте.</span>
           </div>
         `}
       </div>
