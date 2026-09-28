@@ -13,8 +13,16 @@ fi
 git config --global --add safe.directory "${APP_DIR}" 2>/dev/null || true
 cd "${APP_DIR}"
 
+# Remove only the known junk files created when terminal output was accidentally pasted
+# back into Bash. Never touch tracked files or arbitrary untracked project files.
+for junk in   "backend/...]]"   "backend/="   "backend/FETCH_HEAD"   "backend/[--include"   "backend/[--omit"   "backend/]"; do
+  if [[ -e "${junk}" ]] && ! git ls-files --error-unmatch "${junk}" >/dev/null 2>&1; then
+    rm -f -- "${junk}"
+  fi
+done
+
 if [[ -n "$(git status --porcelain)" ]]; then
-  echo "STOP: live checkout has local changes."
+  echo "STOP: live checkout still has local changes."
   git status --short
   exit 2
 fi
