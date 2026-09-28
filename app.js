@@ -503,6 +503,9 @@ function renderAccountPreferences(preferences){
     }
   }
 
+  const cityTitle=document.getElementById("accountDeliveryCity");
+  if(cityTitle) cityTitle.textContent=delivery?.city||"Получение";
+
   const preview=document.getElementById("accountDeliveryPreview");
   if(preview){
     preview.textContent=delivery?.address
