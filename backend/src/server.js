@@ -26,6 +26,18 @@ const {
   selectVerifiedArticles,
   vehicleSpecsForIntent
 } = require("./vehicle-catalog");
+const {
+  resolveSupplierCheckout,
+  normalizeSupplierOrders,
+  supplierOrderNumber,
+  supplierOrderStatus,
+  supplierOrderStatusCode,
+  supplierOrderPositions,
+  supplierPositionStatus,
+  supplierPositionStatusCode,
+  positionKey,
+  internalItemStatusFromSupply
+} = require("./supplier-orders");
 
 const app = express();
 const isProduction = process.env.NODE_ENV === "production";
@@ -235,6 +247,435 @@ async function revalidateOfferToken(token, quantity = 1, cache = new Map()) {
   };
 }
 
+
+function internalOfferIdentity(token) {
+  try {
+    const payload = offerTokens.open(token);
+    return {
+      supplierCode: payload?.s ?? null,
+      itemKey: payload?.k ?? null
+    };
+  } catch (_error) {
+    return { supplierCode: null, itemKey: null };
+  }
+}
+
+function supplierEnvValue(name) {
+  const value = String(process.env[name] || "").trim();
+  return value || null;
+}
+
+function supplierCheckoutOverrides() {
+  return {
+    paymentMethodId: supplierEnvValue("PARTGRADE_PAYMENT_METHOD_ID"),
+    shipmentMethodId: supplierEnvValue("PARTGRADE_SHIPMENT_METHOD_ID"),
+    shipmentAddressId: supplierEnvValue("PARTGRADE_SHIPMENT_ADDRESS_ID"),
+    shipmentOfficeId: supplierEnvValue("PARTGRADE_SHIPMENT_OFFICE_ID")
+  };
+}
+
+async function resolveSupplierCheckoutForItems(items) {
+  const [paymentMethods, shipmentMethods, shipmentAddresses, shipmentOffices] = await Promise.all([
+    partGrade.paymentMethods(),
+    partGrade.shipmentMethods(),
+    partGrade.shipmentAddresses(),
+    partGrade.shipmentOffices().catch(() => [])
+  ]);
+
+  const checkout = resolveSupplierCheckout({
+    paymentMethods,
+    shipmentMethods,
+    shipmentAddresses,
+    shipmentOffices,
+    overrides: supplierCheckoutOverrides()
+  });
+
+  const hours = (Array.isArray(items) ? items : [])
+    .flatMap((item) => [Number(item?.delivery_hours), Number(item?.delivery_hours_max)])
+    .filter((value) => Number.isFinite(value) && value >= 0);
+
+  const explicitDate = supplierEnvValue("PARTGRADE_SHIPMENT_DATE");
+  if (explicitDate) {
+    checkout.shipmentDate = explicitDate;
+    return checkout;
+  }
+
+  try {
+    const dates = await partGrade.shipmentDates({
+      minDeadlineTime: hours.length ? Math.min(...hours) : undefined,
+      maxDeadlineTime: hours.length ? Math.max(...hours) : undefined,
+      shipmentAddress: checkout.shipmentAddress && checkout.shipmentAddress !== "0"
+        ? checkout.shipmentAddress
+        : undefined
+    });
+    const first = Array.isArray(dates) ? dates[0] : null;
+    checkout.shipmentDate = first?.date ? String(first.date) : null;
+  } catch (_error) {
+    checkout.shipmentDate = null;
+  }
+
+  return checkout;
+}
+
+function supplierClientOrderNumber(orderNumber) {
+  return "ZF-" + String(orderNumber);
+}
+
+async function markSupplierState(orderId, state, error = null) {
+  if (!pool) return;
+  await pool.query(
+    `UPDATE orders
+        SET supplier_state = $2,
+            supplier_last_error = $3,
+            updated_at = now()
+      WHERE id = $1`,
+    [orderId, state, error ? String(error).slice(0, 500) : null]
+  );
+}
+
+async function saveSupplierOrderSnapshots(orderId, snapshots) {
+  if (!pool) return { orders: 0, positions: 0 };
+  const normalized = Array.isArray(snapshots) ? snapshots : [];
+  if (!normalized.length) return { orders: 0, positions: 0 };
+
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+    const itemsResult = await client.query(
+      `SELECT id, brand, article, supplier_code, supplier_offer_id, status, supplier_status
+         FROM order_items
+        WHERE order_id = $1
+        ORDER BY created_at ASC`,
+      [orderId]
+    );
+    const itemRows = itemsResult.rows;
+    let positionUpdates = 0;
+
+    for (const snapshot of normalized) {
+      const number = supplierOrderNumber(snapshot);
+      if (!number) continue;
+
+      const status = supplierOrderStatus(snapshot);
+      const statusCode = supplierOrderStatusCode(snapshot);
+      const previous = await client.query(
+        `SELECT supplier_status, supplier_status_code
+           FROM supplier_orders
+          WHERE order_id = $1 AND provider = 'supplier' AND supplier_order_number = $2
+          LIMIT 1`,
+        [orderId, number]
+      );
+
+      await client.query(
+        `INSERT INTO supplier_orders
+          (order_id, provider, supplier_order_number, supplier_status, supplier_status_code,
+           last_synced_at, created_at, updated_at)
+         VALUES ($1,'supplier',$2,$3,$4,now(),now(),now())
+         ON CONFLICT (order_id, provider, supplier_order_number)
+         DO UPDATE SET supplier_status = EXCLUDED.supplier_status,
+                       supplier_status_code = EXCLUDED.supplier_status_code,
+                       last_synced_at = now(),
+                       updated_at = now()`,
+        [orderId, number, status, statusCode]
+      );
+
+      const oldStatus = previous.rows[0]?.supplier_status || null;
+      const oldCode = previous.rows[0]?.supplier_status_code || null;
+      if ((status || statusCode) && (oldStatus !== status || oldCode !== statusCode)) {
+        await client.query(
+          `INSERT INTO order_status_history
+            (order_id, status, source, note, created_at)
+           VALUES ($1,'processing','supply',$2,now())`,
+          [orderId, "Статус поставки: " + String(status || statusCode)]
+        );
+      }
+
+      const used = new Set();
+      for (const position of supplierOrderPositions(snapshot)) {
+        const key = positionKey(position?.brand, position?.number ?? position?.numberFix);
+        const supplierCode = position?.supplierCode == null ? null : String(position.supplierCode);
+        const itemKey = position?.itemKey == null ? null : String(position.itemKey);
+
+        let match = itemRows.find((item) => {
+          if (used.has(item.id)) return false;
+          if (positionKey(item.brand, item.article) !== key) return false;
+          if (supplierCode && item.supplier_code && String(item.supplier_code) !== supplierCode) return false;
+          if (itemKey && item.supplier_offer_id && String(item.supplier_offer_id) !== itemKey) return false;
+          return true;
+        });
+
+        if (!match) {
+          match = itemRows.find((item) => !used.has(item.id) && positionKey(item.brand, item.article) === key);
+        }
+        if (!match) continue;
+
+        used.add(match.id);
+        const supplyStatus = supplierPositionStatus(position);
+        const supplyCode = supplierPositionStatusCode(position);
+        const internalStatus = internalItemStatusFromSupply(supplyCode, supplyStatus);
+        const positionId = position?.positionId ?? position?.id ?? null;
+
+        await client.query(
+          `UPDATE order_items
+              SET supplier_order_number = $2,
+                  supplier_position_id = $3,
+                  supplier_status = $4,
+                  status = CASE
+                    WHEN status IN ('ready','completed') THEN status
+                    ELSE $5
+                  END,
+                  updated_at = now()
+            WHERE id = $1`,
+          [
+            match.id,
+            number,
+            positionId == null ? null : String(positionId),
+            supplyStatus || supplyCode,
+            internalStatus
+          ]
+        );
+        positionUpdates += 1;
+      }
+    }
+
+    await client.query(
+      `UPDATE orders
+          SET supplier_state = 'submitted',
+              supplier_last_error = NULL,
+              supplier_submitted_at = COALESCE(supplier_submitted_at, now()),
+              supplier_synced_at = now(),
+              status = CASE WHEN status = 'new' THEN 'processing' ELSE status END,
+              updated_at = now()
+        WHERE id = $1`,
+      [orderId]
+    );
+
+    await client.query("COMMIT");
+    return { orders: normalized.length, positions: positionUpdates };
+  } catch (error) {
+    await client.query("ROLLBACK").catch(() => {});
+    throw error;
+  } finally {
+    client.release();
+  }
+}
+
+async function findExistingSupplierOrders(clientOrderNumber) {
+  const data = await partGrade.orders({ limit: 1000, format: "p" });
+  return normalizeSupplierOrders(data).filter(
+    (order) => String(order?.clientOrderNumber || "") === String(clientOrderNumber)
+  );
+}
+
+async function submitSupplierOrder(orderId) {
+  if (!pool) return { submitted: false, reason: "database_not_configured" };
+
+  const orderResult = await pool.query(
+    `SELECT id, order_number, supplier_state
+       FROM orders
+      WHERE id = $1
+      LIMIT 1`,
+    [orderId]
+  );
+  const order = orderResult.rows[0];
+  if (!order) return { submitted: false, reason: "order_not_found" };
+
+  const linked = await pool.query(
+    `SELECT supplier_order_number
+       FROM supplier_orders
+      WHERE order_id = $1
+      ORDER BY created_at`,
+    [orderId]
+  );
+  if (linked.rowCount) {
+    await syncSupplierOrders({ orderId, force: true });
+    return {
+      submitted: true,
+      recovered: true,
+      supplier_orders: linked.rows.map((row) => row.supplier_order_number)
+    };
+  }
+
+  const itemsResult = await pool.query(
+    `SELECT id, article, brand, quantity, comment, supplier_code, supplier_offer_id,
+            delivery_days
+       FROM order_items
+      WHERE order_id = $1
+      ORDER BY created_at ASC`,
+    [orderId]
+  );
+  const items = itemsResult.rows;
+  if (!items.length) {
+    await markSupplierState(orderId, "manual_required", "order_items_missing");
+    return { submitted: false, reason: "order_items_missing" };
+  }
+
+  if (items.some((item) => !item.supplier_code || !item.supplier_offer_id)) {
+    await markSupplierState(orderId, "manual_required", "offer_identity_missing");
+    return { submitted: false, reason: "offer_identity_missing" };
+  }
+
+  const clientOrderNumber = supplierClientOrderNumber(order.order_number);
+
+  try {
+    const existing = await findExistingSupplierOrders(clientOrderNumber);
+    if (existing.length) {
+      await saveSupplierOrderSnapshots(orderId, existing);
+      return {
+        submitted: true,
+        recovered: true,
+        supplier_orders: existing.map(supplierOrderNumber).filter(Boolean)
+      };
+    }
+
+    const supplierItems = items.map((item) => ({
+      number: item.article,
+      brand: item.brand,
+      supplierCode: item.supplier_code,
+      itemKey: item.supplier_offer_id,
+      quantity: item.quantity,
+      comment: item.comment || undefined,
+      delivery_hours: item.delivery_days == null ? undefined : Number(item.delivery_days) * 24,
+      delivery_hours_max: item.delivery_days == null ? undefined : Number(item.delivery_days) * 24
+    }));
+
+    const checkout = await resolveSupplierCheckoutForItems(supplierItems);
+    const response = await partGrade.instantOrder(supplierItems, {
+      ...checkout,
+      wholeOrderOnly: 1,
+      clientOrderNumber,
+      comment: "ZapFormat #" + String(order.order_number)
+    });
+
+    const snapshots = normalizeSupplierOrders(response);
+    if (!snapshots.length) {
+      const message = response?.errorMessage || response?.message || "supplier_order_not_created";
+      const error = new Error(String(message));
+      error.code = "supplier_order_not_created";
+      throw error;
+    }
+
+    await saveSupplierOrderSnapshots(orderId, snapshots);
+    return {
+      submitted: true,
+      recovered: false,
+      supplier_orders: snapshots.map(supplierOrderNumber).filter(Boolean)
+    };
+  } catch (error) {
+    const code = String(error?.code || "");
+    const state = code.includes("selection_required")
+      ? "configuration_required"
+      : "submit_failed";
+    await markSupplierState(orderId, state, error?.message || code || "supplier_submit_failed");
+    return {
+      submitted: false,
+      reason: code || "supplier_submit_failed"
+    };
+  }
+}
+
+async function syncSupplierOrders(options = {}) {
+  if (!pool) return { orders: 0, snapshots: 0 };
+
+  const values = [];
+  const where = ["1=1"];
+
+  if (options.orderId) {
+    values.push(options.orderId);
+    where.push(`so.order_id = ${values.length}`);
+  }
+  if (options.userId) {
+    values.push(options.userId);
+    where.push(`o.user_id = ${values.length}`);
+  }
+  if (!options.force) {
+    where.push("(so.last_synced_at IS NULL OR so.last_synced_at < now() - interval '60 seconds')");
+  }
+
+  const rows = await pool.query(
+    `SELECT so.order_id, so.supplier_order_number
+       FROM supplier_orders so
+       JOIN orders o ON o.id = so.order_id
+      WHERE ${where.join(" AND ")}
+      ORDER BY so.updated_at DESC
+      LIMIT 500`,
+    values
+  );
+
+  if (!rows.rowCount) return { orders: 0, snapshots: 0 };
+
+  const numbers = [...new Set(rows.rows.map((row) => String(row.supplier_order_number)).filter(Boolean))];
+  const response = await partGrade.orderList(numbers);
+  const snapshots = normalizeSupplierOrders(response);
+  const byNumber = new Map(
+    snapshots
+      .map((snapshot) => [supplierOrderNumber(snapshot), snapshot])
+      .filter(([number]) => Boolean(number))
+  );
+
+  const byOrder = new Map();
+  for (const row of rows.rows) {
+    const snapshot = byNumber.get(String(row.supplier_order_number));
+    if (!snapshot) continue;
+    if (!byOrder.has(row.order_id)) byOrder.set(row.order_id, []);
+    byOrder.get(row.order_id).push(snapshot);
+  }
+
+  for (const [orderId, orderSnapshots] of byOrder.entries()) {
+    await saveSupplierOrderSnapshots(orderId, orderSnapshots);
+  }
+
+  return { orders: byOrder.size, snapshots: snapshots.length };
+}
+
+async function supplierIntegrationStatus() {
+  const results = await Promise.allSettled([
+    partGrade.userInfo(),
+    partGrade.basketContent(),
+    partGrade.paymentMethods(),
+    partGrade.shipmentMethods(),
+    partGrade.shipmentAddresses(),
+    partGrade.orderStatuses(),
+    partGrade.orders({ limit: 1 }),
+    partGrade.ordersVersion(),
+    partGrade.userGarage()
+  ]);
+
+  const ok = (index) => results[index]?.status === "fulfilled";
+  const count = (index) => {
+    const result = results[index];
+    if (!result || result.status !== "fulfilled") return null;
+    const value = result.value;
+    if (Array.isArray(value)) return value.length;
+    if (Array.isArray(value?.items)) return value.items.length;
+    if (Array.isArray(value?.list)) return value.list.length;
+    return value && typeof value === "object" ? Object.keys(value).length : 0;
+  };
+
+  return {
+    configured: partGrade.configured(),
+    user_access: ok(0),
+    basket_read: ok(1),
+    payment_methods: ok(2),
+    shipment_methods: ok(3),
+    shipment_addresses: ok(4),
+    order_statuses_read: ok(5),
+    orders_read: ok(6),
+    orders_version_read: ok(7),
+    garage_read: ok(8),
+    counts: {
+      basket: count(1),
+      payment_methods: count(2),
+      shipment_methods: count(3),
+      shipment_addresses: count(4),
+      order_statuses: count(5),
+      orders_sample: count(6),
+      garage: count(8)
+    },
+    order_creation_wired: true,
+    order_creation_permission: "not_mutation_tested"
+  };
+}
+
 function publicUser(row) {
   return {
     id: row.id,
@@ -414,6 +855,9 @@ app.post("/api/quote-requests", quoteLimiter, async (req, res, next) => {
       item.quoted_price = checked.price;
       item.needs_confirmation = false;
       item.offer_token = checked.offer_token || item.offer_token;
+      const identity = internalOfferIdentity(item.offer_token);
+      item.supplier_code = identity.supplierCode;
+      item.supplier_offer_id = identity.itemKey;
     }
 
     if (cartChanged) {
@@ -497,15 +941,17 @@ app.post("/api/quote-requests", quoteLimiter, async (req, res, next) => {
 
           const orderItem = await client.query(
             `INSERT INTO order_items
-              (order_id, article, brand, description, warehouse, delivery_days,
-               quantity, unit_price, vehicle_id, status, created_at, updated_at)
-             VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,'new',$10,$10)
+              (order_id, article, brand, description, supplier_code, supplier_offer_id,
+               warehouse, delivery_days, quantity, unit_price, vehicle_id, status, created_at, updated_at)
+             VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,'new',$12,$12)
              RETURNING id`,
             [
               order.id,
               item.article,
               item.brand || "",
               item.description || null,
+              item.supplier_code || null,
+              item.supplier_offer_id || null,
               "Поставка",
               deliveryDays,
               item.quantity,
@@ -530,7 +976,20 @@ app.post("/api/quote-requests", quoteLimiter, async (req, res, next) => {
           [order.id, now]
         );
 
+        await client.query(
+          `UPDATE orders
+              SET supplier_state = 'ready_to_submit', updated_at = now()
+            WHERE id = $1`,
+          [order.id]
+        );
+
         await client.query("COMMIT");
+
+        if (String(process.env.PARTGRADE_AUTO_ORDER_AFTER_CHECKOUT || "").toLowerCase() === "true") {
+          await submitSupplierOrder(order.id).catch((error) => {
+            console.error("[SupplySubmit]", error?.message || "supplier_submit_failed");
+          });
+        }
 
         return res.status(201).json({
           ok: true,
@@ -607,6 +1066,31 @@ app.post("/api/quote-requests", quoteLimiter, async (req, res, next) => {
       status: "received",
       items: items.length
     });
+  } catch (error) {
+    next(error);
+  }
+});
+
+app.get("/api/integration/status", async (_req, res, next) => {
+  try {
+    res.json(await supplierIntegrationStatus());
+  } catch (error) {
+    next(error);
+  }
+});
+
+app.post("/api/internal/orders/:orderId/supplier-submit", requireInternal, async (req, res, next) => {
+  try {
+    const result = await submitSupplierOrder(req.params.orderId);
+    res.status(result.submitted ? 200 : 409).json(result);
+  } catch (error) {
+    next(error);
+  }
+});
+
+app.post("/api/internal/supplier/sync", requireInternal, async (_req, res, next) => {
+  try {
+    res.json({ ok: true, ...(await syncSupplierOrders({ force: true })) });
   } catch (error) {
     next(error);
   }
@@ -1574,6 +2058,9 @@ app.put("/api/cart", requireUser, async (req, res, next) => {
 
 app.get("/api/account/orders", requireUser, async (req, res, next) => {
   try {
+    await syncSupplierOrders({ userId: req.user.id }).catch((error) => {
+      console.error("[SupplySync]", error?.message || "supplier_sync_failed");
+    });
     const result = await pool.query(
       `SELECT o.id, o.order_number, o.status, o.total_amount, o.currency, o.created_at,
               count(i.id)::int AS items_count
@@ -1593,16 +2080,29 @@ app.get("/api/account/orders", requireUser, async (req, res, next) => {
 
 app.get("/api/account/orders/:orderId", requireUser, async (req, res, next) => {
   try {
-    const orderResult = await pool.query(
-      `SELECT *
+    const orderLookup = await pool.query(
+      `SELECT id
          FROM orders
         WHERE user_id = $1
           AND (id::text = $2 OR order_number::text = $2)
         LIMIT 1`,
       [req.user.id, String(req.params.orderId)]
     );
-    if (!orderResult.rowCount) return res.status(404).json({ error: "order_not_found" });
+    if (!orderLookup.rowCount) return res.status(404).json({ error: "order_not_found" });
 
+    await syncSupplierOrders({ orderId: orderLookup.rows[0].id, force: true }).catch((error) => {
+      console.error("[SupplySync]", error?.message || "supplier_sync_failed");
+    });
+
+    const orderResult = await pool.query(
+      `SELECT id, order_number, status, total_amount, currency, comment,
+              pickup_point_id, delivery_address_id, recipient_name, recipient_phone,
+              created_at, updated_at
+         FROM orders
+        WHERE id = $1 AND user_id = $2
+        LIMIT 1`,
+      [orderLookup.rows[0].id, req.user.id]
+    );
     const order = orderResult.rows[0];
     const [items, history] = await Promise.all([
       pool.query(
@@ -2233,6 +2733,13 @@ async function start() {
   app.listen(PORT, HOST, () => {
     console.log(`ZAPFORMAT API listening on http://${HOST}:${PORT}`);
   });
+
+  const supplySyncTimer = setInterval(() => {
+    syncSupplierOrders().catch((error) => {
+      console.error("[SupplySync]", error?.message || "supplier_sync_failed");
+    });
+  }, 120000);
+  supplySyncTimer.unref();
 }
 
 start().catch((error) => {
