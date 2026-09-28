@@ -395,6 +395,15 @@ function requestStatusLabel(status){
   return map[String(status||"").toLowerCase()] || String(status||"Принят");
 }
 
+function requestStatusClass(status){
+  const value=String(status||"").toLowerCase();
+  if(["cancelled","rejected"].includes(value)) return "cancelled";
+  if(["completed","refunded"].includes(value)) return "completed";
+  if(["ready","approved"].includes(value)) return "ready";
+  if(["review","created"].includes(value)) return "review";
+  return "processing";
+}
+
 function orderProgressHtml(status){
   const value=String(status||"").toLowerCase();
   const steps=value==="completed" ? 4
@@ -458,7 +467,7 @@ function renderLiveAccount(overview,orders,requests,garage){
             <span>${row.items_count} поз. · ${isOrder?rub(row.total):(row.needs_confirmation&&row.total===0?"сумма уточняется":rub(row.total))}</span>
           </div>
           ${orderProgressHtml(row.status)}
-          <strong class="status">${requestStatusLabel(row.status)}</strong>
+          <strong class="status ${requestStatusClass(row.status)}">${requestStatusLabel(row.status)}</strong>
         </article>`;
     }).join("") : '<div class="account-empty"><p>Пока нет заказов. Найдите запчасть и оформите первый заказ.</p></div>';
   }
@@ -479,7 +488,7 @@ function renderLiveAccount(overview,orders,requests,garage){
         <span>${formatDateRu(row.created_at)}</span>
         <span>${row.items_count}</span>
         <span>${totalText}</span>
-        <strong class="status">${requestStatusLabel(row.status)}</strong>
+        <strong class="status ${requestStatusClass(row.status)}">${requestStatusLabel(row.status)}</strong>
         <button ${detailAttr}>Подробнее</button>
       </div>`;
     }).join("");
@@ -570,7 +579,7 @@ function renderAccountReturns(data){
         '<b>'+escapeHtml(row.brand||"")+' '+escapeHtml(row.article||"")+'</b>'+
         '<span>'+escapeHtml(row.reason||"")+' · '+Number(row.quantity||1)+' шт.</span>'+
       '</div>'+
-      '<strong class="status">'+requestStatusLabel(row.status)+'</strong>'+
+      '<strong class="status '+requestStatusClass(row.status)+'">'+requestStatusLabel(row.status)+'</strong>'+
     '</article>'
   ).join("")+'</div>';
 }
@@ -869,7 +878,7 @@ async function openLiveOrderDetail(id){
             ${order.delivery_address ? '<p class="order-delivery-line">Получение: '+escapeHtml([order.delivery_city,order.delivery_address].filter(Boolean).join(" · "))+'</p>' : ""}
           </div>
           <div class="order-detail-state">
-            <strong class="status">${requestStatusLabel(order.status)}</strong>
+            <strong class="status ${requestStatusClass(order.status)}">${requestStatusLabel(order.status)}</strong>
             <b>${rub(Number(order.total_amount||0))}</b>
           </div>
         </div>
@@ -888,7 +897,7 @@ async function openLiveOrderDetail(id){
                   ${item.vehicle_id ? '<small class="order-vehicle-context">Для: '+escapeHtml([item.vehicle_brand,item.vehicle_model,item.vehicle_generation].filter(Boolean).join(" "))+(item.vehicle_vin?" · "+escapeHtml(shortVin(item.vehicle_vin)):"")+' · контекст заказа</small>' : ""}\n                  ${item.supplier_status ? '<small class="order-vehicle-context">Поставка: '+escapeHtml(item.supplier_status)+'</small>' : ""}
                   ${item.comment ? '<small class="order-item-comment">Комментарий: '+escapeHtml(item.comment)+'</small>' : ""}
                 </div>
-                <strong class="status">${requestStatusLabel(item.status)}</strong>
+                <strong class="status ${requestStatusClass(item.status)}">${requestStatusLabel(item.status)}</strong>
               </div>
               <div class="position-meta">
                 <div><small>Количество</small><b>${item.quantity} шт.</b></div>
@@ -936,7 +945,7 @@ async function openLiveRequestDetail(id){
         <div class="order-detail-toolbar"><button class="order-detail-back" data-account-tab="orders">← Заказы</button></div>
         <div class="order-detail-title">
           <div><span class="eyebrow">ЗАПРОС</span><h2>#${req.id}</h2><p>${formatDateRu(req.created_at)}</p></div>
-          <div class="order-detail-state"><strong class="status">${requestStatusLabel(req.status)}</strong></div>
+          <div class="order-detail-state"><strong class="status ${requestStatusClass(req.status)}">${requestStatusLabel(req.status)}</strong></div>
         </div>
       </div>
       <section class="order-detail-block positions-block">
@@ -951,7 +960,7 @@ async function openLiveRequestDetail(id){
                   <p>${escapeHtml(item.description||"")}</p>
                   ${item.vehicle_id ? '<small class="order-vehicle-context">Для: '+escapeHtml([item.vehicle_brand,item.vehicle_model,item.vehicle_generation].filter(Boolean).join(" "))+(item.vehicle_vin?" · "+escapeHtml(shortVin(item.vehicle_vin)):"")+' · контекст запроса</small>' : ""}
                 </div>
-                <strong class="status">${item.needs_confirmation?"Цена уточняется":"Цена подтверждена"}</strong>
+                <strong class="status ${item.needs_confirmation?"review":"ready"}">${item.needs_confirmation?"Цена уточняется":"Цена подтверждена"}</strong>
               </div>
               <div class="position-meta">
                 <div><small>Количество</small><b>${item.quantity} шт.</b></div>
