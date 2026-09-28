@@ -4048,3 +4048,69 @@ body.guest-mode .logo{
     font-size:11px!important
   }
 }
+
+
+/* Final mobile orders list guard */
+@media(max-width:680px){
+  #account-orders .account-table-row{
+    display:grid!important;
+    grid-template-columns:minmax(0,1fr) auto!important;
+    grid-template-rows:auto auto auto!important;
+    gap:4px 10px!important;
+    padding:12px!important;
+    align-items:center!important
+  }
+  #account-orders .order-list-number{
+    grid-column:1!important;
+    grid-row:1!important;
+    font-size:14px!important
+  }
+  #account-orders .order-list-date{
+    display:block!important;
+    grid-column:1!important;
+    grid-row:2!important;
+    color:#82919b!important;
+    font-size:10px!important
+  }
+  #account-orders .order-list-items{
+    display:inline!important;
+    grid-column:1!important;
+    grid-row:3!important;
+    color:#8c98a0!important;
+    font-size:10px!important
+  }
+  #account-orders .order-list-total{
+    display:block!important;
+    grid-column:2!important;
+    grid-row:1!important;
+    justify-self:end!important;
+    color:var(--navy-3)!important;
+    font-size:13px!important;
+    font-weight:900!important
+  }
+  #account-orders .order-list-status{
+    grid-column:2!important;
+    grid-row:2!important;
+    justify-self:end!important;
+    font-size:9px!important;
+    padding:5px 7px!important
+  }
+  #account-orders .order-list-open{
+    grid-column:2!important;
+    grid-row:3!important;
+    width:auto!important;
+    height:auto!important;
+    padding:6px 9px!important;
+    border:1px solid #d4dde2!important;
+    border-radius:7px!important;
+    background:#f7f9fa!important;
+    color:#526977!important;
+    font-size:10px!important;
+    font-weight:850!important;
+    text-decoration:none!important;
+    overflow:visible!important
+  }
+  #account-orders .order-list-open:after{
+    content:none!important
+  }
+}
