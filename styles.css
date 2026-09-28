@@ -2836,7 +2836,7 @@ input,select,textarea{max-width:100%}
 }
 
 
-/* Screenshot QA refinements: mobile home, orders and PartGrade-style cart workflow */
+/* Screenshot QA refinements: mobile home, orders and dense cart workflow */
 .cart-bulk-actions-top,
 .cart-checkout-top{
   display:none
@@ -3265,7 +3265,7 @@ html{scroll-padding-bottom:calc(88px + env(safe-area-inset-bottom))}
 }
 
 
-/* Weekend live mode: real PartGrade identification + manual price confirmation */
+/* Live supplier mode: verified offer identification + manual price confirmation */
 .quote-contact{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:16px 0}
 .quote-contact label{display:grid;gap:6px;color:#6f7e89;font-size:12px}
 .quote-contact input{width:100%;box-sizing:border-box;border:1px solid #d6dee4;border-radius:10px;background:#fff;padding:12px 13px;font:inherit;color:#263843}
@@ -3276,7 +3276,7 @@ html{scroll-padding-bottom:calc(88px + env(safe-area-inset-bottom))}
 @media(max-width:680px){.quote-contact{grid-template-columns:1fr}}
 
 
-/* Live PartGrade two-stage catalog */
+/* Live two-stage catalog */
 [hidden]{display:none!important}
 .brand-choice{
   overflow:hidden;
