@@ -638,6 +638,78 @@ function renderLiveAccount(overview,orders,requests,garage){
   }
 }
 
+
+function renderAccountPreferences(preferences){
+  const delivery=preferences?.delivery||null;
+  const form=document.getElementById("deliveryForm");
+  if(form){
+    const values={
+      city:delivery?.city||"Рязань",
+      address:delivery?.address||"",
+      recipient:delivery?.recipient_name||sessionUser?.name||"",
+      phone:delivery?.recipient_phone||sessionUser?.phone||""
+    };
+    for(const [key,value] of Object.entries(values)){
+      const input=form.querySelector('[name="'+key+'"]');
+      if(input) input.value=value||"";
+    }
+  }
+
+  const preview=document.getElementById("accountDeliveryPreview");
+  if(preview){
+    preview.textContent=delivery?.address
+      ? [delivery.city,delivery.address].filter(Boolean).join(" · ")
+      : "Укажите основную точку или адрес получения.";
+  }
+
+  const notifications=preferences?.notifications||{};
+  const map={orderStatus:"order_status",positionChange:"item_changes",returns:"returns",marketing:"marketing"};
+  document.querySelectorAll("[data-notification]").forEach(input=>{
+    const key=map[input.dataset.notification];
+    if(key && Object.prototype.hasOwnProperty.call(notifications,key)){
+      input.checked=Boolean(notifications[key]);
+    }
+  });
+}
+
+function renderAccountReports(report){
+  const mount=document.getElementById("accountReportStats");
+  if(!mount) return;
+  const monthLabel=new Intl.DateTimeFormat("ru-RU",{month:"long"}).format(new Date());
+  mount.innerHTML=
+    '<article><span>Заказов за месяц</span><b>'+Number(report?.orders_count||0)+'</b><small>'+monthLabel+'</small></article>'+
+    '<article><span>Покупок</span><b>'+rub(Number(report?.purchases_total||0))+'</b><small>за месяц</small></article>'+
+    '<article><span>Возвратов</span><b>'+Number(report?.returns_count||0)+'</b><small>за месяц</small></article>'+
+    '<article><span>Средний заказ</span><b>'+rub(Number(report?.average_order||0))+'</b><small>за месяц</small></article>';
+}
+
+function renderAccountReturns(data){
+  const mount=document.getElementById("accountReturnsList");
+  if(!mount) return;
+  const rows=Array.isArray(data?.returns)?data.returns:[];
+  if(!rows.length){
+    mount.innerHTML=
+      '<div class="account-empty">'+
+        '<div class="empty-icon">↩</div>'+
+        '<h3>Возвратов пока нет</h3>'+
+        '<p>Откройте завершённый заказ и выберите нужную позицию.</p>'+
+        '<button data-account-tab="orders">Перейти к заказам</button>'+
+      '</div>';
+    return;
+  }
+
+  mount.innerHTML='<div class="account-order-list">'+rows.map(row=>
+    '<article class="account-order">'+
+      '<div>'+
+        '<small>Возврат #'+escapeHtml(row.return_number)+' · заказ #'+escapeHtml(row.order_number)+' · '+formatDateRu(row.created_at)+'</small>'+
+        '<b>'+escapeHtml(row.brand||"")+' '+escapeHtml(row.article||"")+'</b>'+
+        '<span>'+escapeHtml(row.reason||"")+' · '+Number(row.quantity||1)+' шт.</span>'+
+      '</div>'+
+      '<strong class="status">'+requestStatusLabel(row.status)+'</strong>'+
+    '</article>'
+  ).join("")+'</div>';
+}
+
 function normalizeGarageVehicle(vehicle){
   return {
     id:vehicle?.id||null,
@@ -744,15 +816,21 @@ async function selectGarageVehicle(vehicleId){
 async function hydrateAccountData(){
   if(!backendConfigured() || !sessionUser) return;
   try{
-    const [overview,orders,requests,garage]=await Promise.all([
+    const [overview,orders,requests,garage,preferences,reports,returnsData]=await Promise.all([
       apiRequest("/api/account/overview"),
       apiRequest("/api/account/orders"),
       apiRequest("/api/account/requests"),
-      apiRequest("/api/garage")
+      apiRequest("/api/garage"),
+      apiRequest("/api/account/preferences"),
+      apiRequest("/api/account/reports"),
+      apiRequest("/api/account/returns")
     ]);
     liveAccountOrders=orders.orders||[];
     liveAccountRequests=requests.requests||[];
     renderLiveAccount(overview,liveAccountOrders,liveAccountRequests,garage);
+    renderAccountPreferences(preferences);
+    renderAccountReports(reports);
+    renderAccountReturns(returnsData);
     await hydrateRealGarage(garage);
     accountDataHydrated=true;
   }catch(error){
