@@ -8,7 +8,7 @@
   <meta name="description" content="Поиск автозапчастей по артикулу и обычному запросу с привязкой к автомобилю" />
   <link rel="stylesheet" href="./styles.css?v=20260928-ui3" />
 </head>
-<body>
+<body class="guest-mode">
   <div class="app">
     <header class="topbar">
       <div class="topbar-inner">
@@ -31,7 +31,7 @@
     </header>
 
     <main>
-      <section class="view active" id="view-home">
+      <section class="view" id="view-home">
         <div class="minimal-home">
           <div class="minimal-hero">
             <span class="minimal-kicker">ZAPFORMAT</span>
@@ -122,12 +122,17 @@
         </section>
       </section>
 
-      <section class="view" id="view-auth">
+      <section class="view active" id="view-auth">
         <div class="auth-shell">
           <div class="auth-brand">
             <span class="eyebrow">ZAPFORMAT</span>
-            <h2>Личный кабинет</h2>
-            <p>Заказы, возвраты, автомобили и получение — в одном аккаунте.</p>
+            <h2>Запчасти без лишней суеты.</h2>
+            <p>Актуальные цены и наличие, корзина, заказы и ваш автомобиль — в одном месте.</p>
+            <div class="auth-points" aria-label="Возможности ZapFormat">
+              <span>Поиск по артикулу и названию</span>
+              <span>Живые цены и остатки</span>
+              <span>История заказов в аккаунте</span>
+            </div>
           </div>
 
           <div class="auth-card">
@@ -171,7 +176,7 @@
                 <span>Пароль</span>
                 <input name="password" type="password" autocomplete="new-password" minlength="8" placeholder="Минимум 8 символов" required>
               </label>
-              <small class="auth-hint">Нужен телефон или email. Данные аккаунта хранятся на backend, пароль — только в виде хэша.</small>
+              <small class="auth-hint">Укажите телефон или email — этого достаточно для аккаунта.</small>
               <button class="account-primary auth-submit" type="submit">Создать аккаунт</button>
             </form>
 
