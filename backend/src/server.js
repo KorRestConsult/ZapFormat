@@ -1,6 +1,7 @@
 require("dotenv").config();
 
 const crypto = require("node:crypto");
+const { Readable } = require("node:stream");
 const fs = require("node:fs/promises");
 const path = require("node:path");
 const express = require("express");
@@ -1339,6 +1340,73 @@ app.post("/api/garage/vehicles/:vehicleId/maintenance", requireUser, async (req,
     );
     res.status(201).json({ record: result.rows[0] });
   } catch (error) {
+    next(error);
+  }
+});
+
+const TIMEWEB_MCP_UPSTREAM = "https://timeweb.cloud/api/v1/mcp";
+const TIMEWEB_PROXY_KEY_SHA256 = "d685cb93fffe7664f306e8d7c07e7ff7b9e8e9513a2138c3dece669e184664f2";
+
+function validTimewebProxyKey(value) {
+  const candidate = crypto.createHash("sha256").update(String(value || "")).digest("hex");
+  const expected = TIMEWEB_PROXY_KEY_SHA256;
+  return crypto.timingSafeEqual(Buffer.from(candidate), Buffer.from(expected));
+}
+
+app.all("/mcp/timeweb/:accessKey", async (req, res, next) => {
+  try {
+    if (!validTimewebProxyKey(req.params.accessKey)) {
+      return res.status(404).json({ error: "not_found" });
+    }
+
+    const token = String(process.env.TIMEWEB_CLOUD_TOKEN || "").trim();
+    if (!token) {
+      return res.status(503).json({ error: "timeweb_not_configured" });
+    }
+
+    const headers = {
+      Authorization: "Bearer " + token,
+      Accept: String(req.get("accept") || "application/json, text/event-stream")
+    };
+
+    const contentType = req.get("content-type");
+    if (contentType) headers["Content-Type"] = contentType;
+
+    for (const name of ["mcp-protocol-version","mcp-session-id","last-event-id"]) {
+      const value = req.get(name);
+      if (value) headers[name] = value;
+    }
+
+    const method = String(req.method || "POST").toUpperCase();
+    const options = { method, headers, redirect: "manual" };
+    if (!["GET","HEAD"].includes(method)) {
+      options.body = req.body === undefined ? undefined : JSON.stringify(req.body);
+      if (!headers["Content-Type"]) headers["Content-Type"] = "application/json";
+    }
+
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 120000);
+    options.signal = controller.signal;
+
+    let upstream;
+    try {
+      upstream = await fetch(TIMEWEB_MCP_UPSTREAM, options);
+    } finally {
+      clearTimeout(timeout);
+    }
+
+    res.status(upstream.status);
+    for (const name of ["content-type","cache-control","mcp-session-id","retry-after"]) {
+      const value = upstream.headers.get(name);
+      if (value) res.setHeader(name, value);
+    }
+
+    if (!upstream.body) return res.end();
+    Readable.fromWeb(upstream.body).pipe(res);
+  } catch (error) {
+    if (error?.name === "AbortError") {
+      return res.status(504).json({ error: "timeweb_timeout" });
+    }
     next(error);
   }
 });
