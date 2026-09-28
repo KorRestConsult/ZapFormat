@@ -2353,27 +2353,134 @@ document.getElementById("checkoutOrderButton")?.addEventListener("click",checkou
 document.getElementById("cartBackButton")?.addEventListener("click",()=>safeBack("home"));
 
 document.getElementById("cartFileInput")?.addEventListener("change",async e=>{
-  const file=e.target.files?.[0]; if(!file) return;
-  const text=await file.text();
-  const lines=text.split(/\r?\n/).map(x=>x.trim()).filter(Boolean);
-  let added=0;
-  for(const line of lines){
-    const [articleRaw,qtyRaw]=line.split(/[;,\t]/);
-    const article=(articleRaw||"").trim();
-    const orderQty=Math.max(1,parseInt(qtyRaw||"1",10)||1);
-    let found=null;
-    for(const data of Object.values(datasets)){
-      found=[...data.exact,...data.analogs].find(x=>x.article.toLowerCase()===article.toLowerCase());
-      if(found) break;
+  const input=e.currentTarget;
+  const file=input.files?.[0];
+  if(!file) return;
+
+  input.disabled=true;
+  try{
+    const text=await file.text();
+    const rawLines=text.split(/\r?\n/).map(x=>x.trim()).filter(Boolean).slice(0,50);
+    const rows=rawLines.map(line=>{
+      const cells=line.split(/[;,\t]/).map(x=>x.trim());
+      const first=String(cells[0]||"");
+      if(!first || /^(артикул|article|номер)$/i.test(first)) return null;
+
+      let brand="";
+      let quantity=1;
+      if(cells.length>=3){
+        brand=String(cells[1]||"").trim();
+        quantity=Math.max(1,parseInt(cells[2]||"1",10)||1);
+      }else if(cells.length===2){
+        if(/^\d+$/.test(cells[1]||"")){
+          quantity=Math.max(1,parseInt(cells[1]||"1",10)||1);
+        }else{
+          brand=String(cells[1]||"").trim();
+        }
+      }
+      return {article:first,brand,quantity};
+    }).filter(Boolean);
+
+    if(!rows.length){
+      showToast("В файле нет позиций.","warn");
+      return;
     }
-    if(found){
-      quantities[found.id]=orderQty;
-      addToCart(found.id);
-      added++;
+
+    let added=0;
+    let ambiguous=0;
+    let unavailable=0;
+
+    for(const row of rows){
+      try{
+        let brand=row.brand;
+        if(!brand){
+          const brandsData=await apiRequest("/api/catalog/brands?number="+encodeURIComponent(row.article));
+          const brands=(Array.isArray(brandsData?.brands)?brandsData.brands:[]).filter(x=>x?.brand);
+          const unique=[...new Map(brands.map(x=>[String(x.brand).toUpperCase(),x])).values()];
+          if(unique.length!==1){
+            ambiguous++;
+            continue;
+          }
+          brand=unique[0].brand;
+        }
+
+        const offersData=await apiRequest(
+          "/api/catalog/offers?number="+encodeURIComponent(row.article)+
+          "&brand="+encodeURIComponent(brand)
+        );
+        const exact=(Array.isArray(offersData?.offers)?offersData.offers:[])
+          .filter(o=>o?.offer_token && Number(o.availability||0)>=row.quantity)
+          .sort((a,b)=>Number(a.price||0)-Number(b.price||0) || Number(a.delivery_hours||0)-Number(b.delivery_hours||0));
+        const offer=exact[0];
+
+        if(!offer){
+          unavailable++;
+          continue;
+        }
+
+        const existing=cart.find(x=>x.offerToken===offer.offer_token);
+        if(existing){
+          existing.orderQty+=row.quantity;
+          existing.selected=true;
+          existing.stale=false;
+          existing.price=Number(offer.price||existing.price||0);
+          existing.retailPrice=Number(offer.price||existing.retailPrice||0);
+          existing.availableQty=Number(offer.availability||existing.availableQty||0);
+        }else{
+          cart.push({
+            id:"import-"+String(Date.now())+"-"+added+"-"+row.article.replace(/[^A-Za-zА-Яа-я0-9_-]/g,""),
+            type:"exact",
+            brand:offer.brand||brand,
+            article:offer.article||row.article,
+            name:offer.description||"Автозапчасть",
+            warehouse:"Поставка",
+            source:"Импорт корзины",
+            purchase:0,
+            retailPrice:Number(offer.price||0),
+            qty:Number(offer.availability||0),
+            days:Math.max(0,Math.ceil(Number(offer.delivery_hours||0)/24)),
+            deliveryProbability:offer.delivery_probability??null,
+            offerToken:offer.offer_token,
+            live:true,
+            quoteOnly:false,
+            price:Number(offer.price||0),
+            priceAtAdd:Number(offer.price||0),
+            previousPrice:null,
+            orderQty:row.quantity,
+            availableQty:Number(offer.availability||0),
+            selected:true,
+            comment:"",
+            priceChanged:false,
+            availabilityChanged:false,
+            stale:false,
+            vehicleContext:currentSearchVehicle()?.id ? {
+              id:currentSearchVehicle().id,
+              label:vehicleLabel(currentSearchVehicle()),
+              vin:currentSearchVehicle().vin||""
+            } : null
+          });
+        }
+        added++;
+      }catch(error){
+        console.warn("Cart file import row failed",row.article,error);
+        unavailable++;
+      }
     }
+
+    saveCart();
+    renderCartPage();
+
+    const parts=["Добавлено: "+added];
+    if(ambiguous) parts.push("нужно уточнить бренд: "+ambiguous);
+    if(unavailable) parts.push("нет доступного предложения: "+unavailable);
+    showToast(parts.join(" · "), (ambiguous||unavailable)?"warn":"");
+  }catch(error){
+    console.error("Cart file import failed",error);
+    showToast("Не удалось прочитать файл корзины.","warn");
+  }finally{
+    input.disabled=false;
+    input.value="";
   }
-  showToast("Добавлено позиций: "+added);
-  e.target.value="";
 });
 
 const originalNavigate=navigate;
