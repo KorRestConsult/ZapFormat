@@ -356,11 +356,6 @@
 
         <div id="cartChangeNotice" class="cart-change-notice" hidden></div>
 
-        <div class="cart-bulk-actions cart-bulk-actions-top">
-          <button type="button" data-cart-action="clear">Очистить</button>
-          <button type="button" data-cart-action="delete-selected">Удалить отмеченное</button>
-          <button type="button" data-cart-action="save">Сохранить</button>
-        </div>
         <button class="checkout-order-button cart-checkout-top" type="button" data-cart-action="checkout">Оформить заказ</button>
 
 <div class="order-table-wrap">
@@ -388,9 +383,8 @@
         </div>
 
         <div class="cart-bulk-actions">
-          <button id="clearCartButton" type="button">⌫ Очистить корзину</button>
-          <button id="deleteSelectedButton" type="button">× Удалить отмеченное</button>
-          <button id="saveCartButton" type="button">✓ Сохранить</button>
+          <button id="deleteSelectedButton" type="button">Удалить отмеченное</button>
+          <button id="clearCartButton" type="button">Очистить корзину</button>
         </div>
 
         <div class="quote-contact">
@@ -404,7 +398,7 @@
         <p class="checkout-recheck-note">Перед оформлением цена и наличие проверяются повторно.</p>
 
         <details class="cart-import">
-          <summary>Загрузить корзину из файла</summary>
+          <summary>Добавить список из файла</summary>
           <div class="cart-import-body">
             <input type="file" id="cartFileInput" accept=".csv,.txt" />
             <small>CSV/TXT: артикул, количество — или артикул, бренд, количество. Если брендов несколько, позицию не угадываем.</small>
@@ -412,7 +406,7 @@
         </details>
 
         <div class="order-warning">
-          Заказ формируется только из отмеченных позиций. Неотмеченные остаются в корзине.
+          Оформятся только отмеченные позиции. Остальные останутся в корзине.
         </div>
       </section>
 
