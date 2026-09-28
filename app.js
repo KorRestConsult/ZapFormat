@@ -2887,7 +2887,7 @@ function renderGarageOverview(){
           <div>
             <small>Текущий пробег</small>
             <strong>${new Intl.NumberFormat("ru-RU").format(v.mileage||0)} км</strong>
-            <span>Пробег хранится в аккаунте и используется для плана обслуживания.</span>
+            <span>Пробег хранится в аккаунте и помогает вести историю автомобиля.</span>
           </div>
           <div class="garage-mileage-edit">
             <input id="garageMileageInput" inputmode="numeric" value="${v.mileage||0}" aria-label="Пробег">
@@ -2895,9 +2895,10 @@ function renderGarageOverview(){
           </div>
         </div>
 
+        ${garageState.maintenance?.length ? `
         <section class="garage-panel">
           <div class="garage-panel-head">
-            <div><span class="eyebrow">БЛИЖАЙШЕЕ ТО</span><h3>${next?.title||"Нет запланированных работ"}</h3></div>
+            <div><span class="eyebrow">БЛИЖАЙШЕЕ ТО</span><h3>${next?.title||"План обслуживания"}</h3></div>
             <button data-garage-tab="maintenance">Все работы →</button>
           </div>
           ${next ? `
@@ -2906,13 +2907,8 @@ function renderGarageOverview(){
               <div><small>Осталось</small><b>${maintenanceRemaining(next)}</b></div>
               <button class="garage-primary" data-garage-prefill="${escapeHtml(next.query||([v.brand,v.model,next.title].filter(Boolean).join(" ")))}">Найти детали</button>
             </div>
-          ` : `
-            <div class="garage-empty-inline">
-              <b>Запланированных работ пока нет.</b>
-              <span>План обслуживания пока пуст. Его можно будет заполнить по фактическим работам и пробегу.</span>
-            </div>
-          `}
-        </section>
+          ` : ""}
+        </section>` : ""}
       </section>
 
       <aside class="garage-owner-side">
