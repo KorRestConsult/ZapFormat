@@ -477,7 +477,7 @@ function renderLiveAccount(overview,orders,requests,garage){
   if(garagePreview){
     const vehicle=garage?.vehicles?.[0];
     garagePreview.innerHTML=vehicle
-      ? `<div class="account-car"><div class="car-mark">${vehicle.brand}</div><div><b>${vehicle.brand} ${vehicle.model}</b><span>${vehicle.year||"—"} · ${vehicle.engine||""}</span><small>${vehicle.vin||"VIN не указан"}</small></div></div>`
+      ? `<div class="account-car"><div class="car-mark">${escapeHtml(vehicle.brand||"")}</div><div><b>${escapeHtml(vehicle.brand||"")} ${escapeHtml(vehicle.model||"")}</b><span>${escapeHtml(vehicle.year||"—")} · ${escapeHtml(vehicle.engine||"")}</span><small>${escapeHtml(vehicle.vin||"VIN не указан")}</small></div></div>`
       : "Добавьте автомобиль в гараж.";
   }
 }
@@ -870,7 +870,7 @@ async function openLiveOrderDetail(id){
               <div class="position-top">
                 <span class="position-index">${index+1}</span>
                 <div class="position-title">
-                  <h3>${item.brand||""} ${item.article}</h3>
+                  <h3>${escapeHtml(item.brand||"")} ${escapeHtml(item.article||"")}</h3>
                   <p>${escapeHtml(item.description||"")}</p>
                   ${item.vehicle_id ? '<small class="order-vehicle-context">Для: '+escapeHtml([item.vehicle_brand,item.vehicle_model,item.vehicle_generation].filter(Boolean).join(" "))+(item.vehicle_vin?" · "+escapeHtml(shortVin(item.vehicle_vin)):"")+' · контекст заказа</small>' : ""}\n                  ${item.supplier_status ? '<small class="order-vehicle-context">Поставка: '+escapeHtml(item.supplier_status)+'</small>' : ""}
                   ${item.comment ? '<small class="order-item-comment">Комментарий: '+escapeHtml(item.comment)+'</small>' : ""}
@@ -897,7 +897,7 @@ async function openLiveOrderDetail(id){
               <div class="timeline-copy">
                 <small>${formatDateRu(step.created_at)}</small>
                 <b>${requestStatusLabel(step.status)}</b>
-                ${step.note?`<p>${step.note}</p>`:""}
+                ${step.note?`<p>${escapeHtml(step.note)}</p>`:""}
               </div>
             </div>`).join("") : '<div class="account-empty"><p>Заказ создан.</p></div>'}
         </div>
@@ -1658,13 +1658,13 @@ function supplyRowHtml(x){
         <div class="supply-left">
           <div class="supply-term">
             <b>Подтверждение</b>
-            <small>${x.warehouse}</small>
+            <small>${escapeHtml(x.warehouse||"")}</small>
           </div>
-          <span class="supply-warehouse">${x.source}</span>
+          <span class="supply-warehouse">${escapeHtml(x.source||"")}</span>
         </div>
         <div class="supply-price"><span class="quote-only-label">Цена по запросу</span></div>
         <div class="supply-stock">—</div>
-        <button class="quote-request-btn" data-add="${x.id}" aria-label="Добавить в запрос">В запрос</button>
+        <button class="quote-request-btn" data-add="${escapeHtml(x.id)}" aria-label="Добавить в запрос">В запрос</button>
       </div>`;
   }
   const term=x.days===0?"Сегодня":x.days+(x.days===1?" день":" дн.");
@@ -1673,13 +1673,13 @@ function supplyRowHtml(x){
       <div class="supply-left">
         <div class="supply-term">
           <b>${term}</b>
-          <small>${x.warehouse}</small>
+          <small>${escapeHtml(x.warehouse||"")}</small>
         </div>
-        <span class="supply-warehouse">${x.source}</span>
+        <span class="supply-warehouse">${escapeHtml(x.source||"")}</span>
       </div>
       <div class="supply-price">${rub(itemRetail(x))}</div>
       <div class="supply-stock">${x.qty} шт.</div>
-      <button class="cart-icon-btn" data-add="${x.id}" aria-label="В корзину">${cartSvg()}</button>
+      <button class="cart-icon-btn" data-add="${escapeHtml(x.id)}" aria-label="В корзину">${cartSvg()}</button>
     </div>`;
 }
 
@@ -1692,18 +1692,18 @@ function groupCardHtml(items, key){
   return `
     <article class="product-group">
       <div class="product-group-head">
-        <div class="product-thumb">${first.brand.slice(0,5)}</div>
+        <div class="product-thumb">${escapeHtml(String(first.brand||"").slice(0,5))}</div>
         <div class="product-title">
           <div class="product-title-line">
-            <span class="product-article">${first.article}</span>
-            <b>${first.brand}</b>
+            <span class="product-article">${escapeHtml(first.article||"")}</span>
+            <b>${escapeHtml(first.brand||"")}</b>
           </div>
-          <small>${first.name}</small>
+          <small>${escapeHtml(first.name||"")}</small>
         </div>
         <span class="product-arrow">›</span>
       </div>
       <div class="supply-list">${visible.map(supplyRowHtml).join("")}</div>
-      ${hiddenCount ? `<button class="show-more" data-show-group="${key}">Показать ещё <span>${hiddenCount}</span></button>` : ""}
+      ${hiddenCount ? `<button class="show-more" data-show-group="${escapeHtml(key)}">Показать ещё <span>${hiddenCount}</span></button>` : ""}
     </article>`;
 }
 
@@ -1996,27 +1996,27 @@ function renderCartPage(){
     return `
       <div class="${classes.join(" ")}">
         <div class="row-number">${index+1}</div>
-        <div class="row-select"><input class="cart-check" type="checkbox" data-cart-select="${x.id}" ${x.selected?"checked":""} ${unavailable?"disabled":""}></div>
-        <div class="brand-cell">${x.brand}</div>
-        <div class="article-cell"><span class="cart-article">${x.article}</span></div>
+        <div class="row-select"><input class="cart-check" type="checkbox" data-cart-select="${escapeHtml(x.id)}" ${x.selected?"checked":""} ${unavailable?"disabled":""}></div>
+        <div class="brand-cell">${escapeHtml(x.brand||"")}</div>
+        <div class="article-cell"><span class="cart-article">${escapeHtml(x.article||"")}</span></div>
         <div class="description-cell cart-description">
           <span>${escapeHtml(x.name)}</span>
           ${x.vehicleContext?.label ? '<small class="cart-vehicle-context">'+escapeHtml(x.vehicleContext.label)+(x.vehicleContext.vin?" · "+escapeHtml(shortVin(x.vehicleContext.vin)):"")+'</small>' : ""}
         </div>
-        <div class="warehouse-cell">${x.warehouse}</div>
+        <div class="warehouse-cell">${escapeHtml(x.warehouse||"")}</div>
         <div class="term-cell">${x.stale?"обновить":(x.days===0?"Сегодня":x.days===1?"1 день":x.days+" дня")}</div>
         <div class="qty-cell">
           <div class="cart-stepper">
-            <button data-cart-minus="${x.id}">−</button>
+            <button data-cart-minus="${escapeHtml(x.id)}">−</button>
             <span>${x.orderQty}</span>
-            <button data-cart-plus="${x.id}">+</button>
+            <button data-cart-plus="${escapeHtml(x.id)}">+</button>
           </div>
         </div>
         <div class="availability-cell cart-availability ${unavailable?"zero":""}">${x.stale?"—":x.availableQty}</div>
         <div class="price-cell cart-price-cell">${priceHtml}</div>
         <div class="sum-cell cart-sum-cell">${x.quoteOnly?"после подтверждения":rub(subtotal)}</div>
-        <div class="comment-cell cart-comment"><input data-cart-comment="${x.id}" value="${String(x.comment||"").replace(/"/g,"&quot;")}" placeholder="Комментарий"></div>
-        <div class="remove-cell"><button class="cart-remove-icon" data-remove="${x.id}" aria-label="Удалить">×</button></div>
+        <div class="comment-cell cart-comment"><input data-cart-comment="${escapeHtml(x.id)}" value="${escapeHtml(x.comment||"")}" placeholder="Комментарий"></div>
+        <div class="remove-cell"><button class="cart-remove-icon" data-remove="${escapeHtml(x.id)}" aria-label="Удалить">×</button></div>
       </div>
     `;
   }).join("");
