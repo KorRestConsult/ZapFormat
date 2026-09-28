@@ -578,12 +578,12 @@ function renderLiveAccount(overview,orders,requests,garage){
         ? `data-live-order-detail="${row.key}"`
         : `data-live-request-detail="${row.key}"`;
       return `<div class="account-table-row" data-order-status="${escapeHtml(String(row.status||""))}" data-order-search="${escapeHtml(row.search_text||"")}">
-        <b>#${row.number}</b>
-        <span>${formatDateRu(row.created_at)}</span>
-        <span>${row.items_count}</span>
-        <span>${totalText}</span>
-        <strong class="status ${requestStatusClass(row.status)}">${requestStatusLabel(row.status)}</strong>
-        <button ${detailAttr}>Подробнее</button>
+        <b class="order-list-number">#${escapeHtml(row.number)}</b>
+        <span class="order-list-date">${formatDateRu(row.created_at)}</span>
+        <span class="order-list-items">${row.items_count} поз.</span>
+        <span class="order-list-total">${totalText}</span>
+        <strong class="status order-list-status ${requestStatusClass(row.status)}">${requestStatusLabel(row.status)}</strong>
+        <button class="order-list-open" ${detailAttr}>Открыть</button>
       </div>`;
     }).join("");
     table.innerHTML=head+(rows||'<div class="account-empty"><p>Реальных заказов пока нет.</p></div>');
