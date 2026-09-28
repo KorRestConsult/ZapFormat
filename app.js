@@ -1031,8 +1031,11 @@ function navigate(route, push=true){
 }
 
 function safeBack(fallback="home"){
-  const stateRoute=history.state?.route;
-  if(stateRoute || location.search){
+  let sameOriginReferrer=false;
+  try{
+    sameOriginReferrer=Boolean(document.referrer) && new URL(document.referrer).origin===location.origin;
+  }catch{}
+  if(history.state?.route || sameOriginReferrer){
     history.back();
     return;
   }
