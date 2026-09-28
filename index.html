@@ -6,7 +6,7 @@
   <meta name="theme-color" content="#17324a" />
   <title>ZapFormat — автозапчасти</title>
   <meta name="description" content="Умный поиск автозапчастей по артикулу, VIN и обычному запросу" />
-  <link rel="stylesheet" href="./styles.css?v=20260928-garage3" />
+  <link rel="stylesheet" href="./styles.css?v=20260928-context1" />
 </head>
 <body>
   <div class="app">
@@ -16,6 +16,10 @@
           <span class="logo-main">ZAP</span><span class="logo-ai">FORMAT</span>
         </a>
 <div class="header-actions">
+          <button id="headerVehicleButton" class="header-vehicle" data-route="garage" hidden>
+            <span id="headerVehicleMark">AUTO</span>
+            <b id="headerVehicleName">Мой автомобиль</b>
+          </button>
           <button data-route="garage">Гараж</button>
           <button data-route="orders">Заказы</button>
           <button id="accountEntryButton" data-route="auth">Войти</button>
@@ -44,6 +48,12 @@
               <button type="submit">Найти</button>
             </form>
 
+            <button class="search-vehicle-context" id="homeVehicleContext" data-route="garage" type="button" hidden>
+              <span class="search-vehicle-dot"></span>
+              <span><small>Ищем для</small><b id="homeVehicleName">моего автомобиля</b></span>
+              <span class="search-vehicle-change">Сменить</span>
+            </button>
+
             <div class="minimal-note">Цена · наличие · срок · аналоги</div>
           </div>
         </div>
@@ -66,7 +76,13 @@
           <button type="submit">Найти</button>
         </form>
 
-        <div class="catalog-disclaimer">
+        <button class="catalog-vehicle-context" id="catalogVehicleContext" data-route="garage" type="button" hidden>
+          <span><small>Автомобиль</small><b id="catalogVehicleName">—</b></span>
+          <span id="catalogVehicleVin">VIN не указан</span>
+          <strong>Сменить ›</strong>
+        </button>
+
+        <div class="catalog-disclaimer" id="catalogDisclaimer">
           Информация по аналогам справочная. Перед заказом совместимость уточняется по автомобилю или VIN.
         </div>
 
@@ -386,7 +402,7 @@
     </nav>
 </div>
 
-  <script src="./config.js?v=20260928-garage3"></script>
-  <script src="./app.js?v=20260928-garage3"></script>
+  <script src="./config.js?v=20260928-context1"></script>
+  <script src="./app.js?v=20260928-context1"></script>
 </body>
 </html>
