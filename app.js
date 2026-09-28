@@ -3072,6 +3072,8 @@ function prefillGarageSearch(query){
 }
 
 function showAccountTab(tab){
+  const allowed=new Set(["overview","orders","garage","profile","delivery","notifications","order-detail"]);
+  if(!allowed.has(tab)) tab="overview";
   document.querySelectorAll(".account-pane").forEach(x=>x.classList.remove("active"));
   document.querySelectorAll("[data-account-tab]").forEach(x=>x.classList.remove("active"));
   document.getElementById("account-"+tab)?.classList.add("active");
