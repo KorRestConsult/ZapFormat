@@ -1353,12 +1353,20 @@ function validTimewebProxyKey(value) {
   return crypto.timingSafeEqual(Buffer.from(candidate), Buffer.from(expected));
 }
 
-app.all("/mcp/timeweb/:accessKey", async (req, res, next) => {
-  try {
-    if (!validTimewebProxyKey(req.params.accessKey)) {
-      return res.status(404).json({ error: "not_found" });
-    }
+function validTimewebRelayBearer(req) {
+  const expected = String(process.env.TIMEWEB_RELAY_TOKEN_SHA256 || "").trim().toLowerCase();
+  if (!/^[a-f0-9]{64}$/.test(expected)) return false;
 
+  const auth = String(req.get("authorization") || "");
+  const token = auth.replace(/^Bearer\s+/i, "").trim();
+  if (!token) return false;
+
+  const candidate = crypto.createHash("sha256").update(token).digest("hex");
+  return crypto.timingSafeEqual(Buffer.from(candidate), Buffer.from(expected));
+}
+
+async function proxyTimewebMcp(req, res, next) {
+  try {
     const token = String(process.env.TIMEWEB_CLOUD_TOKEN || "").trim();
     if (!token) {
       return res.status(503).json({ error: "timeweb_not_configured" });
@@ -1409,6 +1417,20 @@ app.all("/mcp/timeweb/:accessKey", async (req, res, next) => {
     }
     next(error);
   }
+}
+
+app.all("/mcp/timeweb-mobile", async (req, res, next) => {
+  if (!validTimewebRelayBearer(req)) {
+    return res.status(401).json({ error: "unauthorized" });
+  }
+  return proxyTimewebMcp(req, res, next);
+});
+
+app.all("/mcp/timeweb/:accessKey", async (req, res, next) => {
+  if (!validTimewebProxyKey(req.params.accessKey)) {
+    return res.status(404).json({ error: "not_found" });
+  }
+  return proxyTimewebMcp(req, res, next);
 });
 
 app.use((error, _req, res, _next) => {
