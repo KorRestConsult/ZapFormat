@@ -1763,7 +1763,6 @@ function groupCardHtml(items, key){
           </div>
           <small>${escapeHtml(first.name||"")}</small>
         </div>
-        <span class="product-arrow">›</span>
       </div>
       <div class="supply-list">${visible.map(supplyRowHtml).join("")}</div>
       ${hiddenCount ? `<button class="show-more" data-show-group="${escapeHtml(key)}">Показать ещё <span>${hiddenCount}</span></button>` : ""}
