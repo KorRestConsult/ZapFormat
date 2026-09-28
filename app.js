@@ -630,17 +630,91 @@ async function hydrateRealGarage(garage){
 async function hydrateAccountData(){
   if(!backendConfigured() || !sessionUser) return;
   try{
-    const [overview,requests,garage]=await Promise.all([
+    const [overview,orders,requests,garage]=await Promise.all([
       apiRequest("/api/account/overview"),
+      apiRequest("/api/account/orders"),
       apiRequest("/api/account/requests"),
       apiRequest("/api/garage")
     ]);
+    liveAccountOrders=orders.orders||[];
     liveAccountRequests=requests.requests||[];
-    renderLiveAccount(overview,liveAccountRequests,garage);
+    renderLiveAccount(overview,liveAccountOrders,liveAccountRequests,garage);
     await hydrateRealGarage(garage);
     accountDataHydrated=true;
   }catch(error){
     console.warn("Account hydration failed",error);
+  }
+}
+
+async function openLiveOrderDetail(id){
+  try{
+    const data=await apiRequest("/api/account/orders/"+encodeURIComponent(id));
+    const mount=document.getElementById("orderDetailMount");
+    if(!mount) return;
+
+    const order=data.order;
+    const items=data.items||[];
+    const history=data.history||[];
+
+    mount.innerHTML=`
+      <div class="order-detail-head">
+        <div class="order-detail-toolbar"><button class="order-detail-back" data-account-tab="orders">← Заказы</button></div>
+        <div class="order-detail-title">
+          <div>
+            <span class="eyebrow">ЗАКАЗ ZAPFORMAT</span>
+            <h2>#${order.order_number}</h2>
+            <p>${formatDateRu(order.created_at)}</p>
+          </div>
+          <div class="order-detail-state">
+            <strong class="status">${requestStatusLabel(order.status)}</strong>
+            <b>${rub(Number(order.total_amount||0))}</b>
+          </div>
+        </div>
+      </div>
+
+      <section class="order-detail-block positions-block">
+        <div class="order-detail-block-head"><span class="eyebrow">ПОЗИЦИИ</span><h3>Состав заказа</h3></div>
+        <div class="order-positions">
+          ${items.map((item,index)=>`
+            <article class="order-position">
+              <div class="position-top">
+                <span class="position-index">${index+1}</span>
+                <div class="position-title">
+                  <h3>${item.brand||""} ${item.article}</h3>
+                  <p>${item.description||""}</p>
+                </div>
+                <strong class="status">${requestStatusLabel(item.status)}</strong>
+              </div>
+              <div class="position-meta">
+                <div><small>Количество</small><b>${item.quantity} шт.</b></div>
+                <div><small>Цена</small><b>${rub(Number(item.unit_price||0))}</b></div>
+                <div><small>Сумма</small><b>${rub(Number(item.unit_price||0)*Number(item.quantity||0))}</b></div>
+                <div><small>Срок</small><b>${item.delivery_days===0?"Сегодня":item.delivery_days===1?"1 день":item.delivery_days!=null?item.delivery_days+" дн.":"—"}</b></div>
+              </div>
+            </article>`).join("")}
+        </div>
+      </section>
+
+      <section class="order-detail-block">
+        <div class="order-detail-block-head"><span class="eyebrow">СТАТУС</span><h3>История заказа</h3></div>
+        <div class="order-timeline">
+          ${history.length ? history.map(step=>`
+            <div class="timeline-step done">
+              <span class="timeline-dot"></span>
+              <div class="timeline-copy">
+                <small>${formatDateRu(step.created_at)}</small>
+                <b>${requestStatusLabel(step.status)}</b>
+                ${step.note?`<p>${step.note}</p>`:""}
+              </div>
+            </div>`).join("") : '<div class="account-empty"><p>Заказ создан.</p></div>'}
+        </div>
+      </section>
+    `;
+
+    showAccountTab("order-detail");
+  }catch(error){
+    console.error(error);
+    showToast("Не удалось открыть заказ.","warn");
   }
 }
 
