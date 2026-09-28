@@ -3841,3 +3841,32 @@ body.guest-mode .logo{
   margin-left:4px
 }
 .search-vehicle-setup:hover{color:var(--navy)}
+
+
+/* Mobile primary navigation owns all actions. */
+@media(max-width:900px){
+  body:not(.guest-mode) .header-actions{display:none!important}
+  .topbar-inner{
+    grid-template-columns:1fr!important;
+  }
+  .logo{justify-self:start}
+}
+@media(max-width:430px){
+  .mobile-nav{
+    width:calc(100% - 12px);
+    gap:2px;
+    padding:3px
+  }
+  .mobile-nav button{
+    min-width:0;
+    padding:0 4px;
+    font-size:9px;
+    letter-spacing:-.01em
+  }
+  .mobile-nav b{
+    min-width:16px;
+    height:16px;
+    font-size:8px;
+    padding:0 3px
+  }
+}
