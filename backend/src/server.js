@@ -2085,8 +2085,23 @@ app.post("/api/account/returns", requireUser, async (req, res, next) => {
     const row = item.rows[0];
     const received = Boolean(row.received_at) || row.status === "completed" || row.order_status === "completed";
     if (!received) return res.status(409).json({ error: "return_available_after_receipt" });
-    if (quantity > Number(row.quantity || 0)) {
-      return res.status(400).json({ error: "return_quantity_exceeds_order" });
+
+    const returned = await pool.query(
+      `SELECT COALESCE(sum(quantity),0)::int AS quantity
+         FROM returns
+        WHERE user_id = $1
+          AND order_item_id = $2
+          AND status <> 'rejected'`,
+      [req.user.id, orderItemId]
+    );
+    const alreadyReturned = Number(returned.rows[0]?.quantity || 0);
+    const remaining = Math.max(0, Number(row.quantity || 0) - alreadyReturned);
+
+    if (quantity > remaining) {
+      return res.status(400).json({
+        error: "return_quantity_exceeds_order",
+        remaining_quantity: remaining
+      });
     }
 
     const result = await pool.query(
