@@ -4339,3 +4339,14 @@ body.guest-mode .logo{
   padding:0 4px;
   font-size:8px
 }
+
+
+/* Focused mobile account screens */
+@media(max-width:900px){
+  #view-profile.account-focus-view .account-sidebar{
+    display:none!important
+  }
+  #view-profile.account-focus-view .account-shell{
+    display:block!important
+  }
+}
