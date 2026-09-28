@@ -1676,7 +1676,7 @@ app.get("/api/catalog/offers", async (req, res, next) => {
     const analogs = sortOffers(mapped.filter((row) => row.is_analog));
 
     res.json({
-      source: "PartGrade",
+      source: "live_supplier",
       mode: "articles",
       query: { number, brand },
       offers,
