@@ -796,7 +796,7 @@ async function openLiveOrderDetail(id){
                 <div class="position-title">
                   <h3>${item.brand||""} ${item.article}</h3>
                   <p>${escapeHtml(item.description||"")}</p>
-                  ${item.vehicle_id ? '<small class="order-vehicle-context">Для: '+escapeHtml([item.vehicle_brand,item.vehicle_model,item.vehicle_generation].filter(Boolean).join(" "))+(item.vehicle_vin?" · "+escapeHtml(shortVin(item.vehicle_vin)):"")+' · контекст заказа</small>' : ""}
+                  ${item.vehicle_id ? '<small class="order-vehicle-context">Для: '+escapeHtml([item.vehicle_brand,item.vehicle_model,item.vehicle_generation].filter(Boolean).join(" "))+(item.vehicle_vin?" · "+escapeHtml(shortVin(item.vehicle_vin)):"")+' · контекст заказа</small>' : ""}\n                  ${item.supplier_status ? '<small class="order-vehicle-context">Поставка: '+escapeHtml(item.supplier_status)+'</small>' : ""}
                 </div>
                 <strong class="status">${requestStatusLabel(item.status)}</strong>
               </div>
