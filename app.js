@@ -1154,7 +1154,7 @@ async function openLiveRequestDetail(id,options={}){
       </section>`;
     showAccountTab("order-detail");
   }catch(error){
-    showToast("Не удалось открыть запрос.","warn");
+    showToast("Не удалось открыть заказ.","warn");
   }
 }
 
