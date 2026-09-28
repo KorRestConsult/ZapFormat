@@ -458,6 +458,11 @@ function vehicleSpecsForIntent(info, intent) {
 }
 
 module.exports = {
+  ABCP_CARBASE_CAPABILITIES,
+  ABCP_CARBASE_GOODS_GROUPS,
+  createAbcpCarbaseProvider,
+  asCatalogProvider,
+  catalogCoverageForIntent,
   normalizeText,
   compactText,
   tokens,
