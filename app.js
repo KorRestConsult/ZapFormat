@@ -498,6 +498,22 @@ function orderNextStep(status){
   return map[value]||"Все изменения по заказу будут появляться здесь.";
 }
 
+function orderStageHtml(status){
+  const value=String(status||"").toLowerCase();
+  const cancelled=["cancelled","rejected"].includes(value);
+  const index=["completed","refunded"].includes(value) ? 3
+    : value==="ready" ? 2
+      : ["confirmed","processing","approved"].includes(value) ? 1
+        : 0;
+  const labels=["Принят","В работе","Готов к получению","Завершён"];
+  return '<div class="order-stage'+(cancelled?' cancelled':'')+'">'+
+    labels.map((label,i)=>
+      '<div class="'+(i<index?'done ':i===index?'current ':'')+'">'+
+        '<i></i><span>'+label+'</span>'+
+      '</div>'
+    ).join("")+
+  '</div>';
+}
 function orderProgressHtml(status){
   const value=String(status||"").toLowerCase();
   const stageOne=["new","received","created","review"].includes(value);
@@ -989,6 +1005,7 @@ async function openLiveOrderDetail(id,options={}){
 
       <div class="order-detail-head">
         <div class="order-detail-toolbar"><button class="order-detail-back" data-account-tab="orders">← Заказы</button>${justCreated?"":'<button class="order-repeat-compact" data-live-repeat-order="'+escapeHtml(order.id)+'">Повторить заказ</button>'}</div>
+        ${orderStageHtml(order.status)}
         <div class="order-detail-title">
           <div>
             <span class="eyebrow">ЗАКАЗ ZAPFORMAT</span>
