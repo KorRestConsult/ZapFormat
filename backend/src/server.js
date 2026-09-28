@@ -1873,6 +1873,236 @@ app.patch("/api/account/profile", requireUser, async (req, res, next) => {
   }
 });
 
+app.get("/api/account/preferences", requireUser, async (req, res, next) => {
+  try {
+    await pool.query(
+      "INSERT INTO user_notification_settings (user_id) VALUES ($1) ON CONFLICT (user_id) DO NOTHING",
+      [req.user.id]
+    );
+
+    const [notifications, address] = await Promise.all([
+      pool.query(
+        `SELECT order_status, item_changes, returns, marketing
+           FROM user_notification_settings
+          WHERE user_id = $1
+          LIMIT 1`,
+        [req.user.id]
+      ),
+      pool.query(
+        `SELECT id, city, address, recipient_name, recipient_phone, is_default
+           FROM user_addresses
+          WHERE user_id = $1
+          ORDER BY is_default DESC, updated_at DESC, created_at DESC
+          LIMIT 1`,
+        [req.user.id]
+      )
+    ]);
+
+    res.json({
+      notifications: notifications.rows[0] || {
+        order_status: true,
+        item_changes: true,
+        returns: true,
+        marketing: false
+      },
+      delivery: address.rows[0] || null
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+app.put("/api/account/notifications", requireUser, async (req, res, next) => {
+  try {
+    const values = {
+      order_status: req.body?.order_status !== false,
+      item_changes: req.body?.item_changes !== false,
+      returns: req.body?.returns !== false,
+      marketing: req.body?.marketing === true
+    };
+
+    const result = await pool.query(
+      `INSERT INTO user_notification_settings
+        (user_id, order_status, item_changes, returns, marketing, updated_at)
+       VALUES ($1,$2,$3,$4,$5,now())
+       ON CONFLICT (user_id)
+       DO UPDATE SET order_status = EXCLUDED.order_status,
+                     item_changes = EXCLUDED.item_changes,
+                     returns = EXCLUDED.returns,
+                     marketing = EXCLUDED.marketing,
+                     updated_at = now()
+       RETURNING order_status, item_changes, returns, marketing`,
+      [
+        req.user.id,
+        values.order_status,
+        values.item_changes,
+        values.returns,
+        values.marketing
+      ]
+    );
+
+    res.json({ notifications: result.rows[0] });
+  } catch (error) {
+    next(error);
+  }
+});
+
+app.put("/api/account/delivery", requireUser, async (req, res, next) => {
+  const client = await pool.connect();
+  try {
+    const city = String(req.body?.city || "").trim().slice(0, 120);
+    const address = String(req.body?.address || "").trim().slice(0, 500);
+    const recipientName = String(req.body?.recipient_name || req.body?.recipient || "").trim().slice(0, 200) || null;
+    const recipientPhone = normalizePhone(req.body?.recipient_phone || req.body?.phone);
+
+    if (!city || !address) {
+      return res.status(400).json({ error: "delivery_city_and_address_required" });
+    }
+
+    await client.query("BEGIN");
+    await client.query(
+      "UPDATE user_addresses SET is_default = false, updated_at = now() WHERE user_id = $1",
+      [req.user.id]
+    );
+
+    const current = await client.query(
+      `SELECT id
+         FROM user_addresses
+        WHERE user_id = $1
+        ORDER BY updated_at DESC, created_at DESC
+        LIMIT 1`,
+      [req.user.id]
+    );
+
+    let result;
+    if (current.rowCount) {
+      result = await client.query(
+        `UPDATE user_addresses
+            SET city = $2,
+                address = $3,
+                recipient_name = $4,
+                recipient_phone = $5,
+                is_default = true,
+                updated_at = now()
+          WHERE id = $1
+          RETURNING id, city, address, recipient_name, recipient_phone, is_default`,
+        [current.rows[0].id, city, address, recipientName, recipientPhone]
+      );
+    } else {
+      result = await client.query(
+        `INSERT INTO user_addresses
+          (user_id, label, city, address, recipient_name, recipient_phone, is_default, created_at, updated_at)
+         VALUES ($1,'Основное получение',$2,$3,$4,$5,true,now(),now())
+         RETURNING id, city, address, recipient_name, recipient_phone, is_default`,
+        [req.user.id, city, address, recipientName, recipientPhone]
+      );
+    }
+
+    await client.query("COMMIT");
+    res.json({ delivery: result.rows[0] });
+  } catch (error) {
+    await client.query("ROLLBACK").catch(() => {});
+    next(error);
+  } finally {
+    client.release();
+  }
+});
+
+app.get("/api/account/reports", requireUser, async (req, res, next) => {
+  try {
+    const [orders, returns] = await Promise.all([
+      pool.query(
+        `SELECT count(*)::int AS orders_count,
+                COALESCE(sum(total_amount),0)::numeric(14,2) AS purchases_total,
+                COALESCE(avg(total_amount),0)::numeric(14,2) AS average_order
+           FROM orders
+          WHERE user_id = $1
+            AND created_at >= date_trunc('month', now())
+            AND status <> 'cancelled'`,
+        [req.user.id]
+      ),
+      pool.query(
+        `SELECT count(*)::int AS returns_count
+           FROM returns
+          WHERE user_id = $1
+            AND created_at >= date_trunc('month', now())`,
+        [req.user.id]
+      )
+    ]);
+
+    res.json({
+      month: new Date().toISOString().slice(0, 7),
+      orders_count: orders.rows[0].orders_count,
+      purchases_total: Number(orders.rows[0].purchases_total || 0),
+      returns_count: returns.rows[0].returns_count,
+      average_order: Number(orders.rows[0].average_order || 0)
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+app.get("/api/account/returns", requireUser, async (req, res, next) => {
+  try {
+    const result = await pool.query(
+      `SELECT r.id, r.return_number, r.quantity, r.reason, r.comment, r.status, r.created_at,
+              i.brand, i.article, i.description, o.order_number
+         FROM returns r
+         JOIN order_items i ON i.id = r.order_item_id
+         JOIN orders o ON o.id = i.order_id
+        WHERE r.user_id = $1
+        ORDER BY r.created_at DESC
+        LIMIT 100`,
+      [req.user.id]
+    );
+    res.json({ returns: result.rows });
+  } catch (error) {
+    next(error);
+  }
+});
+
+app.post("/api/account/returns", requireUser, async (req, res, next) => {
+  try {
+    const orderItemId = String(req.body?.order_item_id || "").trim();
+    const quantity = Math.max(1, Math.min(999, Math.trunc(Number(req.body?.quantity || 1))));
+    const reason = String(req.body?.reason || "").trim().slice(0, 300);
+    const comment = String(req.body?.comment || "").trim().slice(0, 1000) || null;
+
+    if (!orderItemId || !reason) {
+      return res.status(400).json({ error: "return_item_and_reason_required" });
+    }
+
+    const item = await pool.query(
+      `SELECT i.id, i.quantity, i.status, i.received_at, o.status AS order_status
+         FROM order_items i
+         JOIN orders o ON o.id = i.order_id
+        WHERE i.id = $1 AND o.user_id = $2
+        LIMIT 1`,
+      [orderItemId, req.user.id]
+    );
+    if (!item.rowCount) return res.status(404).json({ error: "order_item_not_found" });
+
+    const row = item.rows[0];
+    const received = Boolean(row.received_at) || row.status === "completed" || row.order_status === "completed";
+    if (!received) return res.status(409).json({ error: "return_available_after_receipt" });
+    if (quantity > Number(row.quantity || 0)) {
+      return res.status(400).json({ error: "return_quantity_exceeds_order" });
+    }
+
+    const result = await pool.query(
+      `INSERT INTO returns
+        (user_id, order_item_id, quantity, reason, comment, status, created_at, updated_at)
+       VALUES ($1,$2,$3,$4,$5,'created',now(),now())
+       RETURNING id, return_number, quantity, reason, comment, status, created_at`,
+      [req.user.id, orderItemId, quantity, reason, comment]
+    );
+
+    res.status(201).json({ return: result.rows[0] });
+  } catch (error) {
+    next(error);
+  }
+});
+
 app.get("/api/account/overview", requireUser, async (req, res, next) => {
   try {
     const [orders, vehicles, returns, requests] = await Promise.all([
