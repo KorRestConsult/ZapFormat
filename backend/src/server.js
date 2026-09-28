@@ -14,6 +14,7 @@ const { Pool } = require("pg");
 const { PartGradeError, createPartGradeClient } = require("./partgrade");
 const { createOfferTokenCodec } = require("./offer-token");
 const { customerPrice } = require("./pricing");
+const { verifyGitHubActionsToken } = require("./github-oidc");
 
 const app = express();
 const isProduction = process.env.NODE_ENV === "production";
@@ -1431,6 +1432,49 @@ app.all("/mcp/timeweb/:accessKey", async (req, res, next) => {
     return res.status(404).json({ error: "not_found" });
   }
   return proxyTimewebMcp(req, res, next);
+});
+
+
+app.post("/api/internal/deploy", async (req, res) => {
+  try {
+    const auth = String(req.get("authorization") || "");
+    const token = auth.replace(/^Bearer\s+/i, "").trim();
+    const claims = await verifyGitHubActionsToken(token);
+
+    const requestedSha = String(req.body?.sha || "").trim().toLowerCase();
+    if (!/^[a-f0-9]{40}$/.test(requestedSha) || requestedSha !== String(claims.sha || "").toLowerCase()) {
+      return res.status(400).json({ error: "sha_mismatch" });
+    }
+
+    const trigger = {
+      sha: requestedSha,
+      requested_at: new Date().toISOString(),
+      actor: String(claims.actor || ""),
+      run_id: String(claims.run_id || "")
+    };
+
+    await fs.mkdir("/var/lib/zapformat", { recursive: true });
+    await fs.writeFile(
+      "/var/lib/zapformat/deploy.trigger",
+      JSON.stringify(trigger) + "\n",
+      { mode: 0o640 }
+    );
+
+    return res.status(202).json({ ok: true, queued: true, sha: requestedSha });
+  } catch (error) {
+    console.error("[AutoDeploy]", error.message);
+    return res.status(401).json({ error: "unauthorized" });
+  }
+});
+
+app.get("/api/deploy/status", async (_req, res) => {
+  try {
+    const raw = await fs.readFile("/var/lib/zapformat/deploy-state.json", "utf8");
+    return res.json(JSON.parse(raw));
+  } catch (error) {
+    if (error?.code === "ENOENT") return res.json({ status: "not_configured" });
+    return res.status(500).json({ error: "deploy_status_unavailable" });
+  }
 });
 
 app.use((error, _req, res, _next) => {
