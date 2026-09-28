@@ -71,21 +71,41 @@ function loadCart(){
       .filter(x=>x && (x.offerToken || x.live===true))
       .map(x=>{
         const stale=Boolean(x.stale || !x.offerToken);
-        const {purchase: _legacyPurchase, supplierCode: _legacySupplierCode, itemKey: _legacyItemKey, ...safe}=x;
+        const retailPrice=Math.max(0,Number(x.retailPrice ?? x.price)||0);
+        const availableQty=Math.max(0,Number(x.availableQty ?? x.available ?? x.qty)||0);
         return {
-          ...safe,
-          orderQty:x.orderQty ?? x.qty ?? 1,
-          availableQty:x.availableQty ?? x.available ?? x.qty ?? 0,
-          selected:stale ? false : (x.selected ?? true),
-          comment:x.comment ?? "",
-          priceAtAdd:x.priceAtAdd ?? x.price ?? 0,
-          previousPrice:x.previousPrice ?? null,
-          priceChanged:x.priceChanged ?? false,
-          availabilityChanged:x.availabilityChanged ?? false,
+          id:String(x.id||""),
+          type:String(x.type||"saved"),
+          brand:String(x.brand||""),
+          article:String(x.article||""),
+          name:String(x.name||x.description||"Автозапчасть"),
+          warehouse:String(x.warehouse||"Поставка"),
+          source:String(x.source||"Корзина"),
+          retailPrice,
+          qty:availableQty,
+          days:Math.max(0,Number(x.days)||0),
+          deliveryProbability:x.deliveryProbability??null,
+          offerToken:x.offerToken||null,
+          live:true,
+          quoteOnly:Boolean(x.quoteOnly),
+          price:Math.max(0,Number(x.price ?? retailPrice)||0),
+          priceAtAdd:Math.max(0,Number(x.priceAtAdd ?? x.price ?? retailPrice)||0),
+          previousPrice:x.previousPrice==null?null:Math.max(0,Number(x.previousPrice)||0),
+          orderQty:Math.max(1,Number(x.orderQty ?? x.qty)||1),
+          availableQty,
+          selected:stale ? false : (x.selected !== false),
+          comment:String(x.comment||""),
+          priceChanged:Boolean(x.priceChanged),
+          availabilityChanged:Boolean(x.availabilityChanged),
           stale,
-          offerToken:x.offerToken||null
+          vehicleContext:x.vehicleContext?.id ? {
+            id:String(x.vehicleContext.id),
+            label:String(x.vehicleContext.label||""),
+            vin:String(x.vehicleContext.vin||"")
+          } : null
         };
-      });
+      })
+      .filter(x=>x.id && x.article && x.brand && x.offerToken);
   }catch{return []}
 }
 function saveCart(){
