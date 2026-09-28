@@ -2922,8 +2922,14 @@ function showAccountTab(tab){
     requestAnimationFrame(()=>activeNav.scrollIntoView({behavior:"auto",block:"nearest",inline:"center"}));
   }
   if(tab==="garage") renderGarageApp();
-  if(sessionUser && (tab==="overview" || tab==="orders" || tab==="garage") && !accountDataHydrated){
+  if(sessionUser && tab==="orders"){
+    accountDataHydrated=false;
     hydrateAccountData();
+  }else if(sessionUser && (tab==="overview" || tab==="garage") && !accountDataHydrated){
+    hydrateAccountData();
+  }
+  if(sessionUser && tab==="notifications"){
+    refreshNotificationFeed();
   }
   const profileViewActive=document.getElementById("view-profile")?.classList.contains("active");
   if(profileViewActive){
@@ -3273,6 +3279,30 @@ document.addEventListener("keydown",e=>{
   if(liveRequest){
     e.preventDefault();
     openLiveRequestDetail(liveRequest.dataset.liveRequestDetail);
+  }
+});
+
+document.getElementById("markNotificationsRead")?.addEventListener("click",async e=>{
+  const button=e.currentTarget;
+  const old=button.textContent;
+  button.disabled=true;
+  button.textContent="Сохраняем…";
+  try{
+    await apiRequest("/api/account/notifications/read",{
+      method:"POST",
+      body:JSON.stringify({})
+    });
+    await refreshNotificationFeed();
+    button.textContent="Прочитано";
+  }catch(error){
+    console.error("Mark notifications read failed",error);
+    button.textContent="Ошибка";
+    showToast("Не удалось обновить уведомления.","warn");
+  }finally{
+    setTimeout(()=>{
+      button.textContent=old;
+      button.disabled=false;
+    },900);
   }
 });
 
