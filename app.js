@@ -497,7 +497,7 @@ function supplyStatusLabel(status){
 function historyNoteText(note){
   const raw=String(note||"").trim();
   const match=raw.match(/^Статус поставки:\s*(.+)$/i);
-  if(match) return "Поставка: "+supplyStatusLabel(match[1]);
+  if(match) return "Статус позиции: "+supplyStatusLabel(match[1]);
   return raw;
 }
 
@@ -507,7 +507,7 @@ function orderNextStep(status){
     new:"Мы приняли заказ. Дальше проверяем и запускаем его в работу.",
     received:"Заказ принят. Следующее изменение появится здесь и в уведомлениях.",
     confirmed:"Заказ подтверждён и готов к обработке.",
-    processing:"Заказ в работе. Следим за поставкой каждой позиции.",
+    processing:"Заказ в работе. Статус каждой позиции обновляется отдельно.",
     ready:"Заказ готов к получению.",
     completed:"Заказ завершён.",
     cancelled:"Заказ отменён."
@@ -1062,7 +1062,7 @@ async function openLiveOrderDetail(id,options={}){
                 <div class="position-title">
                   <h3>${escapeHtml(item.brand||"")} ${escapeHtml(item.article||"")}</h3>
                   <p>${escapeHtml(item.description||"")}</p>
-                  ${item.vehicle_id ? '<small class="order-vehicle-context">Автомобиль: '+escapeHtml([item.vehicle_brand,item.vehicle_model,item.vehicle_generation].filter(Boolean).join(" "))+(item.vehicle_vin?" · "+escapeHtml(shortVin(item.vehicle_vin)):"")</small>' : ""}\n                  ${item.supplier_status ? '<small class="order-vehicle-context">Поставка: '+escapeHtml(supplyStatusLabel(item.supplier_status))+'</small>' : ""}
+                  ${item.vehicle_id ? '<small class="order-vehicle-context">Автомобиль: '+escapeHtml([item.vehicle_brand,item.vehicle_model,item.vehicle_generation].filter(Boolean).join(" "))+(item.vehicle_vin?" · "+escapeHtml(shortVin(item.vehicle_vin)):"")</small>' : ""}\n                  ${item.supplier_status ? '<small class="order-vehicle-context">Статус позиции: '+escapeHtml(supplyStatusLabel(item.supplier_status))+'</small>' : ""}
                   ${item.comment ? '<small class="order-item-comment">Комментарий: '+escapeHtml(item.comment)+'</small>' : ""}
                 </div>
                 <strong class="status ${requestStatusClass(item.status)}">${requestStatusLabel(item.status)}</strong>
