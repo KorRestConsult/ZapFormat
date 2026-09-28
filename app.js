@@ -3315,17 +3315,13 @@ document.getElementById("profileForm")?.addEventListener("submit",async e=>{
   btn.disabled=true;
 
   try{
-    if(backendConfigured() && sessionUser){
-      const result=await apiRequest("/api/account/profile",{
-        method:"PATCH",
-        body:JSON.stringify(data)
-      });
-      sessionUser=result.user;
-      applySessionUser();
-    }else{
-      // Demo-only fallback while the public API endpoint is not configured.
-      localStorage.setItem("zapformat-profile",JSON.stringify(data));
-    }
+    if(!backendConfigured() || !sessionUser) throw new Error("auth_required");
+    const result=await apiRequest("/api/account/profile",{
+      method:"PATCH",
+      body:JSON.stringify(data)
+    });
+    sessionUser=result.user;
+    applySessionUser();
     btn.textContent="Сохранено";
   }catch(error){
     btn.textContent="Ошибка";
@@ -3346,20 +3342,17 @@ document.getElementById("deliveryForm")?.addEventListener("submit",async e=>{
   const old=btn.textContent;
   btn.disabled=true;
   try{
-    if(backendConfigured() && sessionUser){
-      const result=await apiRequest("/api/account/delivery",{
-        method:"PUT",
-        body:JSON.stringify({
-          city:data.city,
-          address:data.address,
-          recipient_name:data.recipient,
-          recipient_phone:data.phone
-        })
-      });
-      renderAccountPreferences({delivery:result.delivery});
-    }else{
-      localStorage.setItem("zapformat-delivery",JSON.stringify(data));
-    }
+    if(!backendConfigured() || !sessionUser) throw new Error("auth_required");
+    const result=await apiRequest("/api/account/delivery",{
+      method:"PUT",
+      body:JSON.stringify({
+        city:data.city,
+        address:data.address,
+        recipient_name:data.recipient,
+        recipient_phone:data.phone
+      })
+    });
+    renderAccountPreferences({delivery:result.delivery});
     btn.textContent="Сохранено";
     showToast("Получение сохранено.");
   }catch(error){
@@ -3387,28 +3380,9 @@ document.addEventListener("submit",e=>{
 });
 
 try{
-  const savedProfile=JSON.parse(localStorage.getItem("zapformat-profile")||"null");
-  if(savedProfile && document.getElementById("profileForm")){
-    for(const [key,value] of Object.entries(savedProfile)){
-      const input=document.querySelector('#profileForm [name="'+key+'"]');
-      if(input) input.value=value;
-    }
-  }
-  const savedDelivery=JSON.parse(localStorage.getItem("zapformat-delivery")||"null");
-  if(savedDelivery && document.getElementById("deliveryForm")){
-    for(const [key,value] of Object.entries(savedDelivery)){
-      const input=document.querySelector('#deliveryForm [name="'+key+'"]');
-      if(input) input.value=value;
-    }
-  }
-
-  const savedNotifications=JSON.parse(localStorage.getItem("zapformat-notifications")||"null");
-  if(savedNotifications){
-    document.querySelectorAll("[data-notification]").forEach(input=>{
-      const key=input.dataset.notification;
-      if(Object.prototype.hasOwnProperty.call(savedNotifications,key)) input.checked=Boolean(savedNotifications[key]);
-    });
-  }
+  localStorage.removeItem("zapformat-profile");
+  localStorage.removeItem("zapformat-delivery");
+  localStorage.removeItem("zapformat-notifications");
 
   const savedTab=localStorage.getItem("zapformat-account-tab");
   if(savedTab==="order-detail"){
@@ -3416,7 +3390,6 @@ try{
   }else if(savedTab){
     showAccountTab(savedTab);
   }
-  renderGarageApp();
 }catch{}
 
 
@@ -3427,19 +3400,16 @@ document.addEventListener("change",async e=>{
   document.querySelectorAll("[data-notification]").forEach(input=>state[input.dataset.notification]=input.checked);
 
   try{
-    if(backendConfigured() && sessionUser){
-      await apiRequest("/api/account/notifications",{
-        method:"PUT",
-        body:JSON.stringify({
-          order_status:state.orderStatus,
-          item_changes:state.positionChange,
-          returns:state.returns,
-          marketing:state.marketing
-        })
-      });
-    }else{
-      localStorage.setItem("zapformat-notifications",JSON.stringify(state));
-    }
+    if(!backendConfigured() || !sessionUser) throw new Error("auth_required");
+    await apiRequest("/api/account/notifications",{
+      method:"PUT",
+      body:JSON.stringify({
+        order_status:state.orderStatus,
+        item_changes:state.positionChange,
+        returns:state.returns,
+        marketing:state.marketing
+      })
+    });
     showToast("Настройки уведомлений сохранены.");
   }catch(error){
     showToast("Не удалось сохранить уведомления.","warn");
