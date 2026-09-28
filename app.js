@@ -309,9 +309,15 @@ function renderCheckoutContact(){
     return;
   }
 
-  const fullName=[sessionUser.name,sessionUser.surname].filter(Boolean).join(" ");
-  const phone=String(sessionUser.phone||"").trim();
+  const delivery=accountPreferences?.delivery||null;
+  const fullName=[sessionUser.name,sessionUser.surname].filter(Boolean).join(" ") || String(delivery?.recipient_name||"").trim();
+  const phone=String(sessionUser.phone||delivery?.recipient_phone||"").trim();
   const needsContact=!fullName || phone.replace(/\D/g,"").length<10;
+
+  const quoteName=document.getElementById("quoteName");
+  const quotePhone=document.getElementById("quotePhone");
+  if(quoteName && fullName && !String(quoteName.value||"").trim()) quoteName.value=fullName;
+  if(quotePhone && phone && !String(quotePhone.value||"").trim()) quotePhone.value=phone;
 
   if(needsContact){
     summary.innerHTML=
@@ -371,6 +377,7 @@ function updateCheckoutMode(){
       ? "Цена и наличие проверяются повторно. После оформления заказ сразу появится в личном кабинете."
       : "Без входа отправим запрос менеджеру. Войдите, чтобы создать заказ сразу и видеть его статус.";
   }
+  renderCheckoutContact();
   renderCheckoutDelivery();
 }
 
@@ -2321,8 +2328,10 @@ async function checkoutCart(){
     return;
   }
 
-  const name=String(document.getElementById("quoteName")?.value||"").trim();
-  const phone=String(document.getElementById("quotePhone")?.value||"").trim();
+  const savedName=[sessionUser?.name,sessionUser?.surname].filter(Boolean).join(" ") || String(accountPreferences?.delivery?.recipient_name||"").trim();
+  const savedPhone=String(sessionUser?.phone||accountPreferences?.delivery?.recipient_phone||"").trim();
+  const name=String(document.getElementById("quoteName")?.value||savedName||"").trim();
+  const phone=String(document.getElementById("quotePhone")?.value||savedPhone||"").trim();
   if(phone.replace(/\D/g,"").length<10){
     showToast("Укажите телефон для заказа.","warn");
     document.getElementById("quotePhone")?.focus();
