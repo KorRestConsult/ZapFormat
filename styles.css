@@ -3614,3 +3614,59 @@ body.guest-mode #view-auth{
     padding-left:19px
   }
 }
+
+
+/* Simpler first garage setup */
+.garage-empty-first{
+  max-width:620px;
+  margin:34px auto;
+  text-align:center;
+  padding:36px 28px
+}
+.garage-empty-first .eyebrow{
+  display:block;
+  margin-bottom:14px
+}
+.garage-empty-first p{
+  max-width:500px;
+  margin:0 auto 20px
+}
+.vehicle-editor-more{
+  border:1px solid #e0e6ea;
+  border-radius:10px;
+  background:#f9fbfc;
+  padding:0
+}
+.vehicle-editor-more summary{
+  cursor:pointer;
+  padding:12px 13px;
+  font-size:12px;
+  font-weight:850;
+  color:#596d79;
+  list-style:none
+}
+.vehicle-editor-more summary::-webkit-details-marker{display:none}
+.vehicle-editor-more summary::after{
+  content:"+";
+  float:right;
+  font-size:16px;
+  line-height:1
+}
+.vehicle-editor-more[open] summary::after{content:"−"}
+.vehicle-editor-more-grid{
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:12px;
+  padding:0 12px 12px
+}
+.vehicle-editor-more-grid .wide{grid-column:1/3}
+@media(max-width:680px){
+  .garage-empty-first{
+    margin:12px auto;
+    padding:28px 18px
+  }
+  .vehicle-editor-more-grid{
+    grid-template-columns:1fr
+  }
+  .vehicle-editor-more-grid .wide{grid-column:auto}
+}
