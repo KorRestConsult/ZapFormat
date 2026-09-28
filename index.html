@@ -16,14 +16,14 @@
           <span class="logo-main">ZAP</span><span class="logo-ai">FORMAT</span>
         </a>
 <div class="header-actions">
-          <button id="headerVehicleButton" class="header-vehicle" data-route="garage" hidden>
+          <button type="button" id="headerVehicleButton" class="header-vehicle" data-route="garage" hidden>
             <span id="headerVehicleMark">AUTO</span>
             <b id="headerVehicleName">Мой автомобиль</b>
           </button>
-          <button data-route="garage">Гараж</button>
-          <button data-route="orders">Заказы</button>
-          <button id="accountEntryButton" data-route="auth">Войти</button>
-          <button class="cart-pill" data-route="cart">
+          <button type="button" data-route="garage">Гараж</button>
+          <button type="button" data-route="orders">Заказы</button>
+          <button type="button" id="accountEntryButton" data-route="auth">Войти</button>
+          <button type="button" class="cart-pill" data-route="cart">
             Корзина <b id="cartCount">0</b>
           </button>
         </div>
@@ -60,7 +60,7 @@
       </section>
 
       <section class="view" id="view-search">
-        <button class="back-link" id="backButton">← Назад</button>
+        <button type="button" class="back-link" id="backButton">← Назад</button>
 
         <div class="catalog-query-head">
           <div>
@@ -90,19 +90,19 @@
           <button class="filters-toggle" type="button" aria-expanded="false">Показать фильтры</button>
           <div class="sort-row">
             <span>Сортировка:</span>
-            <button data-sort="stock">Нал.</button>
-            <button data-sort="warehouse">Склад</button>
-            <button data-sort="speed">Ожид. срок</button>
-            <button class="active" data-sort="price">Цена ▲</button>
+            <button type="button" data-sort="stock">Нал.</button>
+            <button type="button" data-sort="warehouse">Склад</button>
+            <button type="button" data-sort="speed">Ожид. срок</button>
+            <button type="button" class="active" data-sort="price">Цена ▲</button>
           </div>
         </div>
 
         <div class="filters pg-filters compact-filters">
-          <button class="active" data-filter="all">Все</button>
-          <button data-filter="exact">Точные</button>
-          <button data-filter="analog">Аналоги</button>
-          <button data-filter="fast">До 2 дней</button>
-          <button data-filter="stock">В наличии</button>
+          <button type="button" class="active" data-filter="all">Все</button>
+          <button type="button" data-filter="exact">Точные</button>
+          <button type="button" data-filter="analog">Аналоги</button>
+          <button type="button" data-filter="fast">До 2 дней</button>
+          <button type="button" data-filter="stock">В наличии</button>
         </div>
 
         <section class="catalog-section">
@@ -192,14 +192,14 @@
             </div>
 
             <nav class="account-nav" aria-label="Личный кабинет">
-              <button class="active" data-account-tab="overview">Обзор</button>
-              <button data-account-tab="orders">Заказы</button>
-              <button data-account-tab="returns">Возвраты</button>
-              <button data-account-tab="garage">Гараж</button>
-              <button data-account-tab="reports">Отчёты</button>
-              <button data-account-tab="profile">Профиль</button>
-              <button data-account-tab="delivery">Получение</button>
-              <button data-account-tab="notifications">Уведомления <b class="notification-badge" id="notificationUnreadBadge" hidden>0</b></button>
+              <button type="button" class="active" data-account-tab="overview">Обзор</button>
+              <button type="button" data-account-tab="orders">Заказы</button>
+              <button type="button" data-account-tab="returns">Возвраты</button>
+              <button type="button" data-account-tab="garage">Гараж</button>
+              <button type="button" data-account-tab="reports">Отчёты</button>
+              <button type="button" data-account-tab="profile">Профиль</button>
+              <button type="button" data-account-tab="delivery">Получение</button>
+              <button type="button" data-account-tab="notifications">Уведомления <b class="notification-badge" id="notificationUnreadBadge" hidden>0</b></button>
             </nav>
             <button class="account-logout" id="logoutButton" type="button">Выйти</button>
           </aside>
@@ -212,7 +212,7 @@
                   <h2>Личный кабинет</h2>
                   <p>Заказы, автомобиль и настройки.</p>
                 </div>
-                <button class="account-primary" data-route="home">Найти запчасть</button>
+                <button type="button" class="account-primary" data-route="home">Найти запчасть</button>
               </div>
 
               <div class="account-stats" id="accountLiveStats">
@@ -225,7 +225,7 @@
               <div class="account-block">
                 <div class="account-block-head">
                   <div><span class="eyebrow">ПОСЛЕДНИЕ ЗАКАЗЫ</span><h3>Статус заказов</h3></div>
-                  <button data-account-tab="orders">Все →</button>
+                  <button type="button" data-account-tab="orders">Все →</button>
                 </div>
                 <div class="account-order-list" id="accountRecentRequests">
                   <div class="account-empty"><p>Реальные заказы появятся после оформления.</p></div>
@@ -234,11 +234,11 @@
 
               <div class="account-grid-2">
                 <div class="account-block">
-                  <div class="account-block-head"><div><span class="eyebrow">ГАРАЖ</span><h3>Мои автомобили</h3></div><button data-account-tab="garage">Открыть →</button></div>
+                  <div class="account-block-head"><div><span class="eyebrow">ГАРАЖ</span><h3>Мои автомобили</h3></div><button type="button" data-account-tab="garage">Открыть →</button></div>
                   <div id="accountGaragePreview" class="account-muted">Добавьте автомобиль в гараж.</div>
                 </div>
                 <div class="account-block">
-                  <div class="account-block-head"><div><span class="eyebrow">ПОЛУЧЕНИЕ</span><h3 id="accountDeliveryCity">Получение</h3></div><button data-account-tab="delivery">Настроить →</button></div>
+                  <div class="account-block-head"><div><span class="eyebrow">ПОЛУЧЕНИЕ</span><h3 id="accountDeliveryCity">Получение</h3></div><button type="button" data-account-tab="delivery">Настроить →</button></div>
                   <p class="account-muted" id="accountDeliveryPreview">Укажите основную точку или адрес получения.</p>
                 </div>
               </div>
@@ -273,7 +273,7 @@
                   <div class="empty-icon">↩</div>
                   <h3>Возвратов пока нет</h3>
                   <p>Откройте завершённый заказ и выберите нужную позицию.</p>
-                  <button data-account-tab="orders">Перейти к заказам</button>
+                  <button type="button" data-account-tab="orders">Перейти к заказам</button>
                 </div>
               </div>
             </section>
@@ -340,7 +340,7 @@
       </section>
 
       <section class="view" id="view-cart">
-        <button class="back-link" id="cartBackButton">← Назад</button>
+        <button type="button" class="back-link" id="cartBackButton">← Назад</button>
 
         <div class="checkout-title">Корзина</div>
 
@@ -418,10 +418,10 @@
 
 
     <nav class="mobile-nav" aria-label="Основная навигация">
-      <button data-route="home">Поиск</button>
-      <button data-route="garage">Гараж</button>
-      <button data-route="orders">Заказы</button>
-      <button data-route="cart">Корзина <b id="mobileCartCount">0</b></button>
+      <button type="button" data-route="home">Поиск</button>
+      <button type="button" data-route="garage">Гараж</button>
+      <button type="button" data-route="orders">Заказы</button>
+      <button type="button" data-route="cart">Корзина <b id="mobileCartCount">0</b></button>
     </nav>
 </div>
 
