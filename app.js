@@ -2637,6 +2637,12 @@ if(aiInput && aiInput.tagName==="TEXTAREA"){
     aiInput.style.height="auto";
     aiInput.style.height=Math.min(aiInput.scrollHeight,120)+"px";
   });
+  aiInput.addEventListener("keydown",e=>{
+    if(e.key==="Enter" && !e.shiftKey){
+      e.preventDefault();
+      document.getElementById("searchForm")?.requestSubmit();
+    }
+  });
 }
 
 function restoreFromUrl(){
