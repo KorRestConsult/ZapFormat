@@ -2441,13 +2441,8 @@ async function checkoutCart(){
     cart=cart.filter(x=>!sentIds.has(x.id));
     saveCart();
 
-    if(sessionUser){
-      localStorage.removeItem("zapformat-quote-name");
-      localStorage.removeItem("zapformat-quote-phone");
-    }else{
-      localStorage.setItem("zapformat-quote-name",name);
-      localStorage.setItem("zapformat-quote-phone",phone);
-    }
+    localStorage.removeItem("zapformat-quote-name");
+    localStorage.removeItem("zapformat-quote-phone");
 
     if(result.kind==="order" && result.order_number){
       showToast("Заказ #"+result.order_number+" создан.");
@@ -2628,8 +2623,10 @@ renderCart();
 renderCatalog();
 const quoteNameInput=document.getElementById("quoteName");
 const quotePhoneInput=document.getElementById("quotePhone");
-if(quoteNameInput) quoteNameInput.value=localStorage.getItem("zapformat-quote-name")||"";
-if(quotePhoneInput) quotePhoneInput.value=localStorage.getItem("zapformat-quote-phone")||"";
+localStorage.removeItem("zapformat-quote-name");
+localStorage.removeItem("zapformat-quote-phone");
+if(quoteNameInput) quoteNameInput.value="";
+if(quotePhoneInput) quotePhoneInput.value="";
 updateCheckoutMode();
 const aiInput=document.getElementById("searchInput");
 if(aiInput && aiInput.tagName==="TEXTAREA"){
