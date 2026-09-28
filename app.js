@@ -952,11 +952,15 @@ async function openLiveOrderDetail(id,options={}){
           <div class="order-created-summary">
             <b>${rub(Number(order.total_amount||0))}</b>
             ${order.delivery_address ? '<span>'+escapeHtml([order.delivery_city,order.delivery_address].filter(Boolean).join(" · "))+'</span>' : ""}
+            <div class="order-created-actions">
+              <button type="button" data-account-tab="orders">К заказам</button>
+              <button type="button" data-route="home">Продолжить поиск</button>
+            </div>
           </div>
         </section>` : ""}
 
       <div class="order-detail-head">
-        <div class="order-detail-toolbar"><button class="order-detail-back" data-account-tab="orders">← Заказы</button><button class="order-repeat-compact" data-live-repeat-order="${order.id}">Повторить заказ</button></div>
+        <div class="order-detail-toolbar"><button class="order-detail-back" data-account-tab="orders">← Заказы</button>${justCreated?"":'<button class="order-repeat-compact" data-live-repeat-order="'+escapeHtml(order.id)+'">Повторить заказ</button>'}</div>
         <div class="order-detail-title">
           <div>
             <span class="eyebrow">ЗАКАЗ ZAPFORMAT</span>
