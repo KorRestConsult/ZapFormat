@@ -436,12 +436,12 @@ function requestStatusLabel(status){
     received:"Принят",
     confirmed:"Подтверждён",
     processing:"В работе",
-    ready:"Готов",
+    ready:"Готов к получению",
     completed:"Завершён",
     cancelled:"Отменён",
     created:"Создан",
     review:"На рассмотрении",
-    approved:"Одобрен",
+    approved:"Подтверждён",
     rejected:"Отклонён",
     refunded:"Возврат выполнен"
   };
@@ -1099,6 +1099,29 @@ async function hydrateSession(){
     return null;
   }
 }
+
+let accountRefreshBusy=false;
+
+async function refreshForegroundAccount(){
+  if(accountRefreshBusy || !sessionUser || document.visibilityState!=="visible") return;
+  accountRefreshBusy=true;
+  try{
+    await refreshNotificationFeed();
+    const profileActive=document.getElementById("view-profile")?.classList.contains("active");
+    if(profileActive){
+      await hydrateAccountData();
+    }
+  }catch(error){
+    console.warn("Foreground account refresh failed",error);
+  }finally{
+    accountRefreshBusy=false;
+  }
+}
+
+const foregroundRefreshTimer=setInterval(refreshForegroundAccount,60000);
+document.addEventListener("visibilitychange",()=>{
+  if(document.visibilityState==="visible") refreshForegroundAccount();
+});
 
 function syncMobileNav(route){
   const mappedRoute=route==="search" ? "home" : route;
