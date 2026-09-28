@@ -7,6 +7,13 @@ SERVICE="zapformat-api"
 STAMP="$(date +%Y%m%d-%H%M%S)"
 BEFORE=""
 TARGET_SHA="${ZAPFORMAT_TARGET_SHA:-}"
+STAGE_FILE="/var/lib/zapformat/release-stage"
+
+mark_stage() {
+  printf '%s\n' "$1" > "${STAGE_FILE}"
+}
+
+mark_stage "preflight"
 
 if [[ "${EUID}" -ne 0 ]]; then
   echo "Run from root Timeweb console."
@@ -35,13 +42,15 @@ rollback() {
     echo
     echo "Release failed. Rolling code back to ${BEFORE} ..."
     git reset --hard "${BEFORE}" || true
-    systemctl restart "${SERVICE}" || true
+    mark_stage "service_restart"
+systemctl restart "${SERVICE}" || true
     echo "Rollback attempted."
   fi
   exit $code
 }
 trap rollback EXIT
 
+mark_stage "git_update"
 git fetch origin main
 
 if [[ -n "${TARGET_SHA}" ]]; then
@@ -62,8 +71,10 @@ else
   git merge --ff-only origin/main
 fi
 
+mark_stage "install_runner"
 install -m 750 "${APP_DIR}/backend/deploy/autodeploy-runner.sh" /usr/local/sbin/zapformat-autodeploy
 
+mark_stage "syntax_checks"
 node --check app.js
 node --check backend/src/server.js
 node --check backend/src/partgrade.js
@@ -74,20 +85,24 @@ node --check backend/src/ai-search.js
 node --check backend/src/vehicle-catalog.js
 node --check backend/src/secret-bootstrap.js
 
+mark_stage "dependencies"
 cd backend
 if [[ -f package-lock.json ]]; then
   npm ci --omit=dev
 else
   npm install --omit=dev --package-lock=false
 fi
+mark_stage "unit_tests"
 npm test
 
+mark_stage "environment"
 if [[ -f "${ENV_FILE}" ]]; then
   set -a
   source "${ENV_FILE}"
   set +a
 fi
 
+mark_stage "database_migrations"
 if [[ -n "${DATABASE_URL:-}" ]]; then
   psql "${DATABASE_URL}" -f db/001_init.sql >/dev/null
   psql "${DATABASE_URL}" -f db/002_garage_owner_app.sql >/dev/null
@@ -107,11 +122,13 @@ systemctl daemon-reload
 systemctl restart "${SERVICE}"
 sleep 2
 
+mark_stage "health_check"
 echo
 echo "Health:"
 curl -fsS http://127.0.0.1:3000/api/health
 echo
 
+mark_stage "ai_search_smoke"
 echo
 echo "AI search health:"
 curl -fsS http://127.0.0.1:3000/api/search/health
@@ -136,6 +153,7 @@ echo "Vehicle catalog capability:"
 curl -fsS "http://127.0.0.1:3000/api/catalog/vehicle-catalog/status" || true
 echo
 
+mark_stage "catalog_smoke"
 echo
 echo "Catalog smoke test:"
 curl -fsS "http://127.0.0.1:3000/api/catalog/brands?number=PRS3420" > /tmp/zf-brands.json
@@ -194,6 +212,7 @@ with open("/tmp/zf-revalidate-request.json","w",encoding="utf-8") as fh:
     },fh)
 PY
 
+mark_stage "cart_revalidation"
 echo
 echo "Cart revalidation smoke test:"
 curl -fsS -X POST   -H "Content-Type: application/json"   --data-binary @/tmp/zf-revalidate-request.json   "http://127.0.0.1:3000/api/catalog/revalidate" > /tmp/zf-revalidate.json
@@ -212,6 +231,7 @@ if item.get("status") not in ("ok","insufficient"):
     raise SystemExit("FAIL: offer token could not be revalidated")
 PY
 
+mark_stage "protected_routes"
 echo
 echo "Account orders route:"
 ACCOUNT_STATUS="$(curl -sS -o /tmp/zf-account-orders.json -w '%{http_code}' "http://127.0.0.1:3000/api/account/orders")"
@@ -242,11 +262,13 @@ if [[ "${GARAGE_STATUS}" != "401" ]]; then
   exit 1
 fi
 
+mark_stage "public_site"
 echo
 echo "Public site:"
 curl -fsS "https://zap.201.51.28.68.sslip.io/api/health"
 echo
 
+mark_stage "done"
 trap - EXIT
 echo
 echo "=== RELEASE OK ==="
