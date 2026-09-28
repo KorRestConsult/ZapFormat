@@ -535,7 +535,7 @@ function renderLiveAccount(overview,orders,requests,garage){
       <article><span>Активные заказы</span><b>${overview?.stats?.active_orders ?? 0}</b><small>сейчас в работе</small></article>
       <article><span>Готово к получению</span><b>${overview?.stats?.ready_orders ?? 0}</b><small>можно забирать</small></article>
       <article><span>Автомобили</span><b>${overview?.stats?.vehicles ?? 0}</b><small>в гараже</small></article>
-      <article><span>Всего заказов</span><b>${(orders||[]).length}</b><small>в истории</small></article>`;
+      <article><span>Всего заказов</span><b>${overview?.stats?.total_orders ?? 0}</b><small>в истории</small></article>`;
   }
 
   const entries=[
