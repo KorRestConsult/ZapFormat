@@ -15,6 +15,7 @@ const { PartGradeError, createPartGradeClient } = require("./partgrade");
 const { createOfferTokenCodec } = require("./offer-token");
 const { customerPrice } = require("./pricing");
 const { verifyGitHubActionsToken } = require("./github-oidc");
+const { interpretSearch, normalizeVehicle } = require("./ai-search");
 
 const app = express();
 const isProduction = process.env.NODE_ENV === "production";
@@ -64,6 +65,13 @@ const authLimiter = rateLimit({
 
 const quoteLimiter = rateLimit({
   windowMs: 60 * 60 * 1000,
+  limit: 20,
+  standardHeaders: "draft-8",
+  legacyHeaders: false
+});
+
+const aiSearchLimiter = rateLimit({
+  windowMs: 60 * 1000,
   limit: 20,
   standardHeaders: "draft-8",
   legacyHeaders: false
@@ -707,6 +715,61 @@ app.get("/api/supplier/checkout-options", requireInternal, async (_req, res, nex
   } catch (error) {
     next(error);
   }
+});
+
+app.post("/api/search/interpret", aiSearchLimiter, async (req, res, next) => {
+  try {
+    const query = String(req.body?.query || "").trim().slice(0, 400);
+    if (!query) return res.status(400).json({ error: "query_required" });
+
+    const user = pool ? await currentUser(req) : null;
+    const requestedVehicleId = String(req.body?.vehicle_id || "").trim();
+    let vehicle = null;
+
+    if (pool && user && requestedVehicleId) {
+      const vehicleResult = await pool.query(
+        `SELECT id, brand, model, generation, year, engine, vin, plate_number,
+                current_mileage, is_default
+           FROM vehicles
+          WHERE id = $1 AND user_id = $2
+          LIMIT 1`,
+        [requestedVehicleId, user.id]
+      );
+      vehicle = vehicleResult.rows[0] || null;
+    } else if (pool && user) {
+      const vehicleResult = await pool.query(
+        `SELECT id, brand, model, generation, year, engine, vin, plate_number,
+                current_mileage, is_default
+           FROM vehicles
+          WHERE user_id = $1
+          ORDER BY is_default DESC, created_at ASC
+          LIMIT 1`,
+        [user.id]
+      );
+      vehicle = vehicleResult.rows[0] || null;
+    }
+
+    const result = await interpretSearch(query, vehicle);
+
+    res.json({
+      ok: true,
+      mode: result.mode,
+      model: result.model,
+      ai_configured: Boolean(String(process.env.OPENAI_API_KEY || "").trim()),
+      vehicle: normalizeVehicle(vehicle),
+      intent: result.intent
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+app.get("/api/search/health", (_req, res) => {
+  res.json({
+    ok: true,
+    ai_configured: Boolean(String(process.env.OPENAI_API_KEY || "").trim()),
+    model: String(process.env.OPENAI_SEARCH_MODEL || "gpt-5.6-luna")
+  });
 });
 
 app.get("/api/catalog/brands", async (req, res, next) => {
