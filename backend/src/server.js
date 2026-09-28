@@ -995,6 +995,66 @@ app.get("/api/account/overview", requireUser, async (req, res, next) => {
   }
 });
 
+app.get("/api/account/orders", requireUser, async (req, res, next) => {
+  try {
+    const result = await pool.query(
+      `SELECT o.id, o.order_number, o.status, o.total_amount, o.currency, o.created_at,
+              count(i.id)::int AS items_count
+         FROM orders o
+         LEFT JOIN order_items i ON i.order_id = o.id
+        WHERE o.user_id = $1
+        GROUP BY o.id
+        ORDER BY o.created_at DESC
+        LIMIT 100`,
+      [req.user.id]
+    );
+    res.json({ orders: result.rows });
+  } catch (error) {
+    next(error);
+  }
+});
+
+app.get("/api/account/orders/:orderId", requireUser, async (req, res, next) => {
+  try {
+    const orderResult = await pool.query(
+      `SELECT *
+         FROM orders
+        WHERE user_id = $1
+          AND (id::text = $2 OR order_number::text = $2)
+        LIMIT 1`,
+      [req.user.id, String(req.params.orderId)]
+    );
+    if (!orderResult.rowCount) return res.status(404).json({ error: "order_not_found" });
+
+    const order = orderResult.rows[0];
+    const [items, history] = await Promise.all([
+      pool.query(
+        `SELECT id, brand, article, description, warehouse, delivery_days, quantity,
+                unit_price, status, supplier_status, expected_at, received_at
+           FROM order_items
+          WHERE order_id = $1
+          ORDER BY created_at ASC`,
+        [order.id]
+      ),
+      pool.query(
+        `SELECT status, source, note, created_at
+           FROM order_status_history
+          WHERE order_id = $1 AND order_item_id IS NULL
+          ORDER BY created_at ASC`,
+        [order.id]
+      )
+    ]);
+
+    res.json({
+      order,
+      items: items.rows,
+      history: history.rows
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
 app.get("/api/account/requests", requireUser, async (req, res, next) => {
   try {
     const result = await pool.query(
