@@ -1205,6 +1205,7 @@ function showRoute(route){
     return;
   }
   target.classList.add("active");
+  if(route==="profile") showAccountTab("overview");
   if(route==="orders") showAccountTab("orders");
   if(route==="garage") showAccountTab("garage");
   syncMobileNav(route);
