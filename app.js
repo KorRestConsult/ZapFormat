@@ -131,6 +131,7 @@ let cartSyncReady=false;
 let cartHydratedUserId=null;
 let lastSmartSearchQuery="";
 let smartSearchBusy=false;
+let pendingSmartSearchAfterVehicle=null;
 let pendingCheckoutAfterDelivery=false;
 let clearCartArmedUntil=0;
 
@@ -1417,7 +1418,7 @@ function renderSmartPartSearch(data,query){
         <span class="eyebrow">УМНЫЙ ПОИСК</span>
         <h3>Сначала нужен автомобиль</h3>
         <p>Чтобы безопасно подобрать <b>${escapeHtml(intent.part_name||query)}</b>, добавьте машину в гараж. Без автомобиля ZapFormat не будет угадывать применимость.</p>
-        <div class="vehicle-search-actions"><button type="button" data-route="garage">Добавить автомобиль</button></div>
+        <div class="vehicle-search-actions"><button type="button" data-add-vehicle-for-search>Добавить автомобиль</button></div>
       </div>`;
     return;
   }
@@ -3117,8 +3118,9 @@ async function saveGarageVin(){
   }
 }
 
-function closeGarageVehicleEditor(){
+function closeGarageVehicleEditor(options={}){
   document.getElementById("garageVehicleEditor")?.remove();
+  if(!options.keepPendingSearch) pendingSmartSearchAfterVehicle=null;
 }
 
 function openGarageVehicleEditor(mode="edit"){
@@ -3216,10 +3218,17 @@ async function saveGarageVehicleForm(form){
       garageActiveVehicleId=result?.vehicle?.id||garageState.vehicle.id;
     }
 
-    closeGarageVehicleEditor();
+    const resumeQuery=pendingSmartSearchAfterVehicle;
+    closeGarageVehicleEditor({keepPendingSearch:true});
     accountDataHydrated=false;
     await hydrateAccountData();
-    showToast(mode==="new" ? "Автомобиль добавлен." : "Автомобиль обновлён.");
+    if(resumeQuery){
+      pendingSmartSearchAfterVehicle=null;
+      showToast("Автомобиль добавлен. Продолжаем подбор.");
+      await search(resumeQuery);
+    }else{
+      showToast(mode==="new" ? "Автомобиль добавлен." : "Автомобиль обновлён.");
+    }
   }catch(error){
     console.error("Garage vehicle save failed",error);
     showToast(error?.code==="conflict" ? "Этот VIN уже есть в вашем гараже." : "Не удалось сохранить автомобиль.","warn");
@@ -3283,7 +3292,14 @@ document.addEventListener("click",async e=>{
     return;
   }
 
+  if(e.target.closest("[data-add-vehicle-for-search]")){
+    pendingSmartSearchAfterVehicle=lastSmartSearchQuery||null;
+    openGarageVehicleEditor("new");
+    return;
+  }
+
   if(e.target.closest("[data-garage-add-vehicle]")){
+    pendingSmartSearchAfterVehicle=null;
     openGarageVehicleEditor("new");
     return;
   }
