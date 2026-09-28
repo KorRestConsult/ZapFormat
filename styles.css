@@ -425,6 +425,34 @@ html,body,.app{max-width:100%;overflow-x:hidden}
   padding:9px 11px;font-size:11px;font-weight:850
 }
 .vehicle-search-actions button:last-child{background:var(--navy);border-color:var(--navy);color:#fff}
+.smart-selection-state{padding-bottom:14px}
+.smart-candidate-list,.smart-article-list{display:grid;gap:7px;margin-top:14px}
+.smart-candidate,.smart-article{
+  width:100%;border:1px solid #d8e1e7;background:#f9fbfc;color:#354d5c;
+  display:grid;align-items:center;gap:12px;text-align:left;padding:11px 12px;border-radius:8px
+}
+.smart-candidate{grid-template-columns:minmax(0,1fr) auto}
+.smart-candidate:hover,.smart-article:hover{border-color:#aebfca;background:#fff}
+.smart-candidate span,.smart-article-copy{min-width:0}
+.smart-candidate b,.smart-candidate small,.smart-article-copy b,.smart-article-copy small{display:block}
+.smart-candidate b{font-size:12px;color:#263e4e}
+.smart-candidate small{margin-top:4px;font-size:10px;color:#7c8a94;line-height:1.4}
+.smart-candidate strong,.smart-article strong{font-size:10px;color:#506979;white-space:nowrap}
+.smart-article{grid-template-columns:92px minmax(0,1fr) auto}
+.smart-article-brand{
+  display:grid;place-items:center;min-height:38px;padding:6px;border:1px solid #e0e6ea;
+  background:#fff;font-size:10px;font-weight:900;color:#667984
+}
+.smart-article-copy b{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:13px;color:#263e4e}
+.smart-article-copy small{margin-top:4px;font-size:10px;color:#75838d;line-height:1.35}
+.smart-spec-list{display:grid;gap:6px;margin-top:14px}
+.smart-spec-row{
+  display:grid;grid-template-columns:minmax(110px,.4fr) minmax(0,1fr);gap:12px;
+  padding:9px 10px;border-top:1px solid #e5eaed;font-size:11px
+}
+.smart-spec-row:first-child{border-top:0}
+.smart-spec-row>b{color:#586d7b;font-weight:850;text-transform:none}
+.smart-spec-row>span{min-width:0;color:#263e4e;overflow-wrap:anywhere}
 .catalog-actions{margin-top:8px}
 .filters-toggle{
   width:100%;border:0;background:#263843;color:#fff;font-weight:800;
@@ -504,6 +532,10 @@ html,body,.app{max-width:100%;overflow-x:hidden}
   background:white;color:#111;margin-left:6px;padding:0 7px
 }
 @media(max-width:680px){
+  .smart-article{grid-template-columns:70px minmax(0,1fr) auto;padding:9px}
+  .smart-candidate{padding:10px}
+  .smart-spec-row{grid-template-columns:1fr;gap:4px}
+  .vehicle-search-state{padding:16px}
   .catalog-query-head{align-items:flex-start}
   .catalog-count{display:none}
   .catalog-query-head h2{font-size:28px}

@@ -17,6 +17,12 @@ const { customerPrice } = require("./pricing");
 const { verifyGitHubActionsToken } = require("./github-oidc");
 const { interpretSearch, normalizeVehicle } = require("./ai-search");
 const { publicBootstrapJwk, installEncryptedOpenAIKey } = require("./secret-bootstrap");
+const {
+  compactText,
+  resolveVehicleCatalog,
+  selectVerifiedArticles,
+  vehicleSpecsForIntent
+} = require("./vehicle-catalog");
 
 const app = express();
 const isProduction = process.env.NODE_ENV === "production";
@@ -53,7 +59,7 @@ app.use(cors({
     return callback(new Error("Origin is not allowed"));
   },
   credentials: true,
-  methods: ["GET", "POST", "PATCH", "DELETE", "OPTIONS"],
+  methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
   allowedHeaders: ["Content-Type", "Accept"]
 }));
 
@@ -773,6 +779,282 @@ app.get("/api/search/health", (_req, res) => {
   });
 });
 
+function publicVehicleCatalogCandidate(candidate) {
+  return {
+    id: candidate?.id ? String(candidate.id) : null,
+    name: candidate?.name || null,
+    group_name: candidate?.groupName || null,
+    year_from: candidate?.yearFrom || null,
+    year_to: candidate?.yearTo || null,
+    fuel_type: candidate?.fuelType || null,
+    power_hp: candidate?.powerHP || null,
+    motor_codes: candidate?.motorCodes || null,
+    cylinder_capacity_ccm: candidate?.cylinderCapacityCcm || null
+  };
+}
+
+function catalogInfoModification(info) {
+  return info?.modification && typeof info.modification === "object"
+    ? info.modification
+    : {};
+}
+
+function catalogBindingMatchesVehicle(info, vehicle) {
+  const modification = catalogInfoModification(info);
+  const catalogBrand = compactText(modification.manufacturerName || modification.manufacturer || "");
+  const vehicleBrand = compactText(vehicle?.brand || "");
+  const catalogModel = compactText(modification.modelName || modification.model || "");
+  const vehicleModel = compactText(vehicle?.model || "");
+
+  if (catalogBrand && vehicleBrand && !(catalogBrand.includes(vehicleBrand) || vehicleBrand.includes(catalogBrand))) {
+    return false;
+  }
+  if (catalogModel && vehicleModel && !(catalogModel.includes(vehicleModel) || vehicleModel.includes(catalogModel))) {
+    return false;
+  }
+  return true;
+}
+
+async function persistVehicleCatalogBinding(userId, vehicleId, resolved) {
+  if (!pool || !resolved?.modification?.id) return;
+  await pool.query(
+    `UPDATE vehicles
+        SET catalog_provider = 'abcp_carbase',
+            catalog_manufacturer_id = $3,
+            catalog_model_id = $4,
+            catalog_modification_id = $5,
+            catalog_modification_name = $6,
+            catalog_verified_at = now(),
+            updated_at = now()
+      WHERE id = $1 AND user_id = $2`,
+    [
+      vehicleId,
+      userId,
+      resolved.manufacturer?.id || null,
+      resolved.model?.id || null,
+      String(resolved.modification.id),
+      resolved.modification?.name || null
+    ]
+  );
+}
+
+app.get("/api/catalog/vehicle-catalog/status", aiSearchLimiter, async (_req, res) => {
+  try {
+    const rows = await partGrade.carbaseManufacturers();
+    const manufacturers = Array.isArray(rows)
+      ? rows.length
+      : (rows && typeof rows === "object" ? Object.keys(rows).length : 0);
+    return res.json({ ok: true, available: manufacturers > 0, manufacturers });
+  } catch (error) {
+    console.warn("[VehicleCatalog]", error?.code || error?.message || "unavailable");
+    return res.json({ ok: true, available: false, manufacturers: 0 });
+  }
+});
+
+app.post("/api/catalog/ai-search", requireDatabase, requireUser, aiSearchLimiter, async (req, res, next) => {
+  try {
+    const query = String(req.body?.query || "").trim().replace(/\s+/g, " ").slice(0, 400);
+    if (!query) return res.status(400).json({ error: "query_required" });
+
+    const requestedVehicleId = String(req.body?.vehicle_id || "").trim();
+    const vehicleResult = await pool.query(
+      `SELECT id, brand, model, generation, year, engine, vin, plate_number,
+              current_mileage, is_default, catalog_provider, catalog_manufacturer_id,
+              catalog_model_id, catalog_modification_id, catalog_modification_name,
+              catalog_verified_at
+         FROM vehicles
+        WHERE user_id = $1
+          AND ($2::text = '' OR id::text = $2)
+        ORDER BY CASE WHEN id::text = $2 THEN 0 WHEN is_default THEN 1 ELSE 2 END, created_at ASC
+        LIMIT 1`,
+      [req.user.id, requestedVehicleId]
+    );
+
+    const vehicle = vehicleResult.rows[0] || null;
+    const interpreted = await interpretSearch(query, vehicle);
+    const intent = interpreted.intent;
+
+    if (!vehicle) {
+      return res.json({
+        ok: true,
+        mode: "needs_vehicle",
+        interpreter: interpreted.mode,
+        ai_configured: Boolean(String(process.env.OPENAI_API_KEY || "").trim()),
+        intent
+      });
+    }
+
+    if (intent?.clarification_needed) {
+      return res.json({
+        ok: true,
+        mode: "clarification",
+        interpreter: interpreted.mode,
+        ai_configured: Boolean(String(process.env.OPENAI_API_KEY || "").trim()),
+        vehicle: normalizeVehicle(vehicle),
+        intent,
+        question: intent.clarification_question || "Уточните деталь."
+      });
+    }
+
+    let resolved;
+    try {
+      resolved = await resolveVehicleCatalog(partGrade, vehicle);
+    } catch (error) {
+      console.warn("[VehicleCatalogResolve]", error?.code || error?.message || "failed");
+      return res.json({
+        ok: true,
+        mode: "vehicle_catalog_unavailable",
+        interpreter: interpreted.mode,
+        ai_configured: Boolean(String(process.env.OPENAI_API_KEY || "").trim()),
+        vehicle: normalizeVehicle(vehicle),
+        intent
+      });
+    }
+
+    if (resolved.status === "model_ambiguous" || resolved.status === "manufacturer_not_found" || resolved.status === "modification_not_found") {
+      return res.json({
+        ok: true,
+        mode: "vehicle_needs_details",
+        resolver_status: resolved.status,
+        interpreter: interpreted.mode,
+        ai_configured: Boolean(String(process.env.OPENAI_API_KEY || "").trim()),
+        vehicle: normalizeVehicle(vehicle),
+        intent,
+        candidates: (resolved.candidates || []).slice(0, 8).map(publicVehicleCatalogCandidate)
+      });
+    }
+
+    if (resolved.status === "modification_ambiguous") {
+      return res.json({
+        ok: true,
+        mode: "choose_modification",
+        resolver_status: resolved.status,
+        interpreter: interpreted.mode,
+        ai_configured: Boolean(String(process.env.OPENAI_API_KEY || "").trim()),
+        vehicle: normalizeVehicle(vehicle),
+        intent,
+        manufacturer: resolved.manufacturer || null,
+        model: resolved.model || null,
+        candidates: (resolved.candidates || []).slice(0, 12).map(publicVehicleCatalogCandidate)
+      });
+    }
+
+    if (resolved.status !== "resolved") {
+      return res.json({
+        ok: true,
+        mode: "no_verified_match",
+        resolver_status: resolved.status,
+        interpreter: interpreted.mode,
+        vehicle: normalizeVehicle(vehicle),
+        intent,
+        articles: []
+      });
+    }
+
+    await persistVehicleCatalogBinding(req.user.id, vehicle.id, resolved);
+
+    const special = vehicleSpecsForIntent(resolved.info, intent);
+    if (special) {
+      return res.json({
+        ok: true,
+        mode: "vehicle_specs",
+        interpreter: interpreted.mode,
+        ai_configured: Boolean(String(process.env.OPENAI_API_KEY || "").trim()),
+        vehicle: normalizeVehicle(vehicle),
+        intent,
+        catalog: {
+          provider: "abcp_carbase",
+          manufacturer: resolved.manufacturer || null,
+          model: resolved.model || null,
+          modification: resolved.modification || null
+        },
+        specs: special
+      });
+    }
+
+    const articles = selectVerifiedArticles(resolved.info, intent, query, 10)
+      .filter((item) => item.brand && item.article)
+      .map((item) => ({
+        brand: String(item.brand),
+        article: String(item.article),
+        description: item.description || item.goods_group_name || "Запчасть",
+        goods_group_code: item.goods_group_code || null,
+        goods_group_name: item.goods_group_name || null,
+        fit_axle: item.fit_axle || null
+      }));
+
+    return res.json({
+      ok: true,
+      mode: articles.length ? "verified_articles" : "no_verified_match",
+      interpreter: interpreted.mode,
+      ai_configured: Boolean(String(process.env.OPENAI_API_KEY || "").trim()),
+      vehicle: normalizeVehicle(vehicle),
+      intent,
+      catalog: {
+        provider: "abcp_carbase",
+        manufacturer: resolved.manufacturer || null,
+        model: resolved.model || null,
+        modification: resolved.modification || null
+      },
+      articles
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+app.post("/api/garage/vehicles/:vehicleId/catalog-modification", requireUser, aiSearchLimiter, async (req, res, next) => {
+  try {
+    const modificationId = String(req.body?.modification_id || "").trim();
+    if (!modificationId) return res.status(400).json({ error: "modification_required" });
+
+    const owned = await pool.query(
+      `SELECT id, brand, model, generation, year, engine, vin, plate_number,
+              current_mileage, is_default
+         FROM vehicles
+        WHERE id = $1 AND user_id = $2
+        LIMIT 1`,
+      [req.params.vehicleId, req.user.id]
+    );
+    const vehicle = owned.rows[0];
+    if (!vehicle) return res.status(404).json({ error: "vehicle_not_found" });
+
+    const info = await partGrade.carbaseModificationInfo(modificationId);
+    if (!catalogBindingMatchesVehicle(info, vehicle)) {
+      return res.status(400).json({ error: "catalog_vehicle_mismatch" });
+    }
+
+    const modification = catalogInfoModification(info);
+    const resolved = {
+      manufacturer: {
+        id: modification.manufacturerId ? String(modification.manufacturerId) : null,
+        name: modification.manufacturerName || vehicle.brand
+      },
+      model: {
+        id: modification.modelId ? String(modification.modelId) : null,
+        name: modification.modelName || vehicle.model
+      },
+      modification: {
+        id: modificationId,
+        name: modification.modificationName || modification.name || null
+      }
+    };
+
+    await persistVehicleCatalogBinding(req.user.id, vehicle.id, resolved);
+    return res.json({
+      ok: true,
+      catalog: {
+        provider: "abcp_carbase",
+        manufacturer: resolved.manufacturer,
+        model: resolved.model,
+        modification: resolved.modification
+      }
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
 app.get("/api/catalog/brands", async (req, res, next) => {
   try {
     const number = String(req.query?.number || "").trim();
@@ -1340,7 +1622,9 @@ app.get("/api/garage", requireUser, async (req, res, next) => {
   try {
     const vehicles = await pool.query(
       `SELECT id, brand, model, generation, year, engine, vin, plate_number,
-              current_mileage, mileage_updated_at, is_default
+              current_mileage, mileage_updated_at, is_default,
+              catalog_provider, catalog_manufacturer_id, catalog_model_id,
+              catalog_modification_id, catalog_modification_name, catalog_verified_at
          FROM vehicles
         WHERE user_id = $1
         ORDER BY is_default DESC, created_at ASC`,
@@ -1502,6 +1786,30 @@ app.patch("/api/garage/vehicles/:vehicleId", requireUser, async (req, res, next)
                 ELSE mileage_updated_at
               END,
               is_default = CASE WHEN $11::boolean THEN true ELSE is_default END,
+              catalog_provider = CASE
+                WHEN brand IS DISTINCT FROM $3 OR model IS DISTINCT FROM $4 OR generation IS DISTINCT FROM $5
+                  OR year IS DISTINCT FROM $6 OR engine IS DISTINCT FROM $7
+                THEN NULL ELSE catalog_provider END,
+              catalog_manufacturer_id = CASE
+                WHEN brand IS DISTINCT FROM $3 OR model IS DISTINCT FROM $4 OR generation IS DISTINCT FROM $5
+                  OR year IS DISTINCT FROM $6 OR engine IS DISTINCT FROM $7
+                THEN NULL ELSE catalog_manufacturer_id END,
+              catalog_model_id = CASE
+                WHEN brand IS DISTINCT FROM $3 OR model IS DISTINCT FROM $4 OR generation IS DISTINCT FROM $5
+                  OR year IS DISTINCT FROM $6 OR engine IS DISTINCT FROM $7
+                THEN NULL ELSE catalog_model_id END,
+              catalog_modification_id = CASE
+                WHEN brand IS DISTINCT FROM $3 OR model IS DISTINCT FROM $4 OR generation IS DISTINCT FROM $5
+                  OR year IS DISTINCT FROM $6 OR engine IS DISTINCT FROM $7
+                THEN NULL ELSE catalog_modification_id END,
+              catalog_modification_name = CASE
+                WHEN brand IS DISTINCT FROM $3 OR model IS DISTINCT FROM $4 OR generation IS DISTINCT FROM $5
+                  OR year IS DISTINCT FROM $6 OR engine IS DISTINCT FROM $7
+                THEN NULL ELSE catalog_modification_name END,
+              catalog_verified_at = CASE
+                WHEN brand IS DISTINCT FROM $3 OR model IS DISTINCT FROM $4 OR generation IS DISTINCT FROM $5
+                  OR year IS DISTINCT FROM $6 OR engine IS DISTINCT FROM $7
+                THEN NULL ELSE catalog_verified_at END,
               updated_at = now()
         WHERE id = $1 AND user_id = $2
         RETURNING *`,

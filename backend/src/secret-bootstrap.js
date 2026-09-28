@@ -37,11 +37,16 @@ async function publicBootstrapJwk() {
 
 function pickCiphertext(payload) {
   const candidates = [
+    payload?.encrypted_api_key?.ciphertext,
     payload?.encrypted_api_key,
+    payload?.encrypted_key?.ciphertext,
     payload?.encrypted_key,
     payload?.ciphertext,
+    payload?.encryptedApiKey?.ciphertext,
     payload?.encryptedApiKey,
+    payload?.result?.encrypted_api_key?.ciphertext,
     payload?.result?.encrypted_api_key,
+    payload?.result?.encrypted_key?.ciphertext,
     payload?.result?.encrypted_key,
     payload?.result?.ciphertext
   ];

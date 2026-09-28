@@ -304,6 +304,8 @@ let accountDataHydrated=false;
 let cartSyncTimer=null;
 let cartSyncReady=false;
 let cartHydratedUserId=null;
+let lastSmartSearchQuery="";
+let smartSearchBusy=false;
 
 function backendConfigured(){ return Boolean(API_BASE); }
 
@@ -1037,7 +1039,7 @@ function updateVehicleContextUi(){
   }
 }
 
-function renderVehicleSearchState(query,vehicle,options={}){
+function smartSearchMount(){
   setCatalogControlsVisible(false);
   const exactRoot=document.getElementById("exactResults");
   const analogRoot=document.getElementById("analogResults");
@@ -1047,7 +1049,12 @@ function renderVehicleSearchState(query,vehicle,options={}){
   if(analogRoot) analogRoot.innerHTML="";
   if(analogSection) analogSection.style.display="none";
   if(countEl) countEl.textContent="0";
-  if(countLabel) countLabel.textContent="предложений";
+  if(countLabel) countLabel.textContent="подобрано";
+  return exactRoot;
+}
+
+function renderVehicleSearchState(query,vehicle,options={}){
+  const exactRoot=smartSearchMount();
   if(!exactRoot) return;
 
   const label=vehicle ? vehicleLabel(vehicle) : "";
@@ -1056,18 +1063,218 @@ function renderVehicleSearchState(query,vehicle,options={}){
   exactRoot.innerHTML=`
     <div class="vehicle-search-state">
       <span class="eyebrow">${isVin?"VIN":"УМНЫЙ ПОИСК"}</span>
-      <h3>${isVin?"Автомобиль распознан как контекст":"Запрос привязан к автомобилю"}</h3>
+      <h3>${isVin?"VIN распознан":"Запрос понят"}</h3>
       <p><b>${escapeHtml(query)}</b>${label?" · "+escapeHtml(label):""}${vin?" · "+escapeHtml(vin):""}</p>
       <p class="vehicle-search-note">
         ${isVin
-          ? "VIN сохранён в контексте. Для выдачи точных артикулов нужен подключённый оригинальный каталог применимости."
-          : "По номеру детали ZapFormat уже показывает живые цены PartGrade. Поиск по названию с безопасным подбором артикулов подключаем отдельным AI-контуром — случайные артикулы не подставляем."}
+          ? "VIN используется как контекст автомобиля. ZapFormat не будет придумывать совместимость или артикулы."
+          : "ZapFormat понимает запрос, но показывает только те артикулы, которые подтверждены каталогом выбранной модификации."}
       </p>
       <div class="vehicle-search-actions">
-        ${vehicle?'<button type="button" data-route="garage">Открыть гараж</button>':""}
+        ${vehicle?'<button type="button" data-route="garage">Открыть гараж</button>':'<button type="button" data-route="garage">Добавить автомобиль</button>'}
         <button type="button" data-focus-catalog-search>Ввести артикул</button>
       </div>
     </div>`;
+}
+
+function smartSpecRows(value,depth=0){
+  if(value===null || value===undefined || value==="") return "";
+  if(depth>2) return '<span>'+escapeHtml(String(value))+'</span>';
+  if(Array.isArray(value)){
+    if(!value.length) return "";
+    return value.map((item,index)=>`
+      <div class="smart-spec-row">
+        <b>${index+1}</b>
+        <span>${typeof item==="object" ? smartSpecRows(item,depth+1) : escapeHtml(String(item))}</span>
+      </div>`).join("");
+  }
+  if(typeof value==="object"){
+    return Object.entries(value)
+      .filter(([,v])=>v!==null && v!==undefined && v!=="")
+      .map(([key,v])=>`
+        <div class="smart-spec-row">
+          <b>${escapeHtml(String(key).replace(/_/g," "))}</b>
+          <span>${typeof v==="object" ? smartSpecRows(v,depth+1) : escapeHtml(String(v))}</span>
+        </div>`).join("");
+  }
+  return escapeHtml(String(value));
+}
+
+function renderSmartPartSearch(data,query){
+  const root=smartSearchMount();
+  if(!root) return;
+
+  const vehicle=data?.vehicle||currentSearchVehicle();
+  const label=vehicle ? vehicleLabel(vehicle) : "";
+  const interpreter=data?.interpreter==="ai" ? "ИИ понял запрос" : "Запрос разобран";
+  const intent=data?.intent||{};
+
+  if(data?.mode==="needs_vehicle"){
+    root.innerHTML=`
+      <div class="vehicle-search-state">
+        <span class="eyebrow">УМНЫЙ ПОИСК</span>
+        <h3>Сначала нужен автомобиль</h3>
+        <p>Чтобы безопасно подобрать <b>${escapeHtml(intent.part_name||query)}</b>, добавьте машину в гараж. Без автомобиля ZapFormat не будет угадывать применимость.</p>
+        <div class="vehicle-search-actions"><button type="button" data-route="garage">Добавить автомобиль</button></div>
+      </div>`;
+    return;
+  }
+
+  if(data?.mode==="clarification"){
+    root.innerHTML=`
+      <div class="vehicle-search-state">
+        <span class="eyebrow">${escapeHtml(interpreter)}</span>
+        <h3>Нужно одно уточнение</h3>
+        <p>${escapeHtml(data.question||intent.clarification_question||"Уточните деталь.")}</p>
+        ${label?'<p class="vehicle-search-note">Автомобиль: <b>'+escapeHtml(label)+'</b></p>':""}
+        <div class="vehicle-search-actions"><button type="button" data-focus-catalog-search>Уточнить запрос</button></div>
+      </div>`;
+    return;
+  }
+
+  if(data?.mode==="vehicle_catalog_unavailable"){
+    root.innerHTML=`
+      <div class="vehicle-search-state">
+        <span class="eyebrow">${escapeHtml(interpreter)}</span>
+        <h3>Каталог применимости временно недоступен</h3>
+        <p>Запрос понят: <b>${escapeHtml(intent.part_name||query)}</b>${label?" · "+escapeHtml(label):""}.</p>
+        <p class="vehicle-search-note">Артикул не подставляем наугад. Можно искать по известному номеру детали или повторить позже.</p>
+        <div class="vehicle-search-actions"><button type="button" data-focus-catalog-search>Ввести артикул</button></div>
+      </div>`;
+    return;
+  }
+
+  if(data?.mode==="vehicle_needs_details"){
+    root.innerHTML=`
+      <div class="vehicle-search-state">
+        <span class="eyebrow">${escapeHtml(interpreter)}</span>
+        <h3>Нужно точнее определить автомобиль</h3>
+        <p><b>${escapeHtml(label||"Автомобиль")}</b> найден не однозначно. Уточните поколение, двигатель или год в гараже.</p>
+        <p class="vehicle-search-note">Это защита от неверного подбора: ZapFormat не выбирает модификацию по догадке.</p>
+        <div class="vehicle-search-actions"><button type="button" data-route="garage">Уточнить автомобиль</button></div>
+      </div>`;
+    return;
+  }
+
+  if(data?.mode==="choose_modification"){
+    const candidates=(data.candidates||[]);
+    root.innerHTML=`
+      <div class="vehicle-search-state smart-selection-state">
+        <span class="eyebrow">${escapeHtml(interpreter)}</span>
+        <h3>Выберите модификацию ${label?"· "+escapeHtml(label):""}</h3>
+        <p class="vehicle-search-note">Выбор сохранится в гараже. После этого ZapFormat сможет брать артикулы именно из каталога этой модификации.</p>
+        <div class="smart-candidate-list">
+          ${candidates.map(c=>`
+            <button type="button" class="smart-candidate"
+              data-catalog-modification="${escapeHtml(c.id||"")}">
+              <span>
+                <b>${escapeHtml(c.name||"Модификация")}</b>
+                <small>${[
+                  c.year_from||c.yearFrom,
+                  c.year_to||c.yearTo,
+                  c.fuel_type||c.fuelType,
+                  c.power_hp||c.powerHP ? (c.power_hp||c.powerHP)+" л.с." : "",
+                  c.motor_codes||c.motorCodes
+                ].filter(Boolean).map(escapeHtml).join(" · ")}</small>
+              </span>
+              <strong>Выбрать ›</strong>
+            </button>
+          `).join("") || '<div class="garage-empty-inline"><b>Нет вариантов для выбора.</b></div>'}
+        </div>
+      </div>`;
+    return;
+  }
+
+  if(data?.mode==="vehicle_specs"){
+    root.innerHTML=`
+      <div class="vehicle-search-state">
+        <span class="eyebrow">КАТАЛОГ АВТОМОБИЛЯ</span>
+        <h3>${escapeHtml(intent.part_name||query)} ${label?"· "+escapeHtml(label):""}</h3>
+        <p class="vehicle-search-note">Данные получены из каталога выбранной модификации, а не придуманы ИИ.</p>
+        <div class="smart-spec-list">${smartSpecRows(data?.specs?.data||data?.specs)}</div>
+      </div>`;
+    return;
+  }
+
+  if(data?.mode==="verified_articles"){
+    const articles=(data.articles||[]);
+    const catalogModification=data?.catalog?.modification?.name||"выбранной модификации";
+    root.innerHTML=`
+      <div class="vehicle-search-state smart-selection-state">
+        <span class="eyebrow">${escapeHtml(interpreter)} · КАТАЛОГ ПРОВЕРЕН</span>
+        <h3>${escapeHtml(intent.part_name||query)}</h3>
+        <p>${label?"Для <b>"+escapeHtml(label)+"</b>. ":""}Найдены позиции из каталога ${escapeHtml(catalogModification)}.</p>
+        <p class="vehicle-search-note">Нажмите позицию — дальше загрузим живые цены, остатки, сроки и аналоги PartGrade.</p>
+        <div class="smart-article-list">
+          ${articles.map(item=>`
+            <button type="button" class="smart-article"
+              data-verified-article="${escapeHtml(item.article||"")}"
+              data-verified-brand="${escapeHtml(item.brand||"")}"
+              data-verified-description="${escapeHtml(item.description||"")}">
+              <span class="smart-article-brand">${escapeHtml(item.brand||"—")}</span>
+              <span class="smart-article-copy">
+                <b>${escapeHtml(item.article||"—")}</b>
+                <small>${escapeHtml(item.description||item.goods_group_name||"Запчасть")}</small>
+              </span>
+              <strong>Цены ›</strong>
+            </button>
+          `).join("")}
+        </div>
+      </div>`;
+    return;
+  }
+
+  root.innerHTML=`
+    <div class="vehicle-search-state">
+      <span class="eyebrow">${escapeHtml(interpreter)}</span>
+      <h3>Подтверждённый артикул не найден</h3>
+      <p>Запрос: <b>${escapeHtml(intent.part_name||query)}</b>${label?" · "+escapeHtml(label):""}.</p>
+      <p class="vehicle-search-note">Автомобиль определён, но в каталоге выбранной модификации нет надёжной позиции для этого запроса. ZapFormat не будет подставлять случайный номер.</p>
+      <div class="vehicle-search-actions"><button type="button" data-focus-catalog-search>Искать по артикулу</button><button type="button" data-route="garage">Проверить автомобиль</button></div>
+    </div>`;
+}
+
+async function runSmartPartSearch(query,vehicle){
+  if(smartSearchBusy) return false;
+  lastSmartSearchQuery=String(query||"").trim();
+
+  if(!sessionUser){
+    setSearchHead(lastSmartSearchQuery,"Умный подбор работает с автомобилем из гаража.",lastSmartSearchQuery);
+    renderSmartPartSearch({mode:"needs_vehicle",intent:{part_name:lastSmartSearchQuery}},lastSmartSearchQuery);
+    return true;
+  }
+
+  smartSearchBusy=true;
+  setSearchHead(
+    lastSmartSearchQuery,
+    vehicle ? "Разбираем запрос для "+vehicleLabel(vehicle)+"…" : "Разбираем запрос…",
+    lastSmartSearchQuery
+  );
+  renderSearchState("Умный поиск","Понимаем деталь и проверяем каталог автомобиля.");
+
+  try{
+    const data=await apiRequest("/api/catalog/ai-search",{
+      method:"POST",
+      body:JSON.stringify({
+        query:lastSmartSearchQuery,
+        vehicle_id:vehicle?.id||null
+      })
+    });
+    setSearchHead(
+      data?.intent?.part_name||lastSmartSearchQuery,
+      data?.vehicle ? "Автомобиль: "+vehicleLabel(data.vehicle) : "Умный подбор",
+      lastSmartSearchQuery
+    );
+    renderSmartPartSearch(data,lastSmartSearchQuery);
+    return true;
+  }catch(error){
+    console.error("Smart part search failed",error);
+    setSearchHead(lastSmartSearchQuery,"Не удалось выполнить умный подбор.",lastSmartSearchQuery);
+    renderSearchState("Умный поиск временно недоступен","Поиск по точному артикулу продолжает работать.");
+    return false;
+  }finally{
+    smartSearchBusy=false;
+  }
 }
 
 function setCatalogControlsVisible(visible){
@@ -1265,13 +1472,7 @@ async function search(query,options={}){
 
   const article=extractArticleCandidate(raw);
   if(!article){
-    setSearchHead(
-      raw,
-      vehicle ? "Поиск для "+vehicleLabel(vehicle) : "Умный поиск по названию",
-      raw
-    );
-    renderVehicleSearchState(raw,vehicle);
-    return true;
+    return runSmartPartSearch(raw,vehicle);
   }
 
   try{
@@ -1835,7 +2036,7 @@ async function checkoutCart(){
 }
 
 
-document.addEventListener("click",e=>{
+document.addEventListener("click",async e=>{
   const brandChoice=e.target.closest("[data-brand-select]");
   if(brandChoice){
     loadLiveOffers(
@@ -1853,6 +2054,37 @@ document.addEventListener("click",e=>{
     else if(action==="delete-selected") deleteSelected();
     else if(action==="save") saveCartManual();
     else if(action==="checkout") checkoutCart();
+    return;
+  }
+
+  const verifiedArticle=e.target.closest("[data-verified-article]");
+  if(verifiedArticle){
+    await loadLiveOffers(
+      verifiedArticle.dataset.verifiedArticle,
+      verifiedArticle.dataset.verifiedBrand,
+      verifiedArticle.dataset.verifiedDescription||""
+    );
+    return;
+  }
+
+  const modification=e.target.closest("[data-catalog-modification]");
+  if(modification){
+    const vehicle=currentSearchVehicle();
+    if(!vehicle?.id || !lastSmartSearchQuery) return;
+    modification.disabled=true;
+    try{
+      await apiRequest("/api/garage/vehicles/"+encodeURIComponent(vehicle.id)+"/catalog-modification",{
+        method:"POST",
+        body:JSON.stringify({modification_id:modification.dataset.catalogModification})
+      });
+      accountDataHydrated=false;
+      await hydrateAccountData();
+      await runSmartPartSearch(lastSmartSearchQuery,currentSearchVehicle());
+    }catch(error){
+      console.error("Catalog modification save failed",error);
+      showToast("Не удалось сохранить модификацию.","warn");
+      modification.disabled=false;
+    }
     return;
   }
 

@@ -337,9 +337,11 @@ function articleScore(article, intent, query) {
   const wantedAxle = String(intent?.axle || "any");
   const actualAxle = canonicalAxle(article?.fitAxle);
   if (wantedAxle === "front") {
-    score += actualAxle === "front" ? 70 : actualAxle === "rear" ? -120 : 0;
+    if (actualAxle === "rear") return -1000;
+    score += actualAxle === "front" ? 70 : 0;
   } else if (wantedAxle === "rear") {
-    score += actualAxle === "rear" ? 70 : actualAxle === "front" ? -120 : 0;
+    if (actualAxle === "front") return -1000;
+    score += actualAxle === "rear" ? 70 : 0;
   }
 
   return score;
