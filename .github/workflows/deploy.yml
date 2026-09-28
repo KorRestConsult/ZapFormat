@@ -58,3 +58,10 @@ jobs:
           done
           echo "Timed out waiting for production deploy"
           exit 1
+
+      - name: AI setup public key
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          curl -fsS https://api.201.51.28.68.sslip.io/api/search/key-setup/public-key
+          echo
