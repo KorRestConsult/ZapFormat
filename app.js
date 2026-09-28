@@ -823,13 +823,14 @@ function renderAccountNotifications(data){
 
   mount.innerHTML=rows.map(item=>{
     const title=String(item.title||"Событие");
+    const body=historyNoteText(item.body||"");
     const orderMatch=title.match(/Заказ\s+#?(\d+)/i);
     const action=orderMatch
       ? ' data-notification-order="'+escapeHtml(orderMatch[1])+'" data-notification-id="'+escapeHtml(item.id||"")+'" tabindex="0"'
       : "";
     return '<article class="notification-item'+(item.read_at?"":" unread")+'"'+action+'>'+
       '<div><small>'+formatDateRu(item.created_at)+'</small><b>'+escapeHtml(title)+'</b>'+
-      (item.body?'<p>'+escapeHtml(item.body)+'</p>':"")+'</div>'+
+      (body?'<p>'+escapeHtml(body)+'</p>':"")+'</div>'+
       (orderMatch?'<span>Открыть →</span>':(item.read_at?'<span>Прочитано</span>':'<span>Новое</span>'))+
     '</article>';
   }).join("");
