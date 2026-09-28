@@ -363,7 +363,7 @@ function checkoutButtons(){
 
 function updateCheckoutMode(){
   const selectedCount=selectedCartItems().length;
-  const baseLabel=sessionUser ? "Оформить заказ" : "Отправить запрос";
+  const baseLabel="Оформить заказ";
   const label=selectedCount ? baseLabel+" · "+selectedCount : baseLabel;
   checkoutButtons().forEach(button=>{
     if(!button.dataset.busy){
@@ -373,9 +373,7 @@ function updateCheckoutMode(){
   });
   const note=document.querySelector(".checkout-recheck-note");
   if(note){
-    note.textContent=sessionUser
-      ? "Цена и наличие проверяются повторно. После оформления заказ сразу появится в личном кабинете."
-      : "Без входа отправим запрос менеджеру. Войдите, чтобы создать заказ сразу и видеть его статус.";
+    note.textContent="Перед оформлением ещё раз проверим цену и наличие. Заказ сразу появится в вашем аккаунте.";
   }
   renderCheckoutContact();
   renderCheckoutDelivery();
