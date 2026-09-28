@@ -657,17 +657,53 @@ async function selectGarageVehicle(vehicleId){
   }
 }
 
+function renderAccountNotifications(data){
+  const rows=Array.isArray(data?.notifications)?data.notifications:[];
+  const unread=Number(data?.unread_count||0);
+  const badge=document.getElementById("notificationUnreadBadge");
+  if(badge){
+    badge.hidden=unread<=0;
+    badge.textContent=unread>99?"99+":String(unread);
+  }
+
+  const mount=document.getElementById("notificationFeed");
+  if(!mount) return;
+  if(!rows.length){
+    mount.innerHTML='<div class="account-empty"><p>Событий пока нет.</p></div>';
+    return;
+  }
+
+  mount.innerHTML=rows.map(item=>
+    '<article class="notification-item'+(item.read_at?"":" unread")+'">'+
+      '<div><small>'+formatDateRu(item.created_at)+'</small><b>'+escapeHtml(item.title||"Событие")+'</b>'+
+      (item.body?'<p>'+escapeHtml(item.body)+'</p>':"")+'</div>'+
+      (item.read_at?'<span>Прочитано</span>':'<span>Новое</span>')+
+    '</article>'
+  ).join("");
+}
+
+async function refreshNotificationFeed(){
+  if(!backendConfigured() || !sessionUser) return;
+  try{
+    const data=await apiRequest("/api/account/notifications?limit=30");
+    renderAccountNotifications(data);
+  }catch(error){
+    console.warn("Notification feed refresh failed",error);
+  }
+}
+
 async function hydrateAccountData(){
   if(!backendConfigured() || !sessionUser) return;
   try{
-    const [overview,orders,requests,garage,preferences,reports,returnsData]=await Promise.all([
+    const [overview,orders,requests,garage,preferences,reports,returnsData,notificationsData]=await Promise.all([
       apiRequest("/api/account/overview"),
       apiRequest("/api/account/orders"),
       apiRequest("/api/account/requests"),
       apiRequest("/api/garage"),
       apiRequest("/api/account/preferences"),
       apiRequest("/api/account/reports"),
-      apiRequest("/api/account/returns")
+      apiRequest("/api/account/returns"),
+      apiRequest("/api/account/notifications?limit=30")
     ]);
     liveAccountOrders=orders.orders||[];
     liveAccountRequests=requests.requests||[];
@@ -675,6 +711,7 @@ async function hydrateAccountData(){
     renderAccountPreferences(preferences);
     renderAccountReports(reports);
     renderAccountReturns(returnsData);
+    renderAccountNotifications(notificationsData);
     await hydrateRealGarage(garage);
     accountDataHydrated=true;
   }catch(error){
