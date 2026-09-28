@@ -1861,7 +1861,9 @@ function addToCart(id,btn){
   const price=item.quoteOnly ? 0 : itemRetail(item);
   const existing=cart.find(x=>x.id===id);
   if(existing){
-    existing.orderQty+=orderQty;
+    const available=Math.max(1,Number(item.qty||existing.availableQty||1));
+    existing.orderQty=Math.min(available,Number(existing.orderQty||1)+orderQty);
+    existing.availableQty=available;
     existing.selected=true;
     if(item.vehicleContext) existing.vehicleContext=item.vehicleContext;
   } else {
@@ -1880,9 +1882,17 @@ function addToCart(id,btn){
   }
   saveCart();
   if(btn){
+    const original=btn.textContent;
     btn.classList.add("added");
-    setTimeout(()=>{btn.classList.remove("added")},850);
+    btn.textContent="Добавлено ✓";
+    btn.disabled=true;
+    setTimeout(()=>{
+      btn.classList.remove("added");
+      btn.textContent=original||"В корзину";
+      btn.disabled=false;
+    },900);
   }
+  showToast("Добавлено в корзину.");
 }
 
 function changeCartQty(id,delta){
