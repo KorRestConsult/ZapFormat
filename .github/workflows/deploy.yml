@@ -33,7 +33,8 @@ jobs:
           OIDC_TOKEN: ${{ steps.oidc.outputs.token }}
         run: |
           set -Eeuo pipefail
-          curl -fsS -X POST             -H "Authorization: Bearer ${OIDC_TOKEN}"             -H "Content-Type: application/json"             --data "{"sha":"${GITHUB_SHA}"}"             https://api.201.51.28.68.sslip.io/api/internal/deploy
+          PAYLOAD="$(printf '{"sha":"%s"}' "${GITHUB_SHA}")"
+          curl -fsS -X POST             -H "Authorization: Bearer ${OIDC_TOKEN}"             -H "Content-Type: application/json"             --data-binary "${PAYLOAD}"             https://api.201.51.28.68.sslip.io/api/internal/deploy
 
       - name: Wait for deploy
         shell: bash
