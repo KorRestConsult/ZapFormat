@@ -2270,7 +2270,7 @@ function renderCartPage(){
     return `
       <div class="${classes.join(" ")}">
         <div class="row-number">${index+1}</div>
-        <div class="row-select"><input class="cart-check" type="checkbox" data-cart-select="${escapeHtml(x.id)}" ${x.selected?"checked":""} ${unavailable?"disabled":""}></div>
+        <div class="row-select"><label><input class="cart-check" type="checkbox" data-cart-select="${escapeHtml(x.id)}" ${x.selected?"checked":""} ${unavailable?"disabled":""}><span class="cart-check-label">В заказ</span></label></div>
         <div class="brand-cell">${escapeHtml(x.brand||"")}</div>
         <div class="article-cell"><span class="cart-article">${escapeHtml(x.article||"")}</span></div>
         <div class="description-cell cart-description">
