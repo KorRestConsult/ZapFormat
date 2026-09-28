@@ -1471,7 +1471,7 @@ function renderSmartPartSearch(data,query){
         <p class="vehicle-search-note">${data?.vehicle_identity?.vin_present
           ? "VIN сохранён, но текущий каталог не умеет автоматически определить модификацию по VIN. ZapFormat не выбирает её по догадке."
           : "Это защита от неверного подбора: ZapFormat не выбирает модификацию по догадке."}</p>
-        <div class="vehicle-search-actions"><button type="button" data-route="garage">Уточнить автомобиль</button></div>
+        <div class="vehicle-search-actions"><button type="button" data-edit-vehicle-for-search>Уточнить автомобиль</button></div>
       </div>`;
     return;
   }
@@ -3295,6 +3295,12 @@ document.addEventListener("click",async e=>{
   if(e.target.closest("[data-add-vehicle-for-search]")){
     pendingSmartSearchAfterVehicle=lastSmartSearchQuery||null;
     openGarageVehicleEditor("new");
+    return;
+  }
+
+  if(e.target.closest("[data-edit-vehicle-for-search]")){
+    pendingSmartSearchAfterVehicle=lastSmartSearchQuery||null;
+    openGarageVehicleEditor("edit");
     return;
   }
 
