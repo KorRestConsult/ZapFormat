@@ -1,5 +1,28 @@
 "use strict";
 
+const ABCP_CARBASE_GOODS_GROUPS = Object.freeze([
+  "oil_filter",
+  "air_filter",
+  "cabin_filter",
+  "fuel_filter",
+  "brake_pad",
+  "brake_disk",
+  "brake_drum",
+  "brake_pad_sensors",
+  "drain_plug_seal",
+  "spark_plugs"
+]);
+
+const ABCP_CARBASE_CAPABILITIES = Object.freeze({
+  provider_id: "abcp_carbase",
+  vehicle_tree: true,
+  vin_decode: false,
+  free_text_part_fitment: false,
+  verified_articles: true,
+  goods_groups: ABCP_CARBASE_GOODS_GROUPS,
+  vehicle_specs: Object.freeze(["wipers", "tires", "wheels"])
+});
+
 function normalizeText(value) {
   return String(value || "")
     .toLowerCase()
@@ -168,11 +191,55 @@ function topDistinct(rows, scoreFn, limit = 8) {
     .slice(0, limit);
 }
 
-async function resolveVehicleCatalog(partGrade, vehicle) {
-  if (!partGrade || !vehicle) return { status: "vehicle_required" };
+function createAbcpCarbaseProvider(client) {
+  if (!client) return null;
+  return {
+    provider_kind: "vehicle_catalog",
+    id: "abcp_carbase",
+    capabilities: ABCP_CARBASE_CAPABILITIES,
+    manufacturers: () => client.carbaseManufacturers(),
+    models: (manufacturerId) => client.carbaseModels(manufacturerId),
+    modifications: (modelId) => client.carbaseModifications(modelId),
+    modificationInfo: (modificationId) => client.carbaseModificationInfo(modificationId)
+  };
+}
 
-  if (vehicle.catalog_modification_id) {
-    const info = await partGrade.carbaseModificationInfo(vehicle.catalog_modification_id);
+function asCatalogProvider(source) {
+  if (!source) return null;
+  if (source.provider_kind === "vehicle_catalog") return source;
+  return createAbcpCarbaseProvider(source);
+}
+
+function catalogCoverageForIntent(intent, capabilities = ABCP_CARBASE_CAPABILITIES) {
+  const special = String(intent?.special_category || "none");
+  if (special !== "none") {
+    const supported = Array.isArray(capabilities?.vehicle_specs) && capabilities.vehicle_specs.includes(special);
+    return {
+      supported,
+      kind: supported ? "vehicle_specs" : "external_fitment_required",
+      required_capability: supported ? null : "vehicle_specs_by_vehicle"
+    };
+  }
+
+  const hints = Array.isArray(intent?.goods_group_hints) ? intent.goods_group_hints : [];
+  const supportedGroups = new Set(Array.isArray(capabilities?.goods_groups) ? capabilities.goods_groups : []);
+  const supported = hints.some((hint) => supportedGroups.has(String(hint || "").toLowerCase()));
+  return {
+    supported,
+    kind: supported ? "verified_articles" : "external_fitment_required",
+    required_capability: supported ? null : "parts_by_vehicle_or_vin"
+  };
+}
+
+async function resolveVehicleCatalog(source, vehicle) {
+  const provider = asCatalogProvider(source);
+  if (!provider || !vehicle) return { status: "vehicle_required" };
+
+  if (
+    vehicle.catalog_modification_id &&
+    (!vehicle.catalog_provider || vehicle.catalog_provider === provider.id)
+  ) {
+    const info = await provider.modificationInfo(vehicle.catalog_modification_id);
     return {
       status: "resolved",
       source: "saved",
@@ -195,7 +262,7 @@ async function resolveVehicleCatalog(partGrade, vehicle) {
     };
   }
 
-  const manufacturersRaw = await partGrade.carbaseManufacturers();
+  const manufacturersRaw = await provider.manufacturers();
   const manufacturers = Array.isArray(manufacturersRaw) ? manufacturersRaw : [];
   const rankedManufacturers = topDistinct(
     manufacturers,
@@ -215,7 +282,7 @@ async function resolveVehicleCatalog(partGrade, vehicle) {
     };
   }
 
-  const modelsRaw = await partGrade.carbaseModels(manufacturerHit.row.id);
+  const modelsRaw = await provider.models(manufacturerHit.row.id);
   const models = flattenModels(modelsRaw);
   const rankedModels = topDistinct(models, (row) => scoreModel(vehicle, row), 8);
   const modelHit = rankedModels[0];
@@ -240,7 +307,7 @@ async function resolveVehicleCatalog(partGrade, vehicle) {
     };
   }
 
-  const modificationsRaw = await partGrade.carbaseModifications(modelHit.row.id);
+  const modificationsRaw = await provider.modifications(modelHit.row.id);
   const modifications = flattenModifications(modificationsRaw)
     .filter((row) => yearFits(vehicle?.year, row?.yearFrom, row?.yearTo));
 
@@ -293,7 +360,7 @@ async function resolveVehicleCatalog(partGrade, vehicle) {
     };
   }
 
-  const info = await partGrade.carbaseModificationInfo(modificationHit.row.id);
+  const info = await provider.modificationInfo(modificationHit.row.id);
   return {
     status: "resolved",
     source: "auto",
