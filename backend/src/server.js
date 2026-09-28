@@ -1977,38 +1977,13 @@ app.put("/api/account/delivery", requireUser, async (req, res, next) => {
       [req.user.id]
     );
 
-    const current = await client.query(
-      `SELECT id
-         FROM user_addresses
-        WHERE user_id = $1
-        ORDER BY updated_at DESC, created_at DESC
-        LIMIT 1`,
-      [req.user.id]
+    const result = await client.query(
+      `INSERT INTO user_addresses
+        (user_id, label, city, address, recipient_name, recipient_phone, is_default, created_at, updated_at)
+       VALUES ($1,'Основное получение',$2,$3,$4,$5,true,now(),now())
+       RETURNING id, city, address, recipient_name, recipient_phone, is_default`,
+      [req.user.id, city, address, recipientName, recipientPhone]
     );
-
-    let result;
-    if (current.rowCount) {
-      result = await client.query(
-        `UPDATE user_addresses
-            SET city = $2,
-                address = $3,
-                recipient_name = $4,
-                recipient_phone = $5,
-                is_default = true,
-                updated_at = now()
-          WHERE id = $1
-          RETURNING id, city, address, recipient_name, recipient_phone, is_default`,
-        [current.rows[0].id, city, address, recipientName, recipientPhone]
-      );
-    } else {
-      result = await client.query(
-        `INSERT INTO user_addresses
-          (user_id, label, city, address, recipient_name, recipient_phone, is_default, created_at, updated_at)
-         VALUES ($1,'Основное получение',$2,$3,$4,$5,true,now(),now())
-         RETURNING id, city, address, recipient_name, recipient_phone, is_default`,
-        [req.user.id, city, address, recipientName, recipientPhone]
-      );
-    }
 
     await client.query("COMMIT");
     res.json({ delivery: result.rows[0] });
