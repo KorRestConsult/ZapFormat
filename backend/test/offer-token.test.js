@@ -34,6 +34,12 @@ test("offer token rejects tampering", () => {
     s: "supplier",
     k: "item"
   });
-  const tampered = token.slice(0, -1) + (token.endsWith("A") ? "B" : "A");
+
+  const parts = token.split(".");
+  const tag = Buffer.from(parts[2], "base64url");
+  tag[0] ^= 0x01;
+  parts[2] = tag.toString("base64url");
+  const tampered = parts.join(".");
+
   assert.throws(() => codec.open(tampered), /Invalid offer token/);
 });
