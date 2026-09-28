@@ -4005,3 +4005,46 @@ body.guest-mode .logo{
     font-size:20px
   }
 }
+
+
+/* Final mobile order-detail guard */
+@media(max-width:680px){
+  .order-detail-title{
+    grid-template-columns:1fr!important;
+    align-items:start!important
+  }
+  .order-detail-state{
+    justify-items:start!important;
+    text-align:left!important;
+    align-self:auto!important;
+    width:100%
+  }
+  .order-detail-state small{
+    max-width:none;
+    font-size:11px
+  }
+  .position-meta{
+    grid-template-columns:1fr 1fr!important
+  }
+  .position-meta>div,
+  .position-meta>div:nth-child(n+3){
+    padding:9px 10px!important;
+    border-top:1px solid #edf1f3!important
+  }
+  .position-meta>div:nth-child(-n+2){
+    border-top:0!important
+  }
+  .position-meta>div:nth-child(odd){
+    border-right:1px solid #edf1f3!important
+  }
+  .position-meta>div:nth-child(even){
+    border-right:0!important
+  }
+  .position-meta small{
+    font-size:9px!important;
+    white-space:normal!important
+  }
+  .position-meta b{
+    font-size:11px!important
+  }
+}
