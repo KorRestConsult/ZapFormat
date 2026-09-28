@@ -457,6 +457,20 @@ function requestStatusClass(status){
   return "processing";
 }
 
+function orderNextStep(status){
+  const value=String(status||"").toLowerCase();
+  const map={
+    new:"Мы приняли заказ. Дальше проверяем и запускаем его в работу.",
+    received:"Заказ принят. Следующее изменение появится здесь и в уведомлениях.",
+    confirmed:"Заказ подтверждён и готов к обработке.",
+    processing:"Заказ в работе. Следим за поставкой каждой позиции.",
+    ready:"Заказ готов к получению.",
+    completed:"Заказ завершён.",
+    cancelled:"Заказ отменён."
+  };
+  return map[value]||"Все изменения по заказу будут появляться здесь.";
+}
+
 function orderProgressHtml(status){
   const value=String(status||"").toLowerCase();
   const steps=value==="completed" ? 4
@@ -910,7 +924,7 @@ async function repeatLiveOrder(orderId,button){
   }
 }
 
-async function openLiveOrderDetail(id){
+async function openLiveOrderDetail(id,options={}){
   try{
     const data=await apiRequest("/api/account/orders/"+encodeURIComponent(id));
     const mount=document.getElementById("orderDetailMount");
@@ -919,8 +933,23 @@ async function openLiveOrderDetail(id){
     const order=data.order;
     const items=data.items||[];
     const history=data.history||[];
+    const justCreated=Boolean(options.created);
 
     mount.innerHTML=`
+      ${justCreated ? `
+        <section class="order-created-confirmation">
+          <span class="order-created-check">✓</span>
+          <div>
+            <span class="eyebrow">ЗАКАЗ СОЗДАН</span>
+            <h2>Заказ #${escapeHtml(order.order_number)} принят</h2>
+            <p>${escapeHtml(orderNextStep(order.status))}</p>
+          </div>
+          <div class="order-created-summary">
+            <b>${rub(Number(order.total_amount||0))}</b>
+            ${order.delivery_address ? '<span>'+escapeHtml([order.delivery_city,order.delivery_address].filter(Boolean).join(" · "))+'</span>' : ""}
+          </div>
+        </section>` : ""}
+
       <div class="order-detail-head">
         <div class="order-detail-toolbar"><button class="order-detail-back" data-account-tab="orders">← Заказы</button><button class="order-repeat-compact" data-live-repeat-order="${order.id}">Повторить заказ</button></div>
         <div class="order-detail-title">
@@ -933,6 +962,7 @@ async function openLiveOrderDetail(id){
           <div class="order-detail-state">
             <strong class="status ${requestStatusClass(order.status)}">${requestStatusLabel(order.status)}</strong>
             <b>${rub(Number(order.total_amount||0))}</b>
+            <small>${escapeHtml(orderNextStep(order.status))}</small>
           </div>
         </div>
       </div>
@@ -986,14 +1016,24 @@ async function openLiveOrderDetail(id){
   }
 }
 
-async function openLiveRequestDetail(id){
+async function openLiveRequestDetail(id,options={}){
   try{
     const data=await apiRequest("/api/account/requests/"+encodeURIComponent(id));
     const mount=document.getElementById("orderDetailMount");
     if(!mount) return;
     const req=data.request;
     const items=data.items||[];
+    const justCreated=Boolean(options.created);
     mount.innerHTML=`
+      ${justCreated ? `
+        <section class="order-created-confirmation request-created">
+          <span class="order-created-check">✓</span>
+          <div>
+            <span class="eyebrow">ЗАПРОС ПРИНЯТ</span>
+            <h2>${escapeHtml(req.id)}</h2>
+            <p>Позиции, которым нужно подтверждение цены или наличия, уже сохранены. Изменения появятся в заказах и уведомлениях.</p>
+          </div>
+        </section>` : ""}
       <div class="order-detail-head">
         <div class="order-detail-toolbar"><button class="order-detail-back" data-account-tab="orders">← Заказы</button></div>
         <div class="order-detail-title">
@@ -2332,16 +2372,18 @@ async function checkoutCart(){
       if(sessionUser){
         accountDataHydrated=false;
         await hydrateAccountData();
+        await refreshNotificationFeed().catch(()=>{});
         navigate("orders");
-        await openLiveOrderDetail(result.order_id || result.order_number);
+        await openLiveOrderDetail(result.order_id || result.order_number,{created:true});
       }
     }else{
       showToast("Запрос "+result.request_id+" принят.");
       if(sessionUser){
         accountDataHydrated=false;
         await hydrateAccountData();
+        await refreshNotificationFeed().catch(()=>{});
         navigate("orders");
-        await openLiveRequestDetail(result.request_id);
+        await openLiveRequestDetail(result.request_id,{created:true});
       }
     }
   }catch(error){
