@@ -306,9 +306,14 @@ function checkoutButtons(){
 }
 
 function updateCheckoutMode(){
-  const label=sessionUser ? "Оформить заказ" : "Отправить запрос";
+  const selectedCount=selectedCartItems().length;
+  const baseLabel=sessionUser ? "Оформить заказ" : "Отправить запрос";
+  const label=selectedCount ? baseLabel+" · "+selectedCount : baseLabel;
   checkoutButtons().forEach(button=>{
-    if(!button.disabled) button.textContent=label;
+    if(!button.dataset.busy){
+      button.disabled=selectedCount===0;
+      button.textContent=label;
+    }
   });
   const note=document.querySelector(".checkout-recheck-note");
   if(note){
@@ -1795,7 +1800,9 @@ function addToCart(id,btn){
 
 function changeCartQty(id,delta){
   const item=cart.find(x=>x.id===id); if(!item) return;
-  item.orderQty=Math.max(1,item.orderQty+delta);
+  const available=Math.max(0,Number(item.availableQty||0));
+  const requested=Math.max(1,Number(item.orderQty||1)+delta);
+  item.orderQty=available>0 ? Math.min(requested,available) : requested;
   saveCart();
 }
 function removeFromCart(id){ cart=cart.filter(x=>x.id!==id); saveCart(); }
@@ -2014,6 +2021,7 @@ function renderCartPage(){
   const total=selectedCartItems().reduce((s,x)=>s+(x.quoteOnly?0:x.price*x.orderQty),0);
   const totalEl=document.getElementById("orderCartTotal");
   if(totalEl) totalEl.textContent=rub(total);
+  updateCheckoutMode();
 }
 
 function toggleCartSelection(id,checked){
@@ -2104,6 +2112,7 @@ async function checkoutCart(){
 
   const buttons=checkoutButtons();
   buttons.forEach(button=>{
+    button.dataset.busy="1";
     button.disabled=true;
     button.textContent="Проверяем…";
   });
@@ -2185,7 +2194,7 @@ async function checkoutCart(){
       showToast("Не удалось отправить заказ. Попробуйте ещё раз.","warn");
     }
   }finally{
-    buttons.forEach(button=>{ button.disabled=false; });
+    buttons.forEach(button=>{ delete button.dataset.busy; });
     updateCheckoutMode();
   }
 }
