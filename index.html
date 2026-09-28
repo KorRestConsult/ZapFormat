@@ -199,7 +199,7 @@
               <button data-account-tab="reports">Отчёты</button>
               <button data-account-tab="profile">Профиль</button>
               <button data-account-tab="delivery">Получение</button>
-              <button data-account-tab="notifications">Уведомления</button>
+              <button data-account-tab="notifications">Уведомления <b class="notification-badge" id="notificationUnreadBadge" hidden>0</b></button>
             </nav>
             <button class="account-logout" id="logoutButton" type="button">Выйти</button>
           </aside>
@@ -320,10 +320,20 @@
             <section class="account-pane" id="account-notifications">
               <div class="account-head"><div><span class="eyebrow">УВЕДОМЛЕНИЯ</span><h2>Что сообщать</h2><p>Только полезные изменения по заказам.</p></div></div>
               <div class="notification-list">
-                <label><span><b>Статус заказа</b><small>Принят, в пути, готов к выдаче</small></span><input type="checkbox" data-notification="orderStatus" checked></label>
-                <label><span><b>Изменение позиции</b><small>Отказ, перенос срока, изменение количества</small></span><input type="checkbox" data-notification="positionChange" checked></label>
-                <label><span><b>Возвраты</b><small>Изменение статуса заявления</small></span><input type="checkbox" data-notification="returns" checked></label>
+                <label><span><b>Статус заказа</b><small>Изменения по заказу и поставке</small></span><input type="checkbox" data-notification="orderStatus" checked></label>
+                <label><span><b>Изменение позиции</b><small>Статус конкретной запчасти</small></span><input type="checkbox" data-notification="positionChange" checked></label>
+                <label><span><b>Возвраты</b><small>Создание и изменения возврата</small></span><input type="checkbox" data-notification="returns" checked></label>
                 <label><span><b>Реклама</b><small>Акции и предложения</small></span><input type="checkbox" data-notification="marketing"></label>
+              </div>
+
+              <div class="account-block notification-feed-block">
+                <div class="account-block-head">
+                  <div><span class="eyebrow">ЛЕНТА</span><h3>События</h3></div>
+                  <button id="markNotificationsRead" type="button">Всё прочитано</button>
+                </div>
+                <div class="notification-feed" id="notificationFeed">
+                  <div class="account-empty"><p>Событий пока нет.</p></div>
+                </div>
               </div>
             </section>
           </div>
