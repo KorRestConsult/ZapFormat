@@ -15,7 +15,7 @@ const { PartGradeError, createPartGradeClient } = require("./partgrade");
 const { createOfferTokenCodec } = require("./offer-token");
 const { customerPrice } = require("./pricing");
 const { verifyGitHubActionsToken } = require("./github-oidc");
-const { interpretSearch, normalizeVehicle } = require("./ai-search");
+const { interpretSearch, researchPartCandidates, normalizeVehicle } = require("./ai-search");
 const { publicBootstrapJwk, installEncryptedOpenAIKey } = require("./secret-bootstrap");
 const {
   ABCP_CARBASE_CAPABILITIES,
@@ -152,6 +152,128 @@ async function searchSupplierOffers(number, brand) {
       return partGrade.searchBatch([{ number, brand }]);
     }
     throw error;
+  }
+}
+
+
+function supplierBrandRows(value) {
+  if (Array.isArray(value)) return value;
+  if (value && typeof value === "object") return Object.values(value).filter((row) => row && typeof row === "object");
+  return [];
+}
+
+async function validateResearchedCandidates(candidates) {
+  const result = [];
+  const seen = new Set();
+
+  for (const candidate of (Array.isArray(candidates) ? candidates : []).slice(0, 5)) {
+    const wantedArticle = String(candidate?.article || "").trim();
+    const wantedBrand = String(candidate?.brand || "").trim();
+    if (!wantedArticle || !wantedBrand) continue;
+
+    let rows = [];
+    try {
+      rows = supplierBrandRows(await partGrade.searchBrands(wantedArticle, { useOnlineStocks: true }));
+      if (!rows.length) rows = supplierBrandRows(await partGrade.searchTips(wantedArticle));
+    } catch (_error) {
+      rows = [];
+    }
+
+    const articleKey = normalizeArticle(wantedArticle);
+    const brandKey = normalizeBrand(wantedBrand);
+    const exactArticle = rows.filter((row) =>
+      normalizeArticle(row?.number || row?.numberFix || wantedArticle) === articleKey
+    );
+
+    let hit = exactArticle.find((row) => normalizeBrand(row?.brand) === brandKey);
+    if (!hit) {
+      hit = rows.find((row) =>
+        normalizeBrand(row?.brand) === brandKey &&
+        normalizeArticle(row?.number || row?.numberFix || wantedArticle) === articleKey
+      );
+    }
+    if (!hit && exactArticle.length === 1) hit = exactArticle[0];
+    if (!hit) continue;
+
+    const brand = String(hit.brand || wantedBrand).trim();
+    const article = String(hit.number || wantedArticle).trim();
+    const key = normalizeBrand(brand) + "|" + normalizeArticle(article);
+    if (!brand || !article || seen.has(key)) continue;
+    seen.add(key);
+
+    result.push({
+      brand,
+      article,
+      description: String(hit.description || candidate.description || "Автозапчасть").trim(),
+      fitment_note: String(candidate.fitment_note || "").trim(),
+      research_brand: wantedBrand,
+      research_article: wantedArticle
+    });
+  }
+
+  return result;
+}
+
+async function buildResearchSearchResult(query, vehicle, interpreted, intent) {
+  const common = {
+    ok: true,
+    interpreter: interpreted?.mode || "ai",
+    ai_configured: Boolean(String(process.env.OPENAI_API_KEY || "").trim()),
+    vehicle: normalizeVehicle(vehicle),
+    intent
+  };
+
+  try {
+    const research = await researchPartCandidates(query, vehicle);
+    if (!research) {
+      return {
+        ...common,
+        mode: "clarification",
+        question: "Укажите год выпуска и двигатель автомобиля."
+      };
+    }
+
+    if (research.status === "needs_clarification") {
+      return {
+        ...common,
+        mode: "clarification",
+        research_mode: "web",
+        question: research.clarification_question || "Уточните автомобиль одним сообщением."
+      };
+    }
+
+    const articles = await validateResearchedCandidates(research.candidates);
+    if (articles.length) {
+      return {
+        ...common,
+        mode: "researched_articles",
+        research_mode: "web",
+        fitment_status: "web_researched_supplier_verified",
+        research_summary: research.summary || "",
+        articles
+      };
+    }
+
+    const clutchQuestion = intent?.category === "clutch"
+      ? "Уточните год, двигатель и коробку передач: механика или автомат?"
+      : "Уточните год выпуска и двигатель автомобиля.";
+
+    return {
+      ...common,
+      mode: "clarification",
+      research_mode: "web",
+      question: research.clarification_question || clutchQuestion
+    };
+  } catch (error) {
+    console.warn("[AIResearch]", error?.code || error?.message || "failed");
+    return {
+      ...common,
+      mode: "clarification",
+      research_mode: "web_failed",
+      question: intent?.category === "clutch"
+        ? "Уточните год, двигатель и коробку передач: механика или автомат?"
+        : "Уточните год выпуска и двигатель автомобиля."
+    };
   }
 }
 
@@ -1640,13 +1762,7 @@ app.post("/api/catalog/ai-search", requireDatabase, requireUser, aiSearchLimiter
     const intent = interpreted.intent;
 
     if (!vehicle) {
-      return res.json({
-        ok: true,
-        mode: "needs_vehicle",
-        interpreter: interpreted.mode,
-        ai_configured: Boolean(String(process.env.OPENAI_API_KEY || "").trim()),
-        intent
-      });
+      return res.json(await buildResearchSearchResult(query, null, interpreted, intent));
     }
 
     if (intent?.clarification_needed) {
@@ -1663,21 +1779,7 @@ app.post("/api/catalog/ai-search", requireDatabase, requireUser, aiSearchLimiter
 
     const coverage = catalogCoverageForIntent(intent, vehicleCatalog.capabilities);
     if (!coverage.supported) {
-      return res.json({
-        ok: true,
-        mode: "catalog_provider_required",
-        interpreter: interpreted.mode,
-        ai_configured: Boolean(String(process.env.OPENAI_API_KEY || "").trim()),
-        vehicle: normalizeVehicle(vehicle),
-        intent,
-        fitment_status: "catalog_source_required",
-        required_capability: coverage.required_capability,
-        vehicle_identity: {
-          vin_present: Boolean(String(vehicle.vin || "").trim()),
-          vin_decoded: false,
-          identification_source: vehicle.catalog_modification_id ? "saved_catalog_binding" : "garage_facts"
-        }
-      });
+      return res.json(await buildResearchSearchResult(query, vehicle, interpreted, intent));
     }
 
     let resolved;
@@ -1685,21 +1787,7 @@ app.post("/api/catalog/ai-search", requireDatabase, requireUser, aiSearchLimiter
       resolved = await resolveVehicleCatalog(vehicleCatalog, vehicle);
     } catch (error) {
       console.warn("[VehicleCatalogResolve]", error?.code || error?.message || "failed");
-      return res.json({
-        ok: true,
-        mode: "catalog_provider_required",
-        interpreter: interpreted.mode,
-        ai_configured: Boolean(String(process.env.OPENAI_API_KEY || "").trim()),
-        vehicle: normalizeVehicle(vehicle),
-        intent,
-        fitment_status: "catalog_source_required",
-        required_capability: "verified_fitment_catalog",
-        vehicle_identity: {
-          vin_present: Boolean(String(vehicle.vin || "").trim()),
-          vin_decoded: false,
-          identification_source: vehicle.catalog_modification_id ? "saved_catalog_binding" : "garage_facts"
-        }
-      });
+      return res.json(await buildResearchSearchResult(query, vehicle, interpreted, intent));
     }
 
     if (resolved.status === "model_ambiguous" || resolved.status === "manufacturer_not_found" || resolved.status === "modification_not_found") {
@@ -1741,15 +1829,7 @@ app.post("/api/catalog/ai-search", requireDatabase, requireUser, aiSearchLimiter
     }
 
     if (resolved.status !== "resolved") {
-      return res.json({
-        ok: true,
-        mode: "no_verified_match",
-        resolver_status: resolved.status,
-        interpreter: interpreted.mode,
-        vehicle: normalizeVehicle(vehicle),
-        intent,
-        articles: []
-      });
+      return res.json(await buildResearchSearchResult(query, vehicle, interpreted, intent));
     }
 
     const special = vehicleSpecsForIntent(resolved.info, intent);
@@ -1788,9 +1868,13 @@ app.post("/api/catalog/ai-search", requireDatabase, requireUser, aiSearchLimiter
         fit_axle: item.fit_axle || null
       }));
 
+    if (!articles.length) {
+      return res.json(await buildResearchSearchResult(query, vehicle, interpreted, intent));
+    }
+
     return res.json({
       ok: true,
-      mode: articles.length ? "verified_articles" : "no_verified_match",
+      mode: "verified_articles",
       interpreter: interpreted.mode,
       ai_configured: Boolean(String(process.env.OPENAI_API_KEY || "").trim()),
       vehicle: normalizeVehicle(vehicle),
