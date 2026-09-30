@@ -2,6 +2,7 @@
 
 const DEFAULT_MODEL = "gpt-5.6-luna";
 const DEFAULT_TIMEOUT_MS = 9000;
+const DEFAULT_RESEARCH_TIMEOUT_MS = 18000;
 
 const CATEGORY_HINTS = {
   brake_pad: ["brake_pad"],
@@ -238,6 +239,131 @@ async function interpretWithOpenAI(query, vehicle, options = {}) {
   }
 }
 
+
+async function researchPartCandidates(query, vehicle, options = {}) {
+  const apiKey = String(options.apiKey || process.env.OPENAI_API_KEY || "").trim();
+  if (!apiKey) return null;
+
+  const model = String(options.model || process.env.OPENAI_SEARCH_MODEL || DEFAULT_MODEL).trim();
+  const fetchImpl = options.fetchImpl || globalThis.fetch;
+  const timeoutMs = Math.max(
+    4000,
+    Number(options.timeoutMs || process.env.OPENAI_RESEARCH_TIMEOUT_MS || DEFAULT_RESEARCH_TIMEOUT_MS)
+  );
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+
+  const schema = {
+    type: "object",
+    additionalProperties: false,
+    properties: {
+      status: { type: "string", enum: ["candidates","needs_clarification","not_found"] },
+      clarification_question: { type: ["string","null"] },
+      summary: { type: "string" },
+      candidates: {
+        type: "array",
+        maxItems: 5,
+        items: {
+          type: "object",
+          additionalProperties: false,
+          properties: {
+            brand: { type: "string" },
+            article: { type: "string" },
+            description: { type: "string" },
+            fitment_note: { type: "string" }
+          },
+          required: ["brand","article","description","fitment_note"]
+        }
+      }
+    },
+    required: ["status","clarification_question","summary","candidates"]
+  };
+
+  const body = {
+    model,
+    store: false,
+    tools: [{ type: "web_search", search_context_size: "low" }],
+    input: [
+      {
+        role: "system",
+        content: [{
+          type: "input_text",
+          text:
+            "You are the fitment research layer of a Russian auto-parts shop. Use web search. " +
+            "Your job is to find exact manufacturer part numbers for the requested part and vehicle, or ask one useful clarification. " +
+            "Never guess a part number or compatibility. Prefer OEM catalogs, manufacturer catalogs, reputable parts catalogs and repeated agreement across sources. " +
+            "If the query explicitly names a vehicle, those query facts take priority over saved vehicle context. " +
+            "If make/model/year/engine/gearbox or axle/side details are insufficient to distinguish fitment, return needs_clarification and ask ONE short question in Russian. " +
+            "For clutch requests, gearbox/transmission can be essential. For brake pads, axle can be essential. " +
+            "Return candidates only when the evidence supports that exact brand+article for the described vehicle."
+        }]
+      },
+      {
+        role: "user",
+        content: [{
+          type: "input_text",
+          text:
+            "Запрос: " + cleanText(query, 400) +
+            "\nСохранённый автомобиль (может быть пустым или уступать данным из запроса): " +
+            JSON.stringify(normalizeVehicle(vehicle))
+        }]
+      }
+    ],
+    text: {
+      format: {
+        type: "json_schema",
+        name: "zapformat_part_research",
+        strict: true,
+        schema
+      }
+    },
+    max_output_tokens: 800
+  };
+
+  try {
+    const response = await fetchImpl("https://api.openai.com/v1/responses", {
+      method: "POST",
+      headers: {
+        Authorization: "Bearer " + apiKey,
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify(body),
+      signal: controller.signal
+    });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      const error = new Error("openai_research_failed");
+      error.status = response.status;
+      error.detail = data?.error?.message || null;
+      throw error;
+    }
+    const text = responseText(data);
+    if (!text) throw new Error("openai_research_empty");
+    const value = JSON.parse(text);
+    return {
+      model,
+      status: ["candidates","needs_clarification","not_found"].includes(value?.status)
+        ? value.status
+        : "not_found",
+      clarification_question: value?.clarification_question
+        ? cleanText(value.clarification_question, 220)
+        : null,
+      summary: cleanText(value?.summary, 320),
+      candidates: (Array.isArray(value?.candidates) ? value.candidates : [])
+        .slice(0, 5)
+        .map((item) => ({
+          brand: cleanText(item?.brand, 80),
+          article: cleanText(item?.article, 100),
+          description: cleanText(item?.description, 180),
+          fitment_note: cleanText(item?.fitment_note, 220)
+        }))
+        .filter((item) => item.brand && item.article)
+    };
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 async function interpretSearch(query, vehicle, options = {}) {
   const fallback = fallbackIntent(query, vehicle);
   try {
@@ -260,6 +386,7 @@ module.exports = {
   catalogHints,
   fallbackIntent,
   interpretSearch,
+  researchPartCandidates,
   normalizeIntent,
   normalizeVehicle
 };
