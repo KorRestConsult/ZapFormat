@@ -2,7 +2,7 @@
 
 const test = require("node:test");
 const assert = require("node:assert/strict");
-const { fallbackIntent, interpretSearch } = require("../src/ai-search");
+const { fallbackIntent, interpretSearch, researchPartCandidates } = require("../src/ai-search");
 
 test("fallback parser recognizes front brake pads without inventing an article", () => {
   const intent = fallbackIntent("нужны передние тормозные колодки", {
@@ -54,4 +54,41 @@ test("fallback parser recognizes clutch request", () => {
   assert.equal(intent.category, "clutch");
   assert.deepEqual(intent.goods_group_hints, ["clutch"]);
   assert.equal(intent.clarification_needed, false);
+});
+
+
+test("AI fitment research uses web search and returns exact candidates", async () => {
+  let requestBody = null;
+  const result = await researchPartCandidates(
+    "сцепление Ford Focus 2006 1.8 механика",
+    null,
+    {
+      apiKey: "sk-test-key-12345678901234567890",
+      fetchImpl: async (_url, options) => {
+        requestBody = JSON.parse(options.body);
+        return {
+          ok: true,
+          async json() {
+            return {
+              output_text: JSON.stringify({
+                status: "candidates",
+                clarification_question: null,
+                summary: "Найден кандидат",
+                candidates: [{
+                  brand: "LuK",
+                  article: "624 3132 09",
+                  description: "Комплект сцепления",
+                  fitment_note: "Ford Focus 1.8 MT"
+                }]
+              })
+            };
+          }
+        };
+      }
+    }
+  );
+  assert.equal(requestBody.tools[0].type, "web_search");
+  assert.equal(result.status, "candidates");
+  assert.equal(result.candidates[0].brand, "LuK");
+  assert.equal(result.candidates[0].article, "624 3132 09");
 });
