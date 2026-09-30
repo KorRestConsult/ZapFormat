@@ -147,7 +147,7 @@ test("vehicle catalog does not guess between ambiguous modifications", async () 
 });
 
 
-test("catalog capabilities allow only real ABCP Carbase coverage", () => {
+test("catalog capabilities use verified modification articles for named parts", () => {
   const supported = catalogCoverageForIntent(
     { category: "brake_pad", goods_group_hints: ["brake_pad"], special_category: "none" },
     ABCP_CARBASE_CAPABILITIES
@@ -155,12 +155,24 @@ test("catalog capabilities allow only real ABCP Carbase coverage", () => {
   assert.equal(supported.supported, true);
   assert.equal(supported.kind, "verified_articles");
 
-  const unsupported = catalogCoverageForIntent(
-    { category: "radiator", goods_group_hints: [], special_category: "none" },
+  const clutch = catalogCoverageForIntent(
+    { category: "clutch", goods_group_hints: ["clutch"], special_category: "none" },
     ABCP_CARBASE_CAPABILITIES
   );
-  assert.equal(unsupported.supported, false);
-  assert.equal(unsupported.required_capability, "parts_by_vehicle_or_vin");
+  assert.equal(clutch.supported, true);
+  assert.equal(clutch.kind, "verified_articles");
+
+  const genericNamedPart = catalogCoverageForIntent(
+    { category: "other_part", goods_group_hints: [], special_category: "none" },
+    ABCP_CARBASE_CAPABILITIES
+  );
+  assert.equal(genericNamedPart.supported, true);
+
+  const unknown = catalogCoverageForIntent(
+    { category: "unknown", goods_group_hints: [], special_category: "none" },
+    ABCP_CARBASE_CAPABILITIES
+  );
+  assert.equal(unknown.supported, false);
 });
 
 test("ABCP Carbase capability contract does not claim VIN decoding", () => {
