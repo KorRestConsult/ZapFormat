@@ -42,3 +42,16 @@ test("AI search uses deterministic fallback when no API key is configured", asyn
   assert.equal(result.intent.category, "brake_disk");
   assert.equal(result.intent.axle, "rear");
 });
+
+
+test("fallback parser recognizes clutch request", () => {
+  const intent = fallbackIntent("нужно сцепление на Ford Focus", {
+    brand: "FORD",
+    model: "Focus",
+    year: 2006,
+    engine: "1.8"
+  });
+  assert.equal(intent.category, "clutch");
+  assert.deepEqual(intent.goods_group_hints, ["clutch"]);
+  assert.equal(intent.clarification_needed, false);
+});
