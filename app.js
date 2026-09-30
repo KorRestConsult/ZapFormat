@@ -1653,15 +1653,22 @@ function renderSmartPartSearch(data,query){
     return;
   }
 
-  if(data?.mode==="verified_articles"){
+  if(["verified_articles","researched_articles"].includes(data?.mode)){
     const articles=(data.articles||[]);
+    const researched=data?.mode==="researched_articles";
     const catalogModification=data?.catalog?.modification?.name||"выбранной модификации";
     root.innerHTML=`
       <div class="vehicle-search-state smart-selection-state">
-        <span class="eyebrow">${data?.fitment_status==="catalog_fitment_confirmed"?"СОВМЕСТИМОСТЬ ПОДТВЕРЖДЕНА":"ПОДБОР ПО АВТОМОБИЛЮ"}</span>
+        <span class="eyebrow">${researched
+          ? "ИИ ПОДОБРАЛ · АРТИКУЛ ЕСТЬ У ПОСТАВЩИКА"
+          : (data?.fitment_status==="catalog_fitment_confirmed"?"СОВМЕСТИМОСТЬ ПОДТВЕРЖДЕНА":"ПОДБОР ПО АВТОМОБИЛЮ")}</span>
         <h3>${escapeHtml(intent.part_name||query)}</h3>
-        <p>${label?"Для <b>"+escapeHtml(label)+"</b>. ":""}Найдены позиции из каталога ${escapeHtml(catalogModification)}.</p>
-        <p class="vehicle-search-note">Нажмите позицию — дальше загрузим живые цены, остатки, сроки и доступные аналоги.</p>
+        <p>${researched
+          ? "ИИ проверил применяемость по открытым источникам, затем сверил артикул с живым каталогом поставщика."
+          : ((label?"Для <b>"+escapeHtml(label)+"</b>. ":"")+"Найдены позиции из каталога "+escapeHtml(catalogModification)+".")}</p>
+        <p class="vehicle-search-note">${researched
+          ? "Если вариантов несколько — выберите нужный. Перед окончательным заказом совместимость можно дополнительно сверить по VIN."
+          : "Нажмите позицию — дальше загрузим живые цены, остатки, сроки и доступные аналоги."}</p>
         <div class="smart-article-list">
           ${articles.map(item=>`
             <button type="button" class="smart-article"
@@ -1672,6 +1679,7 @@ function renderSmartPartSearch(data,query){
               <span class="smart-article-copy">
                 <b>${escapeHtml(item.article||"—")}</b>
                 <small>${escapeHtml(item.description||item.goods_group_name||"Запчасть")}</small>
+                ${item.fitment_note?'<small>'+escapeHtml(item.fitment_note)+'</small>':""}
               </span>
               <strong>Цены ›</strong>
             </button>
@@ -1722,7 +1730,7 @@ async function runSmartPartSearch(query,vehicle){
       data?.vehicle ? "Автомобиль: "+vehicleLabel(data.vehicle) : "Умный подбор",
       lastSmartSearchQuery
     );
-    if(data?.mode==="verified_articles" && Array.isArray(data.articles) && data.articles.length===1){
+    if(["verified_articles","researched_articles"].includes(data?.mode) && Array.isArray(data.articles) && data.articles.length===1){
       const only=data.articles[0];
       setSearchHead(
         only.description||data?.intent?.part_name||lastSmartSearchQuery,
