@@ -11,6 +11,7 @@ const CATEGORY_HINTS = {
   air_filter: ["air_filter"],
   cabin_filter: ["cabin_filter"],
   fuel_filter: ["fuel_filter"],
+  clutch: ["clutch"],
   drain_plug_seal: ["drain_plug_seal"],
   spark_plugs: ["spark_plugs"]
 };
@@ -65,6 +66,7 @@ function fallbackIntent(query, vehicle) {
   else if (/салонн\w*\s+фильтр|фильтр\w*\s+салон/.test(lower)) category = "cabin_filter";
   else if (/топливн\w*\s+фильтр|фильтр\w*\s+топлив/.test(lower)) category = "fuel_filter";
   else if (/сливн\w*.*(пробк|шайб|уплотн)|уплотн\w*.*сливн/.test(lower)) category = "drain_plug_seal";
+  else if (/сцеплен/.test(lower)) category = "clutch";
   else if (/свеч/.test(lower)) category = "spark_plugs";
   else if (/(дворник|щетк)/.test(lower)) specialCategory = "wipers";
   else if (/(шин|резин)/.test(lower)) specialCategory = "tires";
@@ -148,9 +150,9 @@ async function interpretWithOpenAI(query, vehicle, options = {}) {
 
   const categories = [
     "brake_pad","brake_disk","brake_drum","oil_filter","air_filter","cabin_filter",
-    "fuel_filter","drain_plug_seal","spark_plugs","radiator","engine_mount",
+    "fuel_filter","clutch","drain_plug_seal","spark_plugs","radiator","engine_mount",
     "transmission_mount","stabilizer_bushing","shock_absorber","wheel_bearing",
-    "filter_ambiguous","unknown"
+    "other_part","filter_ambiguous","unknown"
   ];
 
   const schema = {
@@ -187,6 +189,8 @@ async function interpretWithOpenAI(query, vehicle, options = {}) {
             "The vehicle catalog, not the model, will decide applicability. " +
             "Choose only the semantic category and position requested. " +
             "For a bare word 'фильтр', require clarification. " +
+            "For сцепление/комплект сцепления use category=clutch. " +
+            "For a clearly named automotive part that is not in the fixed category list use category=other_part instead of unknown; ask clarification only when the requested part itself is genuinely ambiguous. " +
             "Use special_category=wipers for дворники/щетки стеклоочистителя, tires for шины/резина, wheels for колесные диски."
         }]
       },
