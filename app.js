@@ -1722,6 +1722,20 @@ async function runSmartPartSearch(query,vehicle){
       data?.vehicle ? "Автомобиль: "+vehicleLabel(data.vehicle) : "Умный подбор",
       lastSmartSearchQuery
     );
+    if(data?.mode==="verified_articles" && Array.isArray(data.articles) && data.articles.length===1){
+      const only=data.articles[0];
+      setSearchHead(
+        only.description||data?.intent?.part_name||lastSmartSearchQuery,
+        data?.vehicle ? "Нашли точную позицию для "+vehicleLabel(data.vehicle)+". Загружаем цены…" : "Нашли точную позицию. Загружаем цены…",
+        lastSmartSearchQuery
+      );
+      return loadLiveOffers(
+        only.article,
+        only.brand,
+        only.description||only.goods_group_name||"",
+        {push:true}
+      );
+    }
     renderSmartPartSearch(data,lastSmartSearchQuery);
     return true;
   }catch(error){
