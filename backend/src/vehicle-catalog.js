@@ -5,7 +5,6 @@ const ABCP_CARBASE_GOODS_GROUPS = Object.freeze([
   "air_filter",
   "cabin_filter",
   "fuel_filter",
-  "clutch",
   "brake_pad",
   "brake_disk",
   "brake_drum",
@@ -224,14 +223,7 @@ function catalogCoverageForIntent(intent, capabilities = ABCP_CARBASE_CAPABILITI
 
   const hints = Array.isArray(intent?.goods_group_hints) ? intent.goods_group_hints : [];
   const supportedGroups = new Set(Array.isArray(capabilities?.goods_groups) ? capabilities.goods_groups : []);
-  const directGroupSupport = hints.some((hint) => supportedGroups.has(String(hint || "").toLowerCase()));
-  const category = String(intent?.category || "unknown");
-  const canSearchVerifiedArticles =
-    Boolean(capabilities?.verified_articles) &&
-    Boolean(capabilities?.vehicle_tree) &&
-    !["unknown","filter_ambiguous"].includes(category);
-
-  const supported = directGroupSupport || canSearchVerifiedArticles;
+  const supported = hints.some((hint) => supportedGroups.has(String(hint || "").toLowerCase()));
   return {
     supported,
     kind: supported ? "verified_articles" : "external_fitment_required",
