@@ -4,16 +4,28 @@ const DEFAULT_MODEL = "gpt-5.6-luna";
 const DEFAULT_TIMEOUT_MS = 9000;
 
 const CATEGORY_HINTS = {
-  brake_pad: ["brake_pad"],
-  brake_disk: ["brake_disk"],
-  brake_drum: ["brake_drum"],
-  oil_filter: ["oil_filter"],
-  air_filter: ["air_filter"],
-  cabin_filter: ["cabin_filter"],
-  fuel_filter: ["fuel_filter"],
-  drain_plug_seal: ["drain_plug_seal"],
-  spark_plugs: ["spark_plugs"]
-};
+  brake_pad: ["brake_pad", "тормозные колодки"],
+  brake_disk: ["brake_disk", "тормозной диск"],
+  brake_drum: ["brake_drum", "тормозной барабан"],
+  oil_filter: ["oil_filter", "масляный фильтр"],
+  air_filter: ["air_filter", "воздушный фильтр"],
+  cabin_filter: ["cabin_filter", "салонный фильтр"],
+  fuel_filter: ["fuel_filter", "топливный фильтр"],
+  drain_plug_seal: ["drain_plug_seal", "уплотнение сливной пробки"],
+  spark_plugs: ["spark_plugs", "свечи зажигания"],
+  radiator: ["радиатор"],
+  engine_mount: ["подушка двигателя", "опора двигателя"],
+  transmission_mount: ["подушка кпп", "опора кпп", "опора коробки"],
+  stabilizer_bushing: ["втулка стабилизатора"],
+  shock_absorber: ["амортизатор"],
+  wheel_bearing: ["ступичный подшипник", "подшипник ступицы"],
+  clutch_kit: ["комплект сцепления"],
+  clutch_disc: ["диск сцепления"],
+  clutch_release_bearing: ["выжимной подшипник"],
+  clutch_master_cylinder: ["главный цилиндр сцепления"],
+  clutch_slave_cylinder: ["рабочий цилиндр сцепления"],
+  flywheel: ["маховик"]
+}
 
 function cleanText(value, max = 240) {
   return String(value || "").trim().replace(/\s+/g, " ").slice(0, max);
@@ -35,6 +47,57 @@ function normalizeVehicle(vehicle) {
 
 function catalogHints(category) {
   return CATEGORY_HINTS[String(category || "")] || [];
+}
+
+function fallbackQueryVehicle(query) {
+  const raw = cleanText(query, 400);
+  const lower = raw.toLowerCase().replace(/ё/g, "е");
+  const result = {
+    brand: null,
+    model: null,
+    generation: null,
+    year: null,
+    engine: null,
+    transmission: null
+  };
+
+  const known = [
+    ["ford", "FORD"], ["форд", "FORD"],
+    ["bmw", "BMW"], ["бмв", "BMW"],
+    ["volkswagen", "VOLKSWAGEN"], ["vw", "VOLKSWAGEN"], ["фольксваген", "VOLKSWAGEN"],
+    ["audi", "AUDI"], ["ауди", "AUDI"],
+    ["toyota", "TOYOTA"], ["тойота", "TOYOTA"],
+    ["kia", "KIA"], ["киа", "KIA"],
+    ["hyundai", "HYUNDAI"], ["хендай", "HYUNDAI"], ["хундай", "HYUNDAI"],
+    ["renault", "RENAULT"], ["рено", "RENAULT"],
+    ["nissan", "NISSAN"], ["ниссан", "NISSAN"],
+    ["skoda", "SKODA"], ["шкода", "SKODA"],
+    ["lada", "LADA"], ["лада", "LADA"]
+  ];
+  for (const [needle, value] of known) {
+    if (new RegExp("(^|\\s)" + needle + "(\\s|$)", "i").test(lower)) {
+      result.brand = value;
+      break;
+    }
+  }
+
+  const focus = lower.match(/(?:ford|форд)\s+(focus|фокус)(?:\s+(ii|iii|iv|2|3|4))?/i);
+  if (focus) {
+    result.brand = "FORD";
+    result.model = "Focus";
+    result.generation = focus[2] || null;
+  }
+
+  const year = lower.match(/\b(19\d{2}|20\d{2})\b/);
+  if (year) result.year = Number(year[1]);
+
+  const engine = lower.match(/\b(\d[.,]\d)\s*(?:л|литр|tdi|tsi|dci|hdi)?\b/i);
+  if (engine) result.engine = engine[1].replace(",", ".");
+
+  if (/\b(мкпп|механик|manual)\b/.test(lower)) result.transmission = "manual";
+  else if (/\b(акпп|автомат|automatic|powershift|dsg|робот)\b/.test(lower)) result.transmission = "automatic";
+
+  return result;
 }
 
 function fallbackIntent(query, vehicle) {
@@ -66,6 +129,12 @@ function fallbackIntent(query, vehicle) {
   else if (/топливн\w*\s+фильтр|фильтр\w*\s+топлив/.test(lower)) category = "fuel_filter";
   else if (/сливн\w*.*(пробк|шайб|уплотн)|уплотн\w*.*сливн/.test(lower)) category = "drain_plug_seal";
   else if (/свеч/.test(lower)) category = "spark_plugs";
+  else if (/маховик/.test(lower)) category = "flywheel";
+  else if (/выжимн\w*.*подшипник|подшипник\w*.*выжимн/.test(lower)) category = "clutch_release_bearing";
+  else if (/(главн\w*\s+цилиндр|цилиндр\w*\s+главн\w*).*сцеплен|сцеплен.*(главн\w*\s+цилиндр|цилиндр\w*\s+главн\w*)/.test(lower)) category = "clutch_master_cylinder";
+  else if (/(рабоч\w*\s+цилиндр|цилиндр\w*\s+рабоч\w*).*сцеплен|сцеплен.*(рабоч\w*\s+цилиндр|цилиндр\w*\s+рабоч\w*)/.test(lower)) category = "clutch_slave_cylinder";
+  else if (/диск\w*.*сцеплен|сцеплен.*диск/.test(lower)) category = "clutch_disc";
+  else if (/сцеплен/.test(lower)) category = "clutch_kit";
   else if (/(дворник|щетк)/.test(lower)) specialCategory = "wipers";
   else if (/(шин|резин)/.test(lower)) specialCategory = "tires";
   else if (/(колесн[^\s]*\s+диск|диски колес)/.test(lower)) specialCategory = "wheels";
@@ -98,6 +167,7 @@ function fallbackIntent(query, vehicle) {
     goods_group_hints: catalogHints(category),
     clarification_needed: clarificationNeeded,
     clarification_question: clarificationQuestion,
+    query_vehicle: fallbackQueryVehicle(raw),
     fitment_status: vehicle ? "vehicle_context_only" : "vehicle_required"
   };
 }
@@ -132,6 +202,14 @@ function normalizeIntent(value, fallback) {
     clarification_question: value?.clarification_question
       ? cleanText(value.clarification_question, 180)
       : null,
+    query_vehicle: {
+      brand: cleanText(value?.query_vehicle?.brand || fallback.query_vehicle?.brand, 80) || null,
+      model: cleanText(value?.query_vehicle?.model || fallback.query_vehicle?.model, 120) || null,
+      generation: cleanText(value?.query_vehicle?.generation || fallback.query_vehicle?.generation, 80) || null,
+      year: Number(value?.query_vehicle?.year || fallback.query_vehicle?.year || 0) || null,
+      engine: cleanText(value?.query_vehicle?.engine || fallback.query_vehicle?.engine, 120) || null,
+      transmission: cleanText(value?.query_vehicle?.transmission || fallback.query_vehicle?.transmission, 60) || null
+    },
     fitment_status: fallback.fitment_status
   };
 }
@@ -150,7 +228,8 @@ async function interpretWithOpenAI(query, vehicle, options = {}) {
     "brake_pad","brake_disk","brake_drum","oil_filter","air_filter","cabin_filter",
     "fuel_filter","drain_plug_seal","spark_plugs","radiator","engine_mount",
     "transmission_mount","stabilizer_bushing","shock_absorber","wheel_bearing",
-    "filter_ambiguous","unknown"
+    "clutch_kit","clutch_disc","clutch_release_bearing","clutch_master_cylinder",
+    "clutch_slave_cylinder","flywheel","filter_ambiguous","unknown"
   ];
 
   const schema = {
@@ -166,11 +245,25 @@ async function interpretWithOpenAI(query, vehicle, options = {}) {
       wants_oem: { type: "boolean" },
       special_category: { type: "string", enum: ["none","wipers","tires","wheels"] },
       clarification_needed: { type: "boolean" },
-      clarification_question: { type: ["string","null"] }
+      clarification_question: { type: ["string","null"] },
+      query_vehicle: {
+        type: "object",
+        additionalProperties: false,
+        properties: {
+          brand: { type: ["string","null"] },
+          model: { type: ["string","null"] },
+          generation: { type: ["string","null"] },
+          year: { type: ["integer","null"] },
+          engine: { type: ["string","null"] },
+          transmission: { type: ["string","null"] }
+        },
+        required: ["brand","model","generation","year","engine","transmission"]
+      }
     },
     required: [
       "normalized_query","category","part_name","side","axle","quantity",
-      "wants_oem","special_category","clarification_needed","clarification_question"
+      "wants_oem","special_category","clarification_needed","clarification_question",
+      "query_vehicle"
     ]
   };
 
@@ -187,6 +280,8 @@ async function interpretWithOpenAI(query, vehicle, options = {}) {
             "The vehicle catalog, not the model, will decide applicability. " +
             "Choose only the semantic category and position requested. " +
             "For a bare word 'фильтр', require clarification. " +
+            "For a bare word 'сцепление', use clutch_kit; use a specific clutch category only when the user explicitly asks for a disc, release bearing, master/slave cylinder or flywheel. " +
+            "Extract only vehicle facts explicitly stated in the user's query into query_vehicle. Never invent missing brand, model, generation, year, engine or transmission. " +
             "Use special_category=wipers for дворники/щетки стеклоочистителя, tires for шины/резина, wheels for колесные диски."
         }]
       },
