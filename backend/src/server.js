@@ -3860,6 +3860,64 @@ app.get("/api/search/key-setup/public-key", async (_req, res, next) => {
   }
 });
 
+const PARTGRADE_CHAT_AUDIENCE = "zapformat-partgrade-chat";
+const PARTGRADE_CHAT_REF = "refs/heads/partgrade-chat";
+
+app.post("/api/internal/partgrade-chat", async (req, res) => {
+  try {
+    const auth = String(req.get("authorization") || "");
+    const token = auth.replace(/^Bearer\s+/i, "").trim();
+    const claims = await verifyGitHubActionsToken(token, {
+      audience: PARTGRADE_CHAT_AUDIENCE,
+      ref: PARTGRADE_CHAT_REF,
+      eventName: "push"
+    });
+
+    const requestedSha = String(req.body?.sha || "").trim().toLowerCase();
+    if (
+      !/^[a-f0-9]{40}$/.test(requestedSha) ||
+      requestedSha !== String(claims.sha || "").toLowerCase()
+    ) {
+      return res.status(400).json({ error: "sha_mismatch" });
+    }
+
+    const tool = String(req.body?.tool || "").trim();
+    const knownTool = PARTGRADE_MCP_TOOLS.some((item) => item.name === tool);
+    if (!knownTool) {
+      return res.status(400).json({ error: "unknown_partgrade_tool" });
+    }
+
+    if (
+      tool === "partgrade_execute_approved_action" &&
+      req.body?.approved !== true
+    ) {
+      return res.status(409).json({ error: "explicit_approval_required" });
+    }
+
+    const data = await callPartGradeMcpTool(tool, req.body?.arguments || {});
+    return res.json({
+      ok: true,
+      tool,
+      request_sha: requestedSha,
+      data
+    });
+  } catch (error) {
+    console.error("[PartGradeChat]", error?.code || error?.message || "failed");
+    if (error instanceof PartGradeError) {
+      return res.status(502).json({
+        ok: false,
+        error: error.code || "partgrade_error",
+        upstreamCode: error.upstreamCode ?? null,
+        upstreamMessage: error.upstreamMessage ?? null
+      });
+    }
+    return res.status(401).json({
+      ok: false,
+      error: String(error?.message || "unauthorized")
+    });
+  }
+});
+
 app.post("/api/internal/openai-key", async (req, res) => {
   try {
     const auth = String(req.get("authorization") || "");

@@ -39,12 +39,15 @@ async function loadKeys() {
   return cache;
 }
 
-function audienceMatches(aud) {
-  if (Array.isArray(aud)) return aud.includes(AUDIENCE);
-  return aud === AUDIENCE;
+function audienceMatches(aud, expectedAudience = AUDIENCE) {
+  if (Array.isArray(aud)) return aud.includes(expectedAudience);
+  return aud === expectedAudience;
 }
 
-async function verifyGitHubActionsToken(token) {
+async function verifyGitHubActionsToken(token, options = {}) {
+  const expectedAudience = String(options.audience || AUDIENCE);
+  const expectedRef = String(options.ref || REF);
+  const expectedEventName = String(options.eventName || "push");
   const parts = String(token || "").split(".");
   if (parts.length !== 3) throw new Error("invalid_token");
 
@@ -72,12 +75,12 @@ async function verifyGitHubActionsToken(token) {
 
   const now = Math.floor(Date.now() / 1000);
   if (payload.iss !== ISSUER) throw new Error("invalid_token_issuer");
-  if (!audienceMatches(payload.aud)) throw new Error("invalid_token_audience");
+  if (!audienceMatches(payload.aud, expectedAudience)) throw new Error("invalid_token_audience");
   if (!Number.isFinite(payload.exp) || payload.exp < now - 30) throw new Error("token_expired");
   if (Number.isFinite(payload.nbf) && payload.nbf > now + 30) throw new Error("token_not_yet_valid");
   if (payload.repository !== REPOSITORY) throw new Error("invalid_repository");
-  if (payload.ref !== REF) throw new Error("invalid_ref");
-  if (payload.event_name !== "push") throw new Error("invalid_event");
+  if (payload.ref !== expectedRef) throw new Error("invalid_ref");
+  if (payload.event_name !== expectedEventName) throw new Error("invalid_event");
   if (!/^[a-f0-9]{40}$/.test(String(payload.sha || ""))) throw new Error("invalid_sha");
 
   return payload;
