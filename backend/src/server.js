@@ -218,7 +218,10 @@ async function buildResearchSearchResult(query, vehicle, interpreted, intent) {
   const common = {
     ok: true,
     interpreter: interpreted?.mode || "ai",
-    ai_configured: Boolean(String(process.env.OPENAI_API_KEY || "").trim()),
+    ai_configured: Boolean(
+      String(process.env.TIMEWEB_AI_TOKEN || "").trim() ||
+      String(process.env.OPENAI_API_KEY || "").trim()
+    ),
     vehicle: normalizeVehicle(vehicle),
     intent
   };
@@ -237,7 +240,7 @@ async function buildResearchSearchResult(query, vehicle, interpreted, intent) {
       return {
         ...common,
         mode: "clarification",
-        research_mode: "web",
+        research_mode: research.source || "web",
         question: research.clarification_question || "Уточните автомобиль одним сообщением."
       };
     }
@@ -247,8 +250,10 @@ async function buildResearchSearchResult(query, vehicle, interpreted, intent) {
       return {
         ...common,
         mode: "researched_articles",
-        research_mode: "web",
-        fitment_status: "web_researched_supplier_verified",
+        research_mode: research.source || "web",
+        fitment_status: research.source === "web"
+          ? "web_researched_supplier_verified"
+          : "model_researched_supplier_verified",
         research_summary: research.summary || "",
         articles
       };
@@ -261,7 +266,7 @@ async function buildResearchSearchResult(query, vehicle, interpreted, intent) {
     return {
       ...common,
       mode: "clarification",
-      research_mode: "web",
+      research_mode: research.source || "web",
       question: research.clarification_question || clutchQuestion
     };
   } catch (error) {
@@ -1649,10 +1654,17 @@ app.post("/api/search/interpret", aiSearchLimiter, async (req, res, next) => {
 });
 
 app.get("/api/search/health", (_req, res) => {
+  const timewebConfigured = Boolean(String(process.env.TIMEWEB_AI_TOKEN || "").trim());
+  const openAIConfigured = Boolean(String(process.env.OPENAI_API_KEY || "").trim());
   res.json({
     ok: true,
-    ai_configured: Boolean(String(process.env.OPENAI_API_KEY || "").trim()),
-    model: String(process.env.OPENAI_SEARCH_MODEL || "gpt-5.6-luna")
+    ai_configured: timewebConfigured || openAIConfigured,
+    provider: timewebConfigured ? "timeweb_ai_gateway" : (openAIConfigured ? "openai" : "fallback"),
+    model: timewebConfigured
+      ? String(process.env.TIMEWEB_AI_MODEL || "openai/gpt-5.6-luna")
+      : String(process.env.OPENAI_SEARCH_MODEL || "gpt-5.6-luna"),
+    openai_configured: openAIConfigured,
+    timeweb_gateway_configured: timewebConfigured
   });
 });
 
