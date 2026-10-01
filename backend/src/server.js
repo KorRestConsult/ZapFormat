@@ -16,7 +16,7 @@ const { createOfferTokenCodec } = require("./offer-token");
 const { customerPrice } = require("./pricing");
 const { verifyGitHubActionsToken } = require("./github-oidc");
 const { interpretSearch, researchPartCandidates, normalizeVehicle } = require("./ai-search");
-const { publicBootstrapJwk, installEncryptedOpenAIKey } = require("./secret-bootstrap");
+const { publicBootstrapJwk, installEncryptedOpenAIKey, installTimewebAIToken } = require("./secret-bootstrap");
 const {
   ABCP_CARBASE_CAPABILITIES,
   catalogCoverageForIntent,
@@ -1644,7 +1644,10 @@ app.post("/api/search/interpret", aiSearchLimiter, async (req, res, next) => {
       ok: true,
       mode: result.mode,
       model: result.model,
-      ai_configured: Boolean(String(process.env.OPENAI_API_KEY || "").trim()),
+      ai_configured: Boolean(
+          String(process.env.TIMEWEB_AI_TOKEN || "").trim() ||
+          String(process.env.OPENAI_API_KEY || "").trim()
+        ),
       vehicle: normalizeVehicle(vehicle),
       intent: result.intent
     });
@@ -1782,7 +1785,10 @@ app.post("/api/catalog/ai-search", requireDatabase, requireUser, aiSearchLimiter
         ok: true,
         mode: "clarification",
         interpreter: interpreted.mode,
-        ai_configured: Boolean(String(process.env.OPENAI_API_KEY || "").trim()),
+        ai_configured: Boolean(
+          String(process.env.TIMEWEB_AI_TOKEN || "").trim() ||
+          String(process.env.OPENAI_API_KEY || "").trim()
+        ),
         vehicle: normalizeVehicle(vehicle),
         intent,
         question: intent.clarification_question || "Уточните деталь."
@@ -1808,7 +1814,10 @@ app.post("/api/catalog/ai-search", requireDatabase, requireUser, aiSearchLimiter
         mode: "vehicle_needs_details",
         resolver_status: resolved.status,
         interpreter: interpreted.mode,
-        ai_configured: Boolean(String(process.env.OPENAI_API_KEY || "").trim()),
+        ai_configured: Boolean(
+          String(process.env.TIMEWEB_AI_TOKEN || "").trim() ||
+          String(process.env.OPENAI_API_KEY || "").trim()
+        ),
         vehicle: normalizeVehicle(vehicle),
         intent,
         vehicle_identity: {
@@ -1826,7 +1835,10 @@ app.post("/api/catalog/ai-search", requireDatabase, requireUser, aiSearchLimiter
         mode: "choose_modification",
         resolver_status: resolved.status,
         interpreter: interpreted.mode,
-        ai_configured: Boolean(String(process.env.OPENAI_API_KEY || "").trim()),
+        ai_configured: Boolean(
+          String(process.env.TIMEWEB_AI_TOKEN || "").trim() ||
+          String(process.env.OPENAI_API_KEY || "").trim()
+        ),
         vehicle: normalizeVehicle(vehicle),
         intent,
         vehicle_identity: {
@@ -1850,7 +1862,10 @@ app.post("/api/catalog/ai-search", requireDatabase, requireUser, aiSearchLimiter
         ok: true,
         mode: "vehicle_specs",
         interpreter: interpreted.mode,
-        ai_configured: Boolean(String(process.env.OPENAI_API_KEY || "").trim()),
+        ai_configured: Boolean(
+          String(process.env.TIMEWEB_AI_TOKEN || "").trim() ||
+          String(process.env.OPENAI_API_KEY || "").trim()
+        ),
         vehicle: normalizeVehicle(vehicle),
         intent,
         catalog: {
@@ -1888,7 +1903,10 @@ app.post("/api/catalog/ai-search", requireDatabase, requireUser, aiSearchLimiter
       ok: true,
       mode: "verified_articles",
       interpreter: interpreted.mode,
-      ai_configured: Boolean(String(process.env.OPENAI_API_KEY || "").trim()),
+      ai_configured: Boolean(
+          String(process.env.TIMEWEB_AI_TOKEN || "").trim() ||
+          String(process.env.OPENAI_API_KEY || "").trim()
+        ),
       vehicle: normalizeVehicle(vehicle),
       intent,
       fitment_status: resolved.source === "saved"
@@ -3336,6 +3354,30 @@ app.post("/api/internal/openai-key", async (req, res) => {
   }
 });
 
+app.post("/api/internal/timeweb-ai-token", async (req, res) => {
+  try {
+    const auth = String(req.get("authorization") || "");
+    const token = auth.replace(/^Bearer\s+/i, "").trim();
+    const claims = await verifyGitHubActionsToken(token);
+
+    const requestedSha = String(req.body?.sha || "").trim().toLowerCase();
+    if (!/^[a-f0-9]{40}$/.test(requestedSha) || requestedSha !== String(claims.sha || "").toLowerCase()) {
+      return res.status(400).json({ error: "sha_mismatch" });
+    }
+
+    const result = await installTimewebAIToken(req.body);
+    return res.status(201).json({
+      ok: true,
+      configured: result.configured,
+      provider: "timeweb_ai_gateway",
+      model: result.model
+    });
+  } catch (error) {
+    console.error("[TimewebAISetup]", error?.message || "setup_failed");
+    return res.status(401).json({ error: "unauthorized_or_invalid_payload" });
+  }
+});
+
 app.post("/api/internal/search-smoke", async (req, res) => {
   try {
     const auth = String(req.get("authorization") || "");
@@ -3360,7 +3402,10 @@ app.post("/api/internal/search-smoke", async (req, res) => {
         ok: true,
         smoke: true,
         deployed_sha: requestedSha,
-        ai_configured: Boolean(String(process.env.OPENAI_API_KEY || "").trim()),
+        ai_configured: Boolean(
+          String(process.env.TIMEWEB_AI_TOKEN || "").trim() ||
+          String(process.env.OPENAI_API_KEY || "").trim()
+        ),
         parser_mode: interpreted.mode,
         parser_error: interpreted.ai_error || null,
         research_mode: "web_failed",
@@ -3375,10 +3420,13 @@ app.post("/api/internal/search-smoke", async (req, res) => {
       ok: true,
       smoke: true,
       deployed_sha: requestedSha,
-      ai_configured: Boolean(String(process.env.OPENAI_API_KEY || "").trim()),
+      ai_configured: Boolean(
+          String(process.env.TIMEWEB_AI_TOKEN || "").trim() ||
+          String(process.env.OPENAI_API_KEY || "").trim()
+        ),
       parser_mode: interpreted.mode,
       parser_error: interpreted.ai_error || null,
-      research_mode: "web",
+      research_mode: research?.source || "web",
       research_status: research?.status || null,
       candidates_found: Array.isArray(research?.candidates) ? research.candidates.length : 0,
       supplier_validated: articles.length,
