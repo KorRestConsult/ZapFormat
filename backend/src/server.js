@@ -1753,6 +1753,44 @@ app.get("/api/catalog/vehicle-catalog/status", aiSearchLimiter, async (_req, res
   }
 });
 
+app.post("/api/catalog/ai-search-public", aiSearchLimiter, async (req, res, next) => {
+  try {
+    const query = String(req.body?.query || "").trim().replace(/\s+/g, " ").slice(0, 400);
+    if (!query) return res.status(400).json({ error: "query_required" });
+
+    const suppliedVehicle = req.body?.vehicle && typeof req.body.vehicle === "object"
+      ? normalizeVehicle(req.body.vehicle)
+      : null;
+
+    const interpreted = await interpretSearch(query, suppliedVehicle);
+    const intent = interpreted.intent;
+
+    if (intent?.clarification_needed) {
+      return res.json({
+        ok: true,
+        mode: "clarification",
+        interpreter: interpreted.mode,
+        ai_configured: Boolean(
+          String(process.env.TIMEWEB_AI_TOKEN || "").trim() ||
+          String(process.env.OPENAI_API_KEY || "").trim()
+        ),
+        vehicle: suppliedVehicle,
+        intent,
+        question: intent.clarification_question || "Уточните деталь."
+      });
+    }
+
+    return res.json(await buildResearchSearchResult(
+      query,
+      suppliedVehicle,
+      interpreted,
+      intent
+    ));
+  } catch (error) {
+    next(error);
+  }
+});
+
 app.post("/api/catalog/ai-search", requireDatabase, requireUser, aiSearchLimiter, async (req, res, next) => {
   try {
     const query = String(req.body?.query || "").trim().replace(/\s+/g, " ").slice(0, 400);
