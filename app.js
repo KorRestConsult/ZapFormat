@@ -120,6 +120,10 @@ const API_BASE = (() => {
   if(configured) return configured;
   return location.hostname.endsWith("github.io") ? "" : location.origin;
 })();
+const AUTH_TOKEN_KEY="zapformat-access-token";
+const SEARCH_RESUME_KEY="zapformat-search-resume";
+let authToken="";
+try{ authToken=String(localStorage.getItem(AUTH_TOKEN_KEY)||"").trim(); }catch{}
 let sessionUser=null;
 let accountPreferences={delivery:null,notifications:null};
 let pendingAccountRoute="home";
@@ -154,6 +158,7 @@ async function apiRequest(path,options={}){
     headers:{
       "Accept":"application/json",
       ...(options.body ? {"Content-Type":"application/json"} : {}),
+      ...(authToken ? {"Authorization":"Bearer "+authToken} : {}),
       ...(options.headers||{})
     }
   });
@@ -167,6 +172,37 @@ async function apiRequest(path,options={}){
     throw error;
   }
   return data;
+}
+
+
+function saveAuthToken(token){
+  authToken=String(token||"").trim();
+  try{
+    if(authToken) localStorage.setItem(AUTH_TOKEN_KEY,authToken);
+    else localStorage.removeItem(AUTH_TOKEN_KEY);
+  }catch{}
+}
+
+function saveSearchResume(query,brand=""){
+  const value={query:String(query||"").trim(),brand:String(brand||"").trim(),ts:Date.now()};
+  if(!value.query) return;
+  try{ sessionStorage.setItem(SEARCH_RESUME_KEY,JSON.stringify(value)); }catch{}
+}
+
+function loadSearchResume(){
+  try{
+    const value=JSON.parse(sessionStorage.getItem(SEARCH_RESUME_KEY)||"null");
+    if(!value?.query) return null;
+    if(Date.now()-Number(value.ts||0)>2*60*60*1000){
+      sessionStorage.removeItem(SEARCH_RESUME_KEY);
+      return null;
+    }
+    return value;
+  }catch{return null}
+}
+
+function clearSearchResume(){
+  try{ sessionStorage.removeItem(SEARCH_RESUME_KEY); }catch{}
 }
 
 function cartPayload(){
@@ -1270,6 +1306,7 @@ async function hydrateSession(){
     return sessionUser;
   }catch(error){
     if(error.status!==401) console.warn("ZapFormat session check failed",error);
+    if(error.status===401 && authToken) saveAuthToken("");
     sessionUser=null;
     applySessionUser();
     return null;
@@ -1961,6 +1998,7 @@ async function loadLiveOffers(article,brand,description="",options={}){
 async function search(query,options={}){
   const raw=String(query||"").trim();
   if(!raw) return false;
+  saveSearchResume(raw,options.brand||"");
 
   let smartQuery=raw;
   if(pendingSmartSearchBaseQuery && raw !== pendingSmartSearchBaseQuery){
@@ -1981,6 +2019,7 @@ async function search(query,options={}){
       query:raw,
       brand:String(options.brand||"").trim()||null
     };
+    saveSearchResume(raw,options.brand||"");
     showRoute("auth");
     setAuthStatus("Войдите или создайте аккаунт, чтобы продолжить поиск.");
     return false;
@@ -2886,6 +2925,7 @@ function restoreFromUrl(){
   const q=params.get("q");
   const brand=params.get("brand");
   const view=params.get("view");
+  const resume=loadSearchResume();
   if(q){
     search(q,{push:false,brand});
   } else if(view){
@@ -2894,6 +2934,8 @@ function restoreFromUrl(){
       renderCartPage();
       refreshCartOffers({silent:true});
     }
+  } else if(sessionUser && resume?.query){
+    search(resume.query,{push:false,brand:resume.brand||undefined});
   } else {
     showRoute("home");
   }
@@ -3635,11 +3677,15 @@ document.getElementById("loginForm")?.addEventListener("submit",async e=>{
       body:JSON.stringify({login:data.login,password:data.password})
     });
     sessionUser=result.user;
+    if(result.access_token) saveAuthToken(result.access_token);
     applySessionUser();
     await hydrateCartFromAccount();
     await hydrateAccountData();
     setAuthStatus("Готово.","success");
-    const pendingSearch=pendingSearchAfterAuth;
+    const params=new URLSearchParams(location.search);
+    const pendingSearch=pendingSearchAfterAuth ||
+      loadSearchResume() ||
+      (params.get("q") ? {query:params.get("q"),brand:params.get("brand")||null} : null);
     pendingSearchAfterAuth=null;
     if(pendingSearch?.query){
       navigate("home");
@@ -3683,7 +3729,10 @@ document.getElementById("registerForm")?.addEventListener("submit",async e=>{
     await hydrateCartFromAccount();
     await hydrateAccountData();
     setAuthStatus("Аккаунт создан.","success");
-    const pendingSearch=pendingSearchAfterAuth;
+    const params=new URLSearchParams(location.search);
+    const pendingSearch=pendingSearchAfterAuth ||
+      loadSearchResume() ||
+      (params.get("q") ? {query:params.get("q"),brand:params.get("brand")||null} : null);
     pendingSearchAfterAuth=null;
     if(pendingSearch?.query){
       navigate("home");
@@ -3705,6 +3754,8 @@ document.getElementById("logoutButton")?.addEventListener("click",async()=>{
     console.warn("ZapFormat logout failed",error);
   }finally{
     sessionUser=null;
+    saveAuthToken("");
+    clearSearchResume();
     accountPreferences={delivery:null,notifications:null};
     pendingCheckoutAfterDelivery=false;
     const quoteName=document.getElementById("quoteName");
