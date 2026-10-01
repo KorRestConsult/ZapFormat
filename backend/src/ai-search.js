@@ -139,6 +139,119 @@ function normalizeIntent(value, fallback) {
   };
 }
 
+
+function parseJsonText(value) {
+  let text = String(value || "").trim();
+  text = text.replace(/^\`\`\`(?:json)?\s*/i, "").replace(/\s*\`\`\`$/i, "").trim();
+  const first = text.indexOf("{");
+  const last = text.lastIndexOf("}");
+  if (first >= 0 && last > first) text = text.slice(first, last + 1);
+  return JSON.parse(text);
+}
+
+async function callTimewebJson(systemText, userText, options = {}) {
+  const apiKey = String(options.timewebToken || process.env.TIMEWEB_AI_TOKEN || "").trim();
+  if (!apiKey) return null;
+
+  const model = String(
+    options.timewebModel || process.env.TIMEWEB_AI_MODEL || "openai/gpt-5.6-luna"
+  ).trim();
+  const fetchImpl = options.fetchImpl || globalThis.fetch;
+  const timeoutMs = Math.max(
+    1500,
+    Number(options.timeoutMs || process.env.TIMEWEB_AI_TIMEOUT_MS || DEFAULT_RESEARCH_TIMEOUT_MS)
+  );
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+
+  try {
+    const response = await fetchImpl("https://api.timeweb.ai/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        Authorization: "Bearer " + apiKey,
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        model,
+        messages: [
+          { role: "system", content: systemText + " Return ONLY valid JSON without markdown." },
+          { role: "user", content: userText }
+        ],
+        max_completion_tokens: Number(options.maxTokens || 900)
+      }),
+      signal: controller.signal
+    });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      const error = new Error("timeweb_ai_failed");
+      error.status = response.status;
+      error.detail = data?.error?.message || null;
+      throw error;
+    }
+    const text = data?.choices?.[0]?.message?.content;
+    if (!text) throw new Error("timeweb_ai_empty");
+    return { value: parseJsonText(text), model, source: "model" };
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+async function interpretWithTimeweb(query, vehicle, options = {}) {
+  const categories = [
+    "brake_pad","brake_disk","brake_drum","oil_filter","air_filter","cabin_filter",
+    "fuel_filter","clutch","drain_plug_seal","spark_plugs","radiator","engine_mount",
+    "transmission_mount","stabilizer_bushing","shock_absorber","wheel_bearing",
+    "other_part","filter_ambiguous","unknown"
+  ];
+  const system =
+    "Normalize Russian automotive-parts search intent. Never invent article numbers, brands, VIN facts, engine codes or compatibility. " +
+    "Allowed category values: " + categories.join(", ") + ". " +
+    "Allowed side: left,right,any. Allowed axle: front,rear,any. " +
+    "Allowed special_category: none,wipers,tires,wheels. " +
+    "For bare 'фильтр' require clarification. For сцепление use clutch. " +
+    "For a clearly named part outside the fixed list use other_part. " +
+    "Return keys normalized_query,category,part_name,side,axle,quantity,wants_oem,special_category,clarification_needed,clarification_question.";
+
+  return callTimewebJson(
+    system,
+    "Query: " + cleanText(query, 400) + "\nSaved vehicle context: " + JSON.stringify(normalizeVehicle(vehicle)),
+    { ...options, maxTokens: 500 }
+  );
+}
+
+async function researchWithTimeweb(query, vehicle, options = {}) {
+  const result = await callTimewebJson(
+    "You are a conservative auto-parts fitment assistant. Use only facts you are confident about from model knowledge. " +
+    "Never guess a part number or compatibility. If year, engine, gearbox, axle or side is needed, return needs_clarification and ONE short Russian question. " +
+    "If you are not confident in an exact brand+article, return not_found rather than inventing. " +
+    "Return JSON with status (candidates|needs_clarification|not_found), clarification_question, summary, candidates. " +
+    "Each candidate must have brand, article, description, fitment_note.",
+    "Запрос: " + cleanText(query, 400) +
+      "\nСохранённый автомобиль: " + JSON.stringify(normalizeVehicle(vehicle)),
+    { ...options, maxTokens: 900 }
+  );
+  if (!result) return null;
+  const value = result.value || {};
+  return {
+    model: result.model,
+    source: "model",
+    status: ["candidates","needs_clarification","not_found"].includes(value?.status)
+      ? value.status : "not_found",
+    clarification_question: value?.clarification_question
+      ? cleanText(value.clarification_question, 220) : null,
+    summary: cleanText(value?.summary, 320),
+    candidates: (Array.isArray(value?.candidates) ? value.candidates : [])
+      .slice(0, 5)
+      .map((item) => ({
+        brand: cleanText(item?.brand, 80),
+        article: cleanText(item?.article, 100),
+        description: cleanText(item?.description, 180),
+        fitment_note: cleanText(item?.fitment_note, 220)
+      }))
+      .filter((item) => item.brand && item.article)
+  };
+}
+
 async function interpretWithOpenAI(query, vehicle, options = {}) {
   const apiKey = String(options.apiKey || process.env.OPENAI_API_KEY || "").trim();
   if (!apiKey) return null;
@@ -241,6 +354,11 @@ async function interpretWithOpenAI(query, vehicle, options = {}) {
 
 
 async function researchPartCandidates(query, vehicle, options = {}) {
+  const timewebToken = String(options.timewebToken || process.env.TIMEWEB_AI_TOKEN || "").trim();
+  if (timewebToken && !options.forceOpenAI) {
+    return researchWithTimeweb(query, vehicle, options);
+  }
+
   const apiKey = String(options.apiKey || process.env.OPENAI_API_KEY || "").trim();
   if (!apiKey) return null;
 
@@ -342,6 +460,7 @@ async function researchPartCandidates(query, vehicle, options = {}) {
     const value = JSON.parse(text);
     return {
       model,
+      source: "web",
       status: ["candidates","needs_clarification","not_found"].includes(value?.status)
         ? value.status
         : "not_found",
@@ -366,19 +485,35 @@ async function researchPartCandidates(query, vehicle, options = {}) {
 
 async function interpretSearch(query, vehicle, options = {}) {
   const fallback = fallbackIntent(query, vehicle);
+  let openAIError = null;
+
   try {
     const ai = await interpretWithOpenAI(query, vehicle, options);
-    if (!ai) return { mode: "fallback", model: null, intent: fallback };
-    return { mode: "ai", model: ai.model, intent: normalizeIntent(ai.value, fallback) };
+    if (ai) return { mode: "ai", model: ai.model, provider: "openai", intent: normalizeIntent(ai.value, fallback) };
+  } catch (error) {
+    openAIError = error;
+    if (options.throwOnAIError && !String(options.timewebToken || process.env.TIMEWEB_AI_TOKEN || "").trim()) throw error;
+  }
+
+  try {
+    const alt = await interpretWithTimeweb(query, vehicle, options);
+    if (alt) return { mode: "ai", model: alt.model, provider: "timeweb", intent: normalizeIntent(alt.value, fallback) };
   } catch (error) {
     if (options.throwOnAIError) throw error;
     return {
       mode: "fallback",
       model: null,
       intent: fallback,
-      ai_error: error?.message || "openai_search_failed"
+      ai_error: error?.message || openAIError?.message || "ai_search_failed"
     };
   }
+
+  return {
+    mode: "fallback",
+    model: null,
+    intent: fallback,
+    ai_error: openAIError?.message || null
+  };
 }
 
 module.exports = {
@@ -387,6 +522,8 @@ module.exports = {
   fallbackIntent,
   interpretSearch,
   researchPartCandidates,
+  researchWithTimeweb,
+  interpretWithTimeweb,
   normalizeIntent,
   normalizeVehicle
 };
