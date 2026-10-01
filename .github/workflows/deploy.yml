@@ -77,13 +77,16 @@ jobs:
           exit 1
 
       - name: Install Timeweb AI Gateway token
-        if: ${{ secrets.TIMEWEB_AI_TOKEN != '' }}
         shell: bash
         env:
           OIDC_TOKEN: ${{ steps.oidc.outputs.token }}
           TIMEWEB_AI_TOKEN: ${{ secrets.TIMEWEB_AI_TOKEN }}
         run: |
           set -Eeuo pipefail
+          if [[ -z "${TIMEWEB_AI_TOKEN}" ]]; then
+            echo "TIMEWEB_AI_TOKEN is not configured; skipping"
+            exit 0
+          fi
           echo "::add-mask:${TIMEWEB_AI_TOKEN}"
           python3 - <<'PY' > /tmp/timeweb-ai.json
           import json, os
