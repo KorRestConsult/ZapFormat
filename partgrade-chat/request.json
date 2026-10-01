@@ -1,10 +1,11 @@
 {
-  "request_id": "read-test",
+  "request_id": "offers-test",
   "tool": "partgrade_read",
   "arguments": {
-    "path": "search/brands/",
+    "path": "search/articles/",
     "params": {
-      "number": "PRS3420"
+      "number": "PRS3420",
+      "brand": "PATRON"
     }
   },
   "approved": false
