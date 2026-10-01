@@ -3340,12 +3340,37 @@ app.post("/api/internal/search-smoke", async (req, res) => {
     ).trim().slice(0, 400);
 
     const interpreted = await interpretSearch(query, null);
-    const result = await buildResearchSearchResult(query, null, interpreted, interpreted.intent);
+    let research;
+    try {
+      research = await researchPartCandidates(query, null);
+    } catch (error) {
+      return res.json({
+        ok: true,
+        smoke: true,
+        deployed_sha: requestedSha,
+        ai_configured: Boolean(String(process.env.OPENAI_API_KEY || "").trim()),
+        parser_mode: interpreted.mode,
+        parser_error: interpreted.ai_error || null,
+        research_mode: "web_failed",
+        research_error: String(error?.message || "research_failed").slice(0, 120),
+        research_status: Number(error?.status || 0) || null,
+        research_detail: String(error?.detail || "").replace(/sk-[A-Za-z0-9_-]+/g, "[redacted]").slice(0, 300)
+      });
+    }
 
+    const articles = await validateResearchedCandidates(research?.candidates || []);
     return res.json({
-      ...result,
+      ok: true,
       smoke: true,
-      deployed_sha: requestedSha
+      deployed_sha: requestedSha,
+      ai_configured: Boolean(String(process.env.OPENAI_API_KEY || "").trim()),
+      parser_mode: interpreted.mode,
+      parser_error: interpreted.ai_error || null,
+      research_mode: "web",
+      research_status: research?.status || null,
+      candidates_found: Array.isArray(research?.candidates) ? research.candidates.length : 0,
+      supplier_validated: articles.length,
+      mode: articles.length ? "researched_articles" : "clarification"
     });
   } catch (error) {
     console.error("[SearchSmoke]", error?.message || "smoke_failed");
