@@ -1,6 +1,11 @@
 {
-  "request_id": "bootstrap-connection-check",
-  "tool": "partgrade_connection_status",
-  "arguments": {},
+  "request_id": "read-test",
+  "tool": "partgrade_read",
+  "arguments": {
+    "path": "search/brands/",
+    "params": {
+      "number": "PRS3420"
+    }
+  },
   "approved": false
 }
