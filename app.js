@@ -1460,6 +1460,34 @@ function shortVin(vin){
   return "VIN ••••"+value.slice(-6);
 }
 
+async function attachVinToCurrentVehicle(vin){
+  const value=normalizeVin(vin);
+  const vehicle=currentSearchVehicle();
+  if(!sessionUser || !vehicle?.id || !looksLikeVin(value)) return vehicle||null;
+
+  const existing=normalizeVin(vehicle.vin||"");
+  if(existing===value) return vehicle;
+  if(existing && existing!==value) return vehicle;
+
+  try{
+    const result=await apiRequest("/api/garage/vehicles/"+encodeURIComponent(vehicle.id),{
+      method:"PATCH",
+      body:JSON.stringify({vin:value})
+    });
+    const normalized=normalizeGarageVehicle(result.vehicle);
+    garageState.vehicle=normalized;
+    garageVehicles=garageVehicles.map(item=>
+      String(item.id)===String(normalized.id) ? normalized : item
+    );
+    saveGarageState();
+    updateVehicleContextUi();
+    return normalized;
+  }catch(error){
+    console.warn("VIN save failed",error);
+    return vehicle;
+  }
+}
+
 function updateVehicleContextUi(){
   const vehicle=currentSearchVehicle();
   const header=document.getElementById("headerVehicleButton");
@@ -2042,16 +2070,53 @@ async function search(query,options={}){
     return false;
   }
 
-  const vehicle=currentSearchVehicle();
+  let vehicle=currentSearchVehicle();
 
   if(looksLikeVin(raw)){
     const vin=normalizeVin(raw);
-    const matched=garageVehicles.find(x=>normalizeVin(x.vin)===vin);
-    if(matched && sessionUser){
-      await selectGarageVehicle(matched.id);
+
+    // If VIN is an answer to the AI's clarification, keep the conversation
+    // and continue the original parts request instead of starting a new VIN search.
+    if(pendingSmartSearchBaseQuery){
+      vehicle=await attachVinToCurrentVehicle(vin);
+      return runSmartPartSearch(smartQuery,vehicle);
     }
+
+    let matched=garageVehicles.find(x=>normalizeVin(x.vin)===vin) || null;
+
+    if(!matched && sessionUser){
+      // Refresh garage once in case the local snapshot is stale after login/reload.
+      try{
+        const garage=await apiRequest("/api/garage");
+        garageVehicles=(garage?.vehicles||[]).map(normalizeGarageVehicle);
+        matched=garageVehicles.find(x=>normalizeVin(x.vin)===vin) || null;
+        if(matched){
+          garageActiveVehicleId=matched.id;
+          await hydrateRealGarage({vehicles:garage?.vehicles||[]});
+        }
+      }catch(error){
+        console.warn("VIN garage refresh failed",error);
+      }
+    }
+
+    if(matched && sessionUser){
+      if(String(matched.id)!==String(garageActiveVehicleId)){
+        await selectGarageVehicle(matched.id);
+      }
+      vehicle=currentSearchVehicle()||matched;
+    }else if(vehicle?.id && !normalizeVin(vehicle.vin||"")){
+      vehicle=await attachVinToCurrentVehicle(vin);
+      matched=vehicle;
+    }
+
     const active=matched || currentSearchVehicle();
-    setSearchHead(vin,active ? "VIN связан с "+vehicleLabel(active) : "VIN принят. Автоматическая расшифровка пока не подключена.",vin);
+    setSearchHead(
+      vin,
+      active
+        ? "VIN связан с "+vehicleLabel(active)+". Теперь укажите нужную деталь."
+        : "VIN принят. Добавьте автомобиль, чтобы сохранить его и использовать в подборе.",
+      vin
+    );
     renderVehicleSearchState(vin,active,{vin:true});
     return true;
   }
