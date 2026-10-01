@@ -3324,6 +3324,35 @@ app.post("/api/internal/openai-key", async (req, res) => {
   }
 });
 
+app.post("/api/internal/search-smoke", async (req, res) => {
+  try {
+    const auth = String(req.get("authorization") || "");
+    const token = auth.replace(/^Bearer\s+/i, "").trim();
+    const claims = await verifyGitHubActionsToken(token);
+
+    const requestedSha = String(req.body?.sha || "").trim().toLowerCase();
+    if (!/^[a-f0-9]{40}$/.test(requestedSha) || requestedSha !== String(claims.sha || "").toLowerCase()) {
+      return res.status(400).json({ error: "sha_mismatch" });
+    }
+
+    const query = String(
+      req.body?.query || "передние тормозные колодки Ford Focus II 2006 1.8 бензин"
+    ).trim().slice(0, 400);
+
+    const interpreted = await interpretSearch(query, null);
+    const result = await buildResearchSearchResult(query, null, interpreted, interpreted.intent);
+
+    return res.json({
+      ...result,
+      smoke: true,
+      deployed_sha: requestedSha
+    });
+  } catch (error) {
+    console.error("[SearchSmoke]", error?.message || "smoke_failed");
+    return res.status(500).json({ error: "search_smoke_failed" });
+  }
+});
+
 app.post("/api/internal/deploy", async (req, res) => {
   try {
     const auth = String(req.get("authorization") || "");
