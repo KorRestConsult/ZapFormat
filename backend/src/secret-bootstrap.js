@@ -59,6 +59,28 @@ function decodeCiphertext(value) {
   return Buffer.from(normalized + padding, "base64");
 }
 
+function envLine(name, value) {
+  const clean = String(value || "").trim();
+  if (!clean) return "";
+  return name + "=" + clean.replace(/[\r\n]/g, "") + "\n";
+}
+
+async function writeAIEnv(extra = {}) {
+  const values = {
+    OPENAI_API_KEY: extra.OPENAI_API_KEY ?? process.env.OPENAI_API_KEY,
+    OPENAI_SEARCH_MODEL: extra.OPENAI_SEARCH_MODEL ?? process.env.OPENAI_SEARCH_MODEL ?? "gpt-5.6-luna",
+    TIMEWEB_AI_TOKEN: extra.TIMEWEB_AI_TOKEN ?? process.env.TIMEWEB_AI_TOKEN,
+    TIMEWEB_AI_MODEL: extra.TIMEWEB_AI_MODEL ?? process.env.TIMEWEB_AI_MODEL ?? "openai/gpt-5.6-luna"
+  };
+  const envBody =
+    envLine("OPENAI_API_KEY", values.OPENAI_API_KEY) +
+    envLine("OPENAI_SEARCH_MODEL", values.OPENAI_SEARCH_MODEL) +
+    envLine("TIMEWEB_AI_TOKEN", values.TIMEWEB_AI_TOKEN) +
+    envLine("TIMEWEB_AI_MODEL", values.TIMEWEB_AI_MODEL);
+  await fs.writeFile(AI_ENV_FILE, envBody, { mode: 0o600 });
+  await fs.chmod(AI_ENV_FILE, 0o600).catch(() => {});
+}
+
 async function installEncryptedOpenAIKey(payload) {
   const ciphertext = pickCiphertext(payload);
   if (!ciphertext) {
@@ -95,15 +117,12 @@ async function installEncryptedOpenAIKey(payload) {
     throw new Error("openai_key_invalid");
   }
 
-  const envBody =
-    "OPENAI_API_KEY=" + plaintext + "\n" +
-    "OPENAI_SEARCH_MODEL=gpt-5.6-luna\n";
-
-  await fs.writeFile(AI_ENV_FILE, envBody, { mode: 0o600 });
-  await fs.chmod(AI_ENV_FILE, 0o600).catch(() => {});
-
   process.env.OPENAI_API_KEY = plaintext;
   process.env.OPENAI_SEARCH_MODEL = "gpt-5.6-luna";
+  await writeAIEnv({
+    OPENAI_API_KEY: plaintext,
+    OPENAI_SEARCH_MODEL: "gpt-5.6-luna"
+  });
 
   // The bootstrap private key is one-time setup material. Remove it after use
   // so a repository-stored ciphertext cannot be decrypted later if copied.
@@ -112,8 +131,24 @@ async function installEncryptedOpenAIKey(payload) {
   return { configured: true, model: process.env.OPENAI_SEARCH_MODEL };
 }
 
+
+async function installTimewebAIToken(payload) {
+  const token = String(payload?.timeweb_ai_token || payload?.token || "").trim();
+  if (!token || token.length < 20 || /[\r\n]/.test(token)) {
+    throw new Error("timeweb_ai_token_invalid");
+  }
+  const model = String(
+    payload?.timeweb_ai_model || process.env.TIMEWEB_AI_MODEL || "openai/gpt-5.6-luna"
+  ).trim();
+  process.env.TIMEWEB_AI_TOKEN = token;
+  process.env.TIMEWEB_AI_MODEL = model;
+  await writeAIEnv({ TIMEWEB_AI_TOKEN: token, TIMEWEB_AI_MODEL: model });
+  return { configured: true, model };
+}
+
 module.exports = {
   publicBootstrapJwk,
   installEncryptedOpenAIKey,
+  installTimewebAIToken,
   AI_ENV_FILE
 };
