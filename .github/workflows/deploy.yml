@@ -78,6 +78,8 @@ jobs:
 
       - name: Verify search services
         shell: bash
+        env:
+          OIDC_TOKEN: ${{ steps.oidc.outputs.token }}
         run: |
           set -Eeuo pipefail
           echo "AI search:"
@@ -89,3 +91,26 @@ jobs:
           echo "Supplier integration:"
           curl -fsS https://api.201.51.28.68.sslip.io/api/integration/status
           echo
+          echo "AI web-fitment smoke:"
+          PAYLOAD="$(python3 - <<'PY'
+          import json, os
+          print(json.dumps({
+              "sha": os.environ["GITHUB_SHA"],
+              "query": "передние тормозные колодки Ford Focus II 2006 1.8 бензин"
+          }, ensure_ascii=False))
+          PY
+          )"
+          JSON="$(curl -fsS -X POST \
+            -H "Authorization: Bearer ${OIDC_TOKEN}" \
+            -H "Content-Type: application/json" \
+            --data-binary "${PAYLOAD}" \
+            https://api.201.51.28.68.sslip.io/api/internal/search-smoke)"
+          echo "${JSON}"
+          python3 - <<'PY' <<<"${JSON}"
+          import json,sys
+          d=json.load(sys.stdin)
+          assert d.get("ok") is True
+          assert d.get("ai_configured") is True
+          assert d.get("research_mode") == "web", d
+          assert d.get("mode") in {"researched_articles","clarification"}, d
+          PY
