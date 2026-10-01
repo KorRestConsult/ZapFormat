@@ -1722,13 +1722,33 @@ async function runSmartPartSearch(query,vehicle){
   renderSearchState("Умный поиск","Понимаем деталь и проверяем каталог автомобиля.");
 
   try{
-    const data=await apiRequest("/api/catalog/ai-search",{
-      method:"POST",
-      body:JSON.stringify({
-        query:lastSmartSearchQuery,
-        vehicle_id:vehicle?.id||null
-      })
-    });
+    let data;
+    try{
+      data=await apiRequest("/api/catalog/ai-search",{
+        method:"POST",
+        body:JSON.stringify({
+          query:lastSmartSearchQuery,
+          vehicle_id:vehicle?.id||null
+        })
+      });
+    }catch(primaryError){
+      console.warn("Primary smart search failed; trying fallback",primaryError);
+      data=await apiRequest("/api/catalog/ai-search-public",{
+        method:"POST",
+        body:JSON.stringify({
+          query:lastSmartSearchQuery,
+          vehicle:vehicle ? {
+            brand:vehicle.brand||"",
+            model:vehicle.model||"",
+            generation:vehicle.generation||"",
+            year:vehicle.year||null,
+            engine:vehicle.engine||"",
+            vin:vehicle.vin||"",
+            plate_number:vehicle.plate_number||vehicle.plateNumber||""
+          } : null
+        })
+      });
+    }
     setSearchHead(
       data?.intent?.part_name||lastSmartSearchQuery,
       data?.vehicle ? "Автомобиль: "+vehicleLabel(data.vehicle) : "Умный подбор",
