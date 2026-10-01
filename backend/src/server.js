@@ -77,7 +77,7 @@ app.use(cors({
   },
   credentials: true,
   methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
-  allowedHeaders: ["Content-Type", "Accept"]
+  allowedHeaders: ["Content-Type", "Accept", "Authorization"]
 }));
 
 const authLimiter = rateLimit({
@@ -987,10 +987,18 @@ async function issueSession(req, res, userId) {
   );
 
   res.cookie(COOKIE_NAME, token, sessionCookieOptions());
+  return token;
+}
+
+function sessionTokenFromRequest(req) {
+  const auth = String(req.get("authorization") || "");
+  const bearer = auth.replace(/^Bearer\s+/i, "").trim();
+  if (bearer) return bearer;
+  return req.cookies?.[COOKIE_NAME] || null;
 }
 
 async function currentUser(req) {
-  const token = req.cookies?.[COOKIE_NAME];
+  const token = sessionTokenFromRequest(req);
   if (!token) return null;
 
   const result = await pool.query(
@@ -2213,8 +2221,12 @@ app.post("/api/auth/register", authLimiter, async (req, res, next) => {
     );
 
     await client.query("COMMIT");
-    await issueSession(req, res, user.id);
-    res.status(201).json({ user: publicUser(user) });
+    const accessToken = await issueSession(req, res, user.id);
+    res.status(201).json({
+      user: publicUser(user),
+      access_token: accessToken,
+      expires_in: SESSION_DAYS * 24 * 60 * 60
+    });
   } catch (error) {
     await client.query("ROLLBACK").catch(() => {});
     next(error);
@@ -2249,8 +2261,12 @@ app.post("/api/auth/login", authLimiter, async (req, res, next) => {
     }
 
     await pool.query("UPDATE users SET last_login_at = now() WHERE id = $1", [user.id]);
-    await issueSession(req, res, user.id);
-    res.json({ user: publicUser(user) });
+    const accessToken = await issueSession(req, res, user.id);
+    res.json({
+      user: publicUser(user),
+      access_token: accessToken,
+      expires_in: SESSION_DAYS * 24 * 60 * 60
+    });
   } catch (error) {
     next(error);
   }
@@ -2258,7 +2274,7 @@ app.post("/api/auth/login", authLimiter, async (req, res, next) => {
 
 app.post("/api/auth/logout", async (req, res, next) => {
   try {
-    const token = req.cookies?.[COOKIE_NAME];
+    const token = sessionTokenFromRequest(req);
     if (token) {
       await pool.query("DELETE FROM user_sessions WHERE token_hash = $1", [tokenHash(token)]);
     }
