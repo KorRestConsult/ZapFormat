@@ -131,6 +131,8 @@ let cartSyncTimer=null;
 let cartSyncReady=false;
 let cartHydratedUserId=null;
 let lastSmartSearchQuery="";
+let pendingSmartSearchBaseQuery="";
+let pendingSmartSearchQuestion="";
 let smartSearchBusy=false;
 let pendingSmartSearchAfterVehicle=null;
 let pendingCheckoutAfterDelivery=false;
@@ -1565,7 +1567,7 @@ function renderSmartPartSearch(data,query){
         <h3>Нужно одно уточнение</h3>
         <p>${escapeHtml(data.question||intent.clarification_question||"Уточните деталь.")}</p>
         ${label?'<p class="vehicle-search-note">Автомобиль: <b>'+escapeHtml(label)+'</b></p>':""}
-        <div class="vehicle-search-actions"><button type="button" data-focus-catalog-search>Уточнить запрос</button></div>
+        <div class="vehicle-search-actions"><button type="button" data-answer-smart-search>Ответить</button></div>
       </div>`;
     return;
   }
@@ -1730,6 +1732,15 @@ async function runSmartPartSearch(query,vehicle){
       data?.vehicle ? "Автомобиль: "+vehicleLabel(data.vehicle) : "Умный подбор",
       lastSmartSearchQuery
     );
+
+    if(data?.mode==="clarification"){
+      pendingSmartSearchBaseQuery=lastSmartSearchQuery;
+      pendingSmartSearchQuestion=String(data?.question||data?.intent?.clarification_question||"Уточните деталь.");
+    }else{
+      pendingSmartSearchBaseQuery="";
+      pendingSmartSearchQuestion="";
+    }
+
     if(["verified_articles","researched_articles"].includes(data?.mode) && Array.isArray(data.articles) && data.articles.length===1){
       const only=data.articles[0];
       setSearchHead(
@@ -1917,6 +1928,15 @@ async function search(query,options={}){
   const raw=String(query||"").trim();
   if(!raw) return false;
 
+  let smartQuery=raw;
+  if(
+    pendingSmartSearchBaseQuery &&
+    raw !== pendingSmartSearchBaseQuery &&
+    !raw.toLowerCase().includes(pendingSmartSearchBaseQuery.toLowerCase())
+  ){
+    smartQuery=pendingSmartSearchBaseQuery+" · уточнение пользователя: "+raw;
+  }
+
   if(!sessionUser){
     pendingAccountRoute="home";
     pendingSearchAfterAuth={
@@ -1961,7 +1981,7 @@ async function search(query,options={}){
 
   const article=extractArticleCandidate(raw);
   if(!article){
-    return runSmartPartSearch(raw,vehicle);
+    return runSmartPartSearch(smartQuery,vehicle);
   }
 
   try{
@@ -2733,6 +2753,15 @@ document.addEventListener("click",async e=>{
 
   const route=e.target.closest("[data-route]"); if(route){ if(route.tagName==="A") e.preventDefault(); navigate(route.dataset.route); return; }
   const query=e.target.closest("[data-query]"); if(query){ search(query.dataset.query); return; }
+  if(e.target.closest("[data-answer-smart-search]")){
+    const input=document.getElementById("searchInput2");
+    if(input){
+      input.value="";
+      input.placeholder=pendingSmartSearchQuestion||"Напишите уточнение";
+      input.focus();
+    }
+    return;
+  }
   if(e.target.closest("[data-focus-catalog-search]")){
     const input=document.getElementById("searchInput2");
     input?.focus();
