@@ -214,6 +214,40 @@ async function validateResearchedCandidates(candidates) {
   return result;
 }
 
+
+function oneClarificationQuestion(query, vehicle, intent, suggested = "") {
+  const v = normalizeVehicle(vehicle);
+  const q = String(query || "").toLowerCase();
+
+  if (intent?.category === "clutch" && !/механ|мкпп|автомат|акпп|робот|вариатор/.test(q)) {
+    return "Какая коробка передач: механика или автомат?";
+  }
+
+  if (["brake_pad","brake_disk","brake_drum"].includes(intent?.category) && intent?.axle === "any") {
+    return "Нужны передние или задние?";
+  }
+
+  if (!v?.year && !/\b(19|20)\d{2}\b/.test(q)) {
+    return "Какой год выпуска автомобиля?";
+  }
+
+  if (!v?.engine && !/\b\d[\.,]\d\b/.test(q)) {
+    return "Какой двигатель установлен? Например: 1.8 бензин или 2.0 дизель.";
+  }
+
+  if (!v?.vin) {
+    return "Пришлите VIN автомобиля для точной проверки совместимости.";
+  }
+
+  const clean = String(suggested || "").trim();
+  if (clean) {
+    const first = clean.split(/[?!。]/)[0].trim();
+    if (first) return first + "?";
+  }
+
+  return "Уточните один параметр автомобиля, которого не хватает для точного подбора.";
+}
+
 async function buildResearchSearchResult(query, vehicle, interpreted, intent) {
   const common = {
     ok: true,
@@ -241,7 +275,7 @@ async function buildResearchSearchResult(query, vehicle, interpreted, intent) {
         ...common,
         mode: "clarification",
         research_mode: research.source || "web",
-        question: research.clarification_question || "Уточните автомобиль одним сообщением."
+        question: oneClarificationQuestion(query, vehicle, intent, research.clarification_question)
       };
     }
 
@@ -259,15 +293,11 @@ async function buildResearchSearchResult(query, vehicle, interpreted, intent) {
       };
     }
 
-    const clutchQuestion = intent?.category === "clutch"
-      ? "Уточните год, двигатель и коробку передач: механика или автомат?"
-      : "Уточните год выпуска и двигатель автомобиля.";
-
     return {
       ...common,
       mode: "clarification",
       research_mode: research.source || "web",
-      question: research.clarification_question || clutchQuestion
+      question: oneClarificationQuestion(query, vehicle, intent, research.clarification_question)
     };
   } catch (error) {
     console.warn("[AIResearch]", error?.code || error?.message || "failed");
@@ -275,9 +305,7 @@ async function buildResearchSearchResult(query, vehicle, interpreted, intent) {
       ...common,
       mode: "clarification",
       research_mode: "web_failed",
-      question: intent?.category === "clutch"
-        ? "Уточните год, двигатель и коробку передач: механика или автомат?"
-        : "Уточните год выпуска и двигатель автомобиля."
+      question: oneClarificationQuestion(query, vehicle, intent)
     };
   }
 }
