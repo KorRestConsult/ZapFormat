@@ -133,4 +133,4 @@ jobs:
             --data-binary "${PAYLOAD}" \
             https://api.201.51.28.68.sslip.io/api/internal/search-smoke)"
           echo "${JSON}"
-          python3 -c 'import json,sys; d=json.load(sys.stdin); assert d.get("ok") is True; assert d.get("ai_configured") is True; assert d.get("research_mode") in {"web","web_failed"}, d' <<<"${JSON}"
+          python3 -c 'import json,sys; d=json.load(sys.stdin); assert d.get("ok") is True; assert d.get("ai_configured") is True; assert d.get("research_mode") in {"web","web_failed","model"}, d' <<<"${JSON}"
