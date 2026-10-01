@@ -48,18 +48,18 @@ function createPartGradeClient(options = {}) {
 
     const method = String(options.method || "GET").toUpperCase();
     const url = new URL(path, baseUrl + "/");
-    const allParams = {
-      userlogin,
-      userpsw,
-      ...params
-    };
+    if (url.origin !== new URL(baseUrl).origin || url.search || url.hash || url.username || url.password) {
+      throw new PartGradeError("Invalid upstream path", { code: "invalid_partgrade_path" });
+    }
+    const allParams = { ...params, userlogin, userpsw };
 
     const headers = {
       Accept: "application/json"
     };
     const fetchOptions = {
       method,
-      headers
+      headers,
+      redirect: "error"
     };
 
     if (method === "GET") {
@@ -67,6 +67,9 @@ function createPartGradeClient(options = {}) {
         if (value === undefined || value === null || value === "") continue;
         url.searchParams.set(key, String(value));
       }
+    } else if (options.encoding === "json") {
+      headers["Content-Type"] = "application/json";
+      fetchOptions.body = JSON.stringify(allParams);
     } else {
       const body = new URLSearchParams();
       for (const [key, value] of Object.entries(allParams)) {
@@ -172,8 +175,9 @@ function createPartGradeClient(options = {}) {
         locale: "ru_RU"
       });
     },
-    searchArticles(number, brand) {
+    searchArticles(number, brand, options = {}) {
       return request("search/articles/", {
+        ...options,
         number: String(number || "").trim(),
         brand: String(brand || "").trim(),
         locale: "ru_RU"

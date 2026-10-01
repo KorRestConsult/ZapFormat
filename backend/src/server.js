@@ -144,9 +144,9 @@ function normalizeBrand(value) {
   return String(value || "").trim().toUpperCase();
 }
 
-async function searchSupplierOffers(number, brand) {
+async function searchSupplierOffers(number, brand, options = {}) {
   try {
-    return await partGrade.searchArticles(number, brand);
+    return await partGrade.searchArticles(number, brand, options);
   } catch (error) {
     if (error instanceof PartGradeError && Number(error.upstreamCode) === 103) {
       return partGrade.searchBatch([{ number, brand }]);
@@ -3321,113 +3321,40 @@ app.post("/api/garage/vehicles/:vehicleId/maintenance", requireUser, async (req,
 
 const PARTGRADE_MCP_KEY_SHA256 = "13604cdac48b4536fe42dd31cb69097f1f237efaa99d729e1d8d7d5c17e4ebde";
 const PARTGRADE_ACTION_TTL_MS = 10 * 60 * 1000;
-const partGradePendingActions = new Map();
+const privatePartGrade = require("./partgrade-private");
+const partGradeActions = privatePartGrade.createActionStore({
+  filename: process.env.PARTGRADE_ACTION_STATE_FILE || "/var/lib/zapformat/partgrade-private/actions.json",
+  ttl: PARTGRADE_ACTION_TTL_MS
+});
+const partGradeSecrets = [process.env.PARTGRADE_API_LOGIN, process.env.PARTGRADE_API_PASSWORD_MD5, String(process.env.PARTGRADE_API_PASSWORD_MD5 || "").toLowerCase()];
 
 function validPartGradeMcpKey(value) {
   const candidate = crypto.createHash("sha256").update(String(value || "")).digest("hex");
   return crypto.timingSafeEqual(Buffer.from(candidate), Buffer.from(PARTGRADE_MCP_KEY_SHA256));
 }
 
-function normalizePartGradePath(value) {
-  const pathValue = String(value || "").trim().replace(/^\/+/, "");
-  if (
-    !pathValue ||
-    pathValue.includes("..") ||
-    pathValue.includes("?") ||
-    pathValue.includes("#") ||
-    !/^[A-Za-z0-9_./-]+$/.test(pathValue)
-  ) {
-    throw new Error("invalid_partgrade_path");
-  }
-  return pathValue;
-}
-
-function safeReadPartGradePath(value) {
-  const pathValue = normalizePartGradePath(value);
-  const mutatingWord = /(^|\/)(add|create|update|delete|remove|cancel|instant|change|set|register|prolong|pay|approve|confirm|submit)(\/|$)/i;
-  if (mutatingWord.test(pathValue)) {
-    const error = new Error("mutation_requires_confirmation");
-    error.code = "mutation_requires_confirmation";
-    throw error;
-  }
-  return pathValue;
-}
-
 function partGradeMcpToolResult(data, isError = false) {
-  return {
-    content: [{
-      type: "text",
-      text: JSON.stringify(data)
-    }],
-    isError
-  };
+  return { content: [{ type: "text", text: JSON.stringify(privatePartGrade.redact(data, partGradeSecrets)) }], isError };
 }
 
-function partGradeActionSummary(action, args) {
-  if (action === "basket_add") {
-    return {
-      action,
-      description: "Добавить позиции в корзину PartGrade",
-      items: Array.isArray(args?.items) ? args.items : [],
-      options: args?.options || {}
-    };
-  }
-  if (action === "basket_order") {
-    return {
-      action,
-      description: "Оформить текущую корзину PartGrade в заказ",
-      options: args?.options || {}
-    };
-  }
-  if (action === "instant_order") {
-    return {
-      action,
-      description: "Создать мгновенный заказ PartGrade",
-      items: Array.isArray(args?.items) ? args.items : [],
-      options: args?.options || {}
-    };
-  }
-  if (action === "cancel_order_position") {
-    return {
-      action,
-      description: "Отменить позицию заказа PartGrade",
-      positionId: String(args?.positionId || "")
-    };
-  }
-  if (action === "raw_request") {
-    return {
-      action,
-      description: "Выполнить изменяющий запрос PartGrade API",
-      method: String(args?.method || "POST").toUpperCase(),
-      path: normalizePartGradePath(args?.path),
-      params: args?.params || {}
-    };
-  }
-  throw new Error("unsupported_partgrade_action");
+async function privateBasketSnapshot(payload) {
+  const basketId = payload.params.basketId;
+  return privatePartGrade.basketSnapshot(await partGrade.rawRequest("basket/content", { basketId }));
 }
 
-async function executePartGradeAction(action, args) {
-  if (action === "basket_add") {
-    return partGrade.basketAdd(args?.items || [], args?.options || {});
+async function preparePrivatePartGradeAction(action, args) {
+  const payload = privatePartGrade.payloadFor(action, args);
+  let snapshot = null;
+  // basket/order can ignore positionIds unless partial checkout is enabled upstream.
+  // Require the whole current returned basket to match the approved selection.
+  if (payload.path === "basket/order") {
+    snapshot = await privateBasketSnapshot(payload);
+    const ids = Object.entries(payload.params).filter(([k]) => /^positionIds\[\d+\]$/.test(k)).map(([,v]) => String(v)).sort();
+    const allIds = snapshot.map(row => String(row.positionId)).sort();
+    if (!ids.length || JSON.stringify(ids) !== JSON.stringify(allIds)) throw new Error("basket_subset_not_verified_use_isolated_basket_or_instant_order");
   }
-  if (action === "basket_order") {
-    return partGrade.basketOrder(args?.options || {});
-  }
-  if (action === "instant_order") {
-    return partGrade.instantOrder(args?.items || [], args?.options || {});
-  }
-  if (action === "cancel_order_position") {
-    return partGrade.cancelOrderPosition(args?.positionId);
-  }
-  if (action === "raw_request") {
-    const method = String(args?.method || "POST").toUpperCase();
-    if (!["GET", "POST", "PUT", "PATCH", "DELETE"].includes(method)) {
-      throw new Error("invalid_partgrade_method");
-    }
-    const pathValue = normalizePartGradePath(args?.path);
-    return partGrade.rawRequest(pathValue, args?.params || {}, { method });
-  }
-  throw new Error("unsupported_partgrade_action");
+  const summary = { action, payload, positions: snapshot || args.items || null };
+  return partGradeActions.prepare(payload, summary, snapshot);
 }
 
 const PARTGRADE_MCP_TOOLS = [
@@ -3458,7 +3385,8 @@ const PARTGRADE_MCP_TOOLS = [
       type: "object",
       properties: {
         number: { type: "string" },
-        brand: { type: "string" }
+        brand: { type: "string" },
+        params: { type: "object", additionalProperties: true }
       },
       required: ["number", "brand"],
       additionalProperties: false
@@ -3540,11 +3468,12 @@ const PARTGRADE_MCP_TOOLS = [
   },
   {
     name: "partgrade_read",
-    description: "Вызвать произвольный GET-метод PartGrade API. Явно изменяющие пути блокируются и должны идти через подтверждаемое действие.",
+    description: "Вызвать документированный read-only метод PartGrade API. Поддерживается POST для поиска без изменения состояния; остальные операции только prepare/execute.",
     inputSchema: {
       type: "object",
       properties: {
         path: { type: "string" },
+        method: { type: "string", enum: ["GET", "POST"], default: "GET" },
         params: { type: "object", additionalProperties: true }
       },
       required: ["path"],
@@ -3572,8 +3501,12 @@ const PARTGRADE_MCP_TOOLS = [
     description: "Выполнить ранее подготовленное действие только после явного подтверждения пользователя в чате непосредственно перед вызовом.",
     inputSchema: {
       type: "object",
-      properties: { action_id: { type: "string" } },
-      required: ["action_id"],
+      properties: {
+        action_id: { type: "string" },
+        confirmed: { type: "boolean", const: true },
+        payload_hash: { type: "string" }
+      },
+      required: ["action_id", "confirmed", "payload_hash"],
       additionalProperties: false
     }
   },
@@ -3589,7 +3522,18 @@ const PARTGRADE_MCP_TOOLS = [
   }
 ];
 
+PARTGRADE_MCP_TOOLS.push({
+  name: "partgrade_list_methods",
+  description: "Список документированных методов PartGrade/ABCP с HTTP-методом и признаком чтения. Права конкретного аккаунта проверяет PartGrade.",
+  inputSchema: { type: "object", properties: { filter: { type: "string" }, offset: { type: "integer", minimum: 0 }, limit: { type: "integer", minimum: 1, maximum: 100 } }, additionalProperties: false }
+});
+for (const tool of PARTGRADE_MCP_TOOLS) {
+  const executes = tool.name === "partgrade_execute_approved_action";
+  tool.annotations = { readOnlyHint: !executes && tool.name !== "partgrade_prepare_action", destructiveHint: executes, idempotentHint: !executes && tool.name !== "partgrade_prepare_action", openWorldHint: true };
+}
+
 async function callPartGradeMcpTool(name, args = {}) {
+  privatePartGrade.assertNoCredentials(args);
   if (name === "partgrade_connection_status") {
     return {
       configured: partGrade.configured(),
@@ -3599,7 +3543,7 @@ async function callPartGradeMcpTool(name, args = {}) {
   }
   if (name === "partgrade_account_info") return partGrade.userInfo();
   if (name === "partgrade_search_brands") return partGrade.searchBrands(args.number);
-  if (name === "partgrade_search_parts") return searchSupplierOffers(args.number, args.brand);
+  if (name === "partgrade_search_parts") return searchSupplierOffers(args.number, args.brand, args.params || {});
   if (name === "partgrade_basket_content") return partGrade.basketContent();
   if (name === "partgrade_basket_options") return partGrade.basketOptions();
   if (name === "partgrade_payment_methods") return partGrade.paymentMethods();
@@ -3611,64 +3555,25 @@ async function callPartGradeMcpTool(name, args = {}) {
   if (name === "partgrade_orders") return partGrade.orders(args.params || {});
   if (name === "partgrade_order_list") return partGrade.orderList(args.orderNumbers || []);
   if (name === "partgrade_orders_version") return partGrade.ordersVersion();
+  if (name === "partgrade_list_methods") {
+    const filter = String(args.filter || "").toLowerCase();
+    const methods = privatePartGrade.catalog.filter(item => !filter || item.path.toLowerCase().includes(filter));
+    return { total: methods.length, methods: methods.slice(Math.max(0, Number(args.offset) || 0), Math.max(0, Number(args.offset) || 0) + Math.min(100, Math.max(1, Number(args.limit) || 50))), permission_note: "Documentation is not account permission; upstream enforces access. No ZapFormat customer API is exposed." };
+  }
   if (name === "partgrade_read") {
-    return partGrade.rawRequest(safeReadPartGradePath(args.path), args.params || {}, { method: "GET" });
+    const op = privatePartGrade.operation(String(args.method || "GET").toUpperCase(), args.path);
+    if (!op.readOnly) throw new Error("mutation_requires_confirmation");
+    privatePartGrade.assertNoCredentials(args.params);
+    return partGrade.rawRequest(op.path, op.encoding === "json" ? args.params || {} : privatePartGrade.flatten(args.params || {}), { method: op.method, encoding: op.encoding });
   }
-  if (name === "partgrade_prepare_action") {
-    const summary = partGradeActionSummary(args.action, args.args || {});
-    const actionId = crypto.randomUUID();
-    const now = Date.now();
-    partGradePendingActions.set(actionId, {
-      id: actionId,
-      action: args.action,
-      args: args.args || {},
-      summary,
-      created_at: now,
-      expires_at: now + PARTGRADE_ACTION_TTL_MS,
-      state: "pending"
-    });
-    return {
-      action_id: actionId,
-      state: "pending",
-      expires_at: new Date(now + PARTGRADE_ACTION_TTL_MS).toISOString(),
-      summary
-    };
-  }
-  if (name === "partgrade_action_status") {
-    const item = partGradePendingActions.get(String(args.action_id || ""));
-    if (!item) return { state: "not_found" };
-    if (item.state === "pending" && Date.now() > item.expires_at) item.state = "expired";
-    return {
-      action_id: item.id,
-      state: item.state,
-      created_at: new Date(item.created_at).toISOString(),
-      expires_at: new Date(item.expires_at).toISOString(),
-      summary: item.summary,
-      result: item.result || null,
-      error: item.error || null
-    };
-  }
+  if (name === "partgrade_prepare_action") return preparePrivatePartGradeAction(args.action, args.args || {});
+  if (name === "partgrade_action_status") return partGradeActions.status(String(args.action_id || ""));
   if (name === "partgrade_execute_approved_action") {
-    const actionId = String(args.action_id || "");
-    const item = partGradePendingActions.get(actionId);
-    if (!item) throw new Error("partgrade_action_not_found");
-    if (item.state !== "pending") throw new Error("partgrade_action_not_pending");
-    if (Date.now() > item.expires_at) {
-      item.state = "expired";
-      throw new Error("partgrade_action_expired");
-    }
-    item.state = "executing";
-    try {
-      const result = await executePartGradeAction(item.action, item.args);
-      item.state = "executed";
-      item.result = result;
-      item.executed_at = Date.now();
-      return { action_id: actionId, state: item.state, result };
-    } catch (error) {
-      item.state = "failed";
-      item.error = String(error?.message || "partgrade_action_failed");
-      throw error;
-    }
+    return partGradeActions.execute(String(args.action_id || ""), args.confirmed, args.payload_hash,
+      payload => partGrade.rawRequest(payload.path, payload.params, { method: payload.method, encoding: payload.encoding }),
+      async item => {
+        if (item.snapshot && privatePartGrade.digest(await privateBasketSnapshot(item.payload)) !== privatePartGrade.digest(item.snapshot)) throw new Error("basket_changed_prepare_again");
+      });
   }
   throw new Error("unknown_partgrade_tool");
 }
@@ -3696,10 +3601,10 @@ app.all("/mcp/partgrade/:accessKey", async (req, res) => {
         jsonrpc: "2.0",
         id,
         result: {
-          protocolVersion: "2025-06-18",
+          protocolVersion: ["2025-03-26", "2025-06-18", "2025-11-25"].includes(rpc.params?.protocolVersion) ? rpc.params.protocolVersion : "2025-06-18",
           capabilities: { tools: { listChanged: false } },
-          serverInfo: { name: "ZapFormat PartGrade Private", version: "1.0.0" },
-          instructions: "Private PartGrade access through the user's existing ZapFormat backend. Never expose upstream credentials. Prepare any mutation first and execute it only after explicit user confirmation."
+          serverInfo: { name: "ZapFormat PartGrade Private", version: "1.1.0" },
+          instructions: "Private supplier-only PartGrade bridge on the existing ZapFormat server. No ZapFormat customer/session/cart/database/order access. Procurement prices belong to the authenticated owner. Reads run immediately. Before EVERY mutation, basket change, order, cancellation or financial action: call partgrade_prepare_action; show the exact returned payload plus brands/articles/quantities/prices/payment/shipment details; wait for explicit user confirmation in a subsequent chat message; only then call partgrade_execute_approved_action with action_id, the unchanged payload_hash and confirmed:true. General permission is not action confirmation. Never retry a mutation or create a replacement order after timeout/unknown; inspect partgrade_action_status, supplier basket and supplier orders to reconcile. Preserve partial-success responses and check returned orders even when status=0. For basket_order, explicitly select all current returned basket position IDs and show all positions; a subset is refused unless using an isolated basket. Delivery periods in upstream offers are hours, not days. Never disclose supplier login, MD5 or the MCP access key. Use partgrade_list_methods and raw read/prepared requests for other documented, account-permitted operations."
         }
       });
     }
@@ -3899,7 +3804,7 @@ app.post("/api/internal/partgrade-chat", async (req, res) => {
       ok: true,
       tool,
       request_sha: requestedSha,
-      data
+      data: privatePartGrade.redact(data, partGradeSecrets)
     });
   } catch (error) {
     console.error("[PartGradeChat]", error?.code || error?.message || "failed");

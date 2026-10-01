@@ -74,10 +74,14 @@ fi
 mark_stage "install_runner"
 install -m 750 "${APP_DIR}/backend/deploy/autodeploy-runner.sh" /usr/local/sbin/zapformat-autodeploy
 
+# Supplier action journal is private, durable, and separate from customer data.
+install -d -o zapformat -g zapformat -m 700 /var/lib/zapformat/partgrade-private
+
 mark_stage "syntax_checks"
 node --check app.js
 node --check backend/src/server.js
 node --check backend/src/partgrade.js
+node --check backend/src/partgrade-private.js
 node --check backend/src/offer-token.js
 node --check backend/src/pricing.js
 node --check backend/src/github-oidc.js
