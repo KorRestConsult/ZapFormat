@@ -1,0 +1,6 @@
+{
+  "request_id": "bootstrap-connection-check",
+  "tool": "partgrade_connection_status",
+  "arguments": {},
+  "approved": false
+}
