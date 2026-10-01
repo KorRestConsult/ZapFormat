@@ -153,6 +153,9 @@ function createPartGradeClient(options = {}) {
   return {
     baseUrl,
     configured,
+    rawRequest(path, params = {}, options = {}) {
+      return request(String(path || "").replace(/^\/+/, ""), params, options);
+    },
     userInfo() {
       return request("user/info");
     },
