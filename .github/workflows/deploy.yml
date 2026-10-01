@@ -76,6 +76,30 @@ jobs:
           echo "Timed out waiting for production deploy"
           exit 1
 
+      - name: Install Timeweb AI Gateway token
+        if: ${{ secrets.TIMEWEB_AI_TOKEN != '' }}
+        shell: bash
+        env:
+          OIDC_TOKEN: ${{ steps.oidc.outputs.token }}
+          TIMEWEB_AI_TOKEN: ${{ secrets.TIMEWEB_AI_TOKEN }}
+        run: |
+          set -Eeuo pipefail
+          echo "::add-mask:${TIMEWEB_AI_TOKEN}"
+          python3 - <<'PY' > /tmp/timeweb-ai.json
+          import json, os
+          print(json.dumps({
+              "sha": os.environ["GITHUB_SHA"],
+              "timeweb_ai_token": os.environ["TIMEWEB_AI_TOKEN"],
+              "timeweb_ai_model": "openai/gpt-5.6-luna"
+          }))
+          PY
+          curl -fsS -X POST \
+            -H "Authorization: Bearer ${OIDC_TOKEN}" \
+            -H "Content-Type: application/json" \
+            --data-binary @/tmp/timeweb-ai.json \
+            https://api.201.51.28.68.sslip.io/api/internal/timeweb-ai-token >/dev/null
+          rm -f /tmp/timeweb-ai.json
+
       - name: Verify search services
         shell: bash
         env:
