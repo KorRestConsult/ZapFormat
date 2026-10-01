@@ -106,11 +106,4 @@ jobs:
             --data-binary "${PAYLOAD}" \
             https://api.201.51.28.68.sslip.io/api/internal/search-smoke)"
           echo "${JSON}"
-          python3 - <<'PY' <<<"${JSON}"
-          import json,sys
-          d=json.load(sys.stdin)
-          assert d.get("ok") is True
-          assert d.get("ai_configured") is True
-          assert d.get("research_mode") == "web", d
-          assert d.get("mode") in {"researched_articles","clarification"}, d
-          PY
+          python3 -c 'import json,sys; d=json.load(sys.stdin); assert d.get("ok") is True; assert d.get("ai_configured") is True; assert d.get("research_mode") == "web", d; assert d.get("mode") in {"researched_articles","clarification"}, d' <<<"${JSON}"
