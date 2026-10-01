@@ -132,6 +132,7 @@ let cartSyncReady=false;
 let cartHydratedUserId=null;
 let lastSmartSearchQuery="";
 let pendingSmartSearchBaseQuery="";
+let pendingSmartSearchAnswers=[];
 let pendingSmartSearchQuestion="";
 let smartSearchBusy=false;
 let pendingSmartSearchAfterVehicle=null;
@@ -1749,17 +1750,28 @@ async function runSmartPartSearch(query,vehicle){
         })
       });
     }
+    const displaySmartQuery=(pendingSmartSearchBaseQuery||lastSmartSearchQuery)
+      .split(" · уточнения пользователя:")[0]
+      .split(" · уточнение пользователя:")[0]
+      .trim();
     setSearchHead(
-      data?.intent?.part_name||lastSmartSearchQuery,
+      data?.intent?.part_name||displaySmartQuery,
       data?.vehicle ? "Автомобиль: "+vehicleLabel(data.vehicle) : "Умный подбор",
-      lastSmartSearchQuery
+      displaySmartQuery
     );
 
     if(data?.mode==="clarification"){
-      pendingSmartSearchBaseQuery=lastSmartSearchQuery;
+      if(!pendingSmartSearchBaseQuery){
+        pendingSmartSearchBaseQuery=lastSmartSearchQuery
+          .split(" · уточнения пользователя:")[0]
+          .split(" · уточнение пользователя:")[0]
+          .trim();
+        pendingSmartSearchAnswers=[];
+      }
       pendingSmartSearchQuestion=String(data?.question||data?.intent?.clarification_question||"Уточните деталь.");
     }else{
       pendingSmartSearchBaseQuery="";
+      pendingSmartSearchAnswers=[];
       pendingSmartSearchQuestion="";
     }
 
@@ -1951,12 +1963,16 @@ async function search(query,options={}){
   if(!raw) return false;
 
   let smartQuery=raw;
-  if(
-    pendingSmartSearchBaseQuery &&
-    raw !== pendingSmartSearchBaseQuery &&
-    !raw.toLowerCase().includes(pendingSmartSearchBaseQuery.toLowerCase())
-  ){
-    smartQuery=pendingSmartSearchBaseQuery+" · уточнение пользователя: "+raw;
+  if(pendingSmartSearchBaseQuery && raw !== pendingSmartSearchBaseQuery){
+    const normalizedAnswer=raw.trim();
+    const duplicate=pendingSmartSearchAnswers.some(
+      answer=>answer.toLowerCase()===normalizedAnswer.toLowerCase()
+    );
+    if(normalizedAnswer && !duplicate) pendingSmartSearchAnswers.push(normalizedAnswer);
+    smartQuery=pendingSmartSearchBaseQuery+
+      (pendingSmartSearchAnswers.length
+        ? " · уточнения пользователя: "+pendingSmartSearchAnswers.join(" ; ")
+        : "");
   }
 
   if(!sessionUser){
