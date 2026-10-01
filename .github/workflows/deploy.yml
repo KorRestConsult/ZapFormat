@@ -107,9 +107,3 @@ jobs:
             https://api.201.51.28.68.sslip.io/api/internal/search-smoke)"
           echo "${JSON}"
           python3 -c 'import json,sys; d=json.load(sys.stdin); assert d.get("ok") is True; assert d.get("ai_configured") is True; assert d.get("research_mode") in {"web","web_failed"}, d' <<<"${JSON}"
-          echo "Supplier text-search probe:"
-          TEXT_JSON="$(curl -fsS -G \
-            --data-urlencode "number=колодки Ford Focus" \
-            https://api.201.51.28.68.sslip.io/api/catalog/brands)"
-          echo "${TEXT_JSON}"
-          python3 -c 'import json,sys; d=json.load(sys.stdin); print("brands_found=",len(d.get("brands",[])))' <<<"${TEXT_JSON}"
