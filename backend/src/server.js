@@ -3318,6 +3318,449 @@ app.post("/api/garage/vehicles/:vehicleId/maintenance", requireUser, async (req,
   }
 });
 
+
+const PARTGRADE_MCP_KEY_SHA256 = "13604cdac48b4536fe42dd31cb69097f1f237efaa99d729e1d8d7d5c17e4ebde";
+const PARTGRADE_ACTION_TTL_MS = 10 * 60 * 1000;
+const partGradePendingActions = new Map();
+
+function validPartGradeMcpKey(value) {
+  const candidate = crypto.createHash("sha256").update(String(value || "")).digest("hex");
+  return crypto.timingSafeEqual(Buffer.from(candidate), Buffer.from(PARTGRADE_MCP_KEY_SHA256));
+}
+
+function normalizePartGradePath(value) {
+  const pathValue = String(value || "").trim().replace(/^\/+/, "");
+  if (
+    !pathValue ||
+    pathValue.includes("..") ||
+    pathValue.includes("?") ||
+    pathValue.includes("#") ||
+    !/^[A-Za-z0-9_./-]+$/.test(pathValue)
+  ) {
+    throw new Error("invalid_partgrade_path");
+  }
+  return pathValue;
+}
+
+function safeReadPartGradePath(value) {
+  const pathValue = normalizePartGradePath(value);
+  const mutatingWord = /(^|\/)(add|create|update|delete|remove|cancel|instant|change|set|register|prolong|pay|approve|confirm|submit)(\/|$)/i;
+  if (mutatingWord.test(pathValue)) {
+    const error = new Error("mutation_requires_confirmation");
+    error.code = "mutation_requires_confirmation";
+    throw error;
+  }
+  return pathValue;
+}
+
+function partGradeMcpToolResult(data, isError = false) {
+  return {
+    content: [{
+      type: "text",
+      text: JSON.stringify(data)
+    }],
+    isError
+  };
+}
+
+function partGradeActionSummary(action, args) {
+  if (action === "basket_add") {
+    return {
+      action,
+      description: "Добавить позиции в корзину PartGrade",
+      items: Array.isArray(args?.items) ? args.items : [],
+      options: args?.options || {}
+    };
+  }
+  if (action === "basket_order") {
+    return {
+      action,
+      description: "Оформить текущую корзину PartGrade в заказ",
+      options: args?.options || {}
+    };
+  }
+  if (action === "instant_order") {
+    return {
+      action,
+      description: "Создать мгновенный заказ PartGrade",
+      items: Array.isArray(args?.items) ? args.items : [],
+      options: args?.options || {}
+    };
+  }
+  if (action === "cancel_order_position") {
+    return {
+      action,
+      description: "Отменить позицию заказа PartGrade",
+      positionId: String(args?.positionId || "")
+    };
+  }
+  if (action === "raw_request") {
+    return {
+      action,
+      description: "Выполнить изменяющий запрос PartGrade API",
+      method: String(args?.method || "POST").toUpperCase(),
+      path: normalizePartGradePath(args?.path),
+      params: args?.params || {}
+    };
+  }
+  throw new Error("unsupported_partgrade_action");
+}
+
+async function executePartGradeAction(action, args) {
+  if (action === "basket_add") {
+    return partGrade.basketAdd(args?.items || [], args?.options || {});
+  }
+  if (action === "basket_order") {
+    return partGrade.basketOrder(args?.options || {});
+  }
+  if (action === "instant_order") {
+    return partGrade.instantOrder(args?.items || [], args?.options || {});
+  }
+  if (action === "cancel_order_position") {
+    return partGrade.cancelOrderPosition(args?.positionId);
+  }
+  if (action === "raw_request") {
+    const method = String(args?.method || "POST").toUpperCase();
+    if (!["GET", "POST", "PUT", "PATCH", "DELETE"].includes(method)) {
+      throw new Error("invalid_partgrade_method");
+    }
+    const pathValue = normalizePartGradePath(args?.path);
+    return partGrade.rawRequest(pathValue, args?.params || {}, { method });
+  }
+  throw new Error("unsupported_partgrade_action");
+}
+
+const PARTGRADE_MCP_TOOLS = [
+  {
+    name: "partgrade_connection_status",
+    description: "Проверить серверную настройку PartGrade без раскрытия учётных данных.",
+    inputSchema: { type: "object", properties: {}, additionalProperties: false }
+  },
+  {
+    name: "partgrade_account_info",
+    description: "Получить доступную информацию аккаунта PartGrade.",
+    inputSchema: { type: "object", properties: {}, additionalProperties: false }
+  },
+  {
+    name: "partgrade_search_brands",
+    description: "Найти бренды по артикулу.",
+    inputSchema: {
+      type: "object",
+      properties: { number: { type: "string" } },
+      required: ["number"],
+      additionalProperties: false
+    }
+  },
+  {
+    name: "partgrade_search_parts",
+    description: "Получить предложения PartGrade: закупочные цены, остатки, поставщиков и сроки по артикулу и бренду.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        number: { type: "string" },
+        brand: { type: "string" }
+      },
+      required: ["number", "brand"],
+      additionalProperties: false
+    }
+  },
+  {
+    name: "partgrade_basket_content",
+    description: "Получить содержимое корзины PartGrade.",
+    inputSchema: { type: "object", properties: {}, additionalProperties: false }
+  },
+  {
+    name: "partgrade_basket_options",
+    description: "Получить доступные параметры оформления корзины.",
+    inputSchema: { type: "object", properties: {}, additionalProperties: false }
+  },
+  {
+    name: "partgrade_payment_methods",
+    description: "Получить способы оплаты PartGrade.",
+    inputSchema: { type: "object", properties: {}, additionalProperties: false }
+  },
+  {
+    name: "partgrade_shipment_methods",
+    description: "Получить способы доставки PartGrade.",
+    inputSchema: { type: "object", properties: {}, additionalProperties: false }
+  },
+  {
+    name: "partgrade_shipment_addresses",
+    description: "Получить адреса доставки PartGrade.",
+    inputSchema: { type: "object", properties: {}, additionalProperties: false }
+  },
+  {
+    name: "partgrade_shipment_offices",
+    description: "Получить пункты самовывоза PartGrade.",
+    inputSchema: { type: "object", properties: {}, additionalProperties: false }
+  },
+  {
+    name: "partgrade_shipment_dates",
+    description: "Получить доступные даты отгрузки PartGrade.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        params: { type: "object", additionalProperties: true }
+      },
+      additionalProperties: false
+    }
+  },
+  {
+    name: "partgrade_order_statuses",
+    description: "Получить статусы заказов PartGrade.",
+    inputSchema: { type: "object", properties: {}, additionalProperties: false }
+  },
+  {
+    name: "partgrade_orders",
+    description: "Получить список заказов PartGrade.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        params: { type: "object", additionalProperties: true }
+      },
+      additionalProperties: false
+    }
+  },
+  {
+    name: "partgrade_order_list",
+    description: "Получить данные конкретных заказов по номерам.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        orderNumbers: { type: "array", items: { type: "string" }, maxItems: 500 }
+      },
+      required: ["orderNumbers"],
+      additionalProperties: false
+    }
+  },
+  {
+    name: "partgrade_orders_version",
+    description: "Получить версию данных заказов.",
+    inputSchema: { type: "object", properties: {}, additionalProperties: false }
+  },
+  {
+    name: "partgrade_read",
+    description: "Вызвать произвольный GET-метод PartGrade API. Явно изменяющие пути блокируются и должны идти через подтверждаемое действие.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        path: { type: "string" },
+        params: { type: "object", additionalProperties: true }
+      },
+      required: ["path"],
+      additionalProperties: false
+    }
+  },
+  {
+    name: "partgrade_prepare_action",
+    description: "Подготовить изменение, добавление в корзину, заказ, отмену или произвольный изменяющий запрос без выполнения. Вернуть action_id для последующего подтверждения пользователем.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        action: {
+          type: "string",
+          enum: ["basket_add", "basket_order", "instant_order", "cancel_order_position", "raw_request"]
+        },
+        args: { type: "object", additionalProperties: true }
+      },
+      required: ["action", "args"],
+      additionalProperties: false
+    }
+  },
+  {
+    name: "partgrade_execute_approved_action",
+    description: "Выполнить ранее подготовленное действие только после явного подтверждения пользователя в чате непосредственно перед вызовом.",
+    inputSchema: {
+      type: "object",
+      properties: { action_id: { type: "string" } },
+      required: ["action_id"],
+      additionalProperties: false
+    }
+  },
+  {
+    name: "partgrade_action_status",
+    description: "Проверить состояние ранее подготовленного действия.",
+    inputSchema: {
+      type: "object",
+      properties: { action_id: { type: "string" } },
+      required: ["action_id"],
+      additionalProperties: false
+    }
+  }
+];
+
+async function callPartGradeMcpTool(name, args = {}) {
+  if (name === "partgrade_connection_status") {
+    return {
+      configured: partGrade.configured(),
+      upstream: partGrade.baseUrl,
+      secrets_exposed: false
+    };
+  }
+  if (name === "partgrade_account_info") return partGrade.userInfo();
+  if (name === "partgrade_search_brands") return partGrade.searchBrands(args.number);
+  if (name === "partgrade_search_parts") return searchSupplierOffers(args.number, args.brand);
+  if (name === "partgrade_basket_content") return partGrade.basketContent();
+  if (name === "partgrade_basket_options") return partGrade.basketOptions();
+  if (name === "partgrade_payment_methods") return partGrade.paymentMethods();
+  if (name === "partgrade_shipment_methods") return partGrade.shipmentMethods();
+  if (name === "partgrade_shipment_addresses") return partGrade.shipmentAddresses();
+  if (name === "partgrade_shipment_offices") return partGrade.shipmentOffices();
+  if (name === "partgrade_shipment_dates") return partGrade.shipmentDates(args.params || {});
+  if (name === "partgrade_order_statuses") return partGrade.orderStatuses();
+  if (name === "partgrade_orders") return partGrade.orders(args.params || {});
+  if (name === "partgrade_order_list") return partGrade.orderList(args.orderNumbers || []);
+  if (name === "partgrade_orders_version") return partGrade.ordersVersion();
+  if (name === "partgrade_read") {
+    return partGrade.rawRequest(safeReadPartGradePath(args.path), args.params || {}, { method: "GET" });
+  }
+  if (name === "partgrade_prepare_action") {
+    const summary = partGradeActionSummary(args.action, args.args || {});
+    const actionId = crypto.randomUUID();
+    const now = Date.now();
+    partGradePendingActions.set(actionId, {
+      id: actionId,
+      action: args.action,
+      args: args.args || {},
+      summary,
+      created_at: now,
+      expires_at: now + PARTGRADE_ACTION_TTL_MS,
+      state: "pending"
+    });
+    return {
+      action_id: actionId,
+      state: "pending",
+      expires_at: new Date(now + PARTGRADE_ACTION_TTL_MS).toISOString(),
+      summary
+    };
+  }
+  if (name === "partgrade_action_status") {
+    const item = partGradePendingActions.get(String(args.action_id || ""));
+    if (!item) return { state: "not_found" };
+    if (item.state === "pending" && Date.now() > item.expires_at) item.state = "expired";
+    return {
+      action_id: item.id,
+      state: item.state,
+      created_at: new Date(item.created_at).toISOString(),
+      expires_at: new Date(item.expires_at).toISOString(),
+      summary: item.summary,
+      result: item.result || null,
+      error: item.error || null
+    };
+  }
+  if (name === "partgrade_execute_approved_action") {
+    const actionId = String(args.action_id || "");
+    const item = partGradePendingActions.get(actionId);
+    if (!item) throw new Error("partgrade_action_not_found");
+    if (item.state !== "pending") throw new Error("partgrade_action_not_pending");
+    if (Date.now() > item.expires_at) {
+      item.state = "expired";
+      throw new Error("partgrade_action_expired");
+    }
+    item.state = "executing";
+    try {
+      const result = await executePartGradeAction(item.action, item.args);
+      item.state = "executed";
+      item.result = result;
+      item.executed_at = Date.now();
+      return { action_id: actionId, state: item.state, result };
+    } catch (error) {
+      item.state = "failed";
+      item.error = String(error?.message || "partgrade_action_failed");
+      throw error;
+    }
+  }
+  throw new Error("unknown_partgrade_tool");
+}
+
+app.all("/mcp/partgrade/:accessKey", async (req, res) => {
+  if (!validPartGradeMcpKey(req.params.accessKey)) {
+    return res.status(404).json({ error: "not_found" });
+  }
+
+  if (req.method === "GET") {
+    res.setHeader("Allow", "POST");
+    return res.status(405).json({ error: "post_required" });
+  }
+  if (req.method !== "POST") {
+    res.setHeader("Allow", "POST");
+    return res.status(405).end();
+  }
+
+  const rpc = req.body || {};
+  const id = rpc.id ?? null;
+
+  try {
+    if (rpc.method === "initialize") {
+      return res.json({
+        jsonrpc: "2.0",
+        id,
+        result: {
+          protocolVersion: "2025-06-18",
+          capabilities: { tools: { listChanged: false } },
+          serverInfo: { name: "ZapFormat PartGrade Private", version: "1.0.0" },
+          instructions: "Private PartGrade access through the user's existing ZapFormat backend. Never expose upstream credentials. Prepare any mutation first and execute it only after explicit user confirmation."
+        }
+      });
+    }
+
+    if (rpc.method === "notifications/initialized") {
+      return res.status(204).end();
+    }
+
+    if (rpc.method === "ping") {
+      return res.json({ jsonrpc: "2.0", id, result: {} });
+    }
+
+    if (rpc.method === "tools/list") {
+      return res.json({
+        jsonrpc: "2.0",
+        id,
+        result: { tools: PARTGRADE_MCP_TOOLS }
+      });
+    }
+
+    if (rpc.method === "tools/call") {
+      const name = String(rpc.params?.name || "");
+      const args = rpc.params?.arguments || {};
+      try {
+        const data = await callPartGradeMcpTool(name, args);
+        return res.json({
+          jsonrpc: "2.0",
+          id,
+          result: partGradeMcpToolResult(data, false)
+        });
+      } catch (error) {
+        console.error("[PartGradeMCP]", name, error?.code || error?.message || "tool_failed");
+        return res.json({
+          jsonrpc: "2.0",
+          id,
+          result: partGradeMcpToolResult({
+            error: String(error?.code || error?.message || "partgrade_tool_failed"),
+            status: Number(error?.status || 0) || null,
+            upstreamCode: error?.upstreamCode ?? null,
+            upstreamMessage: error?.upstreamMessage ?? null
+          }, true)
+        });
+      }
+    }
+
+    return res.status(200).json({
+      jsonrpc: "2.0",
+      id,
+      error: { code: -32601, message: "Method not found" }
+    });
+  } catch (error) {
+    console.error("[PartGradeMCP]", error?.message || "rpc_failed");
+    return res.status(200).json({
+      jsonrpc: "2.0",
+      id,
+      error: { code: -32603, message: "Internal error" }
+    });
+  }
+});
+
+
 const TIMEWEB_MCP_UPSTREAM = "https://timeweb.cloud/api/v1/mcp";
 const TIMEWEB_PROXY_KEY_SHA256 = "4bd620c416824cd52273b3fc270d2d176833f2da2a8cfe4b4f7392464d9d601b";
 
