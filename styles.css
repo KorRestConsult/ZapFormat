@@ -4846,3 +4846,10 @@ body.guest-mode .logo{
   .vin-part-card{min-height:0}
   .vin-part-image{height:190px}
 }
+
+.vin-catalog-notice{display:flex;flex-direction:column;gap:5px;margin:0 0 14px;padding:13px 14px;border:1px solid #dbe4e9;border-radius:12px;background:#f6f9fa;color:#17354a}
+.vin-catalog-notice b{font-size:13px}
+.vin-catalog-notice span{font-size:12px;color:#70828f;line-height:1.45}
+.vin-category-grid-locked{margin-top:12px}
+.vin-category-card-locked{cursor:default;opacity:.74}
+.vin-category-card-locked:hover{transform:none;box-shadow:none;border-color:#dbe3e8;background:#fbfcfd}
