@@ -39,13 +39,19 @@ cp -a /etc/nginx/sites-available/zapformat-site "/etc/nginx/sites-available/zapf
 rollback() {
   code=$?
   if [[ $code -ne 0 && -n "${BEFORE}" ]]; then
+    local failed_stage=""
+    failed_stage="$(cat "${STAGE_FILE}" 2>/dev/null || true)"
     echo
-    echo "Release failed. Rolling code back to ${BEFORE} ..."
+    echo "Release failed at stage: ${failed_stage:-unknown}. Rolling code back to ${BEFORE} ..."
     git reset --hard "${BEFORE}" || true
-    mark_stage "service_restart"
     systemctl stop "${SERVICE}" 2>/dev/null || true
     systemctl reset-failed "${SERVICE}" 2>/dev/null || true
     systemctl start "${SERVICE}" 2>/dev/null || true
+    # Preserve the stage that actually failed. Do not overwrite it with the
+    # rollback restart stage, otherwise production diagnostics become useless.
+    if [[ -n "${failed_stage}" ]]; then
+      printf '%s\n' "${failed_stage}" > "${STAGE_FILE}"
+    fi
     echo "Rollback attempted."
   fi
   exit $code
