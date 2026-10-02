@@ -186,6 +186,9 @@ jobs:
           echo "Supplier integration:"
           curl -fsS https://api.201.51.28.68.sslip.io/api/integration/status
           echo
+          echo "Customer auth capabilities:"
+          curl -fsS https://api.201.51.28.68.sslip.io/api/auth/capabilities
+          echo
           echo "AI web-fitment smoke:"
           PAYLOAD="$(python3 - <<'PY'
           import json, os
