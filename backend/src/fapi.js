@@ -139,11 +139,38 @@ function createFapiClient(options = {}) {
   async function image(manufacturerId, article, width = 320) {
     const apiKey = String(process.env.FAPI_API_KEY || "").trim();
     if (!apiKey) throw new FapiError("fapi_not_configured", 503);
+
+    const safeWidth = Math.max(80, Math.min(900, Number(width || 320)));
+    const imageKey = [
+      "image",
+      String(manufacturerId),
+      String(article || "").trim().toUpperCase(),
+      String(safeWidth)
+    ].join(":");
+    const digest = crypto.createHash("sha256").update(imageKey).digest("hex");
+    const imageFile = cacheDir ? path.join(cacheDir, "img-" + digest + ".bin") : null;
+    const metaFile = cacheDir ? path.join(cacheDir, "img-" + digest + ".json") : null;
+    const now = Date.now();
+
+    if (imageFile && metaFile) {
+      try {
+        const meta = JSON.parse(await fs.readFile(metaFile, "utf8"));
+        if (Number(meta?.expires_at || 0) > now) {
+          return {
+            body: await fs.readFile(imageFile),
+            content_type: String(meta?.content_type || "image/jpeg")
+          };
+        }
+      } catch {
+        // A missing or incomplete cache entry simply falls through to FAPI.
+      }
+    }
+
     const url = new URL(baseUrl + "/imageList");
     url.searchParams.set("mfi", String(manufacturerId));
     url.searchParams.set("n", String(article));
     url.searchParams.set("imgd", "true");
-    url.searchParams.set("width", String(Math.max(80, Math.min(900, Number(width || 320)))));
+    url.searchParams.set("width", String(safeWidth));
 
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 12000);
@@ -162,9 +189,35 @@ function createFapiClient(options = {}) {
       clearTimeout(timeout);
     }
     if (!response.ok) throw new FapiError("fapi_http_" + response.status, response.status);
+
+    const body = Buffer.from(await response.arrayBuffer());
+    const contentType = response.headers.get("content-type") || "image/jpeg";
+
+    if (imageFile && metaFile && body.length) {
+      try {
+        await fs.mkdir(cacheDir, { recursive: true, mode: 0o700 });
+        const tempImage = imageFile + "." + process.pid + ".tmp";
+        const tempMeta = metaFile + "." + process.pid + ".tmp";
+        await fs.writeFile(tempImage, body, { mode: 0o600 });
+        await fs.writeFile(
+          tempMeta,
+          JSON.stringify({
+            expires_at: now + 30 * 24 * 60 * 60 * 1000,
+            content_type: contentType
+          }),
+          { mode: 0o600 }
+        );
+        await fs.rename(tempImage, imageFile);
+        await fs.rename(tempMeta, metaFile);
+      } catch {
+        // Image caching is an optimization; never fail a customer image because
+        // the cache filesystem is temporarily unavailable.
+      }
+    }
+
     return {
-      body: Buffer.from(await response.arrayBuffer()),
-      content_type: response.headers.get("content-type") || "image/jpeg"
+      body,
+      content_type: contentType
     };
   }
 
