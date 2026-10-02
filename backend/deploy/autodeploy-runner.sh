@@ -79,7 +79,9 @@ set +e
   git -C "${APP_DIR}" show "${REQUESTED_SHA}:backend/deploy/release-live-catalog.sh" > "${RELEASE_SCRIPT}"
   chmod 700 "${RELEASE_SCRIPT}"
   ZAPFORMAT_TARGET_SHA="${REQUESTED_SHA}" bash "${RELEASE_SCRIPT}"
+  RELEASE_CODE=$?
   rm -f "${RELEASE_SCRIPT}"
+  [[ "${RELEASE_CODE}" -eq 0 ]]
 } >>"${LOG_FILE}" 2>&1
 CODE=$?
 set -e
