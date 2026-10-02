@@ -103,6 +103,35 @@ jobs:
             https://api.201.51.28.68.sslip.io/api/internal/timeweb-ai-token >/dev/null
           rm -f /tmp/timeweb-ai.json
 
+      - name: Install SMS verification key
+        shell: bash
+        env:
+          OIDC_TOKEN: ${{ steps.oidc.outputs.token }}
+          SMSRU_API_ID: ${{ secrets.SMSRU_API_ID }}
+          SMSRU_FROM: ${{ secrets.SMSRU_FROM }}
+        run: |
+          set -Eeuo pipefail
+          if [[ -z "${SMSRU_API_ID}" ]]; then
+            echo "SMSRU_API_ID is not configured; skipping"
+            exit 0
+          fi
+          echo "::add-mask:${SMSRU_API_ID}"
+          python3 - <<'PY' > /tmp/smsru.json
+          import json, os
+          print(json.dumps({
+              "sha": os.environ["GITHUB_SHA"],
+              "smsru_api_id": os.environ["SMSRU_API_ID"],
+              "smsru_from": os.environ.get("SMSRU_FROM", ""),
+              "smsru_test": "false"
+          }))
+          PY
+          curl -fsS -X POST \
+            -H "Authorization: Bearer ${OIDC_TOKEN}" \
+            -H "Content-Type: application/json" \
+            --data-binary @/tmp/smsru.json \
+            https://api.201.51.28.68.sslip.io/api/internal/smsru-token >/dev/null
+          rm -f /tmp/smsru.json
+
       - name: Verify search services
         shell: bash
         env:
