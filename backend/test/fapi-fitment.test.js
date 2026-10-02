@@ -1,6 +1,6 @@
 const test = require("node:test");
 const assert = require("node:assert/strict");
-const { selectFapiNodes, uniqueOemRows, analogCandidates } = require("../src/fapi-fitment");
+const { selectFapiNodes, selectFapiModification, uniqueOemRows, analogCandidates } = require("../src/fapi-fitment");
 
 test("selectFapiNodes prefers the requested part group", () => {
   const tree = [
@@ -45,4 +45,46 @@ test("analogCandidates maps cross links to manufacturer and product", () => {
   assert.equal(result.length, 1);
   assert.equal(result[0].brand, "ATE");
   assert.equal(result[0].article, "13.0460-7193.2");
+});
+
+
+test("partial VIN resolves BMW F25 135 kW to xDrive20d modification", () => {
+  const result = selectFapiModification({
+    m: [
+      {
+        dbi: 33778,
+        d: "xDrive 20 d",
+        fd: "BMW X3 (F25) xDrive 20 d",
+        cb: 1283284800000,
+        ce: 1393617600000,
+        engineType: "Дизель",
+        engineCode: "N47 D20 C",
+        power: "135",
+        capacity: "2 l",
+        driveType: "Привод на все колеса",
+        bodyType: "SUV"
+      },
+      {
+        dbi: 58611,
+        d: "xDrive 20 d",
+        fd: "BMW X3 (F25) xDrive 20 d",
+        cb: 1283284800000,
+        ce: 1501534800000,
+        engineType: "Дизель",
+        engineCode: "B47 D20 A",
+        power: "120",
+        capacity: "2 l",
+        driveType: "Привод на все колеса",
+        bodyType: "SUV"
+      }
+    ]
+  }, {
+    model_name: "X3 (F25)",
+    engine_code: "N47N",
+    power_kw: 135,
+    production_date: "2010-12-10"
+  });
+  assert.equal(result.id, 33778);
+  assert.equal(result.short_name, "xDrive 20 d");
+  assert.equal(result.power_kw, 135);
 });
