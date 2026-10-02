@@ -153,7 +153,7 @@ jobs:
           print(json.dumps((rows if isinstance(rows,list) else [])[:8],ensure_ascii=False))
           if not isinstance(rows,list) or not rows:
               raise SystemExit("No OEM rows")
-          open("first-oem.txt","w").write(str(rows[0].get("n") or ""))
+          open("first-oem.txt","w").write(str(rows[0].get("ns") or rows[0].get("n") or ""))
           PY
           ARTICLE="$(cat first-oem.txt)"
           echo "SUPPLIER BRANDS FOR OEM:"
