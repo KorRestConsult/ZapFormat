@@ -132,6 +132,32 @@ jobs:
             https://api.201.51.28.68.sslip.io/api/internal/smsru-token >/dev/null
           rm -f /tmp/smsru.json
 
+      - name: Install FAPI key
+        shell: bash
+        env:
+          OIDC_TOKEN: ${{ steps.oidc.outputs.token }}
+          FAPI_API_KEY: ${{ secrets.FAPI_API_KEY }}
+        run: |
+          set -Eeuo pipefail
+          if [[ -z "${FAPI_API_KEY}" ]]; then
+            echo "FAPI_API_KEY is not configured"
+            exit 1
+          fi
+          echo "::add-mask:${FAPI_API_KEY}"
+          python3 - <<'PY' > /tmp/fapi.json
+          import json, os
+          print(json.dumps({
+              "sha": os.environ["GITHUB_SHA"],
+              "fapi_api_key": os.environ["FAPI_API_KEY"]
+          }))
+          PY
+          curl -fsS -X POST \
+            -H "Authorization: Bearer ${OIDC_TOKEN}" \
+            -H "Content-Type: application/json" \
+            --data-binary @/tmp/fapi.json \
+            https://api.201.51.28.68.sslip.io/api/internal/fapi-token >/dev/null
+          rm -f /tmp/fapi.json
+
       - name: Verify search services
         shell: bash
         env:
@@ -143,6 +169,19 @@ jobs:
           echo
           echo "Vehicle catalog:"
           curl -fsS https://api.201.51.28.68.sslip.io/api/catalog/vehicle-catalog/status
+          echo
+          echo "FAPI/Vindec:"
+          curl -fsS https://api.201.51.28.68.sslip.io/api/catalog/fapi/status
+          echo
+          echo "FAPI/Vindec smoke:"
+          PAYLOAD="$(printf '{"sha":"%s"}' "${GITHUB_SHA}")"
+          FAPI_JSON="$(curl -fsS -X POST \
+            -H "Authorization: Bearer ${OIDC_TOKEN}" \
+            -H "Content-Type: application/json" \
+            --data-binary "${PAYLOAD}" \
+            https://api.201.51.28.68.sslip.io/api/internal/fapi-smoke)"
+          echo "${FAPI_JSON}"
+          python3 -c 'import json,sys; d=json.load(sys.stdin); assert d.get("ok") is True; assert d.get("configured") is True' <<<"${FAPI_JSON}"
           echo
           echo "Supplier integration:"
           curl -fsS https://api.201.51.28.68.sslip.io/api/integration/status
