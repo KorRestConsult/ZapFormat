@@ -6,7 +6,7 @@
   <meta name="theme-color" content="#17324a" />
   <title>ZapFormat — автозапчасти</title>
   <meta name="description" content="Поиск автозапчастей по артикулу и обычному запросу с привязкой к автомобилю" />
-  <link rel="stylesheet" href="./styles.css?v=20261002-auth1" />
+  <link rel="stylesheet" href="./styles.css?v=20261002-auth2" />
 </head>
 <body class="guest-mode session-pending">
   <div class="app">
@@ -151,28 +151,96 @@
                   <button class="auth-password-toggle" type="button" data-password-toggle="loginPassword" aria-label="Показать пароль">Показать</button>
                 </div>
               </label>
-              <small class="auth-hint auth-session-hint">Вход сохраняется на этом устройстве.</small>
+              <div class="auth-inline-actions">
+                <small class="auth-hint auth-session-hint">Вход сохраняется на этом устройстве.</small>
+                <button class="auth-link" type="button" data-auth-tab="forgot">Забыли пароль?</button>
+              </div>
               <button class="account-primary auth-submit" type="submit">Войти</button>
             </form>
 
             <form class="auth-form" id="registerForm" data-auth-pane="register">
-              <label>
-                <span>Имя</span>
-                <input name="name" autocomplete="given-name" required>
-              </label>
-              <label>
-                <span>Телефон</span>
-                <input name="identity" type="tel" inputmode="tel" autocomplete="tel" placeholder="+7 900 000-00-00" required>
-              </label>
-              <label>
-                <span>Пароль</span>
-                <div class="auth-password-field">
-                  <input id="registerPassword" name="password" type="password" autocomplete="new-password" minlength="8" placeholder="Минимум 8 символов" required>
-                  <button class="auth-password-toggle" type="button" data-password-toggle="registerPassword" aria-label="Показать пароль">Показать</button>
+              <div class="auth-stage" data-register-stage="details">
+                <label>
+                  <span>Имя</span>
+                  <input name="name" autocomplete="given-name" required>
+                </label>
+                <label>
+                  <span>Телефон</span>
+                  <input name="identity" type="tel" inputmode="tel" autocomplete="tel" placeholder="+7 900 000-00-00" required>
+                </label>
+                <label>
+                  <span>Пароль</span>
+                  <div class="auth-password-field">
+                    <input id="registerPassword" name="password" type="password" autocomplete="new-password" minlength="8" placeholder="Минимум 8 символов" required>
+                    <button class="auth-password-toggle" type="button" data-password-toggle="registerPassword" aria-label="Показать пароль">Показать</button>
+                  </div>
+                </label>
+                <label>
+                  <span>Повторите пароль</span>
+                  <div class="auth-password-field">
+                    <input id="registerPasswordConfirm" name="password_confirmation" type="password" autocomplete="new-password" minlength="8" placeholder="Ещё раз пароль" required>
+                    <button class="auth-password-toggle" type="button" data-password-toggle="registerPasswordConfirm" aria-label="Показать пароль">Показать</button>
+                  </div>
+                </label>
+                <small class="auth-hint">Мы отправим код подтверждения на этот номер.</small>
+              </div>
+
+              <div class="auth-stage" data-register-stage="verify" hidden>
+                <div class="auth-stage-note">Код отправлен на <b id="registerMaskedPhone">ваш номер</b></div>
+                <label>
+                  <span>Код из SMS</span>
+                  <input name="verification_code" class="auth-code-input" inputmode="numeric" autocomplete="one-time-code" maxlength="6" placeholder="000000">
+                </label>
+                <div class="auth-inline-actions">
+                  <button class="auth-link" type="button" data-register-edit>Изменить данные</button>
+                  <button class="auth-link" type="button" data-auth-resend="register">Отправить код ещё раз</button>
                 </div>
-              </label>
-              <small class="auth-hint">Телефон нужен для заказов и статусов. Остальные данные можно добавить позже.</small>
-              <button class="account-primary auth-submit" type="submit">Создать аккаунт и начать</button>
+              </div>
+
+              <button class="account-primary auth-submit" id="registerSubmitButton" type="submit">Получить код</button>
+            </form>
+
+            <form class="auth-form" id="forgotForm" data-auth-pane="forgot">
+              <div class="auth-recovery-title">
+                <button class="auth-link" type="button" data-auth-tab="login">← Назад ко входу</button>
+                <b>Восстановление пароля</b>
+              </div>
+
+              <div class="auth-stage" data-reset-stage="identity">
+                <label>
+                  <span>Телефон или email</span>
+                  <input name="identity" autocomplete="username" placeholder="+7 900 000-00-00 или email">
+                </label>
+                <small class="auth-hint">Код восстановления придёт на телефон, привязанный к аккаунту.</small>
+              </div>
+
+              <div class="auth-stage" data-reset-stage="verify" hidden>
+                <div class="auth-stage-note">Код отправлен на <b id="resetMaskedPhone">привязанный номер</b></div>
+                <label>
+                  <span>Код из SMS</span>
+                  <input name="verification_code" class="auth-code-input" inputmode="numeric" autocomplete="one-time-code" maxlength="6" placeholder="000000">
+                </label>
+                <label>
+                  <span>Новый пароль</span>
+                  <div class="auth-password-field">
+                    <input id="resetPassword" name="password" type="password" autocomplete="new-password" minlength="8" placeholder="Минимум 8 символов">
+                    <button class="auth-password-toggle" type="button" data-password-toggle="resetPassword" aria-label="Показать пароль">Показать</button>
+                  </div>
+                </label>
+                <label>
+                  <span>Повторите новый пароль</span>
+                  <div class="auth-password-field">
+                    <input id="resetPasswordConfirm" name="password_confirmation" type="password" autocomplete="new-password" minlength="8" placeholder="Ещё раз пароль">
+                    <button class="auth-password-toggle" type="button" data-password-toggle="resetPasswordConfirm" aria-label="Показать пароль">Показать</button>
+                  </div>
+                </label>
+                <div class="auth-inline-actions">
+                  <button class="auth-link" type="button" data-reset-edit>Изменить логин</button>
+                  <button class="auth-link" type="button" data-auth-resend="reset">Отправить код ещё раз</button>
+                </div>
+              </div>
+
+              <button class="account-primary auth-submit" id="resetSubmitButton" type="submit">Получить код</button>
             </form>
 
             <div class="auth-status" id="authStatus" aria-live="polite"></div>
@@ -414,7 +482,7 @@
     </nav>
 </div>
 
-  <script src="./config.js?v=20261002-auth1"></script>
-  <script src="./app.js?v=20261002-auth1"></script>
+  <script src="./config.js?v=20261002-auth2"></script>
+  <script src="./app.js?v=20261002-auth2"></script>
 </body>
 </html>
