@@ -125,6 +125,10 @@ cat >/etc/systemd/system/zapformat-api.service.d/ai-env.conf <<'EOF'
 [Service]
 EnvironmentFile=-/var/lib/zapformat/zapformat-ai.env
 EOF
+cat >/etc/systemd/system/zapformat-api.service.d/sms-env.conf <<'EOF'
+[Service]
+EnvironmentFile=-/var/lib/zapformat/zapformat-sms.env
+EOF
 systemctl daemon-reload
 
 systemctl restart "${SERVICE}"
