@@ -1,0 +1,63 @@
+name: Probe FAPI VIN
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/probe-fapi-vin.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Probe usage and VIN
+        shell: bash
+        env:
+          FAPI_API_KEY: ${{ secrets.FAPI_API_KEY }}
+        run: |
+          set -Eeuo pipefail
+          test -n "${FAPI_API_KEY}"
+          echo "::add-mask:${FAPI_API_KEY}"
+
+          echo "USAGE:"
+          curl -sS -w '\nHTTP_STATUS=%{http_code}\n' \
+            -H "Authorization: Bearer ${FAPI_API_KEY}" \
+            -H "Accept: application/json" \
+            https://fapi.iisis.ru/fapi/v2/usage > usage.txt
+          cat usage.txt
+
+          echo "VIN:"
+          curl -sS -w '\nHTTP_STATUS=%{http_code}\n' \
+            -H "Authorization: Bearer ${FAPI_API_KEY}" \
+            -H "Accept: application/json" \
+            "https://fapi.iisis.ru/fapi/v2/vin?vin=WBAWY31000L527390" > vin.txt
+          python3 - <<'PY'
+          import json, pathlib
+          raw=pathlib.Path("vin.txt").read_text()
+          body, _, status = raw.rpartition("\nHTTP_STATUS=")
+          print("HTTP_STATUS="+status.strip())
+          try:
+              d=json.loads(body)
+          except Exception:
+              print(body[:2000])
+              raise SystemExit
+          safe = {
+              "confidence": d.get("confidence"),
+              "brand_name": d.get("brand_name"),
+              "manufacturer": d.get("manufacturer"),
+              "model_name": d.get("model_name"),
+              "modification_name": d.get("modification_name"),
+              "model_year": d.get("model_year"),
+              "engine_code": d.get("engine_code"),
+              "fuel_type": d.get("fuel_type"),
+              "power_hp": d.get("power_hp"),
+              "dt_type_id": d.get("dt_type_id"),
+              "status": d.get("status"),
+              "error": d.get("error"),
+              "message": d.get("message"),
+          }
+          print(json.dumps(safe, ensure_ascii=False))
+          PY
