@@ -88,6 +88,7 @@ node --check backend/src/github-oidc.js
 node --check backend/src/ai-search.js
 node --check backend/src/vehicle-catalog.js
 node --check backend/src/secret-bootstrap.js
+node --check backend/src/auth-otp.js
 
 mark_stage "dependencies"
 cd backend
@@ -116,6 +117,7 @@ if [[ -n "${DATABASE_URL:-}" ]]; then
   psql "${DATABASE_URL}" -f db/006_vehicle_catalog.sql >/dev/null
   psql "${DATABASE_URL}" -f db/007_supplier_orders.sql >/dev/null
   psql "${DATABASE_URL}" -f db/008_order_item_comments.sql >/dev/null
+  psql "${DATABASE_URL}" -f db/009_auth_verification.sql >/dev/null
 fi
 
 mkdir -p /etc/systemd/system/zapformat-api.service.d
