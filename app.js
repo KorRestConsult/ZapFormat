@@ -1768,7 +1768,7 @@ function vinCatalogHeroHtml(){
   return `
     <section class="vin-vehicle-hero">
       <div class="vin-vehicle-copy">
-        <span class="eyebrow">VIN-КАТАЛОГ · FAPI / VINDEC</span>
+        <span class="eyebrow">VIN-КАТАЛОГ · ТОЧНЫЙ ПОДБОР</span>
         <h2>${escapeHtml(title)}</h2>
         <p class="vin-vehicle-mod">${escapeHtml(details.join(" · "))}</p>
         <div class="vin-vehicle-facts">
@@ -1808,6 +1808,47 @@ function vinCatalogCardsHtml(nodes){
         <strong>›</strong>
       </button>`;
   }).join("")}</div>`;
+}
+
+
+function renderVinCatalogLocked(data){
+  const root=smartSearchMount();
+  if(!root) return;
+  vinCatalogState={
+    vin:String(data?.decoded?.vin||""),
+    decoded:data?.decoded||{},
+    modification:data?.modification||{},
+    nodes:[],
+    activeNodeId:0
+  };
+  const sections=[
+    "Двигатель","Фильтры","Тормозная система","Подвеска",
+    "Рулевое управление","Коробка передач","Привод колеса","Система охлаждения",
+    "Электрооборудование","Система подачи топлива","Кузов","Кондиционер"
+  ];
+  root.innerHTML=`
+    <div class="vin-catalog-browser">
+      ${vinCatalogHeroHtml()}
+      <section class="vin-catalog-panel">
+        <div class="vin-catalog-panel-head">
+          <div>
+            <span class="eyebrow">КАТАЛОГ АВТОМОБИЛЯ</span>
+            <h3>Автомобиль определён</h3>
+          </div>
+        </div>
+        <div class="vin-catalog-notice">
+          <b>Каталог деталей временно недоступен.</b>
+          <span>VIN уже распознан. Разделы автомобиля появятся автоматически после восстановления каталога.</span>
+        </div>
+        <div class="vin-category-grid vin-category-grid-locked">
+          ${sections.map(name=>`
+            <div class="vin-category-card vin-category-card-locked">
+              <span class="vin-category-icon">${vinCatalogIcon(name)}</span>
+              <span class="vin-category-copy"><b>${escapeHtml(name)}</b><small>Раздел автомобиля</small></span>
+            </div>`).join("")}
+        </div>
+      </section>
+    </div>`;
 }
 
 function renderVinCatalogBrowser(data,nodeId=0){
@@ -2523,6 +2564,13 @@ async function search(query,options={}){
       );
       if(result?.ready){
         renderVinCatalogBrowser(result);
+      }else if(result?.catalog_status==="credits_exhausted"){
+        setSearchHead(
+          vin,
+          "Автомобиль определён. Каталог деталей временно недоступен.",
+          vin
+        );
+        renderVinCatalogLocked(result);
       }else{
         vinCatalogState=null;
         renderVinDecodeResult(vin,decoded);
