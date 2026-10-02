@@ -116,6 +116,13 @@ const aiSearchLimiter = rateLimit({
   legacyHeaders: false
 });
 
+const catalogImageLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  limit: 180,
+  standardHeaders: "draft-8",
+  legacyHeaders: false
+});
+
 function requireDatabase(_req, res, next) {
   if (!pool) return res.status(503).json({ error: "database_not_configured" });
   next();
@@ -2113,7 +2120,22 @@ app.get("/api/catalog/vin-node", requireUser, aiSearchLimiter, async (req, res, 
       return res.status(400).json({ error: "invalid_catalog_node" });
     }
 
-    const rows = await fapi.oem(modificationId, nodeId);
+    let rows;
+    try {
+      rows = await fapi.oem(modificationId, nodeId);
+    } catch (error) {
+      if (error instanceof FapiError && Number(error.status) === 402) {
+        return res.status(200).json({
+          ok: true,
+          provider: "fapi_v2",
+          catalog_status: "credits_exhausted",
+          modification_id: modificationId,
+          node_id: nodeId,
+          items: []
+        });
+      }
+      throw error;
+    }
     const items = uniqueOemRows(rows, 40).map((row) => ({
       manufacturer_id: row.manufacturer_id,
       brand: row.brand,
@@ -2123,7 +2145,7 @@ app.get("/api/catalog/vin-node", requireUser, aiSearchLimiter, async (req, res, 
       fit: row.fit || null,
       image_url: row.manufacturer_id
         ? "/api/catalog/fapi/image?mfi=" + encodeURIComponent(row.manufacturer_id) +
-          "&article=" + encodeURIComponent(row.article) + "&width=360"
+          "&article=" + encodeURIComponent(row.article_normalized || row.article) + "&width=360"
         : null
     }));
 
@@ -2132,6 +2154,7 @@ app.get("/api/catalog/vin-node", requireUser, aiSearchLimiter, async (req, res, 
       provider: "fapi_v2",
       modification_id: modificationId,
       node_id: nodeId,
+      catalog_status: "ok",
       items
     });
   } catch (error) {
@@ -2139,7 +2162,7 @@ app.get("/api/catalog/vin-node", requireUser, aiSearchLimiter, async (req, res, 
   }
 });
 
-app.get("/api/catalog/fapi/image", requireUser, aiSearchLimiter, async (req, res, next) => {
+app.get("/api/catalog/fapi/image", catalogImageLimiter, async (req, res, next) => {
   try {
     const manufacturerId = Number(req.query?.mfi || 0);
     const article = String(req.query?.article || "").trim();
