@@ -4764,16 +4764,22 @@ body.guest-mode .logo{
 .vin-vehicle-facts small{font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:#80909e}
 .vin-vehicle-facts b{font-size:13px;color:#16334a;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 
-.vin-exploded{position:relative;min-height:330px;border-radius:16px;overflow:hidden;background:radial-gradient(circle at 50% 42%,#ffffff 0,#edf3f6 72%)}
-.vin-car-schematic{position:absolute;inset:46px 55px 32px}
-.vin-car-schematic svg{width:100%;height:100%;filter:drop-shadow(0 14px 16px rgba(20,50,70,.12))}
-.vin-car-schematic .car-body{fill:#dbe4ea;stroke:#8ea3b2;stroke-width:3}
-.vin-car-schematic .car-glass{fill:#d5eef8;stroke:#8ca5b4;stroke-width:3}
-.vin-car-schematic .car-line{fill:none;stroke:#9eb0bc;stroke-width:3}
-.vin-car-schematic .car-wheel{fill:#293b49;stroke:#162b3a;stroke-width:4}
-.vin-car-schematic .car-wheel-core{fill:#bbc8d0;stroke:#8195a3;stroke-width:3}
-.vin-car-schematic .car-engine{fill:#f5b15e;stroke:#cc7a23;stroke-width:3}
-.vin-car-schematic .car-drive{fill:none;stroke:#567185;stroke-width:7;stroke-linecap:round}
+.vin-exploded{position:relative;min-height:360px;border-radius:16px;overflow:hidden;background:radial-gradient(circle at 52% 45%,#fff 0,#f1f6f8 52%,#e8eff3 100%);border:1px solid #e2e9ed}
+.vin-exploded:before{content:"";position:absolute;inset:0;background-image:linear-gradient(rgba(24,55,75,.035) 1px,transparent 1px),linear-gradient(90deg,rgba(24,55,75,.035) 1px,transparent 1px);background-size:26px 26px;mask-image:linear-gradient(to bottom,rgba(0,0,0,.75),transparent 92%)}
+.vin-exploded-title{position:absolute;left:18px;top:15px;z-index:3;display:flex;flex-direction:column;gap:2px}
+.vin-exploded-title b{font-size:12px;color:#203f55;letter-spacing:.03em}
+.vin-exploded-title span{font-size:10px;color:#8a9aa6}
+.vin-car-schematic{position:absolute;inset:42px 34px 18px}
+.vin-car-schematic svg{width:100%;height:100%;filter:drop-shadow(0 14px 18px rgba(20,50,70,.10))}
+.vin-car-schematic .car-body{fill:url(#zfBody);stroke:#90a6b5;stroke-width:3}
+.vin-car-schematic .car-glass{fill:url(#zfGlass);stroke:#8aa4b4;stroke-width:3}
+.vin-car-schematic .car-line{fill:none;stroke:#a3b5c0;stroke-width:3}
+.vin-car-schematic .car-wheel{fill:#263a49;stroke:#122a3b;stroke-width:4}
+.vin-car-schematic .car-wheel-core{fill:#c4d0d7;stroke:#8197a6;stroke-width:3}
+.vin-car-schematic .exploded-components .comp{fill:#f4af57;stroke:#bd6f21;stroke-width:3;stroke-linecap:round;stroke-linejoin:round}
+.vin-car-schematic .exploded-components .comp-drive,.vin-car-schematic .exploded-components .comp-strut-front,.vin-car-schematic .exploded-components .comp-strut-rear,.vin-car-schematic .exploded-components .comp-steering{fill:none;stroke:#486a80;stroke-width:5}
+.vin-car-schematic .exploded-components .comp-front-brake,.vin-car-schematic .exploded-components .comp-rear-brake{fill:none;stroke:#d28231;stroke-width:5}
+.vin-car-schematic .exploded-guides{fill:none;stroke:#aebdc6;stroke-width:2;stroke-dasharray:7 7}
 
 .vin-hotspot{
   position:absolute;display:flex;align-items:center;gap:7px;padding:7px 10px;border:1px solid #c8d5dd;border-radius:999px;
@@ -4783,8 +4789,8 @@ body.guest-mode .logo{
 .vin-hotspot span{display:grid;place-items:center;width:28px;height:28px;border-radius:50%;background:#eef3f6}
 .vin-hotspot svg{width:18px;height:18px;fill:none;stroke:#17354a;stroke-width:3;stroke-linecap:round;stroke-linejoin:round}
 .vin-hotspot b{font-size:12px}
-.hot-engine{right:7%;top:33%}.hot-filter{right:7%;top:10%}.hot-brake{left:7%;bottom:14%}
-.hot-suspension{right:5%;bottom:8%}.hot-steering{left:6%;top:22%}.hot-gearbox{left:37%;bottom:3%}
+.hot-engine{right:4%;top:34%}.hot-filter{right:4%;top:12%}.hot-brake{left:4%;bottom:14%}
+.hot-suspension{right:3%;bottom:8%}.hot-steering{left:4%;top:24%}.hot-gearbox{left:38%;bottom:2%}
 
 .vin-catalog-panel{padding:22px;border:1px solid #d7e0e6;border-radius:18px;background:#fff}
 .vin-catalog-panel-head{display:flex;justify-content:space-between;gap:16px;align-items:center;margin-bottom:14px}
@@ -4825,7 +4831,7 @@ body.guest-mode .logo{
 
 @media(max-width:980px){
   .vin-vehicle-hero{grid-template-columns:1fr}
-  .vin-exploded{min-height:300px}
+  .vin-exploded{min-height:340px}
   .vin-category-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
   .vin-parts-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
 }
@@ -4833,8 +4839,8 @@ body.guest-mode .logo{
   .vin-vehicle-hero{padding:15px;border-radius:14px}
   .vin-vehicle-copy h2{font-size:24px}
   .vin-vehicle-facts{grid-template-columns:1fr 1fr}
-  .vin-exploded{min-height:300px}
-  .vin-car-schematic{inset:64px 6px 42px}
+  .vin-exploded{min-height:330px}
+  .vin-car-schematic{inset:62px 0 42px}
   .vin-hotspot{padding:6px 8px}.vin-hotspot b{font-size:10px}.vin-hotspot span{width:24px;height:24px}
   .hot-engine{right:1%;top:34%}.hot-filter{right:1%;top:9%}.hot-brake{left:1%;bottom:14%}
   .hot-suspension{right:1%;bottom:8%}.hot-steering{left:1%;top:23%}.hot-gearbox{left:30%;bottom:1%}
@@ -4934,3 +4940,9 @@ body.guest-mode .logo{
   .hot-gearbox{left:43%;bottom:4%}
   .hot-drive{left:27%;bottom:15%}
 }
+
+.vin-vehicle-vin{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-top:12px;padding:10px 12px;border:1px solid #e0e7eb;border-radius:10px;background:#fff}
+.vin-vehicle-vin small{font-size:10px;letter-spacing:.12em;color:#8b9aa5}
+.vin-vehicle-vin b{font-size:12px;color:#2b495d;letter-spacing:.04em}
+.vin-hotspot-disabled{cursor:default;opacity:.58}
+.vin-hotspot-disabled:hover{transform:none;border-color:#c8d5dd}
