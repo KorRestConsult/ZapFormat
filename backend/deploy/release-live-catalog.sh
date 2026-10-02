@@ -90,6 +90,7 @@ node --check backend/src/vehicle-catalog.js
 node --check backend/src/secret-bootstrap.js
 node --check backend/src/auth-otp.js
 node --check backend/src/fapi.js
+node --check backend/src/fapi-fitment.js
 
 mark_stage "dependencies"
 cd backend
