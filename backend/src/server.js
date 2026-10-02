@@ -13,7 +13,7 @@ const { rateLimit } = require("express-rate-limit");
 const { Pool } = require("pg");
 const { PartGradeError, createPartGradeClient } = require("./partgrade");
 const { FapiError, createFapiClient } = require("./fapi");
-const { selectFapiNodes, uniqueOemRows } = require("./fapi-fitment");
+const { selectFapiNodes, selectFapiModification, uniqueOemRows } = require("./fapi-fitment");
 const { createOfferTokenCodec } = require("./offer-token");
 const { customerPrice } = require("./pricing");
 const { verifyGitHubActionsToken } = require("./github-oidc");
@@ -1843,10 +1843,14 @@ function publicFapiVehicle(decoded) {
     fuel_type: decoded?.fuel_type || null,
     displacement_cc: decoded?.displacement_cc || null,
     power_hp: decoded?.power_hp || null,
+    power_kw: decoded?.power_kw || null,
     transmission: decoded?.transmission || null,
     gearbox_code: decoded?.gearbox_code || null,
     drive_type: decoded?.drive_type || null,
     body_type: decoded?.body_type || null,
+    steering: decoded?.steering || null,
+    body_color: decoded?.body_color || null,
+    interior_color: decoded?.interior_color || null,
     dt_manufacturer_id: decoded?.dt_manufacturer_id || null,
     dt_model_id: decoded?.dt_model_id || null,
     dt_type_id: decoded?.dt_type_id || null
@@ -1882,7 +1886,24 @@ async function resolveFapiVinFitment(vehicle, intent, query) {
   if (String(intent?.special_category || "none") !== "none") return null;
 
   const decoded = await fapi.decodeVin(vin);
-  const modificationId = Number(decoded?.dt_type_id || 0);
+  let modificationId = Number(decoded?.dt_type_id || 0);
+
+  if (!modificationId && decoded?.dt_model_id) {
+    const modificationList = await fapi.modifications(decoded.dt_model_id);
+    const selected = selectFapiModification(modificationList, decoded);
+    if (selected?.id) {
+      modificationId = selected.id;
+      decoded.dt_type_id = selected.id;
+      decoded.modification_name = selected.short_name || selected.name;
+      decoded.engine_type = decoded.engine_type || selected.engine_type;
+      decoded.engine_code = decoded.engine_code || selected.engine_code;
+      decoded.power_kw = decoded.power_kw || selected.power_kw;
+      decoded.drive_type = decoded.drive_type || selected.drive_type;
+      decoded.body_type = decoded.body_type || selected.body_type;
+      decoded.displacement = selected.capacity || null;
+    }
+  }
+
   if (!modificationId) {
     return {
       status: "vin_not_exact",
