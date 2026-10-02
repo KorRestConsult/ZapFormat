@@ -43,8 +43,9 @@ rollback() {
     echo "Release failed. Rolling code back to ${BEFORE} ..."
     git reset --hard "${BEFORE}" || true
     mark_stage "service_restart"
-systemctl reset-failed "${SERVICE}" 2>/dev/null || true
-systemctl restart "${SERVICE}" || true
+    systemctl stop "${SERVICE}" 2>/dev/null || true
+    systemctl reset-failed "${SERVICE}" 2>/dev/null || true
+    systemctl start "${SERVICE}" 2>/dev/null || true
     echo "Rollback attempted."
   fi
   exit $code
@@ -138,11 +139,37 @@ cat >/etc/systemd/system/zapformat-api.service.d/fapi-env.conf <<'EOF'
 [Service]
 EnvironmentFile=-/var/lib/zapformat/zapformat-fapi.env
 EOF
+cat >/etc/systemd/system/zapformat-api.service.d/restart-policy.conf <<'EOF'
+[Unit]
+StartLimitIntervalSec=0
+[Service]
+Restart=always
+RestartSec=3
+EOF
 systemctl daemon-reload
-# Frequent safe releases can otherwise trip systemd's start-rate limiter.
+
+# Deploys can arrive close together while the frontend is being refined.
+# Stop/start explicitly and disable the start-rate limiter so a healthy API
+# is never rejected only because several safe releases ran in succession.
+systemctl stop "${SERVICE}" 2>/dev/null || true
+for _ in $(seq 1 20); do
+  if ! systemctl is-active --quiet "${SERVICE}"; then break; fi
+  sleep 0.25
+done
 systemctl reset-failed "${SERVICE}" 2>/dev/null || true
-systemctl restart "${SERVICE}"
+if ! systemctl start "${SERVICE}"; then
+  echo "FAIL: ${SERVICE} could not start."
+  systemctl status "${SERVICE}" --no-pager -l || true
+  journalctl -u "${SERVICE}" -n 80 --no-pager || true
+  exit 1
+fi
 sleep 2
+if ! systemctl is-active --quiet "${SERVICE}"; then
+  echo "FAIL: ${SERVICE} exited after start."
+  systemctl status "${SERVICE}" --no-pager -l || true
+  journalctl -u "${SERVICE}" -n 80 --no-pager || true
+  exit 1
+fi
 
 mark_stage "health_check"
 echo
