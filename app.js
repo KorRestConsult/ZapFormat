@@ -1742,6 +1742,14 @@ function vinCatalogBreadcrumb(node){
   return path;
 }
 
+
+function setVinCatalogCount(value,label){
+  const countEl=document.getElementById("offerCount");
+  const countLabel=document.getElementById("offerCountLabel");
+  if(countEl) countEl.textContent=String(Math.max(0,Number(value||0)));
+  if(countLabel) countLabel.textContent=String(label||"разделов");
+}
+
 function vinCatalogHeroHtml(){
   const d=vinCatalogState?.decoded||{};
   const m=vinCatalogState?.modification||{};
@@ -1792,6 +1800,11 @@ function vinCatalogHeroHtml(){
           ${d.body_color?'<span><small>Цвет</small><b>'+escapeHtml(String(d.body_color))+'</b></span>':""}
         </div>
         <div class="vin-vehicle-vin"><small>VIN</small><b>${escapeHtml(String(d.vin||vinCatalogState?.vin||""))}</b></div>
+        <div class="vin-vehicle-actions">
+          ${vinCatalogState?.savedVehicleId
+            ? '<span class="vin-saved-pill">✓ В моём гараже</span>'
+            : '<button type="button" data-save-vin-vehicle>Сохранить автомобиль</button>'}
+        </div>
       </div>
       <div class="vin-exploded">
         <div class="vin-exploded-title"><b>Интерактивная схема</b><span>Выберите узел автомобиля</span></div>
@@ -1871,13 +1884,17 @@ function renderVinCatalogLocked(data){
     decoded:data?.decoded||{},
     modification:data?.modification||{},
     nodes:[],
-    activeNodeId:0
+    activeNodeId:0,
+    savedVehicleId:data?.saved_vehicle_id||null,
+    locked:true
   };
   const sections=[
     "Двигатель","Фильтры","Тормозная система","Подвеска",
     "Рулевое управление","Коробка передач","Привод колеса","Система охлаждения",
     "Электрооборудование","Система подачи топлива","Кузов","Кондиционер"
   ];
+  setCatalogControlsVisible(false);
+  setVinCatalogCount(sections.length,"разделов");
   root.innerHTML=`
     <div class="vin-catalog-browser">
       ${vinCatalogHeroHtml()}
@@ -1913,7 +1930,9 @@ function renderVinCatalogBrowser(data,nodeId=0){
       decoded:data?.decoded||{},
       modification:data?.modification||{},
       nodes:Array.isArray(data?.nodes)?data.nodes:[],
-      activeNodeId:Number(nodeId||0)
+      activeNodeId:Number(nodeId||0),
+      savedVehicleId:data?.saved_vehicle_id||null,
+      locked:false
     };
   }else if(vinCatalogState){
     vinCatalogState.activeNodeId=Number(nodeId||0);
@@ -1924,6 +1943,8 @@ function renderVinCatalogBrowser(data,nodeId=0){
   const current=Number(state.activeNodeId||0)?vinCatalogNode(state.activeNodeId):null;
   const children=current?vinCatalogChildren(current.id):vinCatalogMainRoots();
   const breadcrumb=current?vinCatalogBreadcrumb(current):[];
+  setCatalogControlsVisible(false);
+  setVinCatalogCount(children.length,current?"подразделов":"разделов");
 
   root.innerHTML=`
     <div class="vin-catalog-browser">
@@ -1959,6 +1980,7 @@ async function loadVinNodeParts(node){
       "&node_id="+encodeURIComponent(node.id)
     );
     const items=Array.isArray(data?.items)?data.items:[];
+    setVinCatalogCount(items.length,"позиций");
     const browser=root.querySelector(".vin-catalog-panel");
     if(!browser) return;
 
@@ -2574,47 +2596,37 @@ async function search(query,options={}){
         await selectGarageVehicle(matched.id);
       }
       vehicle=currentSearchVehicle()||matched;
-    }else if(vehicle?.id && !normalizeVin(vehicle.vin||"")){
-      vehicle=await attachVinToCurrentVehicle(vin);
-      matched=vehicle;
     }
 
-    const active=matched || currentSearchVehicle();
-    if(active?.id){
-      transientVinVehicle=null;
-      setSearchHead(
-        vin,
-        "VIN связан с "+vehicleLabel(active)+". Теперь укажите нужную деталь.",
-        vin
-      );
-      renderVehicleSearchState(vin,active,{vin:true});
-      return true;
-    }
+    const active=matched || (currentSearchVehicle()?.vin && normalizeVin(currentSearchVehicle().vin)===vin
+      ? currentSearchVehicle()
+      : null);
 
-    setSearchHead(vin,"Расшифровываем VIN через Vindec…",vin);
+    setSearchHead(vin,"Расшифровываем VIN…",vin);
     renderSearchState("VIN","Определяем точную модификацию автомобиля.");
 
     try{
       const result=await apiRequest("/api/catalog/vin-browser?vin="+encodeURIComponent(vin));
       const decoded=result?.decoded||{};
       transientVinVehicle={
-        id:null,
-        brand:decoded.brand_name||decoded.manufacturer||"",
-        model:decoded.model_name||"",
-        generation:result?.modification?.name||decoded.modification_name||"",
-        year:decoded.model_year||"",
+        id:active?.id||null,
+        brand:decoded.brand_name||decoded.manufacturer||active?.brand||"",
+        model:decoded.model_name||active?.model||"",
+        generation:result?.modification?.name||decoded.modification_name||active?.generation||"",
+        year:decoded.model_year||active?.year||"",
         engine:[
           decoded.engine_code||result?.modification?.engine_code||"",
           result?.modification?.capacity||"",
           result?.modification?.engine_type||decoded.engine_type||decoded.fuel_type||""
-        ].filter(Boolean).join(" "),
+        ].filter(Boolean).join(" ")||active?.engine||"",
         vin,
-        plate:"",
-        mileage:0,
-        isDefault:false,
+        plate:active?.plate||"",
+        mileage:active?.mileage||0,
+        isDefault:Boolean(active?.isDefault),
         catalogProvider:"fapi_v2",
         catalogModificationId:result?.modification?.id||decoded.dt_type_id||null
       };
+      result.saved_vehicle_id=active?.id||null;
       setSearchHead(
         vin,
         result?.ready
@@ -3375,6 +3387,53 @@ document.addEventListener("click",async e=>{
     else if(action==="close-checkout"){
       setCheckoutReviewOpen(false);
       document.querySelector(".checkout-title")?.scrollIntoView({behavior:"smooth",block:"start"});
+    }
+    return;
+  }
+
+  const saveVinVehicle=e.target.closest("[data-save-vin-vehicle]");
+  if(saveVinVehicle){
+    const state=vinCatalogState;
+    const d=state?.decoded||{};
+    const m=state?.modification||{};
+    if(!state?.vin) return;
+    saveVinVehicle.disabled=true;
+    saveVinVehicle.textContent="Сохраняем…";
+    try{
+      const created=await apiRequest("/api/garage/vehicles",{
+        method:"POST",
+        body:JSON.stringify({
+          brand:d.brand_name||d.manufacturer||"",
+          model:d.model_name||"",
+          generation:m.name||d.modification_name||"",
+          year:d.model_year||null,
+          engine:[
+            d.engine_code||m.engine_code||"",
+            m.capacity||"",
+            m.engine_type||d.engine_type||d.fuel_type||""
+          ].filter(Boolean).join(" "),
+          vin:state.vin
+        })
+      });
+      const id=created?.vehicle?.id||null;
+      if(id){
+        state.savedVehicleId=id;
+        transientVinVehicle={...(transientVinVehicle||{}),id};
+        garageActiveVehicleId=id;
+      }
+      const garage=await apiRequest("/api/garage").catch(()=>null);
+      if(garage?.vehicles){
+        garageVehicles=garage.vehicles.map(normalizeGarageVehicle);
+        await hydrateRealGarage({vehicles:garage.vehicles});
+      }
+      const action=saveVinVehicle.closest(".vin-vehicle-actions");
+      if(action) action.innerHTML='<span class="vin-saved-pill">✓ В моём гараже</span>';
+      showToast("Автомобиль сохранён.");
+    }catch(error){
+      console.error("VIN vehicle save failed",error);
+      saveVinVehicle.disabled=false;
+      saveVinVehicle.textContent="Сохранить автомобиль";
+      showToast(error?.code==="user_already_exists"?"Автомобиль уже сохранён.":"Не удалось сохранить автомобиль.","warn");
     }
     return;
   }
