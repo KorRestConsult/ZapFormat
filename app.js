@@ -1043,9 +1043,21 @@ async function hydrateRealGarage(garage){
 }
 
 async function selectGarageVehicle(vehicleId){
-  if(!sessionUser || !vehicleId || String(vehicleId)===String(garageActiveVehicleId)) return;
+  if(!sessionUser || !vehicleId) return;
   const target=garageVehicles.find(x=>String(x.id)===String(vehicleId));
   if(!target) return;
+
+  // Explicit garage selection ends any temporary VIN search context.
+  transientVinVehicle=null;
+  vinCatalogState=null;
+  updateVehicleContextUi();
+
+  if(String(vehicleId)===String(garageActiveVehicleId)){
+    garageState.vehicle=target;
+    saveGarageState();
+    updateVehicleContextUi();
+    return;
+  }
 
   garageActiveVehicleId=target.id;
   garageTab="overview";
@@ -1600,8 +1612,11 @@ function extractArticleCandidate(value){
 
 function currentSearchVehicle(){
   if(!sessionUser) return null;
+  // A VIN entered by the customer is the active search context until they
+  // explicitly switch back to a saved garage vehicle.
+  if(transientVinVehicle) return transientVinVehicle;
   if(garageState?.vehicle?.id) return garageState.vehicle;
-  return transientVinVehicle || null;
+  return null;
 }
 
 function vehicleLabel(vehicle){
