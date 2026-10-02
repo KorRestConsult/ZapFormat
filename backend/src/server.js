@@ -1990,6 +1990,24 @@ app.get("/api/catalog/fapi/status", (_req, res) => {
   });
 });
 
+app.get("/api/catalog/vin-decode", requireUser, aiSearchLimiter, async (req, res, next) => {
+  try {
+    if (!fapi.configured()) return res.status(503).json({ error: "fapi_not_configured" });
+    const vin = String(req.query?.vin || "").trim().toUpperCase();
+    if (!validVin(vin)) return res.status(400).json({ error: "invalid_vin" });
+
+    const decoded = await fapi.decodeVin(vin);
+    return res.json({
+      ok: true,
+      provider: "fapi_v2",
+      exact_catalog_match: Boolean(decoded?.dt_type_id),
+      decoded: publicFapiVehicle(decoded)
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
 app.get("/api/catalog/vehicle-catalog/status", aiSearchLimiter, async (_req, res) => {
   try {
     const rows = await vehicleCatalog.manufacturers();
@@ -2024,6 +2042,62 @@ app.post("/api/catalog/ai-search-public", aiSearchLimiter, async (req, res, next
 
     const interpreted = await interpretSearch(query, suppliedVehicle);
     const intent = interpreted.intent;
+
+    if (suppliedVehicle && fapi.configured() && validVin(suppliedVehicle.vin)) {
+      try {
+        const publicFapiFitment = await resolveFapiVinFitment(suppliedVehicle, intent, query);
+        if (publicFapiFitment?.status === "resolved" && publicFapiFitment.articles.length) {
+          return res.json({
+            ok: true,
+            mode: "verified_articles",
+            interpreter: interpreted.mode,
+            ai_configured: Boolean(
+              String(process.env.TIMEWEB_AI_TOKEN || "").trim() ||
+              String(process.env.OPENAI_API_KEY || "").trim()
+            ),
+            vehicle: normalizeVehicle({
+              ...suppliedVehicle,
+              brand: publicFapiFitment.decoded.brand_name || publicFapiFitment.decoded.manufacturer || suppliedVehicle.brand || "",
+              model: publicFapiFitment.decoded.model_name || suppliedVehicle.model || "",
+              generation: publicFapiFitment.decoded.modification_name || suppliedVehicle.generation || "",
+              year: publicFapiFitment.decoded.model_year || suppliedVehicle.year || null,
+              engine: [
+                publicFapiFitment.decoded.engine_code,
+                publicFapiFitment.decoded.displacement_cc ? Math.round(Number(publicFapiFitment.decoded.displacement_cc) / 100) / 10 + " л" : null,
+                publicFapiFitment.decoded.fuel_type
+              ].filter(Boolean).join(" ")
+            }),
+            intent,
+            fitment_status: "vin_catalog_match",
+            vehicle_identity: {
+              vin_present: true,
+              vin_decoded: true,
+              identification_source: "vindec_fapi"
+            },
+            vin_decode: publicFapiFitment.decoded,
+            catalog: {
+              provider: "fapi_v2",
+              manufacturer: {
+                id: publicFapiFitment.decoded.dt_manufacturer_id || null,
+                name: publicFapiFitment.decoded.brand_name || publicFapiFitment.decoded.manufacturer || null
+              },
+              model: {
+                id: publicFapiFitment.decoded.dt_model_id || null,
+                name: publicFapiFitment.decoded.model_name || null
+              },
+              modification: {
+                id: publicFapiFitment.decoded.dt_type_id || null,
+                name: publicFapiFitment.decoded.modification_name || null
+              },
+              matched_nodes: publicFapiFitment.nodes
+            },
+            articles: publicFapiFitment.articles
+          });
+        }
+      } catch (error) {
+        console.warn("[FapiPublicFitment]", error?.code || error?.message || "failed");
+      }
+    }
 
     if (intent?.clarification_needed) {
       return res.json({
