@@ -64,7 +64,22 @@ set +e
 {
   echo
   echo "===== AUTODEPLOY $(date -u +%Y-%m-%dT%H:%M:%SZ) requested=${REQUESTED_SHA} ====="
-  ZAPFORMAT_TARGET_SHA="${REQUESTED_SHA}" bash "${APP_DIR}/backend/deploy/release-live-catalog.sh"
+
+  if [[ ! "${REQUESTED_SHA}" =~ ^[a-f0-9]{40}$ ]]; then
+    echo "Invalid requested SHA."
+    exit 3
+  fi
+
+  # The live checkout may roll back after a failed release. Fetch the requested
+  # commit and execute the release script FROM THAT COMMIT so deploy-script fixes
+  # can recover the deployment path itself.
+  git -C "${APP_DIR}" fetch origin main
+  git -C "${APP_DIR}" cat-file -e "${REQUESTED_SHA}^{commit}"
+  RELEASE_SCRIPT="/tmp/zapformat-release-${REQUESTED_SHA}.sh"
+  git -C "${APP_DIR}" show "${REQUESTED_SHA}:backend/deploy/release-live-catalog.sh" > "${RELEASE_SCRIPT}"
+  chmod 700 "${RELEASE_SCRIPT}"
+  ZAPFORMAT_TARGET_SHA="${REQUESTED_SHA}" bash "${RELEASE_SCRIPT}"
+  rm -f "${RELEASE_SCRIPT}"
 } >>"${LOG_FILE}" 2>&1
 CODE=$?
 set -e
@@ -75,8 +90,12 @@ if [[ "${CODE}" -eq 0 ]]; then
 else
   CURRENT_SHA="$(git -C "${APP_DIR}" rev-parse HEAD 2>/dev/null || true)"
   FAILURE_STAGE="$(cat "${STATE_DIR}/release-stage" 2>/dev/null || true)"
+  SERVICE_DIAG=""
+  if [[ "${FAILURE_STAGE}" == "service_restart" ]]; then
+    SERVICE_DIAG="$(systemctl show zapformat-api       -p ActiveState -p SubState -p Result -p ExecMainCode -p ExecMainStatus       --no-pager 2>/dev/null | tr '\n' ' ' | tr -s ' ' | cut -c1-300)"
+  fi
   if [[ -n "${FAILURE_STAGE}" ]]; then
-    write_state "failed" "${CURRENT_SHA}" "Deployment failed at stage: ${FAILURE_STAGE}; rollback attempted"
+    write_state "failed" "${CURRENT_SHA}" "Deployment failed at stage: ${FAILURE_STAGE}; rollback attempted${SERVICE_DIAG:+; ${SERVICE_DIAG}}"
   else
     write_state "failed" "${CURRENT_SHA}" "Deployment failed; release script attempted rollback"
   fi
