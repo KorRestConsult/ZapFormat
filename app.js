@@ -1746,33 +1746,38 @@ function vinCatalogHeroHtml(){
   const d=vinCatalogState?.decoded||{};
   const m=vinCatalogState?.modification||{};
   const title=[d.brand_name||d.manufacturer,d.model_name].filter(Boolean).join(" ")||"Автомобиль";
-  const hp=d.power_kw ? Math.round(Number(d.power_kw)*1.35962) : null;
   const details=[
     m.name||d.modification_name,
     m.capacity||"",
-    (m.power_kw||d.power_kw) ? (m.power_kw||d.power_kw)+" кВт"+(hp?" / "+hp+" л.с.":"") : "",
-    m.engine_type||d.engine_type||d.fuel_type||"",
+    m.power_kw ? m.power_kw+" кВт" : "",
+    m.engine_type||d.engine_type||"",
     m.drive_type||d.drive_type||"",
     d.transmission ? "АКПП" : ""
   ].filter(Boolean);
 
-  const rootBy=(rx)=>vinCatalogMainRoots().find(x=>rx.test(String(x.name||"")));
-  const hotspots=[
-    ["Двигатель",rootBy(/двигатель/i),"hot-engine"],
-    ["Фильтры",rootBy(/^фильтр$/i),"hot-filter"],
-    ["Тормоза",rootBy(/тормозная/i),"hot-brake"],
-    ["Подвеска",rootBy(/^подвеска \/ амортизация/i),"hot-suspension"],
-    ["Рулевое",rootBy(/рулевое/i),"hot-steering"],
-    ["Трансмиссия",rootBy(/коробка передач/i),"hot-gearbox"],
-    ["Привод",rootBy(/привод колеса/i),"hot-drive"]
+  const roots=vinCatalogMainRoots();
+  const rootBy=(rx)=>roots.find(x=>rx.test(String(x.name||"")));
+  const hotspotDefs=[
+    ["Двигатель",/двигатель/i,"hot-engine","Двигатель"],
+    ["Фильтры",/^фильтр$/i,"hot-filter","Фильтры"],
+    ["Тормоза",/тормозная/i,"hot-brake","Тормозная система"],
+    ["Подвеска",/^подвеска \/ амортизация/i,"hot-suspension","Подвеска"],
+    ["Рулевое",/рулевое/i,"hot-steering","Рулевое управление"],
+    ["Трансмиссия",/коробка передач/i,"hot-gearbox","Коробка передач"]
   ];
+  const hotspots=hotspotDefs.map(([label,rx,cls,fallbackName])=>({
+    label,
+    node:rootBy(rx)||null,
+    cls,
+    name:fallbackName
+  }));
 
-  const hotspotHtml=hotspots.map(([label,node,cls])=>{
-    const inner='<span>'+vinCatalogIcon(label)+'</span><b>'+escapeHtml(label)+'</b>';
-    return node
-      ? '<button type="button" class="vin-hotspot '+cls+'" data-vin-node="'+node.id+'">'+inner+'</button>'
-      : '<span class="vin-hotspot '+cls+' is-locked">'+inner+'</span>';
-  }).join("");
+  const callout=(item)=>{
+    const inner='<span>'+vinCatalogIcon(item.name)+'</span><b>'+escapeHtml(item.label)+'</b>';
+    return item.node
+      ? '<button type="button" class="vin-hotspot '+item.cls+'" data-vin-node="'+item.node.id+'">'+inner+'</button>'
+      : '<span class="vin-hotspot vin-hotspot-disabled '+item.cls+'">'+inner+'</span>';
+  };
 
   return `
     <section class="vin-vehicle-hero">
@@ -1784,101 +1789,67 @@ function vinCatalogHeroHtml(){
           ${d.production_date?'<span><small>Производство</small><b>'+escapeHtml(String(d.production_date))+'</b></span>':""}
           ${d.engine_code?'<span><small>Двигатель</small><b>'+escapeHtml(String(d.engine_code))+'</b></span>':""}
           ${d.model_year?'<span><small>Модельный год</small><b>'+escapeHtml(String(d.model_year))+'</b></span>':""}
-          ${d.body_color?'<span><small>Цвет кузова</small><b>'+escapeHtml(String(d.body_color))+'</b></span>':""}
+          ${d.body_color?'<span><small>Цвет</small><b>'+escapeHtml(String(d.body_color))+'</b></span>':""}
         </div>
+        <div class="vin-vehicle-vin"><small>VIN</small><b>${escapeHtml(String(d.vin||vinCatalogState?.vin||""))}</b></div>
       </div>
       <div class="vin-exploded">
-        <div class="vin-scheme-label">
-          <b>Интерактивная карта узлов</b>
-          <span>Нажмите на систему автомобиля</span>
-        </div>
+        <div class="vin-exploded-title"><b>Интерактивная схема</b><span>Выберите узел автомобиля</span></div>
         <div class="vin-car-schematic" aria-hidden="true">
-          <svg viewBox="0 0 900 410" role="img">
+          <svg viewBox="0 0 820 390">
             <defs>
               <linearGradient id="zfBody" x1="0" x2="1">
-                <stop offset="0" stop-color="#e5edf2"/>
-                <stop offset=".55" stop-color="#f7fafc"/>
-                <stop offset="1" stop-color="#d7e2e9"/>
+                <stop offset="0" stop-color="#f5f8fa"/>
+                <stop offset=".55" stop-color="#dce7ed"/>
+                <stop offset="1" stop-color="#eef3f6"/>
               </linearGradient>
-              <linearGradient id="zfGlass" x1="0" y1="0" x2="1" y2="1">
-                <stop offset="0" stop-color="#d8eef7"/>
-                <stop offset="1" stop-color="#bcd8e6"/>
+              <linearGradient id="zfGlass" x1="0" x2="1">
+                <stop offset="0" stop-color="#d9edf6"/>
+                <stop offset="1" stop-color="#bcd9e7"/>
               </linearGradient>
-              <filter id="zfShadow" x="-20%" y="-20%" width="140%" height="160%">
-                <feDropShadow dx="0" dy="10" stdDeviation="10" flood-opacity=".13"/>
-              </filter>
             </defs>
-
-            <g class="car-shadow"><ellipse cx="452" cy="337" rx="314" ry="24"/></g>
-
-            <g class="exploded-body" filter="url(#zfShadow)">
-              <path class="car-body" fill="url(#zfBody)" d="M93 257l32-77 111-23 84-74h218l91 76 118 26 51 72-24 38H115z"/>
-              <path class="car-glass" fill="url(#zfGlass)" d="M275 157l66-59h181l72 61z"/>
-              <path class="car-line" d="M132 257h606M310 161l-21 95M588 161l25 95M234 157l-18 100"/>
-              <path class="car-hood-line" d="M626 180l99 22M117 227l117-23"/>
-              <path class="car-bumper-line" d="M106 279h88M706 279h69"/>
+            <g class="car-ghost">
+              <path class="car-body" d="M86 237l24-68 106-27 92-74h205l86 78 110 30 42 62-11 53H89l-17-37z"/>
+              <path class="car-glass" d="M248 139l77-58h168l70 61z"/>
+              <path class="car-line" d="M111 238h598M284 146l-21 93M543 146l24 93M599 176l62 18"/>
+              <path class="car-line" d="M116 274h584"/>
+              <circle class="car-wheel" cx="213" cy="272" r="57"/><circle class="car-wheel-core" cx="213" cy="272" r="23"/>
+              <circle class="car-wheel" cx="608" cy="272" r="57"/><circle class="car-wheel-core" cx="608" cy="272" r="23"/>
             </g>
-
-            <g class="component component-engine" filter="url(#zfShadow)">
-              <rect x="608" y="191" width="96" height="61" rx="13"/>
-              <rect x="623" y="177" width="57" height="21" rx="7"/>
-              <path d="M619 208h73M619 221h73M619 234h52"/>
-              <circle cx="692" cy="239" r="10"/>
+            <g class="exploded-components">
+              <g class="comp comp-engine">
+                <rect x="504" y="157" width="104" height="62" rx="13"/>
+                <path d="M520 174h69M520 188h57M530 157v-18h34v18"/>
+              </g>
+              <g class="comp comp-gearbox">
+                <path d="M422 222h82l21 18-22 23h-79l-22-20z"/>
+                <circle cx="487" cy="243" r="9"/>
+              </g>
+              <g class="comp comp-filter">
+                <path d="M627 130h49l-9 44h-31z"/><path d="M635 139h32"/>
+              </g>
+              <g class="comp comp-drive">
+                <path d="M277 270h257"/><circle cx="332" cy="270" r="7"/><circle cx="482" cy="270" r="7"/>
+              </g>
+              <g class="comp comp-front-brake">
+                <circle cx="608" cy="272" r="38"/><circle cx="608" cy="272" r="13"/>
+              </g>
+              <g class="comp comp-rear-brake">
+                <circle cx="213" cy="272" r="38"/><circle cx="213" cy="272" r="13"/>
+              </g>
+              <g class="comp comp-strut-front"><path d="M638 178l-18 66M628 195h25M621 215h25"/></g>
+              <g class="comp comp-strut-rear"><path d="M182 181l18 63M170 198h26M175 218h25"/></g>
+              <g class="comp comp-steering"><circle cx="322" cy="190" r="27"/><circle cx="322" cy="190" r="6"/><path d="M322 217v40"/></g>
             </g>
-
-            <g class="component component-gearbox">
-              <path d="M529 220h58l24 17-20 33h-62l-26-21z"/>
-              <circle cx="551" cy="245" r="10"/>
-            </g>
-
-            <g class="component component-drive">
-              <path d="M302 271h210"/>
-              <circle cx="404" cy="271" r="9"/>
-              <path d="M397 257l14 14-14 14M511 264h29M286 264h17"/>
-            </g>
-
-            <g class="component component-exhaust">
-              <path d="M314 296h196c37 0 61-6 83-18"/>
-              <rect x="263" y="285" width="53" height="23" rx="11"/>
-              <rect x="206" y="286" width="50" height="21" rx="10"/>
-            </g>
-
-            <g class="component component-steering">
-              <circle cx="604" cy="145" r="21"/>
-              <circle cx="604" cy="145" r="6"/>
-              <path d="M604 166l-18 53"/>
-            </g>
-
-            <g class="component component-suspension">
-              <path d="M206 183l15 69M669 183l-13 69"/>
-              <path d="M195 194h22M658 194h23"/>
-              <path d="M190 253l33 15M647 268l34-15"/>
-            </g>
-
-            <g class="wheel wheel-left">
-              <circle class="car-wheel" cx="221" cy="278" r="58"/>
-              <circle class="brake-disc" cx="221" cy="278" r="33"/>
-              <circle class="car-wheel-core" cx="221" cy="278" r="13"/>
-              <path class="brake-caliper" d="M242 254h16v42h-16"/>
-            </g>
-            <g class="wheel wheel-right">
-              <circle class="car-wheel" cx="677" cy="278" r="58"/>
-              <circle class="brake-disc" cx="677" cy="278" r="33"/>
-              <circle class="car-wheel-core" cx="677" cy="278" r="13"/>
-              <path class="brake-caliper" d="M698 254h16v42h-16"/>
-            </g>
-
-            <g class="component component-filter">
-              <rect x="650" y="126" width="34" height="39" rx="7"/>
-              <path d="M657 136h20M657 145h20M657 154h20"/>
+            <g class="exploded-guides">
+              <path d="M556 156l18-33M469 222l8-37M650 130l16-31M608 234l33-31M213 234l-30-31M322 163l-13-30"/>
             </g>
           </svg>
         </div>
-        ${hotspotHtml}
+        ${hotspots.map(callout).join("")}
       </div>
     </section>`;
 }
-
 function vinCatalogCardsHtml(nodes){
   return `<div class="vin-category-grid">${nodes.map(node=>{
     const count=vinCatalogChildren(node.id).length;
@@ -1994,6 +1965,14 @@ async function loadVinNodeParts(node){
     const existing=browser.querySelector(".vin-node-loading");
     if(existing) existing.remove();
 
+    if(data?.catalog_status==="credits_exhausted"){
+      browser.insertAdjacentHTML(
+        "beforeend",
+        '<div class="vin-catalog-notice"><b>Каталог деталей временно недоступен.</b><span>Автомобиль и выбранный узел сохранены. После восстановления каталога этот раздел откроется без повторного ввода VIN.</span></div>'
+      );
+      return;
+    }
+
     const html=items.length ? `
       <div class="vin-parts-grid">
         ${items.map(item=>`
@@ -2008,7 +1987,7 @@ async function loadVinNodeParts(node){
               ${item.fit?'<span class="vin-fit-note">'+escapeHtml(String(item.fit))+'</span>':""}
             </div>
             <button type="button" class="vin-price-button"
-              data-verified-article="${escapeHtml(item.article||"")}"
+              data-verified-article="${escapeHtml(item.article_normalized||item.article||"")}"
               data-verified-brand="${escapeHtml(item.brand||"")}"
               data-verified-description="${escapeHtml(item.description||node.name||"")}">
               Цены и наличие
@@ -2645,6 +2624,7 @@ async function search(query,options={}){
       );
       if(result?.ready){
         renderVinCatalogBrowser(result);
+        requestAnimationFrame(()=>document.querySelector(".vin-catalog-browser")?.scrollIntoView({behavior:"smooth",block:"start"}));
       }else if(result?.catalog_status==="credits_exhausted"){
         setSearchHead(
           vin,
@@ -2652,6 +2632,7 @@ async function search(query,options={}){
           vin
         );
         renderVinCatalogLocked(result);
+        requestAnimationFrame(()=>document.querySelector(".vin-catalog-browser")?.scrollIntoView({behavior:"smooth",block:"start"}));
       }else{
         vinCatalogState=null;
         renderVinDecodeResult(vin,decoded);
