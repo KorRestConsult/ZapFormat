@@ -103,6 +103,69 @@ function selectFapiNodes(tree, intent, query, limit = 4) {
     }));
 }
 
+
+function modificationRows(value) {
+  if (Array.isArray(value)) return value;
+  if (Array.isArray(value?.m)) return value.m;
+  return [];
+}
+
+function productionTime(value) {
+  const t = Date.parse(String(value || ""));
+  return Number.isFinite(t) ? t : null;
+}
+
+function selectFapiModification(value, decoded) {
+  const rows = modificationRows(value);
+  const wantedPower = Number(decoded?.power_kw);
+  const wantedDate = productionTime(decoded?.production_date);
+  const vinEngine = compact(decoded?.engine_code || "");
+  const scored = rows.map((row) => {
+    let score = 0;
+    const power = Number(row?.power);
+    if (Number.isFinite(wantedPower) && Number.isFinite(power)) {
+      score += power === wantedPower ? 120 : -Math.min(80, Math.abs(power - wantedPower) * 3);
+    }
+
+    const rowEngine = compact(row?.engineCode || "");
+    if (vinEngine && rowEngine) {
+      if (rowEngine === vinEngine) score += 100;
+      else if (rowEngine.includes(vinEngine) || vinEngine.includes(rowEngine)) score += 60;
+      else if (vinEngine.startsWith("n47") && rowEngine.startsWith("n47")) score += 45;
+    }
+
+    if (wantedDate) {
+      const from = Number(row?.cb || 0);
+      const to = Number(row?.ce || 0);
+      if (from && wantedDate >= from && (!to || wantedDate <= to)) score += 35;
+      else if (from || to) score -= 80;
+    }
+
+    const model = text(decoded?.model_name || "");
+    const full = text(row?.fd || row?.d || "");
+    if (model && full && model.split(" ").some((token) => token.length >= 3 && full.includes(token))) score += 10;
+
+    return { row, score };
+  }).sort((a,b)=>b.score-a.score);
+
+  const best=scored[0];
+  const second=scored[1];
+  if(!best || best.score < 100) return null;
+  if(second && best.score-second.score < 20) return null;
+  return {
+    id: Number(best.row.dbi || 0) || null,
+    name: String(best.row.fd || best.row.d || "").trim() || null,
+    short_name: String(best.row.d || "").trim() || null,
+    engine_type: best.row.engineType || null,
+    engine_code: best.row.engineCode || null,
+    power_kw: Number(best.row.power) || null,
+    capacity: best.row.capacity || null,
+    drive_type: best.row.driveType || null,
+    body_type: best.row.bodyType || null,
+    score: best.score
+  };
+}
+
 function uniqueOemRows(rows, limit = 16) {
   const seen = new Set();
   const out = [];
@@ -171,6 +234,8 @@ function analogCandidates(response, sourceArticle, limit = 20) {
 module.exports = {
   CATEGORY_TERMS,
   selectFapiNodes,
+  modificationRows,
+  selectFapiModification,
   uniqueOemRows,
   analogCandidates
 };
