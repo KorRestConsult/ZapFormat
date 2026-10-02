@@ -37,13 +37,18 @@ function smsRuPhone(phone) {
 }
 
 function createSmsRuSender({
-  apiId = process.env.SMSRU_API_ID,
-  from = process.env.SMSRU_FROM,
-  test = String(process.env.SMSRU_TEST || "false") === "true",
+  apiId,
+  from,
+  test,
   fetchImpl = globalThis.fetch
 } = {}) {
   return async function sendVerificationCode({ phone, code }) {
-    if (!apiId) {
+    const resolvedApiId = String(apiId ?? process.env.SMSRU_API_ID ?? "").trim();
+    const resolvedFrom = String(from ?? process.env.SMSRU_FROM ?? "").trim();
+    const resolvedTest = test === undefined
+      ? String(process.env.SMSRU_TEST || "false") === "true"
+      : Boolean(test);
+    if (!resolvedApiId) {
       throw new SmsDeliveryError("SMS.RU is not configured", "sms_not_configured");
     }
     if (typeof fetchImpl !== "function") {
@@ -52,13 +57,13 @@ function createSmsRuSender({
 
     const to = smsRuPhone(phone);
     const params = new URLSearchParams({
-      api_id: String(apiId),
+      api_id: resolvedApiId,
       to,
       msg: `ZapFormat: код подтверждения ${code}. Никому не сообщайте.`,
       json: "1"
     });
-    if (from) params.set("from", String(from));
-    if (test) params.set("test", "1");
+    if (resolvedFrom) params.set("from", resolvedFrom);
+    if (resolvedTest) params.set("test", "1");
 
     let response;
     try {
@@ -84,7 +89,7 @@ function createSmsRuSender({
     return {
       provider: "sms.ru",
       message_id: item?.sms_id || null,
-      test
+      test: resolvedTest
     };
   };
 }
