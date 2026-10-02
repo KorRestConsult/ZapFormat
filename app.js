@@ -149,6 +149,7 @@ let registrationChallengeId="";
 let registrationDraft=null;
 let resetChallengeId="";
 let resetIdentity="";
+let authCapabilities={phone_verification:null,password_recovery:null,session_days:null};
 const authCooldownTimers=new Map();
 
 function backendConfigured(){ return Boolean(API_BASE); }
@@ -353,10 +354,62 @@ function setAuthStatus(message,type=""){
   root.className="auth-status"+(type?" "+type:"");
 }
 
+function applyAuthCapabilities(){
+  const registerAvailable=authCapabilities.phone_verification!==false;
+  const recoveryAvailable=authCapabilities.password_recovery!==false;
+  const registerTab=document.querySelector('[data-auth-tab="register"]');
+  const forgotButton=document.querySelector('[data-auth-tab="forgot"]');
+  const notice=document.getElementById("authCapabilityNotice");
+
+  if(registerTab){
+    registerTab.disabled=!registerAvailable;
+    registerTab.setAttribute("aria-disabled",registerAvailable?"false":"true");
+    registerTab.title=registerAvailable?"":"Регистрация по SMS временно недоступна";
+  }
+  if(forgotButton){
+    forgotButton.disabled=!recoveryAvailable;
+    forgotButton.setAttribute("aria-disabled",recoveryAvailable?"false":"true");
+    forgotButton.title=recoveryAvailable?"":"Восстановление по SMS временно недоступно";
+  }
+  if(notice){
+    const unavailable=[];
+    if(!registerAvailable) unavailable.push("регистрация");
+    if(!recoveryAvailable) unavailable.push("восстановление пароля");
+    notice.hidden=!unavailable.length;
+    notice.textContent=unavailable.length
+      ? "Сейчас временно недоступны: "+unavailable.join(" и ")+". Вход в существующий аккаунт работает."
+      : "";
+  }
+}
+
+async function hydrateAuthCapabilities(){
+  if(!backendConfigured()) return authCapabilities;
+  try{
+    const data=await apiRequest("/api/auth/capabilities");
+    authCapabilities={
+      phone_verification:Boolean(data?.phone_verification),
+      password_recovery:Boolean(data?.password_recovery),
+      session_days:Number(data?.session_days||0)||null
+    };
+  }catch(error){
+    console.warn("Auth capabilities check failed",error);
+  }
+  applyAuthCapabilities();
+  return authCapabilities;
+}
+
 function showAuthTab(tab){
+  if(tab==="register" && authCapabilities.phone_verification===false){
+    tab="login";
+    setAuthStatus("Регистрация по SMS временно недоступна. Попробуйте позже.","error");
+  }else if(tab==="forgot" && authCapabilities.password_recovery===false){
+    tab="login";
+    setAuthStatus("Восстановление пароля по SMS временно недоступно. Попробуйте позже.","error");
+  }else{
+    setAuthStatus("");
+  }
   document.querySelectorAll("[data-auth-tab]").forEach(x=>x.classList.toggle("active",x.dataset.authTab===tab));
   document.querySelectorAll("[data-auth-pane]").forEach(x=>x.classList.toggle("active",x.dataset.authPane===tab));
-  setAuthStatus("");
 }
 
 function setAuthStage(kind,stage){
@@ -3637,6 +3690,7 @@ document.addEventListener("visibilitychange",()=>{
 
 window.addEventListener("popstate",restoreFromUrl);
 document.getElementById("backButton")?.addEventListener("click",()=>safeBack("home"));
+hydrateAuthCapabilities().catch(()=>null);
 hydrateSession()
   .catch(()=>null)
   .finally(()=>restoreFromUrl());
