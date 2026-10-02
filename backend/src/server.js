@@ -3766,6 +3766,22 @@ app.post("/api/garage/vehicles", requireUser, async (req, res, next) => {
     if (!brand || !model) {
       return res.status(400).json({ error: "brand_and_model_required" });
     }
+    if (vin && !validVin(vin)) {
+      return res.status(400).json({ error: "invalid_vin" });
+    }
+
+    if (vin) {
+      const duplicate = await client.query(
+        "SELECT * FROM vehicles WHERE user_id = $1 AND vin = $2 LIMIT 1",
+        [req.user.id, vin]
+      );
+      if (duplicate.rowCount) {
+        return res.status(200).json({
+          vehicle: duplicate.rows[0],
+          already_exists: true
+        });
+      }
+    }
 
     await client.query("BEGIN");
     const existing = await client.query(
@@ -3798,6 +3814,26 @@ app.post("/api/garage/vehicles", requireUser, async (req, res, next) => {
     }
 
     await client.query("COMMIT");
+
+    // VIN catalog binding is derived server-side. The browser request that led
+    // here normally warmed the durable FAPI cache, so this does not spend a
+    // second catalog request.
+    if (vin && fapi.configured()) {
+      try {
+        const context = await resolveFapiVinContext(vin);
+        if (context?.decoded?.dt_type_id) {
+          await persistFapiBinding(req.user.id, result.rows[0].id, context.decoded);
+          result.rows[0].catalog_provider = "fapi_v2";
+          result.rows[0].catalog_manufacturer_id = context.decoded.dt_manufacturer_id ? String(context.decoded.dt_manufacturer_id) : null;
+          result.rows[0].catalog_model_id = context.decoded.dt_model_id ? String(context.decoded.dt_model_id) : null;
+          result.rows[0].catalog_modification_id = String(context.decoded.dt_type_id);
+          result.rows[0].catalog_modification_name = context.decoded.modification_name || null;
+        }
+      } catch (error) {
+        console.warn("[GarageVinBinding]", error?.code || error?.message || "binding_skipped");
+      }
+    }
+
     res.status(201).json({ vehicle: result.rows[0] });
   } catch (error) {
     await client.query("ROLLBACK").catch(() => {});
