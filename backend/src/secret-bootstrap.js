@@ -6,6 +6,7 @@ const fs = require("node:fs/promises");
 const PRIVATE_KEY_FILE = "/var/lib/zapformat/openai-bootstrap-private.pem";
 const AI_ENV_FILE = "/var/lib/zapformat/zapformat-ai.env";
 const SMS_ENV_FILE = "/var/lib/zapformat/zapformat-sms.env";
+const FAPI_ENV_FILE = "/var/lib/zapformat/zapformat-fapi.env";
 
 async function ensureBootstrapPrivateKey() {
   try {
@@ -169,11 +170,26 @@ async function installSmsRuToken(payload) {
   return { configured: true, provider: "sms.ru", test };
 }
 
+async function installFapiToken(payload) {
+  const apiKey = String(payload?.fapi_api_key || payload?.api_key || "").trim();
+  if (!/^iis_[A-Za-z0-9_-]{20,}$/.test(apiKey) || /[\r\n]/.test(apiKey)) {
+    throw new Error("fapi_api_key_invalid");
+  }
+
+  process.env.FAPI_API_KEY = apiKey;
+  const envBody = envLine("FAPI_API_KEY", apiKey);
+  await fs.writeFile(FAPI_ENV_FILE, envBody, { mode: 0o600 });
+  await fs.chmod(FAPI_ENV_FILE, 0o600).catch(() => {});
+  return { configured: true, provider: "fapi.iisis.ru" };
+}
+
 module.exports = {
   publicBootstrapJwk,
   installEncryptedOpenAIKey,
   installTimewebAIToken,
   installSmsRuToken,
+  installFapiToken,
   AI_ENV_FILE,
-  SMS_ENV_FILE
+  SMS_ENV_FILE,
+  FAPI_ENV_FILE
 };
