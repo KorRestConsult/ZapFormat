@@ -6,7 +6,7 @@
   <meta name="theme-color" content="#17324a" />
   <title>ZapFormat — автозапчасти</title>
   <meta name="description" content="Поиск автозапчастей по артикулу и обычному запросу с привязкой к автомобилю" />
-  <link rel="stylesheet" href="./styles.css?v=20261002-client2" />
+  <link rel="stylesheet" href="./styles.css?v=20261002-client3" />
 </head>
 <body class="guest-mode session-pending">
   <div class="app">
@@ -137,7 +137,7 @@
           <div class="auth-card">
             <div class="auth-tabs" role="tablist" aria-label="Авторизация">
               <button class="active" type="button" data-auth-tab="login">Войти</button>
-              <button type="button" data-auth-tab="register">Регистрация</button>
+              <button type="button" data-auth-tab="register" disabled>Регистрация</button>
             </div>
             <div class="auth-capability-notice" id="authCapabilityNotice" hidden></div>
 
@@ -155,7 +155,7 @@
               </label>
               <div class="auth-inline-actions">
                 <small class="auth-hint auth-session-hint">Вход сохраняется на этом устройстве.</small>
-                <button class="auth-link" type="button" data-auth-tab="forgot">Забыли пароль?</button>
+                <button class="auth-link" type="button" data-auth-tab="forgot" disabled>Забыли пароль?</button>
               </div>
               <button class="account-primary auth-submit" type="submit">Войти</button>
             </form>
@@ -485,6 +485,6 @@
 </div>
 
   <script src="./config.js?v=20261002-auth2"></script>
-  <script src="./app.js?v=20261002-client2"></script>
+  <script src="./app.js?v=20261002-client3"></script>
 </body>
 </html>
