@@ -18,6 +18,14 @@ const { verifyGitHubActionsToken } = require("./github-oidc");
 const { interpretSearch, researchPartCandidates, normalizeVehicle } = require("./ai-search");
 const { publicBootstrapJwk, installEncryptedOpenAIKey, installTimewebAIToken } = require("./secret-bootstrap");
 const {
+  SmsDeliveryError,
+  createOtpCode,
+  otpHash,
+  otpMatches,
+  createSmsRuSender,
+  maskPhone
+} = require("./auth-otp");
+const {
   ABCP_CARBASE_CAPABILITIES,
   catalogCoverageForIntent,
   compactText,
@@ -54,6 +62,10 @@ const FRONTEND_ORIGINS = String(process.env.FRONTEND_ORIGINS || "")
 const partGrade = createPartGradeClient();
 const vehicleCatalog = createAbcpCarbaseProvider(partGrade);
 const offerTokens = createOfferTokenCodec();
+const sendVerificationCode = createSmsRuSender();
+const OTP_TTL_MINUTES = Math.max(3, Math.min(30, Number(process.env.OTP_TTL_MINUTES || 10)));
+const OTP_RESEND_SECONDS = Math.max(30, Math.min(300, Number(process.env.OTP_RESEND_SECONDS || 60)));
+const OTP_MAX_ATTEMPTS = 5;
 
 const hasDatabase = Boolean(process.env.DATABASE_URL);
 const pool = hasDatabase
@@ -134,6 +146,94 @@ function normalizePhone(value) {
   if (raw.startsWith("8") && raw.length === 11) return "+7" + raw.slice(1);
   if (raw.startsWith("7") && raw.length === 11) return "+" + raw;
   return raw.startsWith("+") ? raw : "+" + raw;
+}
+
+function otpSecret() {
+  return String(process.env.AUTH_OTP_SECRET || process.env.INTERNAL_API_TOKEN || "").trim();
+}
+
+function validSmsPhone(phone) {
+  return /^\+7\d{10}$/.test(String(phone || ""));
+}
+
+async function createAuthChallenge({
+  purpose,
+  phone,
+  userId = null,
+  name = null,
+  surname = null,
+  passwordHash = null
+}) {
+  const secret = otpSecret();
+  if (!secret) {
+    const error = new Error("OTP secret is not configured");
+    error.code = "otp_not_configured";
+    throw error;
+  }
+
+  const recent = await pool.query(
+    `SELECT 1
+       FROM auth_challenges
+      WHERE phone = $1
+        AND purpose = $2
+        AND consumed_at IS NULL
+        AND created_at > now() - ($3::int * interval '1 second')
+      LIMIT 1`,
+    [phone, purpose, OTP_RESEND_SECONDS]
+  );
+  if (recent.rowCount) {
+    const error = new Error("Verification code was sent recently");
+    error.code = "otp_too_soon";
+    error.retryAfter = OTP_RESEND_SECONDS;
+    throw error;
+  }
+
+  await pool.query(
+    "DELETE FROM auth_challenges WHERE expires_at < now() - interval '1 day' OR consumed_at < now() - interval '1 day'"
+  );
+
+  const id = crypto.randomUUID();
+  const code = createOtpCode();
+  const codeHash = otpHash(secret, id, code);
+  const expiresAt = new Date(Date.now() + OTP_TTL_MINUTES * 60 * 1000);
+
+  await pool.query(
+    `INSERT INTO auth_challenges
+      (id, purpose, phone, user_id, name, surname, password_hash, code_hash, expires_at)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)`,
+    [id, purpose, phone, userId, name, surname, passwordHash, codeHash, expiresAt]
+  );
+
+  try {
+    await sendVerificationCode({ phone, code });
+  } catch (error) {
+    await pool.query("DELETE FROM auth_challenges WHERE id = $1", [id]).catch(() => {});
+    throw error;
+  }
+
+  return {
+    challenge_id: id,
+    masked_phone: maskPhone(phone),
+    expires_in: OTP_TTL_MINUTES * 60,
+    resend_in: OTP_RESEND_SECONDS
+  };
+}
+
+function authChallengeError(res, error) {
+  if (error?.code === "invalid_phone") {
+    return res.status(400).json({ error: "invalid_phone" });
+  }
+  if (error?.code === "otp_too_soon") {
+    return res.status(429).json({ error: "otp_too_soon", retry_after: error.retryAfter || OTP_RESEND_SECONDS });
+  }
+  if (error?.code === "sms_not_configured" || error?.code === "otp_not_configured") {
+    return res.status(503).json({ error: "verification_unavailable" });
+  }
+  if (error instanceof SmsDeliveryError || error?.code === "sms_send_failed") {
+    console.error("[SMS]", error?.details || error?.message || "sms_send_failed");
+    return res.status(502).json({ error: "sms_send_failed" });
+  }
+  return null;
 }
 
 function normalizeArticle(value) {
@@ -2169,6 +2269,265 @@ app.post("/api/catalog/revalidate", async (req, res, next) => {
     res.json({ ok: true, items: results });
   } catch (error) {
     next(error);
+  }
+});
+
+app.post("/api/auth/register/start", authLimiter, async (req, res, next) => {
+  try {
+    const name = String(req.body?.name || "").trim().slice(0, 120);
+    const surname = String(req.body?.surname || "").trim().slice(0, 120) || null;
+    const phone = normalizePhone(req.body?.phone);
+    const password = String(req.body?.password || "");
+    const passwordConfirmation = String(req.body?.password_confirmation || "");
+
+    if (!name || !phone) {
+      return res.status(400).json({ error: "name_and_identity_required" });
+    }
+    if (!validSmsPhone(phone)) {
+      return res.status(400).json({ error: "invalid_phone" });
+    }
+    if (password.length < 8) {
+      return res.status(400).json({ error: "password_too_short" });
+    }
+    if (password !== passwordConfirmation) {
+      return res.status(400).json({ error: "passwords_do_not_match" });
+    }
+
+    const exists = await pool.query(
+      "SELECT id FROM users WHERE phone = $1 LIMIT 1",
+      [phone]
+    );
+    if (exists.rowCount) {
+      return res.status(409).json({ error: "user_already_exists" });
+    }
+
+    const passwordHash = await bcrypt.hash(password, 12);
+    const challenge = await createAuthChallenge({
+      purpose: "register",
+      phone,
+      name,
+      surname,
+      passwordHash
+    });
+
+    return res.status(202).json({ ok: true, ...challenge });
+  } catch (error) {
+    const handled = authChallengeError(res, error);
+    if (handled) return handled;
+    next(error);
+  }
+});
+
+app.post("/api/auth/register/verify", authLimiter, async (req, res, next) => {
+  const client = await pool.connect();
+  try {
+    const challengeId = String(req.body?.challenge_id || "").trim();
+    const code = String(req.body?.code || "").trim();
+
+    if (!challengeId || !/^\d{6}$/.test(code)) {
+      return res.status(400).json({ error: "verification_code_required" });
+    }
+
+    await client.query("BEGIN");
+    const found = await client.query(
+      `SELECT *
+         FROM auth_challenges
+        WHERE id = $1 AND purpose = 'register'
+        FOR UPDATE`,
+      [challengeId]
+    );
+    const challenge = found.rows[0];
+
+    if (
+      !challenge ||
+      challenge.consumed_at ||
+      Number(challenge.attempts) >= OTP_MAX_ATTEMPTS ||
+      new Date(challenge.expires_at).getTime() <= Date.now()
+    ) {
+      await client.query("ROLLBACK");
+      return res.status(400).json({ error: "verification_expired" });
+    }
+
+    if (!otpMatches(otpSecret(), challenge.id, code, challenge.code_hash)) {
+      await client.query(
+        "UPDATE auth_challenges SET attempts = attempts + 1 WHERE id = $1",
+        [challenge.id]
+      );
+      await client.query("COMMIT");
+      return res.status(400).json({ error: "verification_code_invalid" });
+    }
+
+    const exists = await client.query(
+      "SELECT id FROM users WHERE phone = $1 LIMIT 1",
+      [challenge.phone]
+    );
+    if (exists.rowCount) {
+      await client.query("ROLLBACK");
+      return res.status(409).json({ error: "user_already_exists" });
+    }
+
+    const inserted = await client.query(
+      `INSERT INTO users
+        (name, surname, email, phone, password_hash, phone_verified_at)
+       VALUES ($1,$2,NULL,$3,$4,now())
+       RETURNING *`,
+      [challenge.name, challenge.surname, challenge.phone, challenge.password_hash]
+    );
+    const user = inserted.rows[0];
+
+    await client.query(
+      "INSERT INTO carts (user_id) VALUES ($1) ON CONFLICT (user_id) DO NOTHING",
+      [user.id]
+    );
+    await client.query(
+      "INSERT INTO user_notification_settings (user_id) VALUES ($1) ON CONFLICT (user_id) DO NOTHING",
+      [user.id]
+    );
+    await client.query(
+      "UPDATE auth_challenges SET consumed_at = now() WHERE id = $1",
+      [challenge.id]
+    );
+
+    await client.query("COMMIT");
+    const accessToken = await issueSession(req, res, user.id);
+    return res.status(201).json({
+      user: publicUser(user),
+      access_token: accessToken,
+      expires_in: SESSION_DAYS * 24 * 60 * 60
+    });
+  } catch (error) {
+    await client.query("ROLLBACK").catch(() => {});
+    next(error);
+  } finally {
+    client.release();
+  }
+});
+
+app.post("/api/auth/password-reset/start", authLimiter, async (req, res, next) => {
+  try {
+    const identity = String(req.body?.identity || "").trim();
+    if (!identity) {
+      return res.status(400).json({ error: "identity_required" });
+    }
+
+    const email = identity.includes("@") ? normalizeEmail(identity) : null;
+    const phone = identity.includes("@") ? null : normalizePhone(identity);
+    const result = await pool.query(
+      `SELECT id, phone
+         FROM users
+        WHERE status = 'active'
+          AND (($1::text IS NOT NULL AND lower(email) = $1)
+            OR ($2::text IS NOT NULL AND phone = $2))
+        LIMIT 1`,
+      [email, phone]
+    );
+    const user = result.rows[0];
+
+    if (!user?.phone || !validSmsPhone(user.phone)) {
+      return res.status(202).json({
+        ok: true,
+        challenge_id: crypto.randomUUID(),
+        masked_phone: null,
+        expires_in: OTP_TTL_MINUTES * 60,
+        resend_in: OTP_RESEND_SECONDS
+      });
+    }
+
+    const challenge = await createAuthChallenge({
+      purpose: "password_reset",
+      phone: user.phone,
+      userId: user.id
+    });
+    return res.status(202).json({ ok: true, ...challenge });
+  } catch (error) {
+    const handled = authChallengeError(res, error);
+    if (handled) return handled;
+    next(error);
+  }
+});
+
+app.post("/api/auth/password-reset/verify", authLimiter, async (req, res, next) => {
+  const client = await pool.connect();
+  try {
+    const challengeId = String(req.body?.challenge_id || "").trim();
+    const code = String(req.body?.code || "").trim();
+    const password = String(req.body?.password || "");
+    const passwordConfirmation = String(req.body?.password_confirmation || "");
+
+    if (!challengeId || !/^\d{6}$/.test(code)) {
+      return res.status(400).json({ error: "verification_code_required" });
+    }
+    if (password.length < 8) {
+      return res.status(400).json({ error: "password_too_short" });
+    }
+    if (password !== passwordConfirmation) {
+      return res.status(400).json({ error: "passwords_do_not_match" });
+    }
+
+    await client.query("BEGIN");
+    const found = await client.query(
+      `SELECT *
+         FROM auth_challenges
+        WHERE id = $1 AND purpose = 'password_reset'
+        FOR UPDATE`,
+      [challengeId]
+    );
+    const challenge = found.rows[0];
+
+    if (
+      !challenge ||
+      !challenge.user_id ||
+      challenge.consumed_at ||
+      Number(challenge.attempts) >= OTP_MAX_ATTEMPTS ||
+      new Date(challenge.expires_at).getTime() <= Date.now()
+    ) {
+      await client.query("ROLLBACK");
+      return res.status(400).json({ error: "verification_expired" });
+    }
+
+    if (!otpMatches(otpSecret(), challenge.id, code, challenge.code_hash)) {
+      await client.query(
+        "UPDATE auth_challenges SET attempts = attempts + 1 WHERE id = $1",
+        [challenge.id]
+      );
+      await client.query("COMMIT");
+      return res.status(400).json({ error: "verification_code_invalid" });
+    }
+
+    const passwordHash = await bcrypt.hash(password, 12);
+    const updated = await client.query(
+      `UPDATE users
+          SET password_hash = $2,
+              phone_verified_at = COALESCE(phone_verified_at, now()),
+              updated_at = now()
+        WHERE id = $1 AND status = 'active'
+        RETURNING *`,
+      [challenge.user_id, passwordHash]
+    );
+    const user = updated.rows[0];
+    if (!user) {
+      await client.query("ROLLBACK");
+      return res.status(400).json({ error: "verification_expired" });
+    }
+
+    await client.query("DELETE FROM user_sessions WHERE user_id = $1", [user.id]);
+    await client.query(
+      "UPDATE auth_challenges SET consumed_at = now() WHERE id = $1",
+      [challenge.id]
+    );
+    await client.query("COMMIT");
+
+    const accessToken = await issueSession(req, res, user.id);
+    return res.json({
+      user: publicUser(user),
+      access_token: accessToken,
+      expires_in: SESSION_DAYS * 24 * 60 * 60
+    });
+  } catch (error) {
+    await client.query("ROLLBACK").catch(() => {});
+    next(error);
+  } finally {
+    client.release();
   }
 });
 
