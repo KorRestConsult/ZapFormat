@@ -4853,3 +4853,84 @@ body.guest-mode .logo{
 .vin-category-grid-locked{margin-top:12px}
 .vin-category-card-locked{cursor:default;opacity:.74}
 .vin-category-card-locked:hover{transform:none;box-shadow:none;border-color:#dbe3e8;background:#fbfcfd}
+
+
+/* VIN technical-map refinement */
+.vin-exploded{
+  min-height:390px;
+  background:
+    radial-gradient(circle at 72% 42%,rgba(255,255,255,.98) 0,rgba(244,248,250,.96) 42%,rgba(231,238,243,.96) 100%);
+  border:1px solid rgba(198,211,220,.72);
+}
+.vin-scheme-label{
+  position:absolute;z-index:4;left:18px;top:16px;display:flex;flex-direction:column;gap:2px;
+  padding:9px 11px;border-radius:11px;background:rgba(255,255,255,.9);backdrop-filter:blur(8px);
+  border:1px solid rgba(201,214,222,.8);box-shadow:0 5px 16px rgba(16,49,70,.06)
+}
+.vin-scheme-label b{font-size:11px;color:#17354a;letter-spacing:.02em}
+.vin-scheme-label span{font-size:10px;color:#8595a0}
+.vin-car-schematic{inset:54px 30px 24px}
+.vin-car-schematic svg{filter:none}
+.vin-car-schematic .car-shadow ellipse{fill:rgba(24,52,70,.08)}
+.vin-car-schematic .car-body{stroke:#8da4b4;stroke-width:3.2}
+.vin-car-schematic .car-glass{stroke:#85a3b4;stroke-width:3}
+.vin-car-schematic .car-line,
+.vin-car-schematic .car-hood-line,
+.vin-car-schematic .car-bumper-line{
+  fill:none;stroke:#9badb8;stroke-width:2.5;stroke-linecap:round;stroke-linejoin:round
+}
+.vin-car-schematic .car-wheel{fill:#233847;stroke:#112b3d;stroke-width:4}
+.vin-car-schematic .brake-disc{fill:#d7e0e5;stroke:#7f95a4;stroke-width:3}
+.vin-car-schematic .car-wheel-core{fill:#9fb1bc;stroke:#6f8796;stroke-width:2.5}
+.vin-car-schematic .brake-caliper{fill:none;stroke:#e58a2b;stroke-width:7;stroke-linecap:round}
+.vin-car-schematic .component{fill:none;stroke:#45687e;stroke-width:3;stroke-linecap:round;stroke-linejoin:round}
+.vin-car-schematic .component-engine rect:first-child{fill:#f4ae55;stroke:#c97825}
+.vin-car-schematic .component-engine rect:nth-child(2){fill:#ffd08d;stroke:#c97825}
+.vin-car-schematic .component-engine path,
+.vin-car-schematic .component-engine circle{fill:none;stroke:#a96522;stroke-width:3}
+.vin-car-schematic .component-gearbox path{fill:#cad8e0;stroke:#6e8797}
+.vin-car-schematic .component-gearbox circle{fill:#eef3f6;stroke:#6e8797}
+.vin-car-schematic .component-drive path{stroke:#56768a;stroke-width:5}
+.vin-car-schematic .component-drive circle{fill:#eaf0f4;stroke:#56768a}
+.vin-car-schematic .component-exhaust path{stroke:#9babb5;stroke-width:7}
+.vin-car-schematic .component-exhaust rect{fill:#d6dee3;stroke:#8b9da8}
+.vin-car-schematic .component-steering circle,
+.vin-car-schematic .component-filter rect{fill:#eef4f7;stroke:#607d90}
+.vin-car-schematic .component-suspension path{stroke:#718a9a;stroke-width:5}
+.vin-car-schematic .component-filter path{stroke:#607d90}
+.vin-hotspot{
+  z-index:5;padding:7px 10px;border-color:#c5d2da;background:rgba(255,255,255,.94);
+  transition:transform .14s ease,border-color .14s ease,box-shadow .14s ease
+}
+.vin-hotspot:hover{transform:translateY(-2px);border-color:#7594a8;box-shadow:0 10px 24px rgba(16,49,70,.13)}
+.vin-hotspot.is-locked{cursor:default;opacity:.78}
+.vin-hotspot.is-locked:hover{transform:none;border-color:#c5d2da;box-shadow:0 7px 18px rgba(16,49,70,.10)}
+.hot-engine{right:2.5%;top:43%}
+.hot-filter{right:4%;top:18%}
+.hot-brake{left:2.5%;bottom:17%}
+.hot-suspension{left:5%;top:29%}
+.hot-steering{right:21%;top:9%}
+.hot-gearbox{left:47%;bottom:5%}
+.hot-drive{left:31%;bottom:15%}
+
+@media(max-width:980px){
+  .vin-exploded{min-height:360px}
+  .vin-car-schematic{inset:58px 18px 28px}
+}
+@media(max-width:680px){
+  .vin-exploded{min-height:355px}
+  .vin-scheme-label{left:10px;top:10px;padding:7px 9px}
+  .vin-scheme-label span{display:none}
+  .vin-car-schematic{inset:66px -14px 48px}
+  .vin-hotspot{padding:5px 7px;gap:4px}
+  .vin-hotspot span{width:21px;height:21px}
+  .vin-hotspot svg{width:14px;height:14px}
+  .vin-hotspot b{font-size:9px}
+  .hot-engine{right:1%;top:44%}
+  .hot-filter{right:1%;top:20%}
+  .hot-brake{left:1%;bottom:19%}
+  .hot-suspension{left:1%;top:31%}
+  .hot-steering{right:18%;top:8%}
+  .hot-gearbox{left:43%;bottom:4%}
+  .hot-drive{left:27%;bottom:15%}
+}
