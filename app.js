@@ -2751,6 +2751,13 @@ async function search(query,options={}){
         vinCatalogState=null;
         renderVinDecodeResult(vin,decoded);
       }
+
+      if(options.push!==false){
+        const url=new URL(location.href);
+        url.search="";
+        url.searchParams.set("q",vin);
+        history.pushState({route:"search",query:vin,vin:true},"",url.pathname+url.search);
+      }
       return true;
     }catch(error){
       console.error("VIN decode failed",error);
