@@ -12,11 +12,13 @@ const bcrypt = require("bcryptjs");
 const { rateLimit } = require("express-rate-limit");
 const { Pool } = require("pg");
 const { PartGradeError, createPartGradeClient } = require("./partgrade");
+const { FapiError, createFapiClient } = require("./fapi");
+const { selectFapiNodes, uniqueOemRows } = require("./fapi-fitment");
 const { createOfferTokenCodec } = require("./offer-token");
 const { customerPrice } = require("./pricing");
 const { verifyGitHubActionsToken } = require("./github-oidc");
 const { interpretSearch, researchPartCandidates, normalizeVehicle } = require("./ai-search");
-const { publicBootstrapJwk, installEncryptedOpenAIKey, installTimewebAIToken, installSmsRuToken } = require("./secret-bootstrap");
+const { publicBootstrapJwk, installEncryptedOpenAIKey, installTimewebAIToken, installSmsRuToken, installFapiToken } = require("./secret-bootstrap");
 const {
   SmsDeliveryError,
   createOtpCode,
@@ -60,6 +62,7 @@ const FRONTEND_ORIGINS = String(process.env.FRONTEND_ORIGINS || "")
   .filter(Boolean);
 
 const partGrade = createPartGradeClient();
+const fapi = createFapiClient();
 const vehicleCatalog = createAbcpCarbaseProvider(partGrade);
 const offerTokens = createOfferTokenCodec();
 const sendVerificationCode = createSmsRuSender();
@@ -1821,6 +1824,112 @@ function publicVehicleCatalogCandidate(candidate) {
   };
 }
 
+function validVin(value) {
+  return /^[A-HJ-NPR-Z0-9]{17}$/.test(String(value || "").trim().toUpperCase());
+}
+
+function publicFapiVehicle(decoded) {
+  return {
+    vin: decoded?.vin || null,
+    confidence: decoded?.confidence || null,
+    manufacturer: decoded?.manufacturer || null,
+    brand_name: decoded?.brand_name || null,
+    model_name: decoded?.model_name || null,
+    modification_name: decoded?.modification_name || null,
+    model_year: decoded?.model_year || null,
+    production_date: decoded?.production_date || null,
+    engine_code: decoded?.engine_code || null,
+    engine_type: decoded?.engine_type || null,
+    fuel_type: decoded?.fuel_type || null,
+    displacement_cc: decoded?.displacement_cc || null,
+    power_hp: decoded?.power_hp || null,
+    transmission: decoded?.transmission || null,
+    gearbox_code: decoded?.gearbox_code || null,
+    drive_type: decoded?.drive_type || null,
+    body_type: decoded?.body_type || null,
+    dt_manufacturer_id: decoded?.dt_manufacturer_id || null,
+    dt_model_id: decoded?.dt_model_id || null,
+    dt_type_id: decoded?.dt_type_id || null
+  };
+}
+
+async function persistFapiBinding(userId, vehicleId, decoded) {
+  if (!pool || !decoded?.dt_type_id) return;
+  await pool.query(
+    `UPDATE vehicles
+        SET catalog_provider = 'fapi_v2',
+            catalog_manufacturer_id = $3,
+            catalog_model_id = $4,
+            catalog_modification_id = $5,
+            catalog_modification_name = $6,
+            catalog_verified_at = now(),
+            updated_at = now()
+      WHERE id = $1 AND user_id = $2`,
+    [
+      vehicleId,
+      userId,
+      decoded?.dt_manufacturer_id ? String(decoded.dt_manufacturer_id) : null,
+      decoded?.dt_model_id ? String(decoded.dt_model_id) : null,
+      String(decoded.dt_type_id),
+      decoded?.modification_name || null
+    ]
+  );
+}
+
+async function resolveFapiVinFitment(vehicle, intent, query) {
+  const vin = String(vehicle?.vin || "").trim().toUpperCase();
+  if (!fapi.configured() || !validVin(vin)) return null;
+  if (String(intent?.special_category || "none") !== "none") return null;
+
+  const decoded = await fapi.decodeVin(vin);
+  const modificationId = Number(decoded?.dt_type_id || 0);
+  if (!modificationId) {
+    return {
+      status: "vin_not_exact",
+      decoded: publicFapiVehicle(decoded),
+      nodes: [],
+      articles: []
+    };
+  }
+
+  const tree = await fapi.tree(modificationId);
+  const nodes = selectFapiNodes(tree, intent, query, 4);
+  if (!nodes.length) {
+    return {
+      status: "part_group_not_found",
+      decoded: publicFapiVehicle(decoded),
+      nodes: [],
+      articles: []
+    };
+  }
+
+  const chunks = await Promise.all(
+    nodes.slice(0, 3).map((node) => fapi.oem(modificationId, node.id))
+  );
+  const direct = uniqueOemRows(chunks.flat(), 16);
+  const preferred = direct.some((row) => !row.fit)
+    ? direct.filter((row) => !row.fit)
+    : direct;
+
+  const articles = preferred.slice(0, 10).map((row) => ({
+    brand: row.brand,
+    article: row.article,
+    description: row.description || "Оригинальная деталь",
+    goods_group_code: String(intent?.category || "oem"),
+    goods_group_name: nodes[0]?.name || String(intent?.part_name || "Деталь"),
+    fit_axle: null,
+    fitment_note: row.fit ? "Каталог: " + String(row.fit) : null,
+    source: "fapi_oem"
+  }));
+
+  return {
+    status: articles.length ? "resolved" : "oem_not_found",
+    decoded: publicFapiVehicle(decoded),
+    nodes,
+    articles
+  };
+}
+
 function catalogInfoModification(info) {
   return info?.modification && typeof info.modification === "object"
     ? info.modification
@@ -1865,6 +1974,21 @@ async function persistVehicleCatalogBinding(userId, vehicleId, resolved) {
     ]
   );
 }
+
+app.get("/api/catalog/fapi/status", (_req, res) => {
+  res.json({
+    ok: true,
+    provider: "fapi_v2",
+    configured: fapi.configured(),
+    capabilities: {
+      vin_decode: true,
+      vehicle_tree: true,
+      oem_by_vehicle: true,
+      analogs: true,
+      live_supplier_offers: true
+    }
+  });
+});
 
 app.get("/api/catalog/vehicle-catalog/status", aiSearchLimiter, async (_req, res) => {
   try {
@@ -1967,6 +2091,52 @@ app.post("/api/catalog/ai-search", requireDatabase, requireUser, aiSearchLimiter
         intent,
         question: intent.clarification_question || "Уточните деталь."
       });
+    }
+
+    if (fapi.configured() && validVin(vehicle.vin)) {
+      try {
+        const fapiFitment = await resolveFapiVinFitment(vehicle, intent, query);
+        if (fapiFitment?.status === "resolved" && fapiFitment.articles.length) {
+          await persistFapiBinding(req.user.id, vehicle.id, fapiFitment.decoded);
+          return res.json({
+            ok: true,
+            mode: "verified_articles",
+            interpreter: interpreted.mode,
+            ai_configured: Boolean(
+              String(process.env.TIMEWEB_AI_TOKEN || "").trim() ||
+              String(process.env.OPENAI_API_KEY || "").trim()
+            ),
+            vehicle: normalizeVehicle(vehicle),
+            intent,
+            fitment_status: "vin_catalog_match",
+            vehicle_identity: {
+              vin_present: true,
+              vin_decoded: true,
+              identification_source: "vindec_fapi"
+            },
+            vin_decode: fapiFitment.decoded,
+            catalog: {
+              provider: "fapi_v2",
+              manufacturer: {
+                id: fapiFitment.decoded.dt_manufacturer_id || null,
+                name: fapiFitment.decoded.brand_name || fapiFitment.decoded.manufacturer || vehicle.brand || null
+              },
+              model: {
+                id: fapiFitment.decoded.dt_model_id || null,
+                name: fapiFitment.decoded.model_name || vehicle.model || null
+              },
+              modification: {
+                id: fapiFitment.decoded.dt_type_id || null,
+                name: fapiFitment.decoded.modification_name || null
+              },
+              matched_nodes: fapiFitment.nodes
+            },
+            articles: fapiFitment.articles
+          });
+        }
+      } catch (error) {
+        console.warn("[FapiFitment]", error?.code || error?.message || "failed");
+      }
     }
 
     const coverage = catalogCoverageForIntent(intent, vehicleCatalog.capabilities);
@@ -2098,6 +2268,36 @@ app.post("/api/catalog/ai-search", requireDatabase, requireUser, aiSearchLimiter
         modification: resolved.modification || null
       },
       articles
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+app.post("/api/garage/vehicles/:vehicleId/vin-decode", requireUser, aiSearchLimiter, async (req, res, next) => {
+  try {
+    if (!fapi.configured()) return res.status(503).json({ error: "fapi_not_configured" });
+    const found = await pool.query(
+      `SELECT id, brand, model, generation, year, engine, vin, plate_number
+         FROM vehicles
+        WHERE id = $1 AND user_id = $2
+        LIMIT 1`,
+      [req.params.vehicleId, req.user.id]
+    );
+    const vehicle = found.rows[0];
+    if (!vehicle) return res.status(404).json({ error: "vehicle_not_found" });
+    const vin = String(vehicle.vin || "").trim().toUpperCase();
+    if (!validVin(vin)) return res.status(400).json({ error: "invalid_vin" });
+
+    const decoded = await fapi.decodeVin(vin);
+    if (decoded?.dt_type_id) {
+      await persistFapiBinding(req.user.id, vehicle.id, decoded);
+    }
+    return res.json({
+      ok: true,
+      provider: "fapi_v2",
+      decoded: publicFapiVehicle(decoded),
+      exact_catalog_match: Boolean(decoded?.dt_type_id)
     });
   } catch (error) {
     next(error);
@@ -4202,6 +4402,53 @@ app.post("/api/internal/smsru-token", async (req, res) => {
   }
 });
 
+app.post("/api/internal/fapi-token", async (req, res) => {
+  try {
+    const auth = String(req.get("authorization") || "");
+    const token = auth.replace(/^Bearer\s+/i, "").trim();
+    const claims = await verifyGitHubActionsToken(token);
+
+    const requestedSha = String(req.body?.sha || "").trim().toLowerCase();
+    if (!/^[a-f0-9]{40}$/.test(requestedSha) || requestedSha !== String(claims.sha || "").toLowerCase()) {
+      return res.status(400).json({ error: "sha_mismatch" });
+    }
+
+    const result = await installFapiToken(req.body);
+    return res.status(201).json({
+      ok: true,
+      configured: result.configured,
+      provider: result.provider
+    });
+  } catch (error) {
+    console.error("[FapiSetup]", error?.message || "setup_failed");
+    return res.status(401).json({ error: "unauthorized_or_invalid_payload" });
+  }
+});
+
+app.post("/api/internal/fapi-smoke", async (req, res) => {
+  try {
+    const auth = String(req.get("authorization") || "");
+    const token = auth.replace(/^Bearer\s+/i, "").trim();
+    const claims = await verifyGitHubActionsToken(token);
+    const requestedSha = String(req.body?.sha || "").trim().toLowerCase();
+    if (!/^[a-f0-9]{40}$/.test(requestedSha) || requestedSha !== String(claims.sha || "").toLowerCase()) {
+      return res.status(400).json({ error: "sha_mismatch" });
+    }
+
+    const usage = await fapi.usage();
+    return res.json({
+      ok: true,
+      configured: true,
+      provider: "fapi_v2",
+      account_state: usage?.account?.st || null,
+      vin_state: usage?.vin?.st || null
+    });
+  } catch (error) {
+    console.error("[FapiSmoke]", error?.code || error?.message || "smoke_failed");
+    return res.status(502).json({ error: "fapi_smoke_failed" });
+  }
+});
+
 app.post("/api/internal/search-smoke", async (req, res) => {
   try {
     const auth = String(req.get("authorization") || "");
@@ -4305,6 +4552,12 @@ app.get("/api/deploy/status", async (_req, res) => {
 });
 
 app.use((error, _req, res, _next) => {
+  if (error instanceof FapiError) {
+    console.error("[FAPI]", error.code, error.status || "");
+    const status = error.code === "fapi_not_configured" ? 503 : (Number(error.status) >= 400 && Number(error.status) < 600 ? Number(error.status) : 502);
+    return res.status(status).json({ error: error.code || "fapi_unavailable" });
+  }
+
   if (error instanceof PartGradeError) {
     console.error("[SupplierAPI]", error.code, error.status || "");
     const status = error.code === "partgrade_not_configured" ? 503 : 502;
