@@ -59,6 +59,7 @@ function createFapiClient(options = {}) {
     configured,
     usage: () => get("usage"),
     decodeVin: (vin) => get("vin", { vin }),
+    modifications: (modelId) => get("catalogList/dt/modificationList", { mi: modelId }),
     tree: (modificationId) => get("catalogList/dt/treeList", { mi: modificationId }),
     oem: (modificationId, nodeId) => get("catalogList/dt/productListOEM", {
       modi: modificationId,
