@@ -143,6 +143,11 @@ let pendingSmartSearchAfterVehicle=null;
 let pendingCheckoutAfterDelivery=false;
 let checkoutReviewOpen=false;
 let clearCartArmedUntil=0;
+let registrationChallengeId="";
+let registrationDraft=null;
+let resetChallengeId="";
+let resetIdentity="";
+const authCooldownTimers=new Map();
 
 function backendConfigured(){ return Boolean(API_BASE); }
 
@@ -320,9 +325,19 @@ function authErrorText(error){
     backend_not_configured:"Сервис временно недоступен. Попробуйте ещё раз позже.",
     invalid_credentials:"Неверный телефон/email или пароль.",
     password_too_short:"Пароль должен быть не короче 8 символов.",
-    user_already_exists:"Аккаунт с таким телефоном или email уже существует.",
-    name_and_identity_required:"Укажите имя и телефон или email.",
+    passwords_do_not_match:"Пароли не совпадают.",
+    invalid_phone:"Введите номер телефона в формате +7 900 000-00-00.",
+    user_already_exists:"Аккаунт с таким телефоном уже существует. Войдите или восстановите пароль.",
+    name_and_identity_required:"Укажите имя и номер телефона.",
+    identity_required:"Укажите телефон или email.",
     login_and_password_required:"Введите телефон/email и пароль.",
+    verification_code_required:"Введите шестизначный код из SMS.",
+    verification_code_invalid:"Неверный код. Проверьте SMS и попробуйте ещё раз.",
+    verification_expired:"Код истёк или использован. Запросите новый.",
+    verification_unavailable:"Подтверждение по SMS временно недоступно.",
+    sms_send_failed:"Не удалось отправить SMS. Попробуйте ещё раз.",
+    otp_too_soon:"Код уже отправлен. Подождите немного перед повтором.",
+    phone_verification_required:"Подтвердите номер телефона.",
     unauthorized:"Нужно войти в аккаунт.",
     conflict:"Такие данные уже используются другим аккаунтом."
   };
@@ -340,6 +355,90 @@ function showAuthTab(tab){
   document.querySelectorAll("[data-auth-tab]").forEach(x=>x.classList.toggle("active",x.dataset.authTab===tab));
   document.querySelectorAll("[data-auth-pane]").forEach(x=>x.classList.toggle("active",x.dataset.authPane===tab));
   setAuthStatus("");
+}
+
+function setAuthStage(kind,stage){
+  document.querySelectorAll(`[data-${kind}-stage]`).forEach(node=>{
+    node.hidden=node.dataset[kind+"Stage"]!==stage;
+  });
+}
+
+function startAuthCooldown(kind,seconds=60){
+  const button=document.querySelector(`[data-auth-resend="${kind}"]`);
+  if(!button) return;
+  const oldTimer=authCooldownTimers.get(kind);
+  if(oldTimer) clearInterval(oldTimer);
+  const defaultText="Отправить код ещё раз";
+  let left=Math.max(1,Number(seconds)||60);
+  button.disabled=true;
+  button.textContent=`Повтор через ${left} с`;
+  const timer=setInterval(()=>{
+    left-=1;
+    if(left<=0){
+      clearInterval(timer);
+      authCooldownTimers.delete(kind);
+      button.disabled=false;
+      button.textContent=defaultText;
+      return;
+    }
+    button.textContent=`Повтор через ${left} с`;
+  },1000);
+  authCooldownTimers.set(kind,timer);
+}
+
+function resetRegistrationFlow(){
+  registrationChallengeId="";
+  registrationDraft=null;
+  setAuthStage("register","details");
+  const code=document.querySelector('#registerForm [name="verification_code"]');
+  if(code) code.value="";
+  const button=document.getElementById("registerSubmitButton");
+  if(button) button.textContent="Получить код";
+  setAuthStatus("");
+}
+
+function resetPasswordFlow(){
+  resetChallengeId="";
+  resetIdentity="";
+  setAuthStage("reset","identity");
+  const form=document.getElementById("forgotForm");
+  form?.reset();
+  const button=document.getElementById("resetSubmitButton");
+  if(button) button.textContent="Получить код";
+  setAuthStatus("");
+}
+
+async function resendAuthCode(kind,button){
+  button.disabled=true;
+  setAuthStatus("Отправляем новый код…");
+  try{
+    let result;
+    if(kind==="register"){
+      if(!registrationDraft) return resetRegistrationFlow();
+      result=await apiRequest("/api/auth/register/start",{
+        method:"POST",
+        body:JSON.stringify(registrationDraft)
+      });
+      registrationChallengeId=result.challenge_id;
+      const masked=document.getElementById("registerMaskedPhone");
+      if(masked) masked.textContent=result.masked_phone||"ваш номер";
+    }else{
+      if(!resetIdentity) return resetPasswordFlow();
+      result=await apiRequest("/api/auth/password-reset/start",{
+        method:"POST",
+        body:JSON.stringify({identity:resetIdentity})
+      });
+      resetChallengeId=result.challenge_id;
+      const masked=document.getElementById("resetMaskedPhone");
+      if(masked) masked.textContent=result.masked_phone||"привязанный номер";
+    }
+    setAuthStatus("Новый код отправлен.","success");
+    startAuthCooldown(kind,result.resend_in||60);
+  }catch(error){
+    if(error?.code==="otp_too_soon") startAuthCooldown(kind,error?.data?.retry_after||60);
+    else button.disabled=false;
+    setAuthStatus(authErrorText(error),"error");
+  }
 }
 
 function renderCheckoutContact(){
@@ -3623,7 +3722,29 @@ document.addEventListener("click",async e=>{
   }
 
   const authTab=e.target.closest("[data-auth-tab]");
-  if(authTab){ showAuthTab(authTab.dataset.authTab); return; }
+  if(authTab){
+    const tab=authTab.dataset.authTab;
+    if(tab==="register") resetRegistrationFlow();
+    if(tab==="forgot") resetPasswordFlow();
+    showAuthTab(tab);
+    return;
+  }
+
+  if(e.target.closest("[data-register-edit]")){
+    resetRegistrationFlow();
+    return;
+  }
+
+  if(e.target.closest("[data-reset-edit]")){
+    resetPasswordFlow();
+    return;
+  }
+
+  const resend=e.target.closest("[data-auth-resend]");
+  if(resend){
+    await resendAuthCode(resend.dataset.authResend,resend);
+    return;
+  }
 
   const garageVehicle=e.target.closest("[data-garage-vehicle]");
   if(garageVehicle){
@@ -3781,33 +3902,81 @@ document.getElementById("loginForm")?.addEventListener("submit",async e=>{
 document.getElementById("registerForm")?.addEventListener("submit",async e=>{
   e.preventDefault();
   const form=e.currentTarget;
-  const button=form.querySelector('button[type="submit"]');
+  const button=document.getElementById("registerSubmitButton");
   const data=Object.fromEntries(new FormData(form).entries());
-  const identity=String(data.identity||"").trim();
-  if(identity.replace(/\D/g,"").length<10){
-    setAuthStatus("Укажите номер телефона.","error");
-    form.querySelector('[name="identity"]')?.focus();
+
+  if(!registrationChallengeId){
+    const identity=String(data.identity||"").trim();
+    if(identity.replace(/\D/g,"").length<11){
+      setAuthStatus("Укажите номер телефона в формате +7 900 000-00-00.","error");
+      form.querySelector('[name="identity"]')?.focus();
+      return;
+    }
+    if(String(data.password||"").length<8){
+      setAuthStatus("Пароль должен быть не короче 8 символов.","error");
+      form.querySelector('[name="password"]')?.focus();
+      return;
+    }
+    if(data.password!==data.password_confirmation){
+      setAuthStatus("Пароли не совпадают.","error");
+      form.querySelector('[name="password_confirmation"]')?.focus();
+      return;
+    }
+
+    registrationDraft={
+      name:String(data.name||"").trim(),
+      surname:"",
+      phone:identity,
+      password:data.password,
+      password_confirmation:data.password_confirmation
+    };
+
+    button.disabled=true;
+    setAuthStatus("Отправляем код подтверждения…");
+    try{
+      const result=await apiRequest("/api/auth/register/start",{
+        method:"POST",
+        body:JSON.stringify(registrationDraft)
+      });
+      registrationChallengeId=result.challenge_id;
+      const masked=document.getElementById("registerMaskedPhone");
+      if(masked) masked.textContent=result.masked_phone||identity;
+      setAuthStage("register","verify");
+      button.textContent="Подтвердить и создать аккаунт";
+      setAuthStatus("Код отправлен по SMS.","success");
+      startAuthCooldown("register",result.resend_in||60);
+      form.querySelector('[name="verification_code"]')?.focus();
+    }catch(error){
+      setAuthStatus(authErrorText(error),"error");
+    }finally{
+      button.disabled=false;
+    }
     return;
   }
+
+  const code=String(data.verification_code||"").replace(/\D/g,"").slice(0,6);
+  if(code.length!==6){
+    setAuthStatus("Введите шестизначный код из SMS.","error");
+    form.querySelector('[name="verification_code"]')?.focus();
+    return;
+  }
+
   button.disabled=true;
-  setAuthStatus("Создаём аккаунт…");
+  setAuthStatus("Проверяем код…");
   try{
-    const result=await apiRequest("/api/auth/register",{
+    const result=await apiRequest("/api/auth/register/verify",{
       method:"POST",
-      body:JSON.stringify({
-        name:data.name,
-        surname:"",
-        phone:identity,
-        email:"",
-        password:data.password
-      })
+      body:JSON.stringify({challenge_id:registrationChallengeId,code})
     });
     sessionUser=result.user;
     if(result.access_token) saveAuthToken(result.access_token);
     applySessionUser();
     hydrateCartFromAccount().catch(error=>console.warn("ZapFormat cart hydration failed",error));
     hydrateAccountData().catch(error=>console.warn("ZapFormat account hydration failed",error));
-    setAuthStatus("Аккаунт создан.","success");
+    registrationChallengeId="";
+    registrationDraft=null;
+    setAuthStatus("Номер подтверждён. Аккаунт создан.","success");
+
     const params=new URLSearchParams(location.search);
     const pendingSearch=pendingSearchAfterAuth ||
       loadSearchResume() ||
@@ -3825,6 +3994,90 @@ document.getElementById("registerForm")?.addEventListener("submit",async e=>{
     button.disabled=false;
   }
 });
+
+document.getElementById("forgotForm")?.addEventListener("submit",async e=>{
+  e.preventDefault();
+  const form=e.currentTarget;
+  const button=document.getElementById("resetSubmitButton");
+  const data=Object.fromEntries(new FormData(form).entries());
+
+  if(!resetChallengeId){
+    const identity=String(data.identity||"").trim();
+    if(!identity){
+      setAuthStatus("Укажите телефон или email.","error");
+      form.querySelector('[name="identity"]')?.focus();
+      return;
+    }
+
+    button.disabled=true;
+    setAuthStatus("Отправляем код восстановления…");
+    try{
+      const result=await apiRequest("/api/auth/password-reset/start",{
+        method:"POST",
+        body:JSON.stringify({identity})
+      });
+      resetIdentity=identity;
+      resetChallengeId=result.challenge_id;
+      const masked=document.getElementById("resetMaskedPhone");
+      if(masked) masked.textContent=result.masked_phone||"привязанный номер";
+      setAuthStage("reset","verify");
+      button.textContent="Сохранить новый пароль";
+      setAuthStatus("Если аккаунт найден, код отправлен по SMS.","success");
+      startAuthCooldown("reset",result.resend_in||60);
+      form.querySelector('[name="verification_code"]')?.focus();
+    }catch(error){
+      setAuthStatus(authErrorText(error),"error");
+    }finally{
+      button.disabled=false;
+    }
+    return;
+  }
+
+  const code=String(data.verification_code||"").replace(/\D/g,"").slice(0,6);
+  const password=String(data.password||"");
+  const confirmation=String(data.password_confirmation||"");
+  if(code.length!==6){
+    setAuthStatus("Введите шестизначный код из SMS.","error");
+    return;
+  }
+  if(password.length<8){
+    setAuthStatus("Пароль должен быть не короче 8 символов.","error");
+    return;
+  }
+  if(password!==confirmation){
+    setAuthStatus("Пароли не совпадают.","error");
+    return;
+  }
+
+  button.disabled=true;
+  setAuthStatus("Меняем пароль…");
+  try{
+    const result=await apiRequest("/api/auth/password-reset/verify",{
+      method:"POST",
+      body:JSON.stringify({
+        challenge_id:resetChallengeId,
+        code,
+        password,
+        password_confirmation:confirmation
+      })
+    });
+    sessionUser=result.user;
+    if(result.access_token) saveAuthToken(result.access_token);
+    applySessionUser();
+    hydrateCartFromAccount().catch(error=>console.warn("ZapFormat cart hydration failed",error));
+    hydrateAccountData().catch(error=>console.warn("ZapFormat account hydration failed",error));
+    resetChallengeId="";
+    resetIdentity="";
+    setAuthStatus("Пароль изменён.","success");
+    navigate(pendingAccountRoute||"home");
+  }catch(error){
+    setAuthStatus(authErrorText(error),"error");
+  }finally{
+    button.disabled=false;
+  }
+});
+
+
 
 document.getElementById("logoutButton")?.addEventListener("click",async()=>{
   try{
