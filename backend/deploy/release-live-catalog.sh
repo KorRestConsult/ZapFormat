@@ -110,7 +110,20 @@ else
   npm install --omit=dev --package-lock=false
 fi
 mark_stage "unit_tests"
-npm test
+TEST_LOG="/tmp/zf-unit-tests.log"
+if ! npm test >"${TEST_LOG}" 2>&1; then
+  echo "FAIL: production unit tests failed."
+  tail -n 120 "${TEST_LOG}" || true
+  TEST_DETAIL="$(grep -E 'not ok|ERR_|Error:|error:|AssertionError|SyntaxError|ReferenceError|TypeError|MODULE_NOT_FOUND|Unsupported|failed' "${TEST_LOG}" \
+    | tail -n 8 \
+    | tr '\n' ' ' \
+    | tr -s ' ' \
+    | cut -c1-700 || true)"
+  mark_stage "unit_tests${TEST_DETAIL:+ | ${TEST_DETAIL}}"
+  exit 1
+fi
+cat "${TEST_LOG}"
+rm -f "${TEST_LOG}"
 
 mark_stage "environment"
 if [[ -f "${ENV_FILE}" ]]; then
