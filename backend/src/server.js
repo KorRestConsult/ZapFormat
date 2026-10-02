@@ -1924,10 +1924,15 @@ async function resolveFapiVinFitment(vehicle, intent, query) {
     };
   }
 
-  const chunks = await Promise.all(
-    nodes.slice(0, 3).map((node) => fapi.oem(modificationId, node.id))
-  );
-  const direct = uniqueOemRows(chunks.flat(), 16);
+  let direct = [];
+  for (const node of nodes.slice(0, 3)) {
+    const rows = await fapi.oem(modificationId, node.id);
+    const found = uniqueOemRows(rows, 16);
+    if (found.length) {
+      direct = found;
+      break;
+    }
+  }
   const preferred = direct.some((row) => !row.fit)
     ? direct.filter((row) => !row.fit)
     : direct;
