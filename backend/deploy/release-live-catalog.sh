@@ -157,17 +157,29 @@ for _ in $(seq 1 20); do
   sleep 0.25
 done
 systemctl reset-failed "${SERVICE}" 2>/dev/null || true
-if ! systemctl start "${SERVICE}"; then
-  echo "FAIL: ${SERVICE} could not start."
+capture_service_failure() {
+  local reason="${1:-service start failed}"
+  local detail=""
+  detail="$(journalctl -u "${SERVICE}" -n 80 --no-pager -o cat 2>/dev/null \
+    | grep -E 'Failed to start|Error|ERR_|ReferenceError|TypeError|EACCES|ENOENT|EADDR|permission|Cannot|MODULE_NOT_FOUND' \
+    | tail -n 8 \
+    | tr '\n' ' ' \
+    | tr -s ' ' \
+    | cut -c1-700 || true)"
+  mark_stage "service_restart | ${reason}${detail:+ | ${detail}}"
   systemctl status "${SERVICE}" --no-pager -l || true
   journalctl -u "${SERVICE}" -n 80 --no-pager || true
+}
+
+if ! systemctl start "${SERVICE}"; then
+  echo "FAIL: ${SERVICE} could not start."
+  capture_service_failure "systemctl start returned non-zero"
   exit 1
 fi
 sleep 2
 if ! systemctl is-active --quiet "${SERVICE}"; then
   echo "FAIL: ${SERVICE} exited after start."
-  systemctl status "${SERVICE}" --no-pager -l || true
-  journalctl -u "${SERVICE}" -n 80 --no-pager || true
+  capture_service_failure "service exited after start"
   exit 1
 fi
 
