@@ -16,7 +16,7 @@ const { createOfferTokenCodec } = require("./offer-token");
 const { customerPrice } = require("./pricing");
 const { verifyGitHubActionsToken } = require("./github-oidc");
 const { interpretSearch, researchPartCandidates, normalizeVehicle } = require("./ai-search");
-const { publicBootstrapJwk, installEncryptedOpenAIKey, installTimewebAIToken } = require("./secret-bootstrap");
+const { publicBootstrapJwk, installEncryptedOpenAIKey, installTimewebAIToken, installSmsRuToken } = require("./secret-bootstrap");
 const {
   SmsDeliveryError,
   createOtpCode,
@@ -2272,6 +2272,14 @@ app.post("/api/catalog/revalidate", async (req, res, next) => {
   }
 });
 
+app.get("/api/auth/capabilities", (_req, res) => {
+  res.json({
+    phone_verification: Boolean(String(process.env.SMSRU_API_ID || "").trim()),
+    password_recovery: Boolean(String(process.env.SMSRU_API_ID || "").trim()),
+    session_days: SESSION_DAYS
+  });
+});
+
 app.post("/api/auth/register/start", authLimiter, async (req, res, next) => {
   try {
     const name = String(req.body?.name || "").trim().slice(0, 120);
@@ -2531,67 +2539,12 @@ app.post("/api/auth/password-reset/verify", authLimiter, async (req, res, next) 
   }
 });
 
-app.post("/api/auth/register", authLimiter, async (req, res, next) => {
-  const client = await pool.connect();
-  try {
-    const name = String(req.body?.name || "").trim();
-    const surname = String(req.body?.surname || "").trim() || null;
-    const email = normalizeEmail(req.body?.email);
-    const phone = normalizePhone(req.body?.phone);
-    const password = String(req.body?.password || "");
-
-    if (!name || (!email && !phone)) {
-      return res.status(400).json({ error: "name_and_identity_required" });
-    }
-    if (password.length < 8) {
-      return res.status(400).json({ error: "password_too_short" });
-    }
-
-    await client.query("BEGIN");
-
-    const exists = await client.query(
-      `SELECT id FROM users
-       WHERE ($1::text IS NOT NULL AND lower(email) = $1)
-          OR ($2::text IS NOT NULL AND phone = $2)
-       LIMIT 1`,
-      [email, phone]
-    );
-    if (exists.rowCount) {
-      await client.query("ROLLBACK");
-      return res.status(409).json({ error: "user_already_exists" });
-    }
-
-    const passwordHash = await bcrypt.hash(password, 12);
-    const inserted = await client.query(
-      `INSERT INTO users (name, surname, email, phone, password_hash)
-       VALUES ($1, $2, $3, $4, $5)
-       RETURNING *`,
-      [name, surname, email, phone, passwordHash]
-    );
-    const user = inserted.rows[0];
-
-    await client.query(
-      "INSERT INTO carts (user_id) VALUES ($1) ON CONFLICT (user_id) DO NOTHING",
-      [user.id]
-    );
-    await client.query(
-      "INSERT INTO user_notification_settings (user_id) VALUES ($1) ON CONFLICT (user_id) DO NOTHING",
-      [user.id]
-    );
-
-    await client.query("COMMIT");
-    const accessToken = await issueSession(req, res, user.id);
-    res.status(201).json({
-      user: publicUser(user),
-      access_token: accessToken,
-      expires_in: SESSION_DAYS * 24 * 60 * 60
-    });
-  } catch (error) {
-    await client.query("ROLLBACK").catch(() => {});
-    next(error);
-  } finally {
-    client.release();
-  }
+app.post("/api/auth/register", authLimiter, async (_req, res) => {
+  return res.status(409).json({
+    error: "phone_verification_required",
+    start: "/api/auth/register/start",
+    verify: "/api/auth/register/verify"
+  });
 });
 
 app.post("/api/auth/login", authLimiter, async (req, res, next) => {
@@ -4221,6 +4174,30 @@ app.post("/api/internal/timeweb-ai-token", async (req, res) => {
     });
   } catch (error) {
     console.error("[TimewebAISetup]", error?.message || "setup_failed");
+    return res.status(401).json({ error: "unauthorized_or_invalid_payload" });
+  }
+});
+
+app.post("/api/internal/smsru-token", async (req, res) => {
+  try {
+    const auth = String(req.get("authorization") || "");
+    const token = auth.replace(/^Bearer\s+/i, "").trim();
+    const claims = await verifyGitHubActionsToken(token);
+
+    const requestedSha = String(req.body?.sha || "").trim().toLowerCase();
+    if (!/^[a-f0-9]{40}$/.test(requestedSha) || requestedSha !== String(claims.sha || "").toLowerCase()) {
+      return res.status(400).json({ error: "sha_mismatch" });
+    }
+
+    const result = await installSmsRuToken(req.body);
+    return res.status(201).json({
+      ok: true,
+      configured: result.configured,
+      provider: result.provider,
+      test: result.test
+    });
+  } catch (error) {
+    console.error("[SmsRuSetup]", error?.message || "setup_failed");
     return res.status(401).json({ error: "unauthorized_or_invalid_payload" });
   }
 });
