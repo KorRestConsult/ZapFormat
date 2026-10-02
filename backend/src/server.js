@@ -1880,17 +1880,17 @@ async function persistFapiBinding(userId, vehicleId, decoded) {
   );
 }
 
-async function resolveFapiVinFitment(vehicle, intent, query) {
-  const vin = String(vehicle?.vin || "").trim().toUpperCase();
-  if (!fapi.configured() || !validVin(vin)) return null;
-  if (String(intent?.special_category || "none") !== "none") return null;
+async function resolveFapiVinContext(vinValue) {
+  const vin = String(vinValue || "").trim().toUpperCase();
+  if (!fapi.configured() || !validVin(vin)) return { vin, decoded: null, modification: null };
 
   const decoded = await fapi.decodeVin(vin);
+  let selected = null;
   let modificationId = Number(decoded?.dt_type_id || 0);
 
   if (!modificationId && decoded?.dt_model_id) {
     const modificationList = await fapi.modifications(decoded.dt_model_id);
-    const selected = selectFapiModification(modificationList, decoded);
+    selected = selectFapiModification(modificationList, decoded);
     if (selected?.id) {
       modificationId = selected.id;
       decoded.dt_type_id = selected.id;
@@ -1903,6 +1903,31 @@ async function resolveFapiVinFitment(vehicle, intent, query) {
       decoded.displacement = selected.capacity || null;
     }
   }
+
+  return {
+    vin,
+    decoded,
+    modification: modificationId ? {
+      id: modificationId,
+      name: decoded?.modification_name || selected?.short_name || selected?.name || null,
+      engine_type: decoded?.engine_type || selected?.engine_type || null,
+      engine_code: decoded?.engine_code || selected?.engine_code || null,
+      power_kw: decoded?.power_kw || selected?.power_kw || null,
+      capacity: selected?.capacity || decoded?.displacement || null,
+      drive_type: decoded?.drive_type || selected?.drive_type || null,
+      body_type: decoded?.body_type || selected?.body_type || null
+    } : null
+  };
+}
+
+async function resolveFapiVinFitment(vehicle, intent, query) {
+  const vin = String(vehicle?.vin || "").trim().toUpperCase();
+  if (!fapi.configured() || !validVin(vin)) return null;
+  if (String(intent?.special_category || "none") !== "none") return null;
+
+  const context = await resolveFapiVinContext(vin);
+  const decoded = context.decoded;
+  const modificationId = Number(context?.modification?.id || 0);
 
   if (!modificationId) {
     return {
@@ -2000,6 +2025,96 @@ async function persistVehicleCatalogBinding(userId, vehicleId, resolved) {
     ]
   );
 }
+
+app.get("/api/catalog/vin-browser", requireUser, aiSearchLimiter, async (req, res, next) => {
+  try {
+    if (!fapi.configured()) return res.status(503).json({ error: "fapi_not_configured" });
+    const vin = String(req.query?.vin || "").trim().toUpperCase();
+    if (!validVin(vin)) return res.status(400).json({ error: "invalid_vin" });
+
+    const context = await resolveFapiVinContext(vin);
+    const decoded = publicFapiVehicle(context.decoded);
+    if (!context.modification?.id) {
+      return res.json({
+        ok: true,
+        provider: "fapi_v2",
+        ready: false,
+        decoded,
+        modification: null,
+        nodes: []
+      });
+    }
+
+    const rawTree = await fapi.tree(context.modification.id);
+    const nodes = (Array.isArray(rawTree) ? rawTree : []).map((row) => ({
+      id: Number(row?.i || 0),
+      parent_id: Number(row?.pi || 0),
+      name: String(row?.d || "").trim()
+    })).filter((row) => row.id && row.name);
+
+    return res.json({
+      ok: true,
+      provider: "fapi_v2",
+      ready: true,
+      decoded,
+      modification: context.modification,
+      nodes
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+app.get("/api/catalog/vin-node", requireUser, aiSearchLimiter, async (req, res, next) => {
+  try {
+    if (!fapi.configured()) return res.status(503).json({ error: "fapi_not_configured" });
+    const modificationId = Number(req.query?.modification_id || 0);
+    const nodeId = Number(req.query?.node_id || 0);
+    if (!Number.isInteger(modificationId) || modificationId <= 0 || !Number.isInteger(nodeId) || nodeId <= 0) {
+      return res.status(400).json({ error: "invalid_catalog_node" });
+    }
+
+    const rows = await fapi.oem(modificationId, nodeId);
+    const items = uniqueOemRows(rows, 40).map((row) => ({
+      manufacturer_id: row.manufacturer_id,
+      brand: row.brand,
+      article: row.article,
+      article_normalized: row.article_normalized,
+      description: row.description,
+      fit: row.fit || null,
+      image_url: row.manufacturer_id
+        ? "/api/catalog/fapi/image?mfi=" + encodeURIComponent(row.manufacturer_id) +
+          "&article=" + encodeURIComponent(row.article) + "&width=360"
+        : null
+    }));
+
+    return res.json({
+      ok: true,
+      provider: "fapi_v2",
+      modification_id: modificationId,
+      node_id: nodeId,
+      items
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+app.get("/api/catalog/fapi/image", requireUser, aiSearchLimiter, async (req, res, next) => {
+  try {
+    const manufacturerId = Number(req.query?.mfi || 0);
+    const article = String(req.query?.article || "").trim();
+    const width = Math.max(120, Math.min(720, Number(req.query?.width || 360)));
+    if (!manufacturerId || !article) return res.status(400).json({ error: "image_params_required" });
+
+    const result = await fapi.image(manufacturerId, article, width);
+    res.set("Content-Type", result.content_type || "image/jpeg");
+    res.set("Cache-Control", "private, max-age=86400");
+    return res.send(result.body);
+  } catch (error) {
+    next(error);
+  }
+});
 
 app.get("/api/catalog/fapi/status", (_req, res) => {
   res.json({
