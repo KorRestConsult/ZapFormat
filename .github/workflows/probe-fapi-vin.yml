@@ -134,3 +134,35 @@ jobs:
               })
           print(json.dumps({"count":len(rows),"roots":out},ensure_ascii=False))
           PY
+
+      - name: Probe oil-filter OEM and supplier handoff
+        shell: bash
+        env:
+          FAPI_API_KEY: ${{ secrets.FAPI_API_KEY }}
+        run: |
+          set -Eeuo pipefail
+          echo "::add-mask:${FAPI_API_KEY}"
+          curl -sS \
+            -H "Authorization: Bearer ${FAPI_API_KEY}" \
+            -H "Accept: application/json" \
+            "https://fapi.iisis.ru/fapi/v2/catalogList/dt/productListOEM?modi=33778&nodei=100259&strict=1" > oem.json
+          echo "OIL FILTER OEM:"
+          python3 - <<'PY'
+          import json
+          rows=json.load(open("oem.json",encoding="utf-8"))
+          print(json.dumps((rows if isinstance(rows,list) else [])[:8],ensure_ascii=False))
+          if not isinstance(rows,list) or not rows:
+              raise SystemExit("No OEM rows")
+          open("first-oem.txt","w").write(str(rows[0].get("n") or ""))
+          PY
+          ARTICLE="$(cat first-oem.txt)"
+          echo "SUPPLIER BRANDS FOR OEM:"
+          curl -fsS "https://api.201.51.28.68.sslip.io/api/catalog/brands?number=${ARTICLE}" > brands.json
+          python3 - <<'PY'
+          import json
+          d=json.load(open("brands.json",encoding="utf-8"))
+          rows=d.get("brands") or []
+          print(json.dumps({"count":len(rows),"sample":rows[:5]},ensure_ascii=False))
+          if not rows:
+              raise SystemExit("Supplier returned no brands")
+          PY
