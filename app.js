@@ -48,6 +48,15 @@ function itemRetail(item){
   return Number.isFinite(price) && price>=0 ? price : 0;
 }
 function rub(n){ return new Intl.NumberFormat("ru-RU").format(n) + " ₽"; }
+function deliveryLabel(days){
+  const value=Math.max(0,Math.trunc(Number(days)||0));
+  if(value===0) return "Сегодня";
+  if(value===1) return "Завтра";
+  const date=new Date();
+  date.setHours(12,0,0,0);
+  date.setDate(date.getDate()+value);
+  return date.toLocaleDateString("ru-RU",{day:"numeric",month:"short"}).replace(".","");
+}
 
 function showToast(message,type=""){
   let root=document.getElementById("appToast");
@@ -2867,7 +2876,7 @@ function supplyRowHtml(x){
         <div class="supply-left">
           <div class="supply-term">
             <b>Подтверждение</b>
-            <small>Ожидаемый срок</small>
+            <small>Ожидаемо</small>
           </div>
           <span class="supply-warehouse">${x.type==="analog"?"Аналог":"Точная позиция"}</span>
         </div>
@@ -2876,7 +2885,7 @@ function supplyRowHtml(x){
         <button class="quote-request-btn" data-add="${escapeHtml(x.id)}" aria-label="Добавить в запрос">В запрос</button>
       </div>`;
   }
-  const term=x.days===0?"Сегодня":x.days+(x.days===1?" день":" дн.");
+  const term=deliveryLabel(x.days);
   const available=Math.max(0,Number(x.qty||0));
   return `
     <div class="supply-row${available<=0?" unavailable":""}">
@@ -3256,7 +3265,7 @@ function renderCartPage(){
           ${x.vehicleContext?.label ? '<small class="cart-vehicle-context">'+escapeHtml(x.vehicleContext.label)+(x.vehicleContext.vin?" · "+escapeHtml(shortVin(x.vehicleContext.vin)):"")+'</small>' : ""}
         </div>
         <div class="warehouse-cell">${escapeHtml(x.warehouse||"")}</div>
-        <div class="term-cell">${x.stale?"обновить":(x.days===0?"Сегодня":x.days===1?"1 день":x.days+" дня")}</div>
+        <div class="term-cell">${x.stale?"обновить":deliveryLabel(x.days)}</div>
         <div class="qty-cell">
           <div class="cart-stepper">
             <button data-cart-minus="${escapeHtml(x.id)}">−</button>
