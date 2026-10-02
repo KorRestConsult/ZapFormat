@@ -1877,6 +1877,7 @@ function vinCatalogCardsHtml(nodes){
 
 
 function renderVinCatalogLocked(data){
+  setVinCatalogMode(true);
   const root=smartSearchMount();
   if(!root) return;
   vinCatalogState={
@@ -1921,6 +1922,7 @@ function renderVinCatalogLocked(data){
 }
 
 function renderVinCatalogBrowser(data,nodeId=0){
+  setVinCatalogMode(true);
   const root=smartSearchMount();
   if(!root) return;
 
@@ -2000,7 +2002,8 @@ async function loadVinNodeParts(node){
         ${items.map(item=>`
           <article class="vin-part-card">
             <div class="vin-part-image">
-              ${item.image_url?'<img loading="lazy" src="'+escapeHtml(API_BASE+item.image_url)+'" alt="'+escapeHtml(item.description||item.article||"Деталь")+'">':'<span>'+vinCatalogIcon(node.name)+'</span>'}
+              <span class="vin-part-image-fallback">${vinCatalogIcon(node.name)}</span>
+              ${item.image_url?'<img loading="lazy" src="'+escapeHtml(API_BASE+item.image_url)+'" alt="'+escapeHtml(item.description||item.article||"Деталь")+'" onerror="this.style.display=\'none\'">':""}
             </div>
             <div class="vin-part-copy">
               <small>${escapeHtml(item.brand||"OEM")}</small>
@@ -2028,6 +2031,7 @@ async function loadVinNodeParts(node){
 }
 
 function renderVinDecodeResult(vin,decoded){
+  setVinCatalogMode(true);
   const exactRoot=smartSearchMount();
   if(!exactRoot) return;
 
@@ -2055,9 +2059,8 @@ function renderVinDecodeResult(vin,decoded){
         ${decoded?.drive_type?'<div class="smart-spec-row"><b>Привод</b><span>'+escapeHtml(String(decoded.drive_type))+'</span></div>':""}
         ${decoded?.body_type?'<div class="smart-spec-row"><b>Кузов</b><span>'+escapeHtml(String(decoded.body_type))+'</span></div>':""}
       </div>
-      <p class="vehicle-search-note">VIN расшифрован. Теперь введите название нужной детали — ZapFormat попробует получить OEM из каталога этой модификации и затем загрузит живые предложения.</p>
+      <p class="vehicle-search-note">Автомобиль распознан. Когда точный каталог этой модификации доступен, разделы деталей открываются здесь автоматически — ничего дополнительно вводить не нужно.</p>
       <div class="vehicle-search-actions">
-        <button type="button" data-focus-catalog-search>Найти деталь для этого VIN</button>
         <button type="button" data-route="garage">Сохранить автомобиль</button>
       </div>
     </div>`;
@@ -2363,6 +2366,26 @@ function setCatalogControlsVisible(visible){
   document.querySelector(".compact-filters")?.toggleAttribute("hidden",!visible);
 }
 
+function setVinCatalogMode(enabled){
+  const searchView=document.getElementById("view-search");
+  searchView?.classList.toggle("vin-catalog-mode",Boolean(enabled));
+
+  const secondaryForm=document.getElementById("searchForm2");
+  if(secondaryForm) secondaryForm.hidden=Boolean(enabled);
+
+  const disclaimer=document.getElementById("catalogDisclaimer");
+  if(disclaimer) disclaimer.hidden=Boolean(enabled);
+
+  const exactTitle=document.querySelector("#view-search .catalog-section .section-inline-title");
+  if(exactTitle) exactTitle.hidden=Boolean(enabled);
+
+  if(enabled){
+    setCatalogControlsVisible(false);
+    const analogSection=document.getElementById("analogSection");
+    if(analogSection) analogSection.style.display="none";
+  }
+}
+
 function setSearchHead(titleText,subtitleText,query){
   const title=document.getElementById("resultTitle");
   const subtitle=document.getElementById("resultSubtitle");
@@ -2393,6 +2416,7 @@ function renderSearchState(titleText,detailText){
 }
 
 function renderBrandChoices(article,brands){
+  setVinCatalogMode(false);
   const exactRoot=document.getElementById("exactResults");
   const analogRoot=document.getElementById("analogResults");
   const analogSection=document.getElementById("analogSection");
@@ -2435,6 +2459,7 @@ function renderBrandChoices(article,brands){
 }
 
 async function loadLiveOffers(article,brand,description="",options={}){
+  setVinCatalogMode(false);
   const number=String(article||"").trim();
   const maker=String(brand||"").trim();
   if(!number || !maker) return;
@@ -2517,6 +2542,7 @@ async function loadLiveOffers(article,brand,description="",options={}){
 
 async function search(query,options={}){
   const raw=String(query||"").trim();
+  setVinCatalogMode(false);
   if(!raw) return false;
   saveSearchResume(raw,options.brand||"");
 
@@ -2627,11 +2653,19 @@ async function search(query,options={}){
         catalogModificationId:result?.modification?.id||decoded.dt_type_id||null
       };
       result.saved_vehicle_id=active?.id||null;
+      const vehicleTitle=[
+        decoded.brand_name||decoded.manufacturer||"",
+        decoded.model_name||""
+      ].filter(Boolean).join(" ")||vin;
+      const vehicleDetail=[
+        "VIN "+vin,
+        result?.modification?.name||decoded.modification_name||""
+      ].filter(Boolean).join(" · ");
       setSearchHead(
-        vin,
+        vehicleTitle,
         result?.ready
-          ? "Автомобиль определён. Выберите узел на схеме или в каталоге."
-          : "VIN распознан, но точную модификацию определить не удалось.",
+          ? vehicleDetail+" · выберите узел автомобиля"
+          : vehicleDetail,
         vin
       );
       if(result?.ready){
@@ -2639,8 +2673,8 @@ async function search(query,options={}){
         requestAnimationFrame(()=>document.querySelector(".vin-catalog-browser")?.scrollIntoView({behavior:"smooth",block:"start"}));
       }else if(result?.catalog_status==="credits_exhausted"){
         setSearchHead(
-          vin,
-          "Автомобиль определён. Каталог деталей временно недоступен.",
+          vehicleTitle,
+          vehicleDetail+" · каталог деталей обновляется",
           vin
         );
         renderVinCatalogLocked(result);
