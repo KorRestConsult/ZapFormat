@@ -4946,3 +4946,8 @@ body.guest-mode .logo{
 .vin-vehicle-vin b{font-size:12px;color:#2b495d;letter-spacing:.04em}
 .vin-hotspot-disabled{cursor:default;opacity:.58}
 .vin-hotspot-disabled:hover{transform:none;border-color:#c8d5dd}
+
+.vin-vehicle-actions{display:flex;align-items:center;gap:10px;margin-top:12px}
+.vin-vehicle-actions button{border:0;border-radius:10px;background:#12324a;color:#fff;padding:10px 13px;font:inherit;font-size:12px;font-weight:800;cursor:pointer}
+.vin-vehicle-actions button:disabled{opacity:.6;cursor:wait}
+.vin-saved-pill{display:inline-flex;align-items:center;gap:6px;padding:9px 11px;border-radius:999px;background:#eaf5ef;color:#2b6f4b;font-size:12px;font-weight:800}
