@@ -6,7 +6,7 @@
   <meta name="theme-color" content="#17324a" />
   <title>ZapFormat — автозапчасти</title>
   <meta name="description" content="Поиск автозапчастей по артикулу и обычному запросу с привязкой к автомобилю" />
-  <link rel="stylesheet" href="./styles.css?v=20261001-vinflow1" />
+  <link rel="stylesheet" href="./styles.css?v=20261002-auth1" />
 </head>
 <body class="guest-mode session-pending">
   <div class="app">
@@ -129,13 +129,8 @@
         <div class="auth-shell">
           <div class="auth-brand">
             <span class="eyebrow">ZAPFORMAT</span>
-            <h2>Запчасти без лишней суеты.</h2>
-            <p>Актуальные цены и наличие, корзина, заказы и ваш автомобиль — в одном месте.</p>
-            <div class="auth-points" aria-label="Возможности ZapFormat">
-              <span>Поиск по артикулу и названию</span>
-              <span>Живые цены и остатки</span>
-              <span>История заказов в аккаунте</span>
-            </div>
+            <h2>Войти в ZapFormat</h2>
+            <p>Ваш автомобиль, корзина и заказы сохраняются в аккаунте.</p>
           </div>
 
           <div class="auth-card">
@@ -151,9 +146,13 @@
               </label>
               <label>
                 <span>Пароль</span>
-                <input name="password" type="password" autocomplete="current-password" minlength="8" placeholder="Пароль" required>
+                <div class="auth-password-field">
+                  <input id="loginPassword" name="password" type="password" autocomplete="current-password" minlength="8" placeholder="Пароль" required>
+                  <button class="auth-password-toggle" type="button" data-password-toggle="loginPassword" aria-label="Показать пароль">Показать</button>
+                </div>
               </label>
-              <button class="account-primary auth-submit" type="submit">Войти и продолжить</button>
+              <small class="auth-hint auth-session-hint">Вход сохраняется на этом устройстве.</small>
+              <button class="account-primary auth-submit" type="submit">Войти</button>
             </form>
 
             <form class="auth-form" id="registerForm" data-auth-pane="register">
@@ -167,7 +166,10 @@
               </label>
               <label>
                 <span>Пароль</span>
-                <input name="password" type="password" autocomplete="new-password" minlength="8" placeholder="Минимум 8 символов" required>
+                <div class="auth-password-field">
+                  <input id="registerPassword" name="password" type="password" autocomplete="new-password" minlength="8" placeholder="Минимум 8 символов" required>
+                  <button class="auth-password-toggle" type="button" data-password-toggle="registerPassword" aria-label="Показать пароль">Показать</button>
+                </div>
               </label>
               <small class="auth-hint">Телефон нужен для заказов и статусов. Остальные данные можно добавить позже.</small>
               <button class="account-primary auth-submit" type="submit">Создать аккаунт и начать</button>
@@ -412,7 +414,7 @@
     </nav>
 </div>
 
-  <script src="./config.js?v=20261001-vinflow1"></script>
-  <script src="./app.js?v=20261001-vinflow1"></script>
+  <script src="./config.js?v=20261002-auth1"></script>
+  <script src="./app.js?v=20261002-auth1"></script>
 </body>
 </html>
