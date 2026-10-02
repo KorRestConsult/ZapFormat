@@ -6,7 +6,7 @@
   <meta name="theme-color" content="#17324a" />
   <title>ZapFormat — автозапчасти</title>
   <meta name="description" content="Поиск автозапчастей по артикулу и обычному запросу с привязкой к автомобилю" />
-  <link rel="stylesheet" href="./styles.css?v=20261002-vin8" />
+  <link rel="stylesheet" href="./styles.css?v=20261002-client1" />
 </head>
 <body class="guest-mode session-pending">
   <div class="app">
@@ -35,7 +35,7 @@
           <div class="minimal-hero">
             <span class="minimal-kicker">ZAPFORMAT</span>
             <h1>Найдём нужную запчасть.</h1>
-            <p>Быстрее всего — по артикулу. Если артикула нет, опишите деталь — попробуем подобрать по вашему автомобилю.</p>
+            <p>Введите VIN — откроем каталог вашего автомобиля. Есть артикул — сразу покажем цены и наличие. Можно искать и обычным названием детали.</p>
 
             <form class="minimal-search" id="searchForm">
               <textarea
@@ -43,7 +43,7 @@
                 rows="1"
                 autocomplete="off"
                 enterkeyhint="search"
-                placeholder="Артикул или название детали"
+                placeholder="VIN, артикул или название детали"
               ></textarea>
               <button type="submit">Найти</button>
             </form>
@@ -57,7 +57,8 @@
               + Добавить автомобиль <small>необязательно</small>
             </button>
 
-            <div class="minimal-note">По артикулу — сразу цены и наличие · по названию — подбор по данным автомобиля</div>
+            <div class="minimal-search-hints"><span><b>VIN</b> → каталог автомобиля</span><span><b>Артикул</b> → цены и наличие</span><span><b>Название</b> → умный подбор</span></div>
+            <div class="minimal-note">Начните с того, что у вас есть. Дальше ZapFormat сам ведёт по нужному сценарию.</div>
           </div>
         </div>
       </section>
@@ -483,6 +484,6 @@
 </div>
 
   <script src="./config.js?v=20261002-auth2"></script>
-  <script src="./app.js?v=20261002-vin8"></script>
+  <script src="./app.js?v=20261002-client1"></script>
 </body>
 </html>
