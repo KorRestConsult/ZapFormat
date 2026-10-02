@@ -1298,11 +1298,11 @@ async function hydrateSession(){
     const data=await apiRequest("/api/auth/me");
     sessionUser=data.user;
     applySessionUser();
-    await hydrateCartFromAccount();
-    await hydrateAccountData();
     if(document.getElementById("view-auth")?.classList.contains("active")){
       showRoute(pendingAccountRoute||"home");
     }
+    hydrateCartFromAccount().catch(error=>console.warn("ZapFormat cart hydration failed",error));
+    hydrateAccountData().catch(error=>console.warn("ZapFormat account hydration failed",error));
     return sessionUser;
   }catch(error){
     if(error.status!==401) console.warn("ZapFormat session check failed",error);
@@ -3609,6 +3609,19 @@ function showAccountTab(tab){
 }
 
 document.addEventListener("click",async e=>{
+  const passwordToggle=e.target.closest("[data-password-toggle]");
+  if(passwordToggle){
+    const input=document.getElementById(passwordToggle.dataset.passwordToggle);
+    if(input){
+      const show=input.type==="password";
+      input.type=show ? "text" : "password";
+      passwordToggle.textContent=show ? "Скрыть" : "Показать";
+      passwordToggle.setAttribute("aria-label",show ? "Скрыть пароль" : "Показать пароль");
+      input.focus({preventScroll:true});
+    }
+    return;
+  }
+
   const authTab=e.target.closest("[data-auth-tab]");
   if(authTab){ showAuthTab(authTab.dataset.authTab); return; }
 
@@ -3744,8 +3757,8 @@ document.getElementById("loginForm")?.addEventListener("submit",async e=>{
     sessionUser=result.user;
     if(result.access_token) saveAuthToken(result.access_token);
     applySessionUser();
-    await hydrateCartFromAccount();
-    await hydrateAccountData();
+    hydrateCartFromAccount().catch(error=>console.warn("ZapFormat cart hydration failed",error));
+    hydrateAccountData().catch(error=>console.warn("ZapFormat account hydration failed",error));
     setAuthStatus("Готово.","success");
     const params=new URLSearchParams(location.search);
     const pendingSearch=pendingSearchAfterAuth ||
@@ -3790,9 +3803,10 @@ document.getElementById("registerForm")?.addEventListener("submit",async e=>{
       })
     });
     sessionUser=result.user;
+    if(result.access_token) saveAuthToken(result.access_token);
     applySessionUser();
-    await hydrateCartFromAccount();
-    await hydrateAccountData();
+    hydrateCartFromAccount().catch(error=>console.warn("ZapFormat cart hydration failed",error));
+    hydrateAccountData().catch(error=>console.warn("ZapFormat account hydration failed",error));
     setAuthStatus("Аккаунт создан.","success");
     const params=new URLSearchParams(location.search);
     const pendingSearch=pendingSearchAfterAuth ||
