@@ -103,3 +103,34 @@ jobs:
                   })
           print(json.dumps({"count":len(rows),"matches":hits},ensure_ascii=False))
           PY
+
+      - name: Probe BMW F25 catalog tree
+        shell: bash
+        env:
+          FAPI_API_KEY: ${{ secrets.FAPI_API_KEY }}
+        run: |
+          set -Eeuo pipefail
+          echo "::add-mask:${FAPI_API_KEY}"
+          curl -sS \
+            -H "Authorization: Bearer ${FAPI_API_KEY}" \
+            -H "Accept: application/json" \
+            "https://fapi.iisis.ru/fapi/v2/catalogList/dt/treeList?mi=33778" > tree.json
+          echo "TREE ROOTS:"
+          python3 - <<'PY'
+          import json
+          rows=json.load(open("tree.json",encoding="utf-8"))
+          if not isinstance(rows,list):
+              print(json.dumps(rows,ensure_ascii=False)[:3000])
+              raise SystemExit
+          roots=[r for r in rows if int(r.get("pi") or 0)==0]
+          children={}
+          for r in rows:
+              children.setdefault(int(r.get("pi") or 0),[]).append(r)
+          out=[]
+          for r in roots[:40]:
+              out.append({
+                "i":r.get("i"),"d":r.get("d"),
+                "children":[{"i":c.get("i"),"d":c.get("d")} for c in children.get(int(r.get("i") or 0),[])[:12]]
+              })
+          print(json.dumps({"count":len(rows),"roots":out},ensure_ascii=False))
+          PY
