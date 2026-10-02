@@ -2045,7 +2045,7 @@ function renderVinDecodeResult(vin,decoded){
 
   exactRoot.innerHTML=`
     <div class="vehicle-search-state smart-selection-state">
-      <span class="eyebrow">VIN · VINDEC / FAPI</span>
+      <span class="eyebrow">VIN-КАТАЛОГ</span>
       <h3>${escapeHtml(title)}</h3>
       <p><b>${escapeHtml(vin)}</b>${modification?" · "+escapeHtml(modification):""}</p>
       <div class="smart-spec-list">
