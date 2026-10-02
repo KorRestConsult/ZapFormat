@@ -63,3 +63,43 @@ jobs:
           }
           print(json.dumps(safe, ensure_ascii=False))
           PY
+
+      - name: Probe BMW F25 modifications
+        shell: bash
+        env:
+          FAPI_API_KEY: ${{ secrets.FAPI_API_KEY }}
+        run: |
+          set -Eeuo pipefail
+          echo "::add-mask:${FAPI_API_KEY}"
+          curl -sS \
+            -H "Authorization: Bearer ${FAPI_API_KEY}" \
+            -H "Accept: application/json" \
+            "https://fapi.iisis.ru/fapi/v2/catalogList/dt/modificationList?mi=8763" > modifications.json
+          echo "MODIFICATIONS:"
+          python3 - <<'PY'
+          import json
+          rows=json.load(open("modifications.json",encoding="utf-8"))
+          if not isinstance(rows,list):
+              print(json.dumps(rows,ensure_ascii=False)[:3000])
+              raise SystemExit
+          hits=[]
+          for r in rows:
+              code=str(r.get("engineCode") or "").upper()
+              power=str(r.get("power") or "")
+              desc=str(r.get("fd") or r.get("d") or "")
+              if "N47N" in code or power=="135" or "135" in power:
+                  hits.append({
+                      "dbi":r.get("dbi"),
+                      "d":r.get("d"),
+                      "fd":r.get("fd"),
+                      "engineType":r.get("engineType"),
+                      "engineCode":r.get("engineCode"),
+                      "power":r.get("power"),
+                      "capacity":r.get("capacity"),
+                      "driveType":r.get("driveType"),
+                      "bodyType":r.get("bodyType"),
+                      "cb":r.get("cb"),
+                      "ce":r.get("ce")
+                  })
+          print(json.dumps({"count":len(rows),"matches":hits},ensure_ascii=False))
+          PY
