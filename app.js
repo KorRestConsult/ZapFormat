@@ -140,6 +140,7 @@ let pendingSmartSearchAnswers=[];
 let pendingSmartSearchQuestion="";
 let smartSearchBusy=false;
 let pendingSmartSearchAfterVehicle=null;
+let transientVinVehicle=null;
 let pendingCheckoutAfterDelivery=false;
 let checkoutReviewOpen=false;
 let clearCartArmedUntil=0;
@@ -1544,8 +1545,9 @@ function extractArticleCandidate(value){
 }
 
 function currentSearchVehicle(){
-  if(!sessionUser || !garageState?.vehicle?.id) return null;
-  return garageState.vehicle;
+  if(!sessionUser) return null;
+  if(garageState?.vehicle?.id) return garageState.vehicle;
+  return transientVinVehicle || null;
 }
 
 function vehicleLabel(vehicle){
@@ -1678,6 +1680,42 @@ function renderVehicleSearchState(query,vehicle,options={}){
       <div class="vehicle-search-actions">
         ${vehicle?'<button type="button" data-route="garage">Открыть гараж</button>':'<button type="button" data-route="garage">Добавить автомобиль</button>'}
         <button type="button" data-focus-catalog-search>Ввести артикул</button>
+      </div>
+    </div>`;
+}
+
+function renderVinDecodeResult(vin,decoded){
+  const exactRoot=smartSearchMount();
+  if(!exactRoot) return;
+
+  const brand=decoded?.brand_name||decoded?.manufacturer||"";
+  const model=decoded?.model_name||"";
+  const modification=decoded?.modification_name||"";
+  const year=decoded?.model_year||"";
+  const engine=[
+    decoded?.engine_code||"",
+    decoded?.displacement_cc ? (Math.round(Number(decoded.displacement_cc)/100)/10)+" л" : "",
+    decoded?.fuel_type||"",
+    decoded?.power_hp ? decoded.power_hp+" л.с." : ""
+  ].filter(Boolean).join(" · ");
+  const title=[brand,model].filter(Boolean).join(" ")||"Автомобиль определён";
+
+  exactRoot.innerHTML=`
+    <div class="vehicle-search-state smart-selection-state">
+      <span class="eyebrow">VIN · VINDEC / FAPI</span>
+      <h3>${escapeHtml(title)}</h3>
+      <p><b>${escapeHtml(vin)}</b>${modification?" · "+escapeHtml(modification):""}</p>
+      <div class="smart-spec-list">
+        ${year?'<div class="smart-spec-row"><b>Год</b><span>'+escapeHtml(String(year))+'</span></div>':""}
+        ${engine?'<div class="smart-spec-row"><b>Двигатель</b><span>'+escapeHtml(engine)+'</span></div>':""}
+        ${decoded?.transmission?'<div class="smart-spec-row"><b>КПП</b><span>'+escapeHtml(String(decoded.transmission))+'</span></div>':""}
+        ${decoded?.drive_type?'<div class="smart-spec-row"><b>Привод</b><span>'+escapeHtml(String(decoded.drive_type))+'</span></div>':""}
+        ${decoded?.body_type?'<div class="smart-spec-row"><b>Кузов</b><span>'+escapeHtml(String(decoded.body_type))+'</span></div>':""}
+      </div>
+      <p class="vehicle-search-note">VIN расшифрован. Теперь введите название нужной детали — ZapFormat попробует получить OEM из каталога этой модификации и затем загрузит живые предложения.</p>
+      <div class="vehicle-search-actions">
+        <button type="button" data-focus-catalog-search>Найти деталь для этого VIN</button>
+        <button type="button" data-route="garage">Сохранить автомобиль</button>
       </div>
     </div>`;
 }
@@ -1888,29 +1926,41 @@ async function runSmartPartSearch(query,vehicle){
 
   try{
     let data;
-    try{
-      data=await apiRequest("/api/catalog/ai-search",{
-        method:"POST",
-        body:JSON.stringify({
-          query:lastSmartSearchQuery,
-          vehicle_id:vehicle?.id||null
-        })
-      });
-    }catch(primaryError){
-      console.warn("Primary smart search failed; trying fallback",primaryError);
+    const publicVehicle=vehicle ? {
+      brand:vehicle.brand||"",
+      model:vehicle.model||"",
+      generation:vehicle.generation||"",
+      year:vehicle.year||null,
+      engine:vehicle.engine||"",
+      vin:vehicle.vin||"",
+      plate_number:vehicle.plate_number||vehicle.plateNumber||vehicle.plate||""
+    } : null;
+
+    if(vehicle?.id){
+      try{
+        data=await apiRequest("/api/catalog/ai-search",{
+          method:"POST",
+          body:JSON.stringify({
+            query:lastSmartSearchQuery,
+            vehicle_id:vehicle.id
+          })
+        });
+      }catch(primaryError){
+        console.warn("Primary smart search failed; trying fallback",primaryError);
+        data=await apiRequest("/api/catalog/ai-search-public",{
+          method:"POST",
+          body:JSON.stringify({
+            query:lastSmartSearchQuery,
+            vehicle:publicVehicle
+          })
+        });
+      }
+    }else{
       data=await apiRequest("/api/catalog/ai-search-public",{
         method:"POST",
         body:JSON.stringify({
           query:lastSmartSearchQuery,
-          vehicle:vehicle ? {
-            brand:vehicle.brand||"",
-            model:vehicle.model||"",
-            generation:vehicle.generation||"",
-            year:vehicle.year||null,
-            engine:vehicle.engine||"",
-            vin:vehicle.vin||"",
-            plate_number:vehicle.plate_number||vehicle.plateNumber||""
-          } : null
+          vehicle:publicVehicle
         })
       });
     }
@@ -2209,15 +2259,62 @@ async function search(query,options={}){
     }
 
     const active=matched || currentSearchVehicle();
-    setSearchHead(
-      vin,
-      active
-        ? "VIN связан с "+vehicleLabel(active)+". Теперь укажите нужную деталь."
-        : "VIN принят. Добавьте автомобиль, чтобы сохранить его и использовать в подборе.",
-      vin
-    );
-    renderVehicleSearchState(vin,active,{vin:true});
-    return true;
+    if(active?.id){
+      transientVinVehicle=null;
+      setSearchHead(
+        vin,
+        "VIN связан с "+vehicleLabel(active)+". Теперь укажите нужную деталь.",
+        vin
+      );
+      renderVehicleSearchState(vin,active,{vin:true});
+      return true;
+    }
+
+    setSearchHead(vin,"Расшифровываем VIN через Vindec…",vin);
+    renderSearchState("VIN","Определяем точную модификацию автомобиля.");
+
+    try{
+      const result=await apiRequest("/api/catalog/vin-decode?vin="+encodeURIComponent(vin));
+      const decoded=result?.decoded||{};
+      transientVinVehicle={
+        id:null,
+        brand:decoded.brand_name||decoded.manufacturer||"",
+        model:decoded.model_name||"",
+        generation:decoded.modification_name||"",
+        year:decoded.model_year||"",
+        engine:[
+          decoded.engine_code||"",
+          decoded.displacement_cc ? (Math.round(Number(decoded.displacement_cc)/100)/10)+" л" : "",
+          decoded.fuel_type||""
+        ].filter(Boolean).join(" "),
+        vin,
+        plate:"",
+        mileage:0,
+        isDefault:false,
+        catalogProvider:"fapi_v2",
+        catalogModificationId:decoded.dt_type_id||null
+      };
+      setSearchHead(
+        vin,
+        result?.exact_catalog_match
+          ? "VIN расшифрован. Введите нужную деталь."
+          : "VIN распознан частично. Можно продолжить поиск или сохранить автомобиль.",
+        vin
+      );
+      renderVinDecodeResult(vin,decoded);
+      return true;
+    }catch(error){
+      console.error("VIN decode failed",error);
+      transientVinVehicle=null;
+      setSearchHead(vin,"Не удалось расшифровать VIN.",vin);
+      renderSearchState(
+        "VIN временно не расшифрован",
+        error?.code==="fapi_payment_required"
+          ? "На балансе Vindec недостаточно средств для расшифровки."
+          : "Проверьте VIN или повторите попытку позже."
+      );
+      return false;
+    }
   }
 
   const article=extractArticleCandidate(raw);
