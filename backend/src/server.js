@@ -2032,20 +2032,58 @@ app.get("/api/catalog/vin-browser", requireUser, aiSearchLimiter, async (req, re
     const vin = String(req.query?.vin || "").trim().toUpperCase();
     if (!validVin(vin)) return res.status(400).json({ error: "invalid_vin" });
 
-    const context = await resolveFapiVinContext(vin);
-    const decoded = publicFapiVehicle(context.decoded);
+    // Decode VIN first so the customer still sees the identified vehicle
+    // even if the paid catalog quota is unavailable.
+    const decodedRaw = await fapi.decodeVin(vin);
+    let context;
+    try {
+      context = await resolveFapiVinContext(vin);
+    } catch (error) {
+      if (error instanceof FapiError && Number(error.status) === 402) {
+        return res.json({
+          ok: true,
+          provider: "fapi_v2",
+          ready: false,
+          catalog_status: "credits_exhausted",
+          decoded: publicFapiVehicle(decodedRaw),
+          modification: null,
+          nodes: []
+        });
+      }
+      throw error;
+    }
+
+    const decoded = publicFapiVehicle(context.decoded || decodedRaw);
     if (!context.modification?.id) {
       return res.json({
         ok: true,
         provider: "fapi_v2",
         ready: false,
+        catalog_status: "modification_unresolved",
         decoded,
         modification: null,
         nodes: []
       });
     }
 
-    const rawTree = await fapi.tree(context.modification.id);
+    let rawTree;
+    try {
+      rawTree = await fapi.tree(context.modification.id);
+    } catch (error) {
+      if (error instanceof FapiError && Number(error.status) === 402) {
+        return res.json({
+          ok: true,
+          provider: "fapi_v2",
+          ready: false,
+          catalog_status: "credits_exhausted",
+          decoded,
+          modification: context.modification,
+          nodes: []
+        });
+      }
+      throw error;
+    }
+
     const nodes = (Array.isArray(rawTree) ? rawTree : []).map((row) => ({
       id: Number(row?.i || 0),
       parent_id: Number(row?.pi || 0),
@@ -2056,6 +2094,7 @@ app.get("/api/catalog/vin-browser", requireUser, aiSearchLimiter, async (req, re
       ok: true,
       provider: "fapi_v2",
       ready: true,
+      catalog_status: "ok",
       decoded,
       modification: context.modification,
       nodes
@@ -4656,7 +4695,10 @@ app.post("/api/internal/fapi-smoke", async (req, res) => {
       configured: true,
       provider: "fapi_v2",
       account_state: usage?.account?.st || null,
-      vin_state: usage?.vin?.st || null
+      catalog_plan: usage?.account?.pl || null,
+      catalog_remaining: Number.isFinite(Number(usage?.account?.rem)) ? Number(usage.account.rem) : null,
+      vin_state: usage?.vin?.st || null,
+      vin_balance_kopecks: Number.isFinite(Number(usage?.vin?.balance_kopecks)) ? Number(usage.vin.balance_kopecks) : null
     });
   } catch (error) {
     console.error("[FapiSmoke]", error?.code || error?.message || "smoke_failed");
