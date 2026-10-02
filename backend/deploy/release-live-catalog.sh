@@ -89,6 +89,7 @@ node --check backend/src/ai-search.js
 node --check backend/src/vehicle-catalog.js
 node --check backend/src/secret-bootstrap.js
 node --check backend/src/auth-otp.js
+node --check backend/src/fapi.js
 
 mark_stage "dependencies"
 cd backend
@@ -128,6 +129,10 @@ EOF
 cat >/etc/systemd/system/zapformat-api.service.d/sms-env.conf <<'EOF'
 [Service]
 EnvironmentFile=-/var/lib/zapformat/zapformat-sms.env
+EOF
+cat >/etc/systemd/system/zapformat-api.service.d/fapi-env.conf <<'EOF'
+[Service]
+EnvironmentFile=-/var/lib/zapformat/zapformat-fapi.env
 EOF
 systemctl daemon-reload
 
@@ -176,6 +181,10 @@ PY
 echo
 echo "Vehicle catalog capability:"
 curl -fsS "http://127.0.0.1:3000/api/catalog/vehicle-catalog/status" || true
+echo
+
+echo "FAPI/Vindec capability:"
+curl -fsS "http://127.0.0.1:3000/api/catalog/fapi/status" || true
 echo
 
 echo "Supplier integration:"
