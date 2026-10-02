@@ -53,6 +53,7 @@ test("FAPI VIN request passes VIN as query parameter", async () => {
   let requested = "";
   try {
     const client = createFapiClient({
+      cacheDir: "",
       fetchImpl: async (url) => {
         requested = String(url);
         return {
