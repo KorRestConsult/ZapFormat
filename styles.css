@@ -4968,3 +4968,6 @@ body.guest-mode .logo{
   .minimal-search-hints span{font-size:10px;padding:6px 8px}
   #view-search.vin-catalog-mode .catalog-query-head h2{font-size:28px}
 }
+
+.auth-capability-notice{margin:10px 0 4px;padding:10px 12px;border:1px solid #ecd7b7;border-radius:10px;background:#fff8ed;color:#795928;font-size:12px;line-height:1.45}
+.auth-tabs button:disabled,.auth-link:disabled{opacity:.45;cursor:not-allowed}
