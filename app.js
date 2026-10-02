@@ -1611,8 +1611,8 @@ function updateVehicleContextUi(){
     if(home) home.hidden=true;
     if(homeSetup) homeSetup.hidden=false;
     if(catalog) catalog.hidden=true;
-    if(searchInput) searchInput.placeholder="Артикул / название детали";
-    if(searchInput2) searchInput2.placeholder="Артикул или название детали";
+    if(searchInput) searchInput.placeholder="VIN, артикул или название детали";
+    if(searchInput2) searchInput2.placeholder="VIN, артикул или название детали";
     if(disclaimer) disclaimer.textContent="Информация по аналогам справочная. Перед заказом совместимость уточняется по автомобилю.";
     return;
   }
@@ -1638,8 +1638,8 @@ function updateVehicleContextUi(){
     if(name) name.textContent=label;
     if(vin) vin.textContent=shortVin(vehicle.vin);
   }
-  if(searchInput) searchInput.placeholder="Что найти для "+label+"? Артикул / деталь";
-  if(searchInput2) searchInput2.placeholder="Артикул или деталь для "+label;
+  if(searchInput) searchInput.placeholder="VIN, артикул или деталь для "+label;
+  if(searchInput2) searchInput2.placeholder="VIN, артикул или деталь для "+label;
   if(disclaimer){
     disclaimer.textContent="Выбран "+label+". Автомобиль используется как контекст поиска и заказа; это не подтверждение применимости конкретной детали.";
   }
