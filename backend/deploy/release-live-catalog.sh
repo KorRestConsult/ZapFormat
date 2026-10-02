@@ -43,6 +43,7 @@ rollback() {
     echo "Release failed. Rolling code back to ${BEFORE} ..."
     git reset --hard "${BEFORE}" || true
     mark_stage "service_restart"
+systemctl reset-failed "${SERVICE}" 2>/dev/null || true
 systemctl restart "${SERVICE}" || true
     echo "Rollback attempted."
   fi
@@ -138,7 +139,8 @@ cat >/etc/systemd/system/zapformat-api.service.d/fapi-env.conf <<'EOF'
 EnvironmentFile=-/var/lib/zapformat/zapformat-fapi.env
 EOF
 systemctl daemon-reload
-
+# Frequent safe releases can otherwise trip systemd's start-rate limiter.
+systemctl reset-failed "${SERVICE}" 2>/dev/null || true
 systemctl restart "${SERVICE}"
 sleep 2
 
