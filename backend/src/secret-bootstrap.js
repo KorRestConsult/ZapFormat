@@ -5,6 +5,7 @@ const fs = require("node:fs/promises");
 
 const PRIVATE_KEY_FILE = "/var/lib/zapformat/openai-bootstrap-private.pem";
 const AI_ENV_FILE = "/var/lib/zapformat/zapformat-ai.env";
+const SMS_ENV_FILE = "/var/lib/zapformat/zapformat-sms.env";
 
 async function ensureBootstrapPrivateKey() {
   try {
@@ -146,9 +147,33 @@ async function installTimewebAIToken(payload) {
   return { configured: true, model };
 }
 
+async function installSmsRuToken(payload) {
+  const apiId = String(payload?.smsru_api_id || payload?.api_id || "").trim();
+  if (!/^[A-Za-z0-9_-]{16,}$/.test(apiId) || /[\r\n]/.test(apiId)) {
+    throw new Error("smsru_api_id_invalid");
+  }
+  const from = String(payload?.smsru_from || "").trim().replace(/[\r\n]/g, "");
+  const test = String(payload?.smsru_test || "false") === "true";
+
+  process.env.SMSRU_API_ID = apiId;
+  process.env.SMSRU_FROM = from;
+  process.env.SMSRU_TEST = test ? "true" : "false";
+
+  const envBody =
+    envLine("SMSRU_API_ID", apiId) +
+    envLine("SMSRU_FROM", from) +
+    envLine("SMSRU_TEST", test ? "true" : "false");
+
+  await fs.writeFile(SMS_ENV_FILE, envBody, { mode: 0o600 });
+  await fs.chmod(SMS_ENV_FILE, 0o600).catch(() => {});
+  return { configured: true, provider: "sms.ru", test };
+}
+
 module.exports = {
   publicBootstrapJwk,
   installEncryptedOpenAIKey,
   installTimewebAIToken,
-  AI_ENV_FILE
+  installSmsRuToken,
+  AI_ENV_FILE,
+  SMS_ENV_FILE
 };
