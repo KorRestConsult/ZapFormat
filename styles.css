@@ -4951,3 +4951,20 @@ body.guest-mode .logo{
 .vin-vehicle-actions button{border:0;border-radius:10px;background:#12324a;color:#fff;padding:10px 13px;font:inherit;font-size:12px;font-weight:800;cursor:pointer}
 .vin-vehicle-actions button:disabled{opacity:.6;cursor:wait}
 .vin-saved-pill{display:inline-flex;align-items:center;gap:6px;padding:9px 11px;border-radius:999px;background:#eaf5ef;color:#2b6f4b;font-size:12px;font-weight:800}
+
+.minimal-search-hints{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}
+.minimal-search-hints span{display:inline-flex;align-items:center;gap:5px;padding:7px 10px;border:1px solid #dce5ea;border-radius:999px;background:#f8fafb;color:#6b7f8d;font-size:11px}
+.minimal-search-hints b{color:#17364c}
+#view-search.vin-catalog-mode .catalog-query-head{margin-bottom:14px}
+#view-search.vin-catalog-mode .catalog-query-head h2{font-size:clamp(28px,4vw,46px)}
+#view-search.vin-catalog-mode .catalog-section{margin-top:0}
+#view-search.vin-catalog-mode .compact-results{margin-top:0}
+.vin-part-image{position:relative}
+.vin-part-image-fallback{position:absolute;inset:0;display:grid;place-items:center}
+.vin-part-image-fallback svg{width:68px;height:68px;fill:none;stroke:#9aadb9;stroke-width:2.5}
+.vin-part-image img{position:relative;z-index:1;background:#f7f9fa}
+@media(max-width:680px){
+  .minimal-search-hints{gap:6px}
+  .minimal-search-hints span{font-size:10px;padding:6px 8px}
+  #view-search.vin-catalog-mode .catalog-query-head h2{font-size:28px}
+}
