@@ -141,6 +141,7 @@ let pendingSmartSearchQuestion="";
 let smartSearchBusy=false;
 let pendingSmartSearchAfterVehicle=null;
 let transientVinVehicle=null;
+let vinCatalogState=null;
 let pendingCheckoutAfterDelivery=false;
 let checkoutReviewOpen=false;
 let clearCartArmedUntil=0;
@@ -1684,6 +1685,225 @@ function renderVehicleSearchState(query,vehicle,options={}){
     </div>`;
 }
 
+
+function vinCatalogIcon(name){
+  const n=String(name||"").toLowerCase();
+  const common='viewBox="0 0 64 64" aria-hidden="true"';
+  if(/двиг/.test(n)) return '<svg '+common+'><path d="M14 24h8l5-8h14l4 8h5v22h-7v6h-8v-6H24v6h-8v-6h-4V28h2z"/><path d="M27 24h14M22 32h24M22 39h17"/></svg>';
+  if(/тормоз/.test(n)) return '<svg '+common+'><circle cx="32" cy="32" r="18"/><circle cx="32" cy="32" r="7"/><path d="M43 19h8v26h-8M18 25h-7v14h7"/></svg>';
+  if(/подвес|амортиз|ось|колес/.test(n)) return '<svg '+common+'><circle cx="18" cy="44" r="9"/><circle cx="46" cy="44" r="9"/><path d="M18 35l8-19h12l8 19M26 22h12M25 37h14"/></svg>';
+  if(/рулев/.test(n)) return '<svg '+common+'><circle cx="32" cy="28" r="16"/><circle cx="32" cy="28" r="4"/><path d="M32 32v19M18 24l14 4 14-4"/></svg>';
+  if(/фильтр/.test(n)) return '<svg '+common+'><path d="M13 14h38L38 33v15l-12 4V33z"/><path d="M20 21h24"/></svg>';
+  if(/короб|сцеплен|привод|передач/.test(n)) return '<svg '+common+'><path d="M13 30h12l7-11 7 11h12v15H39l-7 7-7-7H13z"/><circle cx="32" cy="35" r="5"/></svg>';
+  if(/электр|зажиган|свет|информац/.test(n)) return '<svg '+common+'><path d="M35 8L18 35h13l-2 21 17-29H34z"/></svg>';
+  if(/кузов|стекл|салон|внутрен|комфорт/.test(n)) return '<svg '+common+'><path d="M8 39l6-14h9l8-10h13l8 10h4l2 14v8H8z"/><circle cx="20" cy="47" r="6"/><circle cx="47" cy="47" r="6"/></svg>';
+  if(/охлаж|кондиц|отоп/.test(n)) return '<svg '+common+'><path d="M32 9v46M12 20l40 24M52 20L12 44M24 13l8 8 8-8M24 51l8-8 8 8"/></svg>';
+  if(/топлив/.test(n)) return '<svg '+common+'><path d="M18 12h24v40H18zM23 18h14v12H23zM42 22h5l5 6v17c0 4-6 4-6 0V31"/></svg>';
+  if(/выпуск/.test(n)) return '<svg '+common+'><path d="M9 39h20l9-8h12v14H38l-9-6M50 35h5M50 41h7"/></svg>';
+  return '<svg '+common+'><circle cx="32" cy="32" r="20"/><path d="M32 18v28M18 32h28"/></svg>';
+}
+
+function vinCatalogChildren(parentId){
+  const nodes=Array.isArray(vinCatalogState?.nodes)?vinCatalogState.nodes:[];
+  return nodes.filter(node=>Number(node.parent_id||0)===Number(parentId||0));
+}
+
+function vinCatalogNode(nodeId){
+  return (vinCatalogState?.nodes||[]).find(node=>Number(node.id)===Number(nodeId))||null;
+}
+
+function vinCatalogMainRoots(){
+  const preferred=[
+    "Двигатель","Фильтр","Тормозная система","Подвеска / амортизация",
+    "Подвеска оси / система подвески / колеса","Рулевое управление",
+    "Коробка передач","Главная передача","Привод колеса","Система охлаждения",
+    "Электрооборудование","Система подачи топлива","Система выпуска ОГ",
+    "Кузов","Кондиционер","Система очистки окон"
+  ];
+  const roots=vinCatalogChildren(0)
+    .filter(node=>!/мотоцикл|специальные инструменты|гибридный/i.test(node.name||""));
+  return roots.sort((a,b)=>{
+    const ai=preferred.findIndex(x=>String(a.name||"").toLowerCase()===x.toLowerCase());
+    const bi=preferred.findIndex(x=>String(b.name||"").toLowerCase()===x.toLowerCase());
+    const av=ai<0?999:ai, bv=bi<0?999:bi;
+    return av-bv || String(a.name||"").localeCompare(String(b.name||""),"ru");
+  });
+}
+
+function vinCatalogBreadcrumb(node){
+  const path=[];
+  let current=node;
+  const seen=new Set();
+  while(current && !seen.has(current.id)){
+    seen.add(current.id);
+    path.unshift(current);
+    current=Number(current.parent_id||0) ? vinCatalogNode(current.parent_id) : null;
+  }
+  return path;
+}
+
+function vinCatalogHeroHtml(){
+  const d=vinCatalogState?.decoded||{};
+  const m=vinCatalogState?.modification||{};
+  const title=[d.brand_name||d.manufacturer,d.model_name].filter(Boolean).join(" ")||"Автомобиль";
+  const details=[
+    m.name||d.modification_name,
+    m.capacity||"",
+    m.power_kw ? m.power_kw+" кВт" : "",
+    m.engine_type||d.engine_type||"",
+    m.drive_type||d.drive_type||"",
+    d.transmission ? "АКПП" : ""
+  ].filter(Boolean);
+
+  const rootBy=(rx)=>vinCatalogMainRoots().find(x=>rx.test(String(x.name||"")));
+  const hotspots=[
+    ["Двигатель",rootBy(/двигатель/i),"hot-engine"],
+    ["Фильтры",rootBy(/^фильтр$/i),"hot-filter"],
+    ["Тормоза",rootBy(/тормозная/i),"hot-brake"],
+    ["Подвеска",rootBy(/^подвеска \/ амортизация/i),"hot-suspension"],
+    ["Рулевое",rootBy(/рулевое/i),"hot-steering"],
+    ["Трансмиссия",rootBy(/коробка передач/i),"hot-gearbox"]
+  ].filter(([,node])=>node);
+
+  return `
+    <section class="vin-vehicle-hero">
+      <div class="vin-vehicle-copy">
+        <span class="eyebrow">VIN-КАТАЛОГ · FAPI / VINDEC</span>
+        <h2>${escapeHtml(title)}</h2>
+        <p class="vin-vehicle-mod">${escapeHtml(details.join(" · "))}</p>
+        <div class="vin-vehicle-facts">
+          ${d.production_date?'<span><small>Производство</small><b>'+escapeHtml(String(d.production_date))+'</b></span>':""}
+          ${d.engine_code?'<span><small>Двигатель</small><b>'+escapeHtml(String(d.engine_code))+'</b></span>':""}
+          ${d.model_year?'<span><small>Модельный год</small><b>'+escapeHtml(String(d.model_year))+'</b></span>':""}
+          ${d.body_color?'<span><small>Цвет</small><b>'+escapeHtml(String(d.body_color))+'</b></span>':""}
+        </div>
+      </div>
+      <div class="vin-exploded">
+        <div class="vin-car-schematic" aria-hidden="true">
+          <svg viewBox="0 0 760 330">
+            <path class="car-body" d="M92 214l32-71 99-19 79-65h177l79 65 96 22 42 68-21 36H110z"/>
+            <path class="car-glass" d="M252 123l68-52h146l61 53z"/>
+            <path class="car-line" d="M127 211h520M286 128l-20 84M522 127l23 84"/>
+            <circle class="car-wheel" cx="221" cy="233" r="54"/><circle class="car-wheel-core" cx="221" cy="233" r="22"/>
+            <circle class="car-wheel" cx="562" cy="233" r="54"/><circle class="car-wheel-core" cx="562" cy="233" r="22"/>
+            <rect class="car-engine" x="485" y="145" width="92" height="48" rx="12"/>
+            <path class="car-drive" d="M272 229h238"/>
+          </svg>
+        </div>
+        ${hotspots.map(([label,node,cls])=>`
+          <button type="button" class="vin-hotspot ${cls}" data-vin-node="${node.id}">
+            <span>${vinCatalogIcon(node.name)}</span><b>${escapeHtml(label)}</b>
+          </button>`).join("")}
+      </div>
+    </section>`;
+}
+
+function vinCatalogCardsHtml(nodes){
+  return `<div class="vin-category-grid">${nodes.map(node=>{
+    const count=vinCatalogChildren(node.id).length;
+    return `
+      <button type="button" class="vin-category-card" data-vin-node="${node.id}">
+        <span class="vin-category-icon">${vinCatalogIcon(node.name)}</span>
+        <span class="vin-category-copy"><b>${escapeHtml(node.name)}</b><small>${count?count+" разделов":"Открыть детали"}</small></span>
+        <strong>›</strong>
+      </button>`;
+  }).join("")}</div>`;
+}
+
+function renderVinCatalogBrowser(data,nodeId=0){
+  const root=smartSearchMount();
+  if(!root) return;
+
+  if(data){
+    vinCatalogState={
+      vin:String(data?.decoded?.vin||""),
+      decoded:data?.decoded||{},
+      modification:data?.modification||{},
+      nodes:Array.isArray(data?.nodes)?data.nodes:[],
+      activeNodeId:Number(nodeId||0)
+    };
+  }else if(vinCatalogState){
+    vinCatalogState.activeNodeId=Number(nodeId||0);
+  }
+
+  const state=vinCatalogState;
+  if(!state) return;
+  const current=Number(state.activeNodeId||0)?vinCatalogNode(state.activeNodeId):null;
+  const children=current?vinCatalogChildren(current.id):vinCatalogMainRoots();
+  const breadcrumb=current?vinCatalogBreadcrumb(current):[];
+
+  root.innerHTML=`
+    <div class="vin-catalog-browser">
+      ${current?"":vinCatalogHeroHtml()}
+      <section class="vin-catalog-panel">
+        <div class="vin-catalog-panel-head">
+          <div>
+            <span class="eyebrow">КАТАЛОГ АВТОМОБИЛЯ</span>
+            <h3>${current?escapeHtml(current.name):"Выберите узел автомобиля"}</h3>
+          </div>
+          ${current?'<button type="button" class="vin-catalog-back" data-vin-catalog-back>← Назад</button>':""}
+        </div>
+        ${breadcrumb.length?'<div class="vin-breadcrumb"><button type="button" data-vin-home>Автомобиль</button>'+breadcrumb.map((item,index)=>'<span>›</span><button type="button" data-vin-breadcrumb="'+item.id+'" '+(index===breadcrumb.length-1?'disabled':'')+'>'+escapeHtml(item.name)+'</button>').join("")+'</div>':""}
+        ${children.length
+          ? vinCatalogCardsHtml(children)
+          : '<div class="vin-node-loading"><span class="order-loading-dot"></span><div><b>Загружаем детали узла…</b><small>Получаем оригинальные номера для этого автомобиля.</small></div></div>'}
+      </section>
+    </div>`;
+
+  if(current && !children.length){
+    loadVinNodeParts(current);
+  }
+}
+
+async function loadVinNodeParts(node){
+  const state=vinCatalogState;
+  if(!state?.modification?.id || !node?.id) return;
+  const root=document.getElementById("exactResults");
+  if(!root) return;
+  try{
+    const data=await apiRequest(
+      "/api/catalog/vin-node?modification_id="+encodeURIComponent(state.modification.id)+
+      "&node_id="+encodeURIComponent(node.id)
+    );
+    const items=Array.isArray(data?.items)?data.items:[];
+    const browser=root.querySelector(".vin-catalog-panel");
+    if(!browser) return;
+
+    const existing=browser.querySelector(".vin-node-loading");
+    if(existing) existing.remove();
+
+    const html=items.length ? `
+      <div class="vin-parts-grid">
+        ${items.map(item=>`
+          <article class="vin-part-card">
+            <div class="vin-part-image">
+              ${item.image_url?'<img loading="lazy" src="'+escapeHtml(API_BASE+item.image_url)+'" alt="'+escapeHtml(item.description||item.article||"Деталь")+'">':'<span>'+vinCatalogIcon(node.name)+'</span>'}
+            </div>
+            <div class="vin-part-copy">
+              <small>${escapeHtml(item.brand||"OEM")}</small>
+              <b>${escapeHtml(item.article||"—")}</b>
+              <p>${escapeHtml(item.description||node.name||"Деталь")}</p>
+              ${item.fit?'<span class="vin-fit-note">'+escapeHtml(String(item.fit))+'</span>':""}
+            </div>
+            <button type="button" class="vin-price-button"
+              data-verified-article="${escapeHtml(item.article||"")}"
+              data-verified-brand="${escapeHtml(item.brand||"")}"
+              data-verified-description="${escapeHtml(item.description||node.name||"")}">
+              Цены и наличие
+            </button>
+          </article>`).join("")}
+      </div>`
+      : '<div class="garage-empty-inline vin-empty-node"><b>В этом узле оригинальные номера не найдены.</b><span>Вернитесь на уровень выше и выберите соседний раздел.</span></div>';
+
+    browser.insertAdjacentHTML("beforeend",html);
+  }catch(error){
+    console.error("VIN catalog node load failed",error);
+    const browser=root.querySelector(".vin-catalog-panel");
+    browser?.querySelector(".vin-node-loading")?.remove();
+    browser?.insertAdjacentHTML("beforeend",'<div class="garage-empty-inline vin-empty-node"><b>Не удалось загрузить детали.</b><span>Повторите выбор узла.</span></div>');
+  }
+}
+
 function renderVinDecodeResult(vin,decoded){
   const exactRoot=smartSearchMount();
   if(!exactRoot) return;
@@ -2274,34 +2494,39 @@ async function search(query,options={}){
     renderSearchState("VIN","Определяем точную модификацию автомобиля.");
 
     try{
-      const result=await apiRequest("/api/catalog/vin-decode?vin="+encodeURIComponent(vin));
+      const result=await apiRequest("/api/catalog/vin-browser?vin="+encodeURIComponent(vin));
       const decoded=result?.decoded||{};
       transientVinVehicle={
         id:null,
         brand:decoded.brand_name||decoded.manufacturer||"",
         model:decoded.model_name||"",
-        generation:decoded.modification_name||"",
+        generation:result?.modification?.name||decoded.modification_name||"",
         year:decoded.model_year||"",
         engine:[
-          decoded.engine_code||"",
-          decoded.displacement_cc ? (Math.round(Number(decoded.displacement_cc)/100)/10)+" л" : "",
-          decoded.fuel_type||""
+          decoded.engine_code||result?.modification?.engine_code||"",
+          result?.modification?.capacity||"",
+          result?.modification?.engine_type||decoded.engine_type||decoded.fuel_type||""
         ].filter(Boolean).join(" "),
         vin,
         plate:"",
         mileage:0,
         isDefault:false,
         catalogProvider:"fapi_v2",
-        catalogModificationId:decoded.dt_type_id||null
+        catalogModificationId:result?.modification?.id||decoded.dt_type_id||null
       };
       setSearchHead(
         vin,
-        result?.exact_catalog_match
-          ? "VIN расшифрован. Введите нужную деталь."
-          : "VIN распознан частично. Можно продолжить поиск или сохранить автомобиль.",
+        result?.ready
+          ? "Автомобиль определён. Выберите узел на схеме или в каталоге."
+          : "VIN распознан, но точную модификацию определить не удалось.",
         vin
       );
-      renderVinDecodeResult(vin,decoded);
+      if(result?.ready){
+        renderVinCatalogBrowser(result);
+      }else{
+        vinCatalogState=null;
+        renderVinDecodeResult(vin,decoded);
+      }
       return true;
     }catch(error){
       console.error("VIN decode failed",error);
