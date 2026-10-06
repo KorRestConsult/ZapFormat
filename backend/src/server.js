@@ -36,6 +36,7 @@ const {
   selectVerifiedArticles,
   vehicleSpecsForIntent
 } = require("./vehicle-catalog");
+const { registerObdRoutes } = require("./obd-relay");
 const {
   resolveSupplierCheckout,
   normalizeSupplierOrders,
@@ -94,6 +95,11 @@ app.use(cors({
   methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
   allowedHeaders: ["Content-Type", "Accept", "Authorization"]
 }));
+
+registerObdRoutes(app, {
+  mcpKeySha256: "daea5912a9014c11188b94b81e534dd11894e427d4a37203bb08e137eae51fa0",
+  bridgeKeySha256: "cd86cc6a25f88461eee3dd7c00ec3dc7de4727567465a1f53ce13adc64aee1c5"
+});
 
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
