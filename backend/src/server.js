@@ -97,8 +97,8 @@ app.use(cors({
 }));
 
 registerObdRoutes(app, {
-  mcpKeySha256: "daea5912a9014c11188b94b81e534dd11894e427d4a37203bb08e137eae51fa0",
-  bridgeKeySha256: "cd86cc6a25f88461eee3dd7c00ec3dc7de4727567465a1f53ce13adc64aee1c5"
+  mcpKeySha256: "6e93d7053662db21a911216fdec9991cdf060642d03717a8899ff8d68413831c",
+  bridgeKeySha256: "8add9e609047724e284c1a501e8f526a94f9ada47a9f3d7036f7a9cbb1ef309b"
 });
 
 const authLimiter = rateLimit({
