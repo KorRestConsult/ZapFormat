@@ -17,6 +17,7 @@ const { selectFapiNodes, selectFapiModification, uniqueOemRows } = require("./fa
 const { createOfferTokenCodec } = require("./offer-token");
 const { customerPrice } = require("./pricing");
 const { verifyGitHubActionsToken } = require("./github-oidc");
+const { installFlipperRelay } = require("./flipper-relay");
 const { interpretSearch, researchPartCandidates, normalizeVehicle } = require("./ai-search");
 const { publicBootstrapJwk, installEncryptedOpenAIKey, installTimewebAIToken, installSmsRuToken, installFapiToken } = require("./secret-bootstrap");
 const {
@@ -84,6 +85,7 @@ app.set("trust proxy", 1);
 app.use(helmet());
 app.use(express.json({ limit: "512kb" }));
 app.use(cookieParser());
+installFlipperRelay(app);
 app.use(cors({
   origin(origin, callback) {
     if (!origin) return callback(null, true);
