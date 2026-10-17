@@ -6,10 +6,11 @@ const event=JSON.parse(await readFile(process.env.GITHUB_EVENT_PATH,'utf8'));
 const pr=event.pull_request;
 if(!pr)throw new Error('This command requires a PR event');
 const repo=process.env.GITHUB_REPOSITORY; const number=pr.number; const sha=pr.head.sha;
+const mode=process.env.REVIEW_MODE==='security'?'security':'review';
 if(pr.head.repo.full_name!==repo){console.error('Untrusted fork: AI unavailable, manual review required');process.exit(1);}
 const api=apiClient();
 const history=await api(`/repos/${repo}/issues/${number}/comments?per_page=100`);
-const past=new Set(history.flatMap(c=>[...String(c.body||'').matchAll(/<!-- code-review:([a-f0-9]{40}) -->/g)].map(m=>m[1])));
+const past=new Set(history.flatMap(c=>[...String(c.body||'').matchAll(/<!-- code-review:(review|security):([a-f0-9]{40}) -->/g)].filter(m=>m[1]===mode).map(m=>m[2])));
 if(past.has(sha)){console.log('Current SHA already reviewed, avoiding duplicate AI cost');process.exit(0);}
 if(past.size>=3 && !history.some(c=>c.user?.login===repo.split('/')[0] && String(c.body).trim()===`/continue-review ${sha}`)) {
  throw new Error('Three review rounds used. Human redesign decision required; owner may post /continue-review <sha>');
@@ -23,12 +24,13 @@ for(const name of ['README.md','CLAUDE.md','REVIEW.md']){try{
  if(res.encoding==='base64')ctx.push(`${name}: ${Buffer.from(res.content,'base64').toString('utf8').slice(0,12000)}`);
 }catch{}}
 const context=ctx.join('\n').slice(0,25000);
-const candidates=await gatherCandidates({files:files.filter(f=>f.patch),context,ask:requestLLM});
+const roles=mode==='security'?[['input-validation','Find injection, SSRF, XSS, request smuggling, deserialization issues.'],['authorization','Find auth, IDOR, CSRF, session, privilege and tenant boundary violations.'],['secrets-and-deployment','Find leaked secrets, supply-chain, permission and deployment vulnerabilities.']]:undefined;
+const candidates=await gatherCandidates({files:files.filter(f=>f.patch),context,ask:requestLLM,roles});
 const confirmed=await verifyCandidates({candidates,files:files.filter(f=>f.patch),context,ask:requestLLM});
 const result=summarize(confirmed,risk(files),sha);
-const report=['### AI Code Review',`Commit: \`${sha}\`; risk: **${result.risk}**; confirmed: **${result.total}**`,...confirmed.map(f=>`- **${f.severity}** \`${f.file}:${f.line}\`: ${f.impact}\n  - Evidence: ${f.evidence}\n  - Fix: ${f.fix}\n  - Verified: ${f.confirmedVotes}/3`),'\nAI findings are suggestions, not human approvals. Test and security checks remain mandatory.'].join('\n');
-await writeFile('code-review-result.json',JSON.stringify(result,null,2));
-await postInlineFindings(api,repo,number,sha,confirmed);
-await postSummary(api,repo,number,sha,report);
+const report=[mode==='security'?'### AI Security Review':'### AI Code Review',`Commit: \`${sha}\`; risk: **${result.risk}**; confirmed: **${result.total}**`,...confirmed.map(f=>`- **${f.severity}** \`${f.file}:${f.line}\`: ${f.impact}\n  - Evidence: ${f.evidence}\n  - Fix: ${f.fix}\n  - Verified: ${f.confirmedVotes}/3`),'\nAI findings are suggestions, not human approvals. Test and security checks remain mandatory.'].join('\n');
+await writeFile(`code-review-${mode}.json`,JSON.stringify({...result,mode},null,2));
+await postInlineFindings(api,repo,number,sha,confirmed,mode);
+await postSummary(api,repo,number,sha,report,mode);
 console.log(report);
 if(result.blocking)process.exitCode=1;
