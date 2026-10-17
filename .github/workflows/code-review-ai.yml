@@ -1,0 +1,51 @@
+# Review workflow runs trusted BASE branch code only; never checkout a PR head here.
+# A repository secret TIMEWEB_AI_TOKEN must exist, otherwise the job fails closed.
+name: AI Code Review
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+permissions:
+  contents: read
+  pull-requests: write
+  issues: write
+concurrency:
+  group: ai-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+jobs:
+  ai-review:
+    name: Multi-pass AI review
+    if: github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.base.sha }}
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Four finders and three independent validators
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TIMEWEB_AI_TOKEN: ${{ secrets.TIMEWEB_AI_TOKEN }}
+        run: node .code-review/engine/run.mjs
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: ai-review-${{ github.event.pull_request.number }}
+          path: code-review-result.json
+          if-no-files-found: ignore
+  human-risk-gate:
+    name: Human sign-off by risk
+    if: github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.base.sha }}
+          persist-credentials: false
+      - name: Require fresh human decisions
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: node .code-review/engine/risk-gate.mjs
