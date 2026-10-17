@@ -1,0 +1,34 @@
+name: Code review checks
+on:
+  pull_request:
+    branches: [main]
+permissions:
+  contents: read
+concurrency:
+  group: ci-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+jobs:
+  deterministic:
+    name: Deterministic verification
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: JavaScript syntax checks
+        run: |
+          set -euo pipefail
+          while IFS= read -r -d '' p; do node --check "$p"; done < <(git ls-files -z '*.js' '*.mjs')
+      - name: Reviewer self-tests
+        run: node --test .code-review/engine/test/review.test.mjs
+      - name: Backend tests
+        run: |
+          cd backend
+          npm install --ignore-scripts --no-audit --no-fund
+          npm test
+      - name: Dependency vulnerability audit
+        run: |
+          cd backend
+          npm audit --omit=dev --audit-level=high
