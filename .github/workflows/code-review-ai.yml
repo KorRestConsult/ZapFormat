@@ -1,4 +1,4 @@
-# Review workflow runs trusted BASE branch code only; never checkout a PR head here.
+# Review workflow runs trusted, protected runtime branch code only; never checkout a PR head here.
 # A repository secret TIMEWEB_AI_TOKEN must exist, otherwise the job fails closed.
 name: AI Code Review
 on:
@@ -20,7 +20,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: ${{ github.event.pull_request.base.sha }}
+          ref: refs/heads/code-review-runtime
           persist-credentials: false
       - uses: actions/setup-node@v4
         with:
@@ -44,7 +44,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: ${{ github.event.pull_request.base.sha }}
+          ref: refs/heads/code-review-runtime
           persist-credentials: false
       - uses: actions/setup-node@v4
         with:
@@ -68,7 +68,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: ${{ github.event.pull_request.base.sha }}
+          ref: refs/heads/code-review-runtime
           persist-credentials: false
       - name: Require fresh human decisions
         env:
