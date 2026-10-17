@@ -1,7 +1,7 @@
 name: Code review checks
 on:
   pull_request:
-    branches: [main]
+    branches: [main, code-review-runtime]
 permissions:
   contents: read
 concurrency:
