@@ -34,6 +34,6 @@ test('rerun does not silently mark failed code review successful',()=>{
  assert.ok(text.includes('do not convert a failed review to success'));
 });
 test('review uses protected runtime code, not untrusted PR checkout',()=>{
- const text=readFileSync(new URL('../../templates/.github/workflows/code-review-ai.yml',import.meta.url),'utf8');
+ const p=new URL('../../../.github/workflows/code-review-ai.yml',import.meta.url);\n const text=readFileSync(p,'utf8');
  assert.ok(text.includes('refs/heads/code-review-runtime'));
 });
