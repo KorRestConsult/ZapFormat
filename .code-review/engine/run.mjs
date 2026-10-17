@@ -8,6 +8,12 @@ if(!pr)throw new Error('This command requires a PR event');
 const repo=process.env.GITHUB_REPOSITORY; const number=pr.number; const sha=pr.head.sha;
 if(pr.head.repo.full_name!==repo){console.error('Untrusted fork: AI unavailable, manual review required');process.exit(1);}
 const api=apiClient();
+const history=await api(`/repos/${repo}/issues/${number}/comments?per_page=100`);
+const past=new Set(history.flatMap(c=>[...String(c.body||'').matchAll(/<!-- code-review:([a-f0-9]{40}) -->/g)].map(m=>m[1])));
+if(past.has(sha)){console.log('Current SHA already reviewed, avoiding duplicate AI cost');process.exit(0);}
+if(past.size>=3 && !history.some(c=>c.user?.login===repo.split('/')[0] && String(c.body).trim()===`/continue-review ${sha}`)) {
+ throw new Error('Three review rounds used. Human redesign decision required; owner may post /continue-review <sha>');
+}
 const files=await changedFiles(api,repo,number);
 if(!files.length){console.log('No changed source lines to review');process.exit(0);}
 for(const f of files.filter(f=>f.patch))f.context=await fileContext(api,repo,sha,f);
