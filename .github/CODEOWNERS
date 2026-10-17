@@ -1,0 +1,7 @@
+# Request human attention for sensitive paths. Actual enforcement requires branch rules.
+/.github/workflows/ @KorRestConsult
+/backend/src/server.js @KorRestConsult
+/backend/src/secret-bootstrap.js @KorRestConsult
+/backend/db/ @KorRestConsult
+/backend/deploy/ @KorRestConsult
+/.code-review/ @KorRestConsult
