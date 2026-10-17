@@ -29,6 +29,7 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TIMEWEB_AI_TOKEN: ${{ secrets.TIMEWEB_AI_TOKEN }}
+          REVIEW_AI_MODEL: openai/gpt-4.1-mini
         run: node .code-review/engine/run.mjs
       - uses: actions/upload-artifact@v4
         if: always()
@@ -53,6 +54,7 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TIMEWEB_AI_TOKEN: ${{ secrets.TIMEWEB_AI_TOKEN }}
+          REVIEW_AI_MODEL: openai/gpt-4.1-mini
           REVIEW_MODE: security
         run: node .code-review/engine/run.mjs
       - uses: actions/upload-artifact@v4
