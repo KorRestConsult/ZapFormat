@@ -11,11 +11,13 @@ if(pr.head.repo.full_name!==repo){console.error('Untrusted fork: AI unavailable,
 const api=apiClient();
 const history=await api(`/repos/${repo}/issues/${number}/comments?per_page=100`);
 const past=new Set(history.flatMap(c=>[...String(c.body||'').matchAll(/<!-- code-review:(review|security):([a-f0-9]{40}) -->/g)].filter(m=>m[1]===mode).map(m=>m[2])));
-if(past.has(sha)){console.log('Current SHA already reviewed, avoiding duplicate AI cost');process.exit(0);}
+if(past.has(sha)){console.log('Rechecking previously reviewed SHA; do not convert a failed review to success on retry');}
 if(past.size>=3 && !history.some(c=>c.user?.login===repo.split('/')[0] && String(c.body).trim()===`/continue-review ${sha}`)) {
  throw new Error('Three review rounds used. Human redesign decision required; owner may post /continue-review <sha>');
 }
 const files=await changedFiles(api,repo,number);
+const omitted=files.filter(f=>!f.patch && /\.(js|mjs|cjs|jsx|ts|tsx|py|sql|sh|json|ya?ml|html|css|toml|xml)$/i.test(f.filename));
+if(omitted.length) throw new Error('GitHub omitted patch for reviewable files (manual/full review required): '+omitted.map(f=>f.filename).join(', '));
 if(!files.length){console.log('No changed source lines to review');process.exit(0);}
 for(const f of files.filter(f=>f.patch))f.context=await fileContext(api,repo,sha,f);
 const ctx=[];
