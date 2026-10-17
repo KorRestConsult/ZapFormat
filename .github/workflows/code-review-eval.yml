@@ -1,0 +1,26 @@
+name: Review quality evaluation
+on:
+  schedule:
+    - cron: '0 3 * * *'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  eval:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Review regression fixtures
+        env:
+          TIMEWEB_AI_TOKEN: ${{ secrets.TIMEWEB_AI_TOKEN }}
+        run: node .code-review/engine/eval.mjs
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: code-review-eval
+          path: code-review-eval.json
+          if-no-files-found: ignore
