@@ -1,0 +1,26 @@
+name: Nightly Code Review
+on:
+  schedule:
+    - cron: '30 1 * * *'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  nightly:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Review existing high-risk code
+        env:
+          TIMEWEB_AI_TOKEN: ${{ secrets.TIMEWEB_AI_TOKEN }}
+        run: node .code-review/engine/nightly.mjs
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: code-review-nightly
+          path: code-review-nightly.json
+          if-no-files-found: ignore
