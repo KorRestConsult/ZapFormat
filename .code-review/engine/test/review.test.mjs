@@ -25,3 +25,15 @@ test('one verifier vote is not enough',async()=>{
  let i=0;const verified=await verifyCandidates({candidates:[f],files:[{filename:'a',patch:'@@ -1 +1 @@\n-old\n+new'}],context:'',ask:async()=>JSON.stringify({confirmed:++i===1})});
  assert.equal(verified.length,0);
 });
+
+import {readFileSync} from 'node:fs';
+import {fileURLToPath} from 'node:url';
+test('rerun does not silently mark failed code review successful',()=>{
+ const text=readFileSync(new URL('../run.mjs',import.meta.url),'utf8');
+ assert.ok(!text.includes("already reviewed, avoiding duplicate AI cost"));
+ assert.ok(text.includes('do not convert a failed review to success'));
+});
+test('review uses protected runtime code, not untrusted PR checkout',()=>{
+ const text=readFileSync(new URL('../../templates/.github/workflows/code-review-ai.yml',import.meta.url),'utf8');
+ assert.ok(text.includes('refs/heads/code-review-runtime'));
+});
