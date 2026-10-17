@@ -12,7 +12,10 @@ export async function requestLLM(system,user,{token=process.env.TIMEWEB_AI_TOKEN
       body:JSON.stringify({model,messages:[{role:'system',content:system+' Respond ONLY with valid JSON.'},{role:'user',content:user}],max_completion_tokens:1600})
     });
     if(res.status===429&&attempt===0){await delay(1800);continue;}
-    if(!res.ok)throw new Error(`AI provider HTTP ${res.status}`);
+    if(!res.ok){const details=await res.json().catch(()=>({}));
+      const code=String(details?.error?.code||details?.error?.type||details?.code||'unknown').replace(/[^a-z0-9_-]/gi,'').slice(0,70);
+      throw new Error(`AI provider HTTP ${res.status}; provider_error_code=${code}`);}
+
     const json=await res.json(); const value=json.choices?.[0]?.message?.content;
     if(typeof value!=='string'||!value.trim())throw new Error('Empty AI review response');
     return value;
