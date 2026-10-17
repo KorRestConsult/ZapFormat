@@ -34,7 +34,32 @@ jobs:
         if: always()
         with:
           name: ai-review-${{ github.event.pull_request.number }}
-          path: code-review-result.json
+          path: code-review-review.json
+          if-no-files-found: ignore
+  security-review:
+    name: AI Security Review
+    if: github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.base.sha }}
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Independent security agents and validators
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TIMEWEB_AI_TOKEN: ${{ secrets.TIMEWEB_AI_TOKEN }}
+          REVIEW_MODE: security
+        run: node .code-review/engine/run.mjs
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: ai-security-${{ github.event.pull_request.number }}
+          path: code-review-security.json
           if-no-files-found: ignore
   human-risk-gate:
     name: Human sign-off by risk
