@@ -1,6 +1,6 @@
 # Code Review engine (Node 22+, no external packages)
 
-The default provider is Timeweb AI Gateway, using a **GitHub Actions secret** named `TIMEWEB_AI_TOKEN`. This matches the existing ZapFormat project secret if it is present. No key is bundled. Each PR is scanned by four independent prompt passes, then each candidate gets three separate skeptical validation passes. At least two validators must agree. The returned source path and line number must match an added line in the actual GitHub patch; unsupported claims are discarded. This is multi-pass review, **not** an independent ensemble of different models.
+The default provider is Timeweb AI Gateway, using a **GitHub Actions secret** named `TIMEWEB_AI_TOKEN`. This matches the existing ZapFormat project secret if it is present. No key is bundled. Each PR is scanned by four independent prompt passes, then each candidate gets three separate skeptical validation passes. At least two validators must agree. A separate security mode runs three security-focused finders with its own CI status. The returned source path and line number must match an added line in the actual GitHub patch; unsupported claims are discarded. This is multi-pass review, **not** an independent ensemble of different models.
 
 - `.github/workflows/code-review-ci.yml`: tests, syntax, npm audit.
 - `.github/workflows/code-review-ai.yml`: read-only PR code review and risk approval check.
