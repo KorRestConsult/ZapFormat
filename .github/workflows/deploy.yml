@@ -4,6 +4,13 @@ on:
   push:
     branches:
       - main
+    # Review-policy-only merges must never trigger an unnecessary production deploy.
+    paths:
+      - '*.js'
+      - '*.css'
+      - '*.html'
+      - 'backend/**'
+      - 'pgcheck.py'
 
 permissions:
   contents: read
