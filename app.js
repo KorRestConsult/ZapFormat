@@ -1206,28 +1206,42 @@ function startNotificationRefresh(){
   },60000);
 }
 
+let accountHydrationPromise=null;
 async function hydrateAccountData(){
   if(!backendConfigured() || !sessionUser) return;
-  try{
-    const [overview,orders,requests,garage,preferences,notificationsData]=await Promise.all([
-      apiRequest("/api/account/overview"),
-      apiRequest("/api/account/orders"),
-      apiRequest("/api/account/requests"),
-      apiRequest("/api/garage"),
-      apiRequest("/api/account/preferences"),
-      apiRequest("/api/account/notifications?limit=30")
-    ]);
-    liveAccountOrders=orders.orders||[];
-    liveAccountRequests=requests.requests||[];
-    renderLiveAccount(overview,liveAccountOrders,liveAccountRequests,garage);
-    renderAccountPreferences(preferences);
-    renderAccountNotifications(notificationsData);
-    await hydrateRealGarage(garage);
+  // A single failing optional endpoint must not blank the entire cabinet.
+  if(accountHydrationPromise) return accountHydrationPromise;
+  accountHydrationPromise=(async()=>{
+    const endpoints=[
+      "/api/account/overview",
+      "/api/account/orders",
+      "/api/account/requests",
+      "/api/garage",
+      "/api/account/preferences",
+      "/api/account/notifications?limit=30"
+    ];
+    const results=await Promise.allSettled(endpoints.map(path=>apiRequest(path)));
+    const data=index=>results[index].status==="fulfilled" ? results[index].value : null;
+    const overview=data(0),orders=data(1),requests=data(2);
+    const garage=data(3),preferences=data(4),notificationsData=data(5);
+    if(overview && orders && requests && garage){
+      liveAccountOrders=orders.orders||[];
+      liveAccountRequests=requests.requests||[];
+      renderLiveAccount(overview,liveAccountOrders,liveAccountRequests,garage);
+    }
+    if(preferences) renderAccountPreferences(preferences);
+    if(notificationsData) renderAccountNotifications(notificationsData);
+    if(garage) await hydrateRealGarage(garage);
     renderAccountSetupChecklist();
-    accountDataHydrated=true;
-  }catch(error){
-    console.warn("Account hydration failed",error);
-  }
+    accountDataHydrated=results.every(result=>result.status==="fulfilled");
+    if(!accountDataHydrated){
+      console.warn("Some account sections could not load",results.map((result,index)=>
+        result.status==="rejected" ? endpoints[index] : null
+      ).filter(Boolean));
+    }
+  })();
+  try{ await accountHydrationPromise; }
+  finally{ accountHydrationPromise=null; }
 }
 
 
@@ -2669,7 +2683,9 @@ async function loadLiveOffers(article,brand,description="",options={}){
   }catch(error){
     console.error("Catalog offers lookup failed",error);
     setSearchHead(maker+" "+number,"Не удалось загрузить предложения.",number);
-    renderSearchState("Предложения временно недоступны","Повторите поиск через несколько секунд.");
+    renderSearchState("Предложения временно недоступны",supplierAvailable===false
+      ? "Каталог поставщика ещё подключается. Актуальные цены и наличие появятся после восстановления доступа."
+      : "Проверьте соединение и повторите поиск позже.");
     return false;
   }
 }
@@ -2887,7 +2903,9 @@ async function search(query,options={}){
   }catch(error){
     console.error("Catalog brand lookup failed",error);
     setSearchHead(raw,"Не удалось загрузить каталог.",raw);
-    renderSearchState("Поиск временно недоступен","Повторите попытку через несколько секунд.");
+    renderSearchState("Поиск временно недоступен",supplierAvailable===false
+      ? "Каталог поставщика ещё подключается. Данные о наличии и ценах пока не загружаются."
+      : "Проверьте соединение и повторите поиск позже.");
     return false;
   }
 }
