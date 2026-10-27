@@ -2770,6 +2770,14 @@ async function search(query,options={}){
     renderSearchState("Каталог временно недоступен","Попробуйте ещё раз чуть позже.");
     return false;
   }
+  if(supplierAvailable===false && !looksLikeVin(raw)){
+    setSearchHead(raw,"Подключаем каталог поставщика",raw);
+    renderSearchState(
+      "Поиск пока недоступен",
+      "Поставщик ещё не разрешил подключение к каталогу. Ваш запрос сохранён — попробуйте повторить поиск после восстановления связи."
+    );
+    return false;
+  }
 
   let vehicle=currentSearchVehicle();
 
