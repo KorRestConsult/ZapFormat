@@ -50,14 +50,14 @@ jobs:
         run: |
           set -Eeuo pipefail
           PAYLOAD="$(printf '{"sha":"%s"}' "${GITHUB_SHA}")"
-          curl -fsS -X POST             -H "Authorization: Bearer ${OIDC_TOKEN}"             -H "Content-Type: application/json"             --data-binary "${PAYLOAD}"             https://api.201.51.28.68.sslip.io/api/internal/deploy
+          curl -fsS -X POST             -H "Authorization: Bearer ${OIDC_TOKEN}"             -H "Content-Type: application/json"             --data-binary "${PAYLOAD}"             https://api.168.113.211.246.sslip.io/api/internal/deploy
 
       - name: Wait for deploy
         shell: bash
         run: |
           set -Eeuo pipefail
           for i in $(seq 1 90); do
-            JSON="$(curl -fsS https://api.201.51.28.68.sslip.io/api/deploy/status || true)"
+            JSON="$(curl -fsS https://api.168.113.211.246.sslip.io/api/deploy/status || true)"
             if [[ -n "${JSON}" ]]; then
               STATUS="$(python3 -c 'import json,sys; print(json.load(sys.stdin).get("status",""))' <<<"${JSON}" 2>/dev/null || true)"
               DEPLOYED="$(python3 -c 'import json,sys; print(json.load(sys.stdin).get("deployed_sha") or "")' <<<"${JSON}" 2>/dev/null || true)"
@@ -100,7 +100,7 @@ jobs:
             -H "Authorization: Bearer ${OIDC_TOKEN}" \
             -H "Content-Type: application/json" \
             --data-binary @/tmp/timeweb-ai.json \
-            https://api.201.51.28.68.sslip.io/api/internal/timeweb-ai-token >/dev/null
+            https://api.168.113.211.246.sslip.io/api/internal/timeweb-ai-token >/dev/null
           rm -f /tmp/timeweb-ai.json
 
       - name: Install SMS verification key
@@ -129,7 +129,7 @@ jobs:
             -H "Authorization: Bearer ${OIDC_TOKEN}" \
             -H "Content-Type: application/json" \
             --data-binary @/tmp/smsru.json \
-            https://api.201.51.28.68.sslip.io/api/internal/smsru-token >/dev/null
+            https://api.168.113.211.246.sslip.io/api/internal/smsru-token >/dev/null
           rm -f /tmp/smsru.json
 
       - name: Install FAPI key
@@ -155,7 +155,7 @@ jobs:
             -H "Authorization: Bearer ${OIDC_TOKEN}" \
             -H "Content-Type: application/json" \
             --data-binary @/tmp/fapi.json \
-            https://api.201.51.28.68.sslip.io/api/internal/fapi-token >/dev/null
+            https://api.168.113.211.246.sslip.io/api/internal/fapi-token >/dev/null
           rm -f /tmp/fapi.json
 
       - name: Verify search services
@@ -165,13 +165,13 @@ jobs:
         run: |
           set -Eeuo pipefail
           echo "AI search:"
-          curl -fsS https://api.201.51.28.68.sslip.io/api/search/health
+          curl -fsS https://api.168.113.211.246.sslip.io/api/search/health
           echo
           echo "Vehicle catalog:"
-          curl -fsS https://api.201.51.28.68.sslip.io/api/catalog/vehicle-catalog/status
+          curl -fsS https://api.168.113.211.246.sslip.io/api/catalog/vehicle-catalog/status
           echo
           echo "FAPI/Vindec:"
-          curl -fsS https://api.201.51.28.68.sslip.io/api/catalog/fapi/status
+          curl -fsS https://api.168.113.211.246.sslip.io/api/catalog/fapi/status
           echo
           echo "FAPI/Vindec smoke:"
           PAYLOAD="$(printf '{"sha":"%s"}' "${GITHUB_SHA}")"
@@ -179,15 +179,15 @@ jobs:
             -H "Authorization: Bearer ${OIDC_TOKEN}" \
             -H "Content-Type: application/json" \
             --data-binary "${PAYLOAD}" \
-            https://api.201.51.28.68.sslip.io/api/internal/fapi-smoke)"
+            https://api.168.113.211.246.sslip.io/api/internal/fapi-smoke)"
           echo "${FAPI_JSON}"
           python3 -c 'import json,sys; d=json.load(sys.stdin); assert d.get("ok") is True; assert d.get("configured") is True' <<<"${FAPI_JSON}"
           echo
           echo "Supplier integration:"
-          curl -fsS https://api.201.51.28.68.sslip.io/api/integration/status
+          curl -fsS https://api.168.113.211.246.sslip.io/api/integration/status
           echo
           echo "Customer auth capabilities:"
-          curl -fsS https://api.201.51.28.68.sslip.io/api/auth/capabilities
+          curl -fsS https://api.168.113.211.246.sslip.io/api/auth/capabilities
           echo
           echo "AI web-fitment smoke:"
           PAYLOAD="$(python3 - <<'PY'
@@ -202,6 +202,6 @@ jobs:
             -H "Authorization: Bearer ${OIDC_TOKEN}" \
             -H "Content-Type: application/json" \
             --data-binary "${PAYLOAD}" \
-            https://api.201.51.28.68.sslip.io/api/internal/search-smoke)"
+            https://api.168.113.211.246.sslip.io/api/internal/search-smoke)"
           echo "${JSON}"
           python3 -c 'import json,sys; d=json.load(sys.stdin); assert d.get("ok") is True; assert d.get("ai_configured") is True; assert d.get("research_mode") in {"web","web_failed","model"}, d' <<<"${JSON}"
