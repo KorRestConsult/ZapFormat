@@ -686,6 +686,21 @@ async function refreshStorefrontStatus(){
     root.classList.toggle("is-pending",supplierAvailable!==true);
   }
   updateCheckoutMode();
+  if(document.getElementById("view-cart")?.classList.contains("active")){
+    const cartStatus=document.getElementById("cartRefreshStatus");
+    const cartTime=document.getElementById("cartRefreshTime");
+    const cartRefresh=document.getElementById("refreshCartButton");
+    if(supplierAvailable!==true){
+      if(cartStatus) cartStatus.textContent="Поставщик не подключён — цены не подтверждены";
+      if(cartTime) cartTime.textContent="Сохранённые цены не подтверждены";
+      if(cartRefresh) cartRefresh.disabled=true;
+      renderCartPage();
+    }else{
+      if(cartStatus) cartStatus.textContent="Можно проверить цены и наличие";
+      if(cartTime) cartTime.textContent="";
+      if(cartRefresh) cartRefresh.disabled=!cart.length;
+    }
+  }
 }
 
 function applySessionUser(){
@@ -1610,7 +1625,7 @@ document.addEventListener("visibilitychange",()=>{
 
 function syncMobileNav(route){
   const mappedRoute=route==="search" ? "home" : route;
-  document.querySelectorAll(".mobile-nav [data-route]").forEach(button=>{
+  document.querySelectorAll(".mobile-nav [data-route], .desktop-nav [data-route]").forEach(button=>{
     const active=button.dataset.route===mappedRoute;
     button.classList.toggle("active",active);
     if(active) button.setAttribute("aria-current","page");
@@ -3154,6 +3169,18 @@ async function refreshCartOffers(options={}){
   const notice=document.getElementById("cartChangeNotice");
   const button=document.getElementById("refreshCartButton");
 
+  // Saved offers are not verified while the supplier API is unavailable.
+  if(supplierAvailable!==true){
+    if(status) status.textContent="Поставщик не подключён — цены не подтверждены";
+    if(time) time.textContent="Проверка цен и остатков временно недоступна";
+    if(notice && cart.length){
+      notice.hidden=false;
+      notice.textContent="В корзине показаны сохранённые предложения. Цена, наличие и срок не подтверждены. Оформление временно недоступно.";
+    }
+    if(button) button.disabled=true;
+    return {ok:false,changed:0,blocked:cart.length,checkoutChanged:0,checkoutBlocked:checkoutIds.size};
+  }
+
   if(!refreshable.length){
     if(!cart.length){
       if(status) status.textContent="Корзина пустая";
@@ -3251,7 +3278,9 @@ async function refreshCartOffers(options={}){
     renderCart();
     renderCartPage();
 
-    if(status) status.textContent="Цены и наличие обновлены";
+    if(status) status.textContent=blocked
+      ? "Проверка завершена — есть недоступные позиции"
+      : "Цены и наличие проверены у поставщика";
     if(time) time.textContent=new Date().toLocaleTimeString("ru-RU",{hour:"2-digit",minute:"2-digit"});
     if(notice){
       if(blocked){
@@ -3266,7 +3295,7 @@ async function refreshCartOffers(options={}){
       }
     }
 
-    if(!silent && !blocked && !changed) showToast("Цены и наличие актуальны.");
+    if(!silent && !blocked && !changed) showToast("Цены и наличие проверены у поставщика.");
     return {ok:true,changed,blocked,checkoutChanged,checkoutBlocked};
   }catch(error){
     console.error("Cart revalidation failed",error);
@@ -3284,7 +3313,7 @@ async function refreshCartOffers(options={}){
       checkoutBlocked:checkoutIds.size||1
     };
   }finally{
-    if(button) button.disabled=false;
+    if(button) button.disabled=supplierAvailable!==true;
   }
 }
 function selectedCartItems(){
@@ -3367,7 +3396,7 @@ function renderCartPage(){
           </div>
         </div>
         <div class="availability-cell cart-availability ${unavailable?"zero":""}">${x.stale?"—":x.availableQty}</div>
-        <div class="price-cell cart-price-cell">${priceHtml}</div>
+        <div class="price-cell cart-price-cell">${priceHtml}${supplierAvailable!==true?'<small class="cart-price-unverified">Не подтверждено</small>':""}</div>
         <div class="sum-cell cart-sum-cell">${x.quoteOnly?"после подтверждения":rub(subtotal)}</div>
         <div class="comment-cell cart-comment"><input data-cart-comment="${escapeHtml(x.id)}" value="${escapeHtml(x.comment||"")}" placeholder="Комментарий"></div>
         <div class="remove-cell"><button class="cart-remove-icon" data-remove="${escapeHtml(x.id)}" aria-label="Удалить">×</button></div>
@@ -3819,7 +3848,7 @@ function restoreFromUrl(){
     showRoute(view);
     if(view==="cart"){
       renderCartPage();
-      refreshCartOffers({silent:true});
+      if(supplierAvailable===true) refreshCartOffers({silent:true}).catch(()=>null);
     }
   } else if(sessionUser && resume?.query){
     search(resume.query,{push:false,brand:resume.brand||undefined});
