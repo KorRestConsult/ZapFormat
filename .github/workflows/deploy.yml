@@ -37,6 +37,22 @@ jobs:
           cd backend
           npm test
 
+      - name: Check production deploy agent before queueing
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          STATUS_JSON="$(curl --fail --silent --show-error --max-time 15 https://api.168.113.211.246.sslip.io/api/deploy/status)"
+          DEPLOY_STATUS="$(python3 -c 'import json,sys; print(json.load(sys.stdin).get("status", ""))' <<<"${STATUS_JSON}")"
+          if [[ "${DEPLOY_STATUS}" == "not_configured" ]]; then
+            echo "::error::AdminVPS deploy agent is not installed. Website publication is unaffected; backend changes remain in GitHub."
+            exit 1
+          fi
+          if [[ -z "${DEPLOY_STATUS}" ]]; then
+            echo "::error::Deploy readiness could not be verified."
+            exit 1
+          fi
+          echo "Deploy agent reported status=${DEPLOY_STATUS}"
+
       - name: Request GitHub OIDC token
         id: oidc
         shell: bash
