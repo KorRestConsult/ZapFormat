@@ -1669,8 +1669,8 @@ function showRoute(route){
     if(supplierAvailable!==true){
       const status=document.getElementById("cartRefreshStatus");
       const time=document.getElementById("cartRefreshTime");
-      if(status) status.textContent="Поставщик пока не подключён";
-      if(time) time.textContent="Вы можете просмотреть позиции. Оформление станет доступно после подключения.";
+      if(status) status.textContent="Поставщик не подключён — цены и остатки не подтверждены";
+      if(time) time.textContent="Сохранённые позиции можно просмотреть. Оформление временно недоступно.";
     }else if(cart.length){
       refreshCartOffers({silent:true}).catch(()=>null);
     }
