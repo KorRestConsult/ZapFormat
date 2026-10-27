@@ -113,3 +113,22 @@ test('Owner order queue paginates without losing the status filter or exposing p
   assert.match(app, /escapeHtml\(order\.recipient_name/);
   assert.match(css, /\.management-pagination\[hidden\]/);
 });
+
+
+test('administration has read-only requests and customer sections', () => {
+  const desk = readFileSync(resolve(root, 'admin-desk.js'), 'utf8');
+  const ids = new Set(values(html, /\bid="([^"]+)"/g));
+  for (const name of ['adminRequestList', 'adminCustomerList', 'adminCustomerSearch',
+    'adminRequestFilter', 'adminRequestsMore', 'adminCustomersMore']) {
+    assert.ok(ids.has(name), 'missing admin desk control ' + name);
+  }
+  assert.ok(html.includes('./admin-desk.js'), 'admin desk script not loaded');
+  assert.ok(app.includes('window.hydrateAdminDesk'), 'authorized admin navigation does not hydrate desk');
+  assert.match(desk, /isManagementUser\(\)/, 'owner/admin guard absent');
+  assert.match(desk, /\/api\/admin\/requests/);
+  assert.match(desk, /\/api\/admin\/customers/);
+  assert.ok(desk.includes('escapeHtml(item.phone)'), 'request phone escaping is required');
+  assert.ok(desk.includes('escapeHtml(item.email)'), 'customer email escaping is required');
+  assert.doesNotMatch(desk, /method\s*:\s*["'](?:POST|PATCH|PUT|DELETE)/i, 'desk must remain read-only');
+  assert.match(css, /\.management-desk-row/, 'desk layout missing');
+});
