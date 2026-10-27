@@ -5377,3 +5377,6 @@ html,body{overflow-x:clip}
   .site-footer nav{gap:0 16px}
   .site-footer-brand p{margin-top:3px}
 }
+
+/* 320px devices: never force document width wider than the layout viewport. */
+body{min-width:0!important}
