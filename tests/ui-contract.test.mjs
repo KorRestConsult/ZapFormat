@@ -89,3 +89,14 @@ test('Touch breakpoints and a non-scrolling mobile navigation exist', () => {
   assert.match(css, /body\s*\{\s*min-width:0!important/);
   assert.ok(html.includes('class="mobile-nav"'));
 });
+
+test('management screen is visible only to a server-authorized owner or admin', () => {
+  assert.ok(html.includes('id="view-admin"'), 'management view is missing');
+  assert.ok(html.includes('id="adminNavButton"') && html.includes('id="adminSidebarButton"'));
+  assert.match(app, /function isManagementUser\(\)/);
+  assert.match(app, /\["owner","admin"\]\.includes/);
+  assert.match(app, /route==="admin" && sessionUser && !isManagementUser\(\)/);
+  assert.match(app, /if\(button\) button.hidden=!managementVisible/);
+  assert.ok(app.includes('/api/admin/overview'), 'admin endpoint missing');
+  assert.ok(app.includes('/api/admin/orders'), 'admin queue endpoint missing');
+});
