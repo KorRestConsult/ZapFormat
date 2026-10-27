@@ -4971,3 +4971,78 @@ body.guest-mode .logo{
 
 .auth-capability-notice{margin:10px 0 4px;padding:10px 12px;border:1px solid #ecd7b7;border-radius:10px;background:#fff8ed;color:#795928;font-size:12px;line-height:1.45}
 .auth-tabs button:disabled,.auth-link:disabled{opacity:.45;cursor:not-allowed}
+
+
+/* 2026-10-27: unified storefront and customer-account experience */
+.storefront-status{
+  display:inline-flex;align-items:flex-start;gap:10px;
+  max-width:800px;margin:18px auto 0;padding:11px 15px;
+  background:#fff;border:1px solid #d9e4ea;border-radius:12px;
+  color:#465d6e;font-size:12px;line-height:1.5;text-align:left;
+  box-shadow:0 4px 15px rgba(25,52,71,.045)
+}
+.storefront-status-dot{width:9px;height:9px;flex:0 0 9px;margin-top:4px;border-radius:50%;background:#91a2ad}
+.storefront-status.is-ready{background:#eef7f1;border-color:#c9e5d3;color:#285b40}
+.storefront-status.is-ready .storefront-status-dot{background:#339b62}
+.storefront-status.is-pending{background:#fff8ed;border-color:#f1ddbc;color:#795c30}
+.storefront-status.is-pending .storefront-status-dot{background:#d89039}
+.storefront-steps{
+  display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;
+  width:min(900px,100%);margin:38px auto 10px;text-align:left
+}
+.storefront-steps>div{
+  display:grid;align-content:start;gap:7px;min-width:0;
+  padding:18px 20px;border:1px solid #dbe4e9;border-radius:16px;
+  background:#fff;box-shadow:0 6px 22px rgba(24,49,66,.035)
+}
+.storefront-steps b{color:#b47b44;letter-spacing:.1em;font-size:11px}
+.storefront-steps strong{font-size:15px;letter-spacing:-.02em;color:#19374c}
+.storefront-steps span{font-size:12px;line-height:1.5;color:#71818d}
+.account-setup{
+  background:#fff;border:1px solid #dbe4e9;border-radius:13px;
+  box-shadow:var(--shadow);padding:19px 21px;margin-bottom:12px
+}
+.account-setup-count{font-size:12px;font-weight:800;color:#46677d;background:#eef3f6;border-radius:999px;padding:7px 11px;white-space:nowrap}
+.account-setup-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
+.account-setup-step{
+  display:flex;align-items:flex-start;gap:10px;text-align:left;
+  min-height:105px;padding:13px;border:1px solid #dce5e9;
+  border-radius:11px;background:#f9fbfc;color:#244259
+}
+.account-setup-step:hover{border-color:#a8bdca;background:#f2f7fa}
+.account-setup-step.is-complete{background:#f2f8f4;border-color:#c9e1d1}
+.account-setup-indicator{
+  display:grid;place-items:center;flex:0 0 25px;width:25px;height:25px;
+  border-radius:8px;background:#dfe9ef;color:#365568;font-size:12px;font-weight:900
+}
+.account-setup-step.is-complete .account-setup-indicator{background:#d5ecdd;color:#226641}
+.account-setup-step b,.account-setup-step small{display:block}
+.account-setup-step b{font-size:13px}
+.account-setup-step small{margin-top:5px;font-size:11px;line-height:1.45;color:#71848e}
+.account-nav button[aria-current="page"]{font-weight:900}
+button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible,
+[role="button"]:focus-visible{outline:3px solid #e3a65c!important;outline-offset:3px}
+button:disabled{cursor:not-allowed}
+#view-cart .checkout-title{border-radius:12px;font-size:clamp(24px,3vw,31px);letter-spacing:-.035em}
+#view-cart .cart-livebar,#view-cart .order-table-wrap{border-radius:11px}
+@media(max-width:900px){
+  .storefront-steps{gap:8px;margin-top:26px}
+  .storefront-steps>div{padding:14px}
+  .account-setup-grid{grid-template-columns:1fr}
+  .account-setup-step{min-height:0}
+}
+@media(max-width:680px){
+  .minimal-home{min-height:auto!important;padding-bottom:0!important}
+  .storefront-status{display:flex;width:100%;margin-top:12px;font-size:11px;padding:10px 12px}
+  .storefront-steps{grid-template-columns:1fr;margin:18px 0 12px;gap:7px}
+  .storefront-steps>div{grid-template-columns:31px 1fr;gap:2px 9px;padding:12px}
+  .storefront-steps>div>b{grid-row:1/3;align-self:center}
+  .storefront-steps strong{font-size:12px}
+  .storefront-steps span{font-size:10px}
+  .account-setup{padding:14px 12px}
+  .account-setup .account-block-head h3{font-size:17px}
+  .account-setup-step{padding:10px}
+}
+@media(prefers-reduced-motion:reduce){
+  .storefront-steps *, .account-setup-step{transition:none!important}
+}
