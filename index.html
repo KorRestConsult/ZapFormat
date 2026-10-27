@@ -6,7 +6,7 @@
   <meta name="theme-color" content="#17324a" />
   <title>ZapFormat — автозапчасти</title>
   <meta name="description" content="ZapFormat — поиск автозапчастей по артикулу и названию. Личный гараж, корзина и история заказов." />
-  <link rel="stylesheet" href="./styles.css?v=20261027-design5" />
+  <link rel="stylesheet" href="./styles.css?v=20261027-admin1" />
 </head>
 <body class="guest-mode session-pending">
   <div class="app">
@@ -19,6 +19,7 @@
           <button type="button" data-route="home">Поиск</button>
           <button type="button" data-route="garage">Гараж</button>
           <button type="button" data-route="orders">Заказы <b class="nav-notification-badge" id="headerNotificationBadge" hidden>0</b></button>
+          <button type="button" id="adminNavButton" data-route="admin" hidden>Управление</button>
         </nav>
         <div class="header-actions">
           <button type="button" id="headerVehicleButton" class="header-vehicle" data-route="garage">
@@ -269,6 +270,41 @@
         </div>
       </section>
 
+      <section class="view" id="view-admin">
+        <div class="management-page">
+          <div class="management-heading">
+            <div><span class="eyebrow">ZAPFORMAT · ВЛАДЕЛЬЦУ</span><h1>Управление магазином</h1><p>Заказы, обращения и финансовая сводка. Только просмотр — без отправки поставщику и изменения цен.</p></div>
+            <button type="button" id="adminRefreshButton" class="account-primary">Обновить данные</button>
+          </div>
+          <div class="management-message" id="adminMessage" role="status" aria-live="polite">Загрузка данных…</div>
+          <section class="management-stats" aria-label="Показатели магазина">
+            <article><span>Все заказы</span><strong id="adminOrdersTotal">—</strong><small>За всё время</small></article>
+            <article><span>Активные заказы</span><strong id="adminOrdersActive">—</strong><small>Не завершены и не отменены</small></article>
+            <article><span>Активные обращения</span><strong id="adminRequestsActive">—</strong><small>Ожидают обработки</small></article>
+            <article><span>Сумма заказов</span><strong id="adminRevenue">—</strong><small>Без отменённых</small></article>
+          </section>
+          <section class="management-profit" aria-labelledby="adminProfitTitle">
+            <div><span class="eyebrow">ФИНАНСЫ · ТОЛЬКО ПОДТВЕРЖДЁННЫЕ ДАННЫЕ</span><h2 id="adminProfitTitle">Валовая прибыль по известной себестоимости</h2><p>Не является чистой прибылью: не вычтены налоги, доставка, операционные расходы и возвраты.</p></div>
+            <div><strong id="adminGrossProfit">—</strong><small id="adminCostCoverage">Нет данных</small></div>
+          </section>
+          <section class="management-orders">
+            <div class="management-orders-head"><div><span class="eyebrow">ОЧЕРЕДЬ ЗАКАЗОВ</span><h2>Последние заказы</h2></div>
+              <label class="management-filter"><span>Статус</span><select id="adminOrderFilter">
+                <option value="">Все</option>
+                <option value="new">Новые</option>
+                <option value="received">Принятые</option>
+                <option value="confirmed">Подтверждённые</option>
+                <option value="processing">В работе</option>
+                <option value="ready">Готовы</option>
+                <option value="completed">Завершены</option>
+                <option value="cancelled">Отменены</option>
+              </select></label>
+            </div>
+            <div id="adminOrderList" class="management-order-list" aria-live="polite"><p>Загрузка заказов…</p></div>
+          </section>
+        </div>
+      </section>
+
       <section class="view" id="view-profile">
         <div class="account-shell">
           <aside class="account-sidebar">
@@ -290,6 +326,7 @@
               <button type="button" data-account-tab="notifications">Уведомления <b class="notification-badge" id="notificationUnreadBadge" hidden>0</b></button>
               <button type="button" data-account-tab="reports">Статистика</button>
             </nav>
+            <button type="button" class="account-logout admin-nav-entry" id="adminSidebarButton" data-route="admin" hidden>Управление магазином</button>
             <button class="account-logout" id="logoutButton" type="button">Выйти</button>
           </aside>
 
@@ -542,6 +579,6 @@
 </div>
 
   <script src="./config.js?v=20261027-design1"></script>
-  <script src="./app.js?v=20261027-design5"></script>
+  <script src="./app.js?v=20261027-admin1"></script>
 </body>
 </html>
