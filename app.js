@@ -593,12 +593,16 @@ function updateCheckoutMode(){
   checkoutButtons().forEach(button=>{
     if(!button.dataset.busy){
       button.disabled=selectedCount===0 || supplierAvailable!==true;
-      button.textContent=supplierAvailable===false ? "Заказы временно недоступны" : finalLabel;
+      button.textContent=supplierAvailable!==true
+        ? "Заказы временно недоступны"
+        : !sessionUser ? "Войти для оформления" : finalLabel;
     }
   });
   checkoutEntryButtons().forEach(button=>{
     button.disabled=selectedCount===0 || supplierAvailable!==true;
-    button.textContent=supplierAvailable===false ? "Каталог поставщика подключается" : entryLabel;
+    button.textContent=supplierAvailable!==true
+      ? "Каталог поставщика подключается"
+      : !sessionUser ? "Войти для оформления" : entryLabel;
   });
 
   const summary=document.getElementById("checkoutReviewSummary");
@@ -624,8 +628,8 @@ function renderAccountSetupChecklist(){
     {
       tab:"profile",
       title:"Контактные данные",
-      subtitle:"Имя и способ связи для заказа",
-      ready:Boolean(sessionUser.name && (sessionUser.phone||sessionUser.email))
+      subtitle:"Имя и телефон для оформления заказа",
+      ready:Boolean(sessionUser.name && String(sessionUser.phone||"").replace(/\D/g,"").length>=10)
     },
     {
       tab:"garage",
@@ -1619,7 +1623,8 @@ function showRoute(route){
     route="home";
   }
 
-  const protectedProductRoute=!(["auth","home","search"].includes(route));
+  // Browsing the catalog and reviewing the cart are available without an account.
+  const protectedProductRoute=!(["auth","home","search","cart"].includes(route));
   if(protectedProductRoute && !sessionUser){
     pendingAccountRoute=route==="search" ? "home" : route;
     document.querySelectorAll(".view").forEach(v=>v.classList.remove("active"));
@@ -1644,6 +1649,17 @@ function showRoute(route){
   if(route==="profile") showAccountTab("overview");
   if(route==="orders") showAccountTab("orders");
   if(route==="garage") showAccountTab("garage");
+  if(route==="cart"){
+    renderCartPage();
+    if(supplierAvailable!==true){
+      const status=document.getElementById("cartRefreshStatus");
+      const time=document.getElementById("cartRefreshTime");
+      if(status) status.textContent="Поставщик пока не подключён";
+      if(time) time.textContent="Вы можете просмотреть позиции. Оформление станет доступно после подключения.";
+    }else if(cart.length){
+      refreshCartOffers({silent:true}).catch(()=>null);
+    }
+  }
 
   if(sessionUser && ["profile","orders","garage"].includes(route)){
     hydrateAccountData().catch(()=>{});
@@ -3398,6 +3414,17 @@ function deleteSelected(){
 
 
 async function checkoutCart(){
+  // An account is mandatory for order history and supplier actions.
+  if(!sessionUser){
+    pendingAccountRoute="cart";
+    navigate("auth");
+    setAuthStatus("Войдите, чтобы оформить заказ. Ваша корзина сохранится на этом устройстве.");
+    return;
+  }
+  if(supplierAvailable!==true){
+    showToast("Каталог поставщика недоступен. Заказ не отправлен.","warn");
+    return;
+  }
   let selected=selectedCartItems();
   if(!selected.length){
     showToast("Отметьте доступные позиции.","warn");
@@ -3578,7 +3605,17 @@ document.addEventListener("click",async e=>{
     const action=cartAction.dataset.cartAction;
     if(action==="clear") clearCart();
     else if(action==="delete-selected") deleteSelected();
-    else if(action==="start-checkout") setCheckoutReviewOpen(true,{scroll:true});
+    else if(action==="start-checkout"){
+      if(!sessionUser){
+        pendingAccountRoute="cart";
+        navigate("auth");
+        setAuthStatus("Войдите, чтобы оформить заказ. Корзина останется на устройстве.");
+      }else if(supplierAvailable!==true){
+        showToast("Оформление доступно после подключения поставщика.","warn");
+      }else{
+        setCheckoutReviewOpen(true,{scroll:true});
+      }
+    }
     else if(action==="close-checkout"){
       setCheckoutReviewOpen(false);
       document.querySelector(".checkout-title")?.scrollIntoView({behavior:"smooth",block:"start"});
