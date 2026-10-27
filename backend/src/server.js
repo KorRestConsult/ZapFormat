@@ -1136,6 +1136,105 @@ async function requireUser(req, res, next) {
   }
 }
 
+// Administrative endpoints require an authenticated privileged account.
+// They never disclose procurement prices to ordinary customers.
+function requireAdmin(req, res, next) {
+  if (!["admin", "owner"].includes(String(req.user?.role || ""))) {
+    return res.status(403).json({ error: "forbidden" });
+  }
+  next();
+}
+
+app.use("/api/admin", requireDatabase, requireUser, requireAdmin);
+
+// Read-only snapshot. Margin figures count ONLY items with a recorded cost.
+// Never label incomplete cost coverage as the total business profit.
+app.get("/api/admin/overview", async (_req, res, next) => {
+  try {
+    const [orders, items, requests] = await Promise.all([
+      pool.query(`
+        SELECT count(*)::int AS total_orders,
+               count(*) FILTER (WHERE status NOT IN ('completed','cancelled'))::int AS active_orders,
+               count(*) FILTER (WHERE status = 'cancelled')::int AS cancelled_orders,
+               coalesce(sum(total_amount) FILTER (WHERE status <> 'cancelled'),0)::numeric(14,2) AS booked_revenue
+          FROM orders
+      `),
+      pool.query(`
+        SELECT count(*)::int AS items_count,
+               count(*) FILTER (WHERE i.purchase_price IS NOT NULL)::int AS costed_items,
+               count(*) FILTER (WHERE i.purchase_price IS NULL)::int AS missing_cost_items,
+               coalesce(sum(i.unit_price * i.quantity) FILTER
+                 (WHERE i.purchase_price IS NOT NULL),0)::numeric(14,2) AS sales_known_cost,
+               coalesce(sum(i.purchase_price * i.quantity) FILTER
+                 (WHERE i.purchase_price IS NOT NULL),0)::numeric(14,2) AS procurement_known_cost,
+               coalesce(sum((i.unit_price - i.purchase_price) * i.quantity) FILTER
+                 (WHERE i.purchase_price IS NOT NULL),0)::numeric(14,2) AS known_gross_profit
+          FROM order_items i
+          JOIN orders o ON o.id = i.order_id
+         WHERE o.status <> 'cancelled'
+      `),
+      pool.query(`
+        SELECT count(*)::int AS total_requests,
+               count(*) FILTER (WHERE status NOT IN ('completed','cancelled'))::int AS active_requests
+          FROM quote_requests
+      `)
+    ]);
+    const line = items.rows[0];
+    res.json({
+      orders: {
+        total: orders.rows[0].total_orders,
+        active: orders.rows[0].active_orders,
+        cancelled: orders.rows[0].cancelled_orders,
+        booked_revenue: Number(orders.rows[0].booked_revenue)
+      },
+      requests: {
+        total: requests.rows[0].total_requests,
+        active: requests.rows[0].active_requests
+      },
+      gross_profit: {
+        known_amount: Number(line.known_gross_profit),
+        revenue_on_costed_lines: Number(line.sales_known_cost),
+        procurement_on_costed_lines: Number(line.procurement_known_cost),
+        costed_items: line.costed_items,
+        missing_cost_items: line.missing_cost_items,
+        complete: line.missing_cost_items === 0,
+        // Excludes operating costs, refunds and tax. Not net profit.
+        basis: "recorded_cost_only_before_expenses_tax_and_refunds"
+      }
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// Limited, read-only order queue; no procurement or supplier credentials leak.
+app.get("/api/admin/orders", async (req, res, next) => {
+  try {
+    const allowed = new Set(["new","received","confirmed","processing","ready","completed","cancelled"]);
+    const inputStatus = String(req.query?.status || "").trim().toLowerCase();
+    if (inputStatus && !allowed.has(inputStatus)) {
+      return res.status(400).json({ error: "invalid_order_status" });
+    }
+    const limit = Math.max(1, Math.min(50, Math.trunc(Number(req.query?.limit || 30)) || 30));
+    const offset = Math.max(0, Math.min(5000, Math.trunc(Number(req.query?.offset || 0)) || 0));
+    const result = await pool.query(`
+      SELECT o.id, o.order_number, o.status, o.total_amount, o.currency,
+             o.created_at, o.updated_at, o.supplier_state,
+             o.recipient_name, o.recipient_phone,
+             count(i.id)::int AS items_count
+        FROM orders o
+        LEFT JOIN order_items i ON i.order_id = o.id
+       WHERE ($1::text IS NULL OR o.status = $1)
+       GROUP BY o.id
+       ORDER BY o.created_at DESC, o.id DESC
+       LIMIT $2 OFFSET $3
+    `, [inputStatus || null, limit, offset]);
+    res.json({ orders: result.rows, limit, offset, status: inputStatus || null });
+  } catch (error) {
+    next(error);
+  }
+});
+
 app.get("/api/health", async (_req, res, next) => {
   try {
     let db = false;
