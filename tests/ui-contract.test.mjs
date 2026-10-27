@@ -125,10 +125,11 @@ test('administration has read-only requests and customer sections', () => {
   assert.ok(html.includes('./admin-desk.js'), 'admin desk script not loaded');
   assert.ok(app.includes('window.hydrateAdminDesk'), 'authorized admin navigation does not hydrate desk');
   assert.match(desk, /isManagementUser\(\)/, 'owner/admin guard absent');
-  assert.match(desk, /\/api\/admin\/requests/);
-  assert.match(desk, /\/api\/admin\/customers/);
-  assert.ok(desk.includes('escapeHtml(item.phone)'), 'request phone escaping is required');
-  assert.ok(desk.includes('escapeHtml(item.email)'), 'customer email escaping is required');
+  assert.ok(desk.includes('"/api/admin/"+type'), 'admin-only API prefix missing');
+  assert.ok(desk.includes('load("requests")'), 'request loading missing');
+  assert.ok(desk.includes('load("customers")'), 'customer loading missing');
+  assert.ok(desk.includes('escapeHtml(item.phone||'), 'phone escaping is required');
+  assert.ok(desk.includes('escapeHtml(item.email||'), 'customer email escaping is required');
   assert.doesNotMatch(desk, /method\s*:\s*["'](?:POST|PATCH|PUT|DELETE)/i, 'desk must remain read-only');
   assert.match(css, /\.management-desk-row/, 'desk layout missing');
 });
