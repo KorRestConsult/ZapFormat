@@ -53,6 +53,14 @@ jobs:
           fi
           echo "Deploy agent reported status=${DEPLOY_STATUS}"
 
+      - name: Verify production release runner is installed
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          JSON="$(curl -fsS --max-time 15 https://api.168.113.211.246.sslip.io/api/deploy/status)"
+          python3 -c 'import json,sys; s=json.load(sys.stdin).get("status",""); print("Deploy runner status:",s); sys.exit(1 if s in {"not_configured",""} else 0)' <<<"${JSON}"
+          echo "Production deploy runner present"
+
       - name: Request GitHub OIDC token
         id: oidc
         shell: bash
