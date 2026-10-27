@@ -6,7 +6,7 @@
   <meta name="theme-color" content="#17324a" />
   <title>ZapFormat — автозапчасти</title>
   <meta name="description" content="ZapFormat — поиск автозапчастей по артикулу и названию. Личный гараж, корзина и история заказов." />
-  <link rel="stylesheet" href="./styles.css?v=20261027-design1" />
+  <link rel="stylesheet" href="./styles.css?v=20261027-design2" />
 </head>
 <body class="guest-mode session-pending">
   <div class="app">
@@ -282,10 +282,12 @@
             <nav class="account-nav" aria-label="Личный кабинет">
               <button type="button" class="active" data-account-tab="overview">Обзор</button>
               <button type="button" data-account-tab="orders">Заказы</button>
+              <button type="button" data-account-tab="returns">Возвраты</button>
               <button type="button" data-account-tab="garage">Гараж</button>
               <button type="button" data-account-tab="profile">Профиль</button>
               <button type="button" data-account-tab="delivery">Получение</button>
               <button type="button" data-account-tab="notifications">Уведомления <b class="notification-badge" id="notificationUnreadBadge" hidden>0</b></button>
+              <button type="button" data-account-tab="reports">Статистика</button>
             </nav>
             <button class="account-logout" id="logoutButton" type="button">Выйти</button>
           </aside>
@@ -355,6 +357,22 @@
 
             <section class="account-pane" id="account-order-detail">
               <div id="orderDetailMount" aria-live="polite"></div>
+            </section>
+
+            <section class="account-pane" id="account-returns">
+              <div class="account-head"><div><span class="eyebrow">ВОЗВРАТЫ И ОБРАЩЕНИЯ</span><h2>Возвраты</h2><p>История обращений, номер заказа и статус каждой заявки.</p></div><button class="account-primary" data-account-tab="orders" type="button">Мои заказы</button></div>
+              <div class="account-block" id="accountReturnsList" aria-live="polite"><div class="account-empty"><p>Загружаем возвраты…</p></div></div>
+            </section>
+
+            <section class="account-pane" id="account-reports">
+              <div class="account-head"><div><span class="eyebrow">МОИ ПОКУПКИ</span><h2>Статистика</h2><p>Количество заказов, сумма покупок и возвраты за текущий месяц.</p></div></div>
+              <div class="account-stats" id="accountReportStats" aria-live="polite">
+                <article><span>Заказов за месяц</span><b>—</b><small>Загрузка</small></article>
+                <article><span>Покупок</span><b>—</b><small>Загрузка</small></article>
+                <article><span>Возвратов</span><b>—</b><small>Загрузка</small></article>
+                <article><span>Средний заказ</span><b>—</b><small>Загрузка</small></article>
+              </div>
+              <div class="account-block"><div class="account-block-head"><div><span class="eyebrow">ДАННЫЕ</span><h3>Как рассчитывается статистика</h3></div></div><p class="account-muted">Учитываются ваши заказы за текущий календарный месяц. Отменённые заказы исключены из суммы покупок. Статистика обновляется при открытии раздела.</p></div>
             </section>
 
             <section class="account-pane" id="account-garage">
@@ -508,6 +526,6 @@
 </div>
 
   <script src="./config.js?v=20261027-design1"></script>
-  <script src="./app.js?v=20261027-design1"></script>
+  <script src="./app.js?v=20261027-design2"></script>
 </body>
 </html>
