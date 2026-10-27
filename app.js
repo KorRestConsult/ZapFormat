@@ -712,6 +712,15 @@ function applySessionUser(){
     headerProfile.dataset.route=sessionUser ? "profile" : "auth";
   }
 
+  const managementVisible=isManagementUser();
+  for(const id of ["adminNavButton","adminSidebarButton"]){
+    const button=document.getElementById(id);
+    if(button) button.hidden=!managementVisible;
+  }
+  if(!managementVisible && document.getElementById("view-admin")?.classList.contains("active")){
+    showRoute(sessionUser?"profile":"home");
+  }
+
   const userBox=document.querySelector(".account-user");
   if(userBox && sessionUser){
     const avatar=userBox.querySelector(".account-avatar");
@@ -1633,9 +1642,81 @@ function syncMobileNav(route){
   });
 }
 
+function isManagementUser(){
+  return Boolean(sessionUser) && ["owner","admin"].includes(String(sessionUser.role||""));
+}
+
+let adminLoading=false;
+
+function adminText(id,value){
+  const element=document.getElementById(id);
+  if(element) element.textContent=String(value??"—");
+}
+
+async function hydrateAdminDashboard(){
+  if(!isManagementUser() || adminLoading) return;
+  adminLoading=true;
+  const message=document.getElementById("adminMessage");
+  const reload=document.getElementById("adminRefreshButton");
+  if(message) message.textContent="Обновляем сводку и заказы…";
+  if(reload) reload.disabled=true;
+  try{
+    const status=String(document.getElementById("adminOrderFilter")?.value||"");
+    const [summary,queue]=await Promise.all([
+      apiRequest("/api/admin/overview"),
+      apiRequest("/api/admin/orders?limit=30"+(status?"&status="+encodeURIComponent(status):""))
+    ]);
+    if(!isManagementUser()) return;
+    adminText("adminOrdersTotal",Number(summary?.orders?.total||0).toLocaleString("ru-RU"));
+    adminText("adminOrdersActive",Number(summary?.orders?.active||0).toLocaleString("ru-RU"));
+    adminText("adminRequestsActive",Number(summary?.requests?.active||0).toLocaleString("ru-RU"));
+    adminText("adminRevenue",rub(Number(summary?.orders?.booked_revenue||0)));
+    const profits=summary?.gross_profit||{};
+    const costed=Number(profits.costed_items||0);
+    const missing=Number(profits.missing_cost_items||0);
+    adminText("adminGrossProfit",costed ? rub(Number(profits.known_amount||0)) : "Нет подтверждённых затрат");
+    adminText("adminCostCoverage",costed+" позиций с себестоимостью · "+missing+" без данных. "+(missing?"Общую прибыль пока рассчитать нельзя.":""));
+    const mount=document.getElementById("adminOrderList");
+    const orders=Array.isArray(queue?.orders)?queue.orders:[];
+    if(mount){
+      mount.innerHTML=orders.length ? orders.map(order=>`
+        <article class="management-order-item">
+          <div class="management-order-identity">
+            <strong>Заказ №${escapeHtml(order.order_number)}</strong>
+            <span>${escapeHtml(formatDateTimeRu(order.created_at))} · ${Number(order.items_count||0)} поз.</span>
+          </div>
+          <div class="management-order-contact">
+            <b>${escapeHtml(order.recipient_name||"Получатель не указан")}</b>
+            <span>${escapeHtml(order.recipient_phone||"Телефон не указан")}</span>
+          </div>
+          <div class="management-order-summary">
+            <strong>${rub(Number(order.total_amount||0))}</strong>
+            <span class="status ${escapeHtml(requestStatusClass(order.status))}">${escapeHtml(requestStatusLabel(order.status))}</span>
+          </div>
+        </article>
+      `).join("") : '<div class="management-empty">Заказов с выбранным статусом пока нет.</div>';
+    }
+    if(message) message.textContent="Данные обновлены. Отправка заказов поставщику из этой панели отключена.";
+  }catch(error){
+    console.warn("Admin dashboard unavailable",error?.status||error?.message);
+    if(message) message.textContent="Управление пока недоступно: проверьте установку серверной версии и права администратора.";
+    const mount=document.getElementById("adminOrderList");
+    if(mount) mount.innerHTML='<div class="management-empty">Нет доступа к серверной сводке. Попробуйте позже.</div>';
+  }finally{
+    adminLoading=false;
+    if(reload) reload.disabled=false;
+  }
+}
+
+document.getElementById("adminRefreshButton")?.addEventListener("click",()=>hydrateAdminDashboard());
+document.getElementById("adminOrderFilter")?.addEventListener("change",()=>hydrateAdminDashboard());
+
 function showRoute(route){
   if(route==="auth" && sessionUser){
     route="home";
+  }
+  if(route==="admin" && sessionUser && !isManagementUser()){
+    route="profile";
   }
 
   // Browsing the catalog and reviewing the cart are available without an account.
@@ -1661,6 +1742,7 @@ function showRoute(route){
     return;
   }
   target.classList.add("active");
+  if(route==="admin" && isManagementUser()) hydrateAdminDashboard().catch(()=>{});
   if(route==="profile") showAccountTab("overview");
   if(route==="orders") showAccountTab("orders");
   if(route==="garage") showAccountTab("garage");
