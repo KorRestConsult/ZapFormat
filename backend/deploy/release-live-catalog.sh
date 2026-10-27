@@ -16,7 +16,7 @@ mark_stage() {
 mark_stage "preflight"
 
 if [[ "${EUID}" -ne 0 ]]; then
-  echo "Run from root Timeweb console."
+  echo "Run as root on the ZapFormat VPS."
   exit 1
 fi
 
@@ -134,15 +134,15 @@ fi
 
 mark_stage "database_migrations"
 if [[ -n "${DATABASE_URL:-}" ]]; then
-  psql "${DATABASE_URL}" -f db/001_init.sql >/dev/null
-  psql "${DATABASE_URL}" -f db/002_garage_owner_app.sql >/dev/null
-  psql "${DATABASE_URL}" -f db/003_quote_requests.sql >/dev/null
-  psql "${DATABASE_URL}" -f db/004_cart_persistence.sql >/dev/null
-  psql "${DATABASE_URL}" -f db/005_vehicle_context.sql >/dev/null
-  psql "${DATABASE_URL}" -f db/006_vehicle_catalog.sql >/dev/null
-  psql "${DATABASE_URL}" -f db/007_supplier_orders.sql >/dev/null
-  psql "${DATABASE_URL}" -f db/008_order_item_comments.sql >/dev/null
-  psql "${DATABASE_URL}" -f db/009_auth_verification.sql >/dev/null
+  psql -X -v ON_ERROR_STOP=1 "${DATABASE_URL}" -f db/001_init.sql >/dev/null
+  psql -X -v ON_ERROR_STOP=1 "${DATABASE_URL}" -f db/002_garage_owner_app.sql >/dev/null
+  psql -X -v ON_ERROR_STOP=1 "${DATABASE_URL}" -f db/003_quote_requests.sql >/dev/null
+  psql -X -v ON_ERROR_STOP=1 "${DATABASE_URL}" -f db/004_cart_persistence.sql >/dev/null
+  psql -X -v ON_ERROR_STOP=1 "${DATABASE_URL}" -f db/005_vehicle_context.sql >/dev/null
+  psql -X -v ON_ERROR_STOP=1 "${DATABASE_URL}" -f db/006_vehicle_catalog.sql >/dev/null
+  psql -X -v ON_ERROR_STOP=1 "${DATABASE_URL}" -f db/007_supplier_orders.sql >/dev/null
+  psql -X -v ON_ERROR_STOP=1 "${DATABASE_URL}" -f db/008_order_item_comments.sql >/dev/null
+  psql -X -v ON_ERROR_STOP=1 "${DATABASE_URL}" -f db/009_auth_verification.sql >/dev/null
 fi
 
 mkdir -p /etc/systemd/system/zapformat-api.service.d
@@ -254,6 +254,7 @@ echo "Supplier integration:"
 curl -fsS "http://127.0.0.1:3000/api/integration/status"
 echo
 
+if [[ -n "${PARTGRADE_API_LOGIN:-}" && -n "${PARTGRADE_API_PASSWORD_MD5:-}" ]]; then
 mark_stage "catalog_smoke"
 echo
 echo "Catalog smoke test:"
@@ -332,6 +333,11 @@ if item.get("status") not in ("ok","insufficient"):
     raise SystemExit("FAIL: offer token could not be revalidated")
 PY
 
+else
+  mark_stage "supplier_credentials_pending"
+  echo "Supplier credentials not yet restored; live catalog smoke test postponed."
+fi
+
 mark_stage "protected_routes"
 echo
 echo "Account orders route:"
@@ -366,7 +372,7 @@ fi
 mark_stage "public_site"
 echo
 echo "Public site:"
-curl -fsS "https://zap.201.51.28.68.sslip.io/api/health"
+curl -fsS "https://api.168.113.211.246.sslip.io/api/health"
 echo
 
 mark_stage "done"
@@ -375,4 +381,4 @@ echo
 echo "=== RELEASE OK ==="
 echo "From: ${BEFORE}"
 echo "To:   $(git -C "${APP_DIR}" rev-parse HEAD)"
-echo "Site: https://zap.201.51.28.68.sslip.io/"
+echo "Site: https://api.168.113.211.246.sslip.io/"
