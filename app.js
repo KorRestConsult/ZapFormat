@@ -1835,7 +1835,10 @@ function showRoute(route){
     return;
   }
   target.classList.add("active");
-  if(route==="admin" && isManagementUser()) hydrateAdminDashboard().catch(()=>{});
+  if(route==="admin" && isManagementUser()) {
+    hydrateAdminDashboard().catch(()=>{});
+    if(typeof window.hydrateAdminDesk==="function") window.hydrateAdminDesk();
+  }
   if(route==="profile") showAccountTab("overview");
   if(route==="orders") showAccountTab("orders");
   if(route==="garage") showAccountTab("garage");
