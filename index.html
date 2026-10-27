@@ -5,8 +5,8 @@
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
   <meta name="theme-color" content="#17324a" />
   <title>ZapFormat — автозапчасти</title>
-  <meta name="description" content="Поиск автозапчастей по артикулу и обычному запросу с привязкой к автомобилю" />
-  <link rel="stylesheet" href="./styles.css?v=20261002-client4" />
+  <meta name="description" content="ZapFormat — поиск автозапчастей по артикулу и названию. Личный гараж, корзина и история заказов." />
+  <link rel="stylesheet" href="./styles.css?v=20261027-ui1" />
 </head>
 <body class="guest-mode session-pending">
   <div class="app">
@@ -35,7 +35,7 @@
           <div class="minimal-hero">
             <span class="minimal-kicker">ZAPFORMAT</span>
             <h1>Найдём нужную запчасть.</h1>
-            <p>Введите VIN — откроем каталог вашего автомобиля. Есть артикул — сразу покажем цены и наличие. Можно искать и обычным названием детали.</p>
+            <p>Есть артикул — найдём точную деталь и аналоги. Можно искать и по названию. Сохраняйте автомобили, корзину и историю заказов в личном кабинете.</p>
 
             <form class="minimal-search" id="searchForm">
               <textarea
@@ -43,7 +43,7 @@
                 rows="1"
                 autocomplete="off"
                 enterkeyhint="search"
-                placeholder="VIN, артикул или название детали"
+                placeholder="Артикул, название детали или VIN"
               ></textarea>
               <button type="submit">Найти</button>
             </form>
@@ -57,8 +57,14 @@
               + Добавить автомобиль <small>необязательно</small>
             </button>
 
-            <div class="minimal-search-hints"><span><b>VIN</b> → каталог автомобиля</span><span><b>Артикул</b> → цены и наличие</span><span><b>Название</b> → умный подбор</span></div>
-            <div class="minimal-note">Начните с того, что у вас есть. Дальше ZapFormat сам ведёт по нужному сценарию.</div>
+            <div class="minimal-search-hints"><span><b>Артикул</b> → точные предложения</span><span><b>Название</b> → подбор детали</span><span><b>Гараж</b> → ваш автомобиль</span></div>
+            <div class="storefront-status" id="storefrontStatus" role="status" aria-live="polite"><span class="storefront-status-dot" aria-hidden="true"></span><span id="storefrontStatusText">Проверяем подключение к каталогу…</span></div>
+            <div class="minimal-note">Сначала найдите деталь. Цена и наличие перепроверяются поставщиком перед заказом.</div>
+          </div>
+          <div class="storefront-steps" aria-label="Как пользоваться ZapFormat">
+            <div><b>01</b><strong>Найдите запчасть</strong><span>Артикул или название — начните с любого запроса.</span></div>
+            <div><b>02</b><strong>Сохраните выбор</strong><span>Предложения, автомобиль и корзина — в одном месте.</span></div>
+            <div><b>03</b><strong>Проверьте заказ</strong><span>Цена и наличие перепроверяются перед подтверждением.</span></div>
           </div>
         </div>
       </section>
@@ -290,6 +296,11 @@
                 <article><span>Всего заказов</span><b>—</b><small>за всё время</small></article>
               </div>
 
+              <div class="account-setup" id="accountSetupCard">
+                <div class="account-block-head"><div><span class="eyebrow">НАСТРОЙКА КАБИНЕТА</span><h3>Всё необходимое для заказа</h3></div><span class="account-setup-count" id="accountSetupCount">—</span></div>
+                <div class="account-setup-grid" id="accountSetupChecklist" aria-live="polite"><p>Загружаем данные кабинета…</p></div>
+              </div>
+
               <div class="account-block">
                 <div class="account-block-head">
                   <div><span class="eyebrow">ПОСЛЕДНИЕ ЗАКАЗЫ</span><h3>Статус заказов</h3></div>
@@ -341,10 +352,10 @@
             <section class="account-pane" id="account-profile">
               <div class="account-head"><div><span class="eyebrow">ПРОФИЛЬ</span><h2>Контактные данные</h2><p>Эти данные будут использоваться для заказов и уведомлений.</p></div></div>
               <form class="account-form" id="profileForm">
-                <label><span>Имя</span><input name="name" placeholder="Имя"></label>
-                <label><span>Фамилия</span><input name="surname" placeholder="Фамилия"></label>
-                <label><span>Телефон</span><input name="phone" type="tel" placeholder="+7"></label>
-                <label><span>Email</span><input name="email" type="email" placeholder="name@example.ru"></label>
+                <label><span>Имя</span><input name="name" autocomplete="given-name" placeholder="Имя"></label>
+                <label><span>Фамилия</span><input name="surname" autocomplete="family-name" placeholder="Фамилия"></label>
+                <label><span>Телефон</span><input name="phone" type="tel" autocomplete="tel" placeholder="+7"></label>
+                <label><span>Email</span><input name="email" type="email" autocomplete="email" placeholder="name@example.ru"></label>
                 <button type="submit" class="account-primary">Сохранить</button>
               </form>
             </section>
@@ -352,7 +363,7 @@
             <section class="account-pane" id="account-delivery">
               <div class="account-head"><div><span class="eyebrow">ПОЛУЧЕНИЕ</span><h2>Получение заказов</h2><p>Город, точка выдачи и контакт получателя. Оплата — наличными при получении.</p></div></div>
               <form class="account-form" id="deliveryForm">
-                <label><span>Город</span><input name="city" value="Рязань"></label>
+                <label><span>Город</span><input name="city" autocomplete="address-level2" placeholder="Укажите ваш город"></label>
                 <label class="wide-field"><span>Точка выдачи / адрес</span><input name="address" placeholder="Улица, дом или название точки получения"></label>
                 <label><span>Получатель</span><input name="recipient" placeholder="ФИО"></label>
                 <label><span>Телефон</span><input name="phone" type="tel" placeholder="+7"></label>
@@ -385,7 +396,7 @@
       <section class="view" id="view-cart">
         <button type="button" class="back-link" id="cartBackButton">← Назад</button>
 
-        <div class="checkout-title">Корзина</div>
+        <h1 class="checkout-title">Корзина</h1>
 
         <div class="cart-livebar">
           <div>
@@ -484,7 +495,7 @@
     </nav>
 </div>
 
-  <script src="./config.js?v=20261002-auth2"></script>
-  <script src="./app.js?v=20261002-client4"></script>
+  <script src="./config.js?v=20261027-ui1"></script>
+  <script src="./app.js?v=20261027-ui1"></script>
 </body>
 </html>
