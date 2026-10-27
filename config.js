@@ -1,6 +1,6 @@
 window.ZAPFORMAT_CONFIG = {
-  // GitHub Pages talks to the API host. The VPS-hosted frontend uses same-origin /api.
+  // The GitHub Pages frontend calls the new AdminVPS API.
   apiBase: location.hostname.endsWith("github.io")
-    ? "https://api.201.51.28.68.sslip.io"
+    ? "https://api.168.113.211.246.sslip.io"
     : location.origin
 };
