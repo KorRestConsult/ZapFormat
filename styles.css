@@ -5046,3 +5046,18 @@ button:disabled{cursor:not-allowed}
 @media(prefers-reduced-motion:reduce){
   .storefront-steps *, .account-setup-step{transition:none!important}
 }
+
+
+/* Public storefront: guest visitors can navigate and search without an account. */
+@media(min-width:901px){
+  body.guest-mode .topbar-inner{grid-template-columns:auto minmax(0,1fr) auto!important}
+  body.guest-mode .logo{justify-self:start!important;margin:0!important}
+  body.guest-mode .header-actions{display:flex!important}
+}
+@media(max-width:900px){
+  body.guest-mode .topbar-inner{grid-template-columns:1fr!important}
+  body.guest-mode .logo{justify-self:start!important;margin:0!important}
+  body.guest-mode .header-actions{display:none!important}
+  body.guest-mode .mobile-nav{display:flex!important}
+  body.guest-mode main{padding-bottom:calc(68px + env(safe-area-inset-bottom))}
+}
