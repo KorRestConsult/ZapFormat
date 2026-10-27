@@ -5354,3 +5354,26 @@ html,body{overflow-x:clip}
   #accountReturnsList .account-order{grid-template-columns:minmax(0,1fr);gap:8px}
   #accountReturnsList .account-order .status{justify-self:start}
 }
+
+
+/* Navigation footer: all actions use the same existing in-app routes. */
+.site-footer{border-top:1px solid #dfe9ee;background:rgba(255,255,255,.91);padding:29px 0 34px}
+.site-footer-inner{width:min(1420px,calc(100% - 60px));margin:0 auto;display:grid;grid-template-columns:minmax(180px,1.1fr) minmax(250px,1.4fr) minmax(190px,1.1fr);gap:30px;align-items:center}
+.site-footer-brand b{display:block;font-size:21px;letter-spacing:-.055em;color:#19374c}
+.site-footer-brand b span{color:#bc7135}
+.site-footer-brand p,.site-footer small{display:block;margin:8px 0 0;color:#758996;font-size:11px;line-height:1.6}
+.site-footer nav{display:flex;flex-wrap:wrap;gap:5px 14px}
+.site-footer nav button{background:transparent;border:0;color:#476174;font-weight:800;font-size:12px;padding:9px 3px}
+.site-footer nav button:hover{color:#bc7135}
+.site-footer small{margin:0}
+@media(max-width:900px){
+  .site-footer{padding:22px 0 calc(100px + env(safe-area-inset-bottom))}
+  .site-footer-inner{width:calc(100% - 36px);grid-template-columns:1fr 1fr;gap:12px 20px}
+  .site-footer small{grid-column:1/-1}
+}
+@media(max-width:600px){
+  .site-footer-inner{width:calc(100% - 28px);grid-template-columns:1fr;gap:10px}
+  .site-footer small{grid-column:1}
+  .site-footer nav{gap:0 16px}
+  .site-footer-brand p{margin-top:3px}
+}
