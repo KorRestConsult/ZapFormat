@@ -159,6 +159,7 @@ let registrationDraft=null;
 let resetChallengeId="";
 let resetIdentity="";
 let authCapabilities={phone_verification:null,password_recovery:null,session_days:null};
+let supplierAvailable=null;
 const authCooldownTimers=new Map();
 
 function backendConfigured(){ return Boolean(API_BASE); }
@@ -591,13 +592,13 @@ function updateCheckoutMode(){
 
   checkoutButtons().forEach(button=>{
     if(!button.dataset.busy){
-      button.disabled=selectedCount===0;
-      button.textContent=finalLabel;
+      button.disabled=selectedCount===0 || supplierAvailable!==true;
+      button.textContent=supplierAvailable===false ? "Заказы временно недоступны" : finalLabel;
     }
   });
   checkoutEntryButtons().forEach(button=>{
-    button.disabled=selectedCount===0;
-    button.textContent=entryLabel;
+    button.disabled=selectedCount===0 || supplierAvailable!==true;
+    button.textContent=supplierAvailable===false ? "Каталог поставщика подключается" : entryLabel;
   });
 
   const summary=document.getElementById("checkoutReviewSummary");
@@ -606,10 +607,69 @@ function updateCheckoutMode(){
   }
   const note=document.querySelector(".checkout-recheck-note");
   if(note){
-    note.textContent="Перед подтверждением ещё раз проверим цену и наличие. Оплата — только наличными при получении.";
+    note.textContent=supplierAvailable===true
+      ? "Перед подтверждением ещё раз проверим цену и наличие. Оплата — только наличными при получении."
+      : "Оформление временно недоступно: ждём подключения каталога поставщика. Заказ не будет отправлен.";
   }
   renderCheckoutContact();
   renderCheckoutDelivery();
+}
+
+function renderAccountSetupChecklist(){
+  const root=document.getElementById("accountSetupChecklist");
+  const counter=document.getElementById("accountSetupCount");
+  if(!root || !sessionUser) return;
+  const delivery=accountPreferences?.delivery;
+  const steps=[
+    {
+      tab:"profile",
+      title:"Контактные данные",
+      subtitle:"Имя и способ связи для заказа",
+      ready:Boolean(sessionUser.name && (sessionUser.phone||sessionUser.email))
+    },
+    {
+      tab:"garage",
+      title:"Мой автомобиль",
+      subtitle:"Можно добавить сейчас или позже",
+      ready:Boolean(garageState?.vehicle?.id)
+    },
+    {
+      tab:"delivery",
+      title:"Место получения",
+      subtitle:"Город, адрес и контакт получателя",
+      ready:Boolean(delivery?.city && delivery?.address && delivery?.recipient_phone)
+    }
+  ];
+  const done=steps.filter(step=>step.ready).length;
+  if(counter) counter.textContent=done+" из "+steps.length+" готово";
+  root.innerHTML=steps.map((step,index)=>`
+    <button type="button" class="account-setup-step${step.ready?" is-complete":""}" data-account-tab="${step.tab}">
+      <span class="account-setup-indicator" aria-hidden="true">${step.ready?"✓":index+1}</span>
+      <span><b>${step.title}</b><small>${step.ready?"Готово · ": "Заполнить · "}${step.subtitle}</small></span>
+    </button>
+  `).join("");
+}
+
+async function refreshStorefrontStatus(){
+  const root=document.getElementById("storefrontStatus");
+  const label=document.getElementById("storefrontStatusText");
+  try{
+    const health=await apiRequest("/api/health");
+    if(!health?.ok || !health?.db) throw new Error("backend_unavailable");
+    supplierAvailable=health.supplier_configured===true;
+    if(label) label.textContent=supplierAvailable
+      ? "Каталог подключён. Актуальность цены и наличия проверяется перед заказом."
+      : "Каталог поставщика пока подключается. Поиск цен, наличие и оформление заказов временно недоступны.";
+    if(root){
+      root.classList.toggle("is-ready",supplierAvailable);
+      root.classList.toggle("is-pending",!supplierAvailable);
+    }
+  }catch(error){
+    supplierAvailable=false;
+    if(label) label.textContent="Сервис поиска временно недоступен. Интерфейс сайта работает; повторите попытку позже.";
+    if(root){root.classList.remove("is-ready");root.classList.add("is-pending");}
+  }
+  updateCheckoutMode();
 }
 
 function applySessionUser(){
@@ -661,6 +721,7 @@ function applySessionUser(){
   updateCheckoutMode();
   updateVehicleContextUi();
   startNotificationRefresh();
+  renderAccountSetupChecklist();
 }
 
 function formatDateRu(value){
@@ -901,7 +962,7 @@ function renderAccountPreferences(preferences){
   const form=document.getElementById("deliveryForm");
   if(form){
     const values={
-      city:delivery?.city||"Рязань",
+      city:delivery?.city||"",
       address:delivery?.address||"",
       recipient:delivery?.recipient_name||sessionUser?.name||"",
       phone:delivery?.recipient_phone||sessionUser?.phone||""
@@ -1162,6 +1223,7 @@ async function hydrateAccountData(){
     renderAccountPreferences(preferences);
     renderAccountNotifications(notificationsData);
     await hydrateRealGarage(garage);
+    renderAccountSetupChecklist();
     accountDataHydrated=true;
   }catch(error){
     console.warn("Account hydration failed",error);
@@ -1531,7 +1593,7 @@ function showRoute(route){
     route="home";
   }
 
-  const protectedProductRoute=route!=="auth";
+  const protectedProductRoute=!(["auth","home","search"].includes(route));
   if(protectedProductRoute && !sessionUser){
     pendingAccountRoute=route==="search" ? "home" : route;
     document.querySelectorAll(".view").forEach(v=>v.classList.remove("active"));
@@ -2333,12 +2395,7 @@ async function runSmartPartSearch(query,vehicle){
   if(smartSearchBusy) return false;
   lastSmartSearchQuery=String(query||"").trim();
 
-  if(!sessionUser){
-    setSearchHead(lastSmartSearchQuery,"Умный подбор работает с автомобилем из гаража.",lastSmartSearchQuery);
-    renderSmartPartSearch({mode:"needs_vehicle",intent:{part_name:lastSmartSearchQuery}},lastSmartSearchQuery);
-    return true;
-  }
-
+  // The public AI-search fallback works with or without a saved garage vehicle.
   smartSearchBusy=true;
   setSearchHead(
     lastSmartSearchQuery,
@@ -2636,18 +2693,8 @@ async function search(query,options={}){
         : "");
   }
 
-  if(!sessionUser){
-    pendingAccountRoute="home";
-    pendingSearchAfterAuth={
-      query:raw,
-      brand:String(options.brand||"").trim()||null
-    };
-    saveSearchResume(raw,options.brand||"");
-    showRoute("auth");
-    setAuthStatus("Войдите или создайте аккаунт, чтобы продолжить поиск.");
-    return false;
-  }
-
+  // The storefront is public. Authentication is required only for personal
+  // garage, account history and checkout, not for looking up parts.
   document.querySelector(".compact-filters")?.classList.remove("open");
   const filtersToggle=document.querySelector(".filters-toggle");
   if(filtersToggle){
@@ -3722,6 +3769,8 @@ document.addEventListener("visibilitychange",()=>{
 window.addEventListener("popstate",restoreFromUrl);
 document.getElementById("backButton")?.addEventListener("click",()=>safeBack("home"));
 hydrateAuthCapabilities().catch(()=>null);
+refreshStorefrontStatus().catch(()=>null);
+setInterval(()=>refreshStorefrontStatus().catch(()=>null),120000);
 hydrateSession()
   .catch(()=>null)
   .finally(()=>restoreFromUrl());
