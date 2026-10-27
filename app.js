@@ -1647,10 +1647,55 @@ function isManagementUser(){
 }
 
 let adminLoading=false;
+const ADMIN_ORDER_PAGE_SIZE=30;
+let adminOrderOffset=0;
+let adminOrderHasMore=false;
+let adminOrderFilterSnapshot="";
 
 function adminText(id,value){
   const element=document.getElementById(id);
   if(element) element.textContent=String(value??"—");
+}
+
+function adminOrderMarkup(order){
+  return '<article class="management-order-item">' +
+    '<div class="management-order-identity">' +
+      '<strong>Заказ №'+escapeHtml(order.order_number)+'</strong>' +
+      '<span>'+escapeHtml(formatDateTimeRu(order.created_at))+' · '+Number(order.items_count||0)+' поз.</span>' +
+    '</div>' +
+    '<div class="management-order-contact">' +
+      '<b>'+escapeHtml(order.recipient_name||"Получатель не указан")+'</b>' +
+      '<span>'+escapeHtml(order.recipient_phone||"Телефон не указан")+'</span>' +
+    '</div>' +
+    '<div class="management-order-summary">' +
+      '<strong>'+rub(Number(order.total_amount||0))+'</strong>' +
+      '<span class="status '+escapeHtml(requestStatusClass(order.status))+'">'+escapeHtml(requestStatusLabel(order.status))+'</span>' +
+    '</div>' +
+  '</article>';
+}
+
+function renderAdminOrders(orders,{append=false}={}){
+  const mount=document.getElementById("adminOrderList");
+  if(!mount) return;
+  const markup=orders.map(adminOrderMarkup).join("");
+  if(append){
+    if(markup) mount.insertAdjacentHTML("beforeend",markup);
+  }else{
+    mount.innerHTML=markup || '<div class="management-empty">Заказов с выбранным статусом пока нет.</div>';
+  }
+}
+
+function updateAdminOrderPagination(){
+  const pagination=document.getElementById("adminOrderPagination");
+  const count=document.getElementById("adminOrderCount");
+  const loadMore=document.getElementById("adminLoadMoreButton");
+  if(pagination) pagination.hidden=adminOrderOffset===0;
+  if(count) count.textContent="Показано заказов: "+adminOrderOffset+(adminOrderHasMore?" · доступны следующие":"");
+  if(loadMore){
+    loadMore.hidden=!adminOrderHasMore;
+    loadMore.disabled=adminLoading;
+    loadMore.textContent=adminLoading?"Загрузка…":"Показать ещё";
+  }
 }
 
 async function hydrateAdminDashboard(){
@@ -1658,13 +1703,16 @@ async function hydrateAdminDashboard(){
   adminLoading=true;
   const message=document.getElementById("adminMessage");
   const reload=document.getElementById("adminRefreshButton");
+  const filter=document.getElementById("adminOrderFilter");
   if(message) message.textContent="Обновляем сводку и заказы…";
   if(reload) reload.disabled=true;
+  if(filter) filter.disabled=true;
+  updateAdminOrderPagination();
   try{
-    const status=String(document.getElementById("adminOrderFilter")?.value||"");
+    const status=String(filter?.value||"");
     const [summary,queue]=await Promise.all([
       apiRequest("/api/admin/overview"),
-      apiRequest("/api/admin/orders?limit=30"+(status?"&status="+encodeURIComponent(status):""))
+      apiRequest("/api/admin/orders?limit="+(ADMIN_ORDER_PAGE_SIZE+1)+(status?"&status="+encodeURIComponent(status):""))
     ]);
     if(!isManagementUser()) return;
     adminText("adminOrdersTotal",Number(summary?.orders?.total||0).toLocaleString("ru-RU"));
@@ -1676,35 +1724,57 @@ async function hydrateAdminDashboard(){
     const missing=Number(profits.missing_cost_items||0);
     adminText("adminGrossProfit",costed ? rub(Number(profits.known_amount||0)) : "Нет подтверждённых затрат");
     adminText("adminCostCoverage",costed+" позиций с себестоимостью · "+missing+" без данных. "+(missing?"Общую прибыль пока рассчитать нельзя.":""));
-    const mount=document.getElementById("adminOrderList");
     const orders=Array.isArray(queue?.orders)?queue.orders:[];
-    if(mount){
-      mount.innerHTML=orders.length ? orders.map(order=>`
-        <article class="management-order-item">
-          <div class="management-order-identity">
-            <strong>Заказ №${escapeHtml(order.order_number)}</strong>
-            <span>${escapeHtml(formatDateTimeRu(order.created_at))} · ${Number(order.items_count||0)} поз.</span>
-          </div>
-          <div class="management-order-contact">
-            <b>${escapeHtml(order.recipient_name||"Получатель не указан")}</b>
-            <span>${escapeHtml(order.recipient_phone||"Телефон не указан")}</span>
-          </div>
-          <div class="management-order-summary">
-            <strong>${rub(Number(order.total_amount||0))}</strong>
-            <span class="status ${escapeHtml(requestStatusClass(order.status))}">${escapeHtml(requestStatusLabel(order.status))}</span>
-          </div>
-        </article>
-      `).join("") : '<div class="management-empty">Заказов с выбранным статусом пока нет.</div>';
-    }
+    const displayed=orders.slice(0,ADMIN_ORDER_PAGE_SIZE);
+    adminOrderOffset=displayed.length;
+    adminOrderHasMore=orders.length>displayed.length;
+    adminOrderFilterSnapshot=status;
+    renderAdminOrders(displayed);
     if(message) message.textContent="Данные обновлены. Отправка заказов поставщику из этой панели отключена.";
   }catch(error){
     console.warn("Admin dashboard unavailable",error?.status||error?.message);
+    adminOrderOffset=0;
+    adminOrderHasMore=false;
     if(message) message.textContent="Управление пока недоступно: проверьте установку серверной версии и права администратора.";
     const mount=document.getElementById("adminOrderList");
     if(mount) mount.innerHTML='<div class="management-empty">Нет доступа к серверной сводке. Попробуйте позже.</div>';
   }finally{
     adminLoading=false;
     if(reload) reload.disabled=false;
+    if(filter) filter.disabled=false;
+    updateAdminOrderPagination();
+  }
+}
+
+async function loadMoreAdminOrders(){
+  if(!isManagementUser() || adminLoading || !adminOrderHasMore) return;
+  const filter=document.getElementById("adminOrderFilter");
+  const status=String(filter?.value||"");
+  if(status!==adminOrderFilterSnapshot) return hydrateAdminDashboard();
+  adminLoading=true;
+  const message=document.getElementById("adminMessage");
+  const reload=document.getElementById("adminRefreshButton");
+  if(reload) reload.disabled=true;
+  if(filter) filter.disabled=true;
+  updateAdminOrderPagination();
+  try{
+    const queue=await apiRequest("/api/admin/orders?limit="+(ADMIN_ORDER_PAGE_SIZE+1)+
+      "&offset="+adminOrderOffset+(status?"&status="+encodeURIComponent(status):""));
+    if(!isManagementUser()) return;
+    const orders=Array.isArray(queue?.orders)?queue.orders:[];
+    const displayed=orders.slice(0,ADMIN_ORDER_PAGE_SIZE);
+    renderAdminOrders(displayed,{append:true});
+    adminOrderOffset+=displayed.length;
+    adminOrderHasMore=orders.length>displayed.length;
+    if(message) message.textContent="Список заказов дополнен. Показано: "+adminOrderOffset+".";
+  }catch(error){
+    console.warn("Admin orders pagination failed",error?.status||error?.message);
+    if(message) message.textContent="Не удалось загрузить следующую страницу. Уже открытые заказы сохранены.";
+  }finally{
+    adminLoading=false;
+    if(reload) reload.disabled=false;
+    if(filter) filter.disabled=false;
+    updateAdminOrderPagination();
   }
 }
 
@@ -1732,6 +1802,7 @@ document.querySelectorAll("[data-admin-pricing]").forEach(input=>input.addEventL
 
 document.getElementById("adminRefreshButton")?.addEventListener("click",()=>hydrateAdminDashboard());
 document.getElementById("adminOrderFilter")?.addEventListener("change",()=>hydrateAdminDashboard());
+document.getElementById("adminLoadMoreButton")?.addEventListener("click",loadMoreAdminOrders);
 
 function showRoute(route){
   if(route==="auth" && sessionUser){
