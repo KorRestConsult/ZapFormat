@@ -1,6 +1,9 @@
 "use strict";
 
 function asMoney(value) {
+  // Missing supplier prices must never become a fictitious zero-ruble offer.
+  if (value === null || value === undefined || typeof value === "boolean") return null;
+  if (typeof value === "string" && !value.trim()) return null;
   const number = Number(value);
   if (!Number.isFinite(number) || number < 0) return null;
   return Math.round((number + Number.EPSILON) * 100) / 100;
