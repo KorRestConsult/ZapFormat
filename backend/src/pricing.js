@@ -15,10 +15,13 @@ function customerPrice(procurementPrice, env = process.env) {
 
   const markupPercent = Math.max(0, Number(env.DEFAULT_MARKUP_PERCENT || 15));
   const minMarkup = Math.max(0, Number(env.MIN_MARKUP_RUB || 0));
-  const byPercent = procurement * (1 + markupPercent / 100);
-  const byMinimum = procurement + minMarkup;
-
-  return asMoney(Math.max(byPercent, byMinimum));
+  // Work in integer kopecks to avoid floating-point under-rounding:
+  // 100.50 RUB + 15% must become 115.58, never 115.57.
+  if (!Number.isFinite(markupPercent) || !Number.isFinite(minMarkup)) return null;
+  const procurementKopecks = Math.round(procurement * 100);
+  const percentageKopecks = Math.round(procurementKopecks * markupPercent / 100);
+  const minimumKopecks = Math.round(minMarkup * 100);
+  return asMoney((procurementKopecks + Math.max(percentageKopecks, minimumKopecks)) / 100);
 }
 
 module.exports = {
