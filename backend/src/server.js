@@ -1236,6 +1236,55 @@ app.get("/api/admin/orders", async (req, res, next) => {
   }
 });
 
+// Owner/admin service desk. Read-only, role-protected by /api/admin middleware.
+// Keep all personal/contact details inside the authenticated admin API.
+app.get("/api/admin/requests", async (req, res, next) => {
+  try {
+    const allowed = new Set(["new","received","confirmed","processing","ready","completed","cancelled"]);
+    const status = String(req.query?.status || "").trim().toLowerCase();
+    if (status && !allowed.has(status)) {
+      return res.status(400).json({ error: "invalid_request_status" });
+    }
+    const limit = Math.max(1, Math.min(50, Math.trunc(Number(req.query?.limit || 30)) || 30));
+    const offset = Math.max(0, Math.min(5000, Math.trunc(Number(req.query?.offset || 0)) || 0));
+    const result = await pool.query(`
+      SELECT q.id, q.status, q.name, q.phone, q.created_at,
+             count(i.id)::int AS items_count,
+             coalesce(string_agg(concat_ws(' ', i.brand, i.article), ', ' ORDER BY i.created_at), '') AS articles
+        FROM quote_requests q
+        LEFT JOIN quote_request_items i ON i.request_id = q.id
+       WHERE ($1::text IS NULL OR q.status = $1)
+       GROUP BY q.id
+       ORDER BY q.created_at DESC, q.id DESC
+       LIMIT $2 OFFSET $3
+    `, [status || null, limit, offset]);
+    res.json({ requests: result.rows, limit, offset, status: status || null });
+  } catch (error) {
+    next(error);
+  }
+});
+
+app.get("/api/admin/customers", async (req, res, next) => {
+  try {
+    const search = String(req.query?.q || "").trim().slice(0, 80);
+    const limit = Math.max(1, Math.min(50, Math.trunc(Number(req.query?.limit || 30)) || 30));
+    const offset = Math.max(0, Math.min(5000, Math.trunc(Number(req.query?.offset || 0)) || 0));
+    const result = await pool.query(`
+      SELECT u.id, u.name, u.surname, u.email, u.phone, u.status, u.created_at,
+             (SELECT count(*)::int FROM orders o WHERE o.user_id = u.id) AS orders_count,
+             (SELECT count(*)::int FROM quote_requests q WHERE q.user_id = u.id) AS requests_count
+        FROM users u
+       WHERE u.role = 'customer' AND u.status <> 'deleted'
+         AND ($1::text = '' OR position(lower($1) in lower(concat_ws(' ', u.name, u.surname, u.email, u.phone))) > 0)
+       ORDER BY u.created_at DESC, u.id DESC
+       LIMIT $2 OFFSET $3
+    `, [search, limit, offset]);
+    res.json({ customers: result.rows, limit, offset, q: search });
+  } catch (error) {
+    next(error);
+  }
+});
+
 app.get("/api/health", async (_req, res, next) => {
   try {
     let db = false;
