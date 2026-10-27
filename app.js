@@ -1708,6 +1708,28 @@ async function hydrateAdminDashboard(){
   }
 }
 
+function updateAdminPricingPreview(){
+  const target=document.getElementById("adminPricingResult");
+  if(!target) return;
+  const costRaw=String(document.getElementById("adminPriceCost")?.value||"").trim();
+  const markupRaw=String(document.getElementById("adminMarkupPercent")?.value||"").trim();
+  const minRaw=String(document.getElementById("adminMinMarkupRub")?.value||"").trim();
+  if(!costRaw){target.textContent="Введите закупочную цену для расчёта.";return;}
+  const cost=Number(costRaw), percent=Number(markupRaw), minRub=Number(minRaw);
+  if(![cost,percent,minRub].every(Number.isFinite) || cost<0 || percent<0 || percent>1000 || minRub<0){
+    target.textContent="Проверьте цену и параметры: отрицательные значения не допускаются.";
+    return;
+  }
+  const purchaseKopecks=Math.round(cost*100);
+  const markupKopecks=Math.max(Math.round(purchaseKopecks*percent/100),Math.round(minRub*100));
+  const customer=(purchaseKopecks+markupKopecks)/100;
+  const profit=markupKopecks/100;
+  const margin=customer>0?profit/customer*100:0;
+  target.textContent="Цена покупателю: "+rub(customer)+" · Наценка: "+rub(profit)+
+    " · Валовая маржа: "+margin.toFixed(1)+"%. Только предварительный расчёт.";
+}
+document.querySelectorAll("[data-admin-pricing]").forEach(input=>input.addEventListener("input",updateAdminPricingPreview));
+
 document.getElementById("adminRefreshButton")?.addEventListener("click",()=>hydrateAdminDashboard());
 document.getElementById("adminOrderFilter")?.addEventListener("change",()=>hydrateAdminDashboard());
 
