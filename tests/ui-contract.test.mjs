@@ -100,3 +100,16 @@ test('management screen is visible only to a server-authorized owner or admin', 
   assert.ok(app.includes('/api/admin/overview'), 'admin endpoint missing');
   assert.ok(app.includes('/api/admin/orders'), 'admin queue endpoint missing');
 });
+
+
+test('Owner order queue paginates without losing the status filter or exposing purchasing actions', () => {
+  assert.ok(html.includes('id="adminOrderPagination"'), 'pagination container missing');
+  assert.ok(html.includes('id="adminLoadMoreButton"'), 'load-more action missing');
+  assert.match(app, /const ADMIN_ORDER_PAGE_SIZE=30/);
+  assert.match(app, /async function loadMoreAdminOrders\(\)/);
+  assert.match(app, /adminOrderFilterSnapshot/);
+  assert.match(app, /"&offset="\+adminOrderOffset/);
+  assert.match(app, /renderAdminOrders\(displayed,\{append:true\}\)/);
+  assert.match(app, /escapeHtml\(order\.recipient_name/);
+  assert.match(css, /\.management-pagination\[hidden\]/);
+});
