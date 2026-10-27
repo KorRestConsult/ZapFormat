@@ -5332,3 +5332,25 @@ main{width:min(1420px,calc(100% - 60px))!important;max-width:1420px;padding:26px
   .storefront-steps>div{grid-template-columns:83px minmax(0,1fr)!important}
 }
 @media(prefers-reduced-motion:reduce){html{scroll-behavior:auto}button{transition:none}}
+
+
+/* Responsive refinement and truthful cached pricing */
+html,body{overflow-x:clip}
+.cart-price-cell{flex-wrap:wrap;gap:5px}
+.cart-price-unverified{
+  display:block;flex-basis:100%;
+  font-size:10px;line-height:1.35;font-weight:750;color:#ae752e
+}
+#accountReportStats article{min-width:0}
+#accountReturnsList>.account-order-list{gap:0}
+#accountReturnsList .account-order{grid-template-columns:minmax(0,1fr) auto}
+#accountReturnsList .account-order .status{justify-self:end;white-space:nowrap}
+#accountReturnsList .account-empty .account-primary{margin-top:8px}
+@media(max-width:900px){
+  .hero-search-panel{order:-1}
+  .hero-intro{order:1}
+}
+@media(max-width:600px){
+  #accountReturnsList .account-order{grid-template-columns:minmax(0,1fr);gap:8px}
+  #accountReturnsList .account-order .status{justify-self:start}
+}
