@@ -4426,8 +4426,33 @@ function prefillGarageSearch(query){
   }
 }
 
+async function refreshAdditionalAccountPane(tab){
+  if(!sessionUser || !["returns","reports"].includes(tab)) return;
+  const mountingId=tab==="returns" ? "accountReturnsList" : "accountReportStats";
+  const mount=document.getElementById(mountingId);
+  if(!mount) return;
+  const accountId=String(sessionUser.id||"");
+  if(tab==="returns"){
+    mount.innerHTML='<div class="account-empty"><p>Загружаем возвраты…</p></div>';
+  }else{
+    mount.innerHTML='<article><span>Загружаем статистику</span><b>…</b><small>Текущий месяц</small></article>';
+  }
+  try{
+    const path=tab==="returns" ? "/api/account/returns" : "/api/account/reports";
+    const result=await apiRequest(path);
+    if(String(sessionUser?.id||"")!==accountId) return;
+    if(tab==="returns") renderAccountReturns(result);
+    else renderAccountReports(result);
+  }catch(error){
+    if(String(sessionUser?.id||"")!==accountId) return;
+    console.warn("Account section unavailable",tab,error?.code||error?.message);
+    mount.innerHTML='<div class="account-empty"><p>Не удалось загрузить данные. Попробуйте повторно.</p>'+
+      '<button type="button" class="account-primary" data-refresh-account="'+tab+'">Обновить</button></div>';
+  }
+}
+
 function showAccountTab(tab){
-  const allowed=new Set(["overview","orders","garage","profile","delivery","notifications","order-detail"]);
+  const allowed=new Set(["overview","orders","returns","reports","garage","profile","delivery","notifications","order-detail"]);
   if(tab!=="order-detail") currentOpenOrderId=null;
   if(!allowed.has(tab)) tab="overview";
   const profileView=document.getElementById("view-profile");
@@ -4454,6 +4479,9 @@ function showAccountTab(tab){
   if(sessionUser && tab==="notifications"){
     refreshNotificationFeed();
   }
+  if(sessionUser && (tab==="returns" || tab==="reports")){
+    refreshAdditionalAccountPane(tab).catch(error=>console.warn("Account panel refresh failed",error));
+  }
   const profileViewActive=document.getElementById("view-profile")?.classList.contains("active");
   if(profileViewActive){
     if(tab==="orders" || tab==="order-detail") syncMobileNav("orders");
@@ -4463,6 +4491,11 @@ function showAccountTab(tab){
 }
 
 document.addEventListener("click",async e=>{
+  const sectionRefresh=e.target.closest("[data-refresh-account]");
+  if(sectionRefresh){
+    refreshAdditionalAccountPane(sectionRefresh.dataset.refreshAccount).catch(()=>null);
+    return;
+  }
   const passwordToggle=e.target.closest("[data-password-toggle]");
   if(passwordToggle){
     const input=document.getElementById(passwordToggle.dataset.passwordToggle);
