@@ -653,21 +653,33 @@ function renderAccountSetupChecklist(){
 async function refreshStorefrontStatus(){
   const root=document.getElementById("storefrontStatus");
   const label=document.getElementById("storefrontStatusText");
+  let message="";
   try{
     const health=await apiRequest("/api/health");
     if(!health?.ok || !health?.db) throw new Error("backend_unavailable");
-    supplierAvailable=health.supplier_configured===true;
-    if(label) label.textContent=supplierAvailable
-      ? "Каталог подключён. Актуальность цены и наличия проверяется перед заказом."
-      : "Каталог поставщика пока подключается. Поиск цен, наличие и оформление заказов временно недоступны.";
-    if(root){
-      root.classList.toggle("is-ready",supplierAvailable);
-      root.classList.toggle("is-pending",!supplierAvailable);
-    }
-  }catch(error){
     supplierAvailable=false;
-    if(label) label.textContent="Сервис поиска временно недоступен. Интерфейс сайта работает; повторите попытку позже.";
-    if(root){root.classList.remove("is-ready");root.classList.add("is-pending");}
+    if(!health.supplier_configured){
+      message="Каталог поставщика пока подключается. Поиск цен, наличие и оформление заказов временно недоступны.";
+    }else{
+      try{
+        // A configured password does not prove that the supplier permitted our new IP.
+        const supplier=await apiRequest("/api/supplier/health");
+        supplierAvailable=supplier?.ok===true && supplier?.configured===true;
+        message=supplierAvailable
+          ? "Подключение к поставщику работает. Цены и остатки перепроверяются перед заказом."
+          : "Поставщик ещё не подтвердил подключение. Оформление временно недоступно.";
+      }catch{
+        message="Сервер работает, но поставщик пока не разрешил API-доступ. Цены и оформление недоступны.";
+      }
+    }
+  }catch{
+    supplierAvailable=false;
+    message="Сервис поиска временно недоступен. Интерфейс сайта работает; повторите попытку позже.";
+  }
+  if(label) label.textContent=message;
+  if(root){
+    root.classList.toggle("is-ready",supplierAvailable===true);
+    root.classList.toggle("is-pending",supplierAvailable!==true);
   }
   updateCheckoutMode();
 }
