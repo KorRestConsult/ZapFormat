@@ -16,6 +16,7 @@ const { FapiError, createFapiClient } = require("./fapi");
 const { selectFapiNodes, selectFapiModification, uniqueOemRows } = require("./fapi-fitment");
 const { createOfferTokenCodec } = require("./offer-token");
 const { customerPrice } = require("./pricing");
+const { isAdminRole } = require("./admin-access");
 const { verifyGitHubActionsToken } = require("./github-oidc");
 const { interpretSearch, researchPartCandidates, normalizeVehicle } = require("./ai-search");
 const { publicBootstrapJwk, installEncryptedOpenAIKey, installTimewebAIToken, installSmsRuToken, installFapiToken } = require("./secret-bootstrap");
@@ -1139,7 +1140,7 @@ async function requireUser(req, res, next) {
 // Administrative endpoints require an authenticated privileged account.
 // They never disclose procurement prices to ordinary customers.
 function requireAdmin(req, res, next) {
-  if (!["admin", "owner"].includes(String(req.user?.role || ""))) {
+  if (!isAdminRole(req.user?.role)) {
     return res.status(403).json({ error: "forbidden" });
   }
   next();
