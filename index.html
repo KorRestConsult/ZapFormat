@@ -317,6 +317,45 @@
               <button type="button" id="adminLoadMoreButton" class="account-primary">Показать ещё</button>
             </div>
           </section>
+          <section class="management-orders management-desk" aria-labelledby="adminRequestsTitle">
+            <div class="management-orders-head">
+              <div><span class="eyebrow">ВХОДЯЩИЕ ОБРАЩЕНИЯ</span><h2 id="adminRequestsTitle">Заявки покупателей</h2></div>
+              <div class="management-desk-controls">
+                <label class="management-filter"><span>Статус</span>
+                  <select id="adminRequestFilter">
+                    <option value="">Все</option><option value="new">Новые</option>
+                    <option value="received">Принятые</option><option value="confirmed">Подтверждённые</option>
+                    <option value="processing">В работе</option><option value="ready">Готовые</option>
+                    <option value="completed">Завершённые</option><option value="cancelled">Отменённые</option>
+                  </select>
+                </label>
+                <button type="button" id="adminRequestsReload" class="management-desk-reload">Обновить</button>
+              </div>
+            </div>
+            <p class="management-desk-caption" id="adminRequestsStatus" role="status" aria-live="polite">Загрузка обращений…</p>
+            <div id="adminRequestList" class="management-desk-list" aria-live="polite"></div>
+            <div id="adminRequestsPagination" class="management-pagination" hidden>
+              <span id="adminRequestsCount">Показано: 0</span>
+              <button type="button" id="adminRequestsMore" class="account-primary">Показать ещё</button>
+            </div>
+          </section>
+          <section class="management-orders management-desk" aria-labelledby="adminCustomersTitle">
+            <div class="management-orders-head">
+              <div><span class="eyebrow">КЛИЕНТСКАЯ БАЗА · ТОЛЬКО ВЛАДЕЛЬЦУ И АДМИНИСТРАТОРУ</span><h2 id="adminCustomersTitle">Покупатели</h2></div>
+              <div class="management-desk-controls">
+                <label class="management-filter"><span>Найти</span>
+                  <input type="search" id="adminCustomerSearch" maxlength="80" autocomplete="off" placeholder="Имя, телефон или почта" aria-label="Найти покупателя">
+                </label>
+                <button type="button" id="adminCustomersReload" class="management-desk-reload">Обновить</button>
+              </div>
+            </div>
+            <p class="management-desk-caption" id="adminCustomersStatus" role="status" aria-live="polite">Загрузка клиентов…</p>
+            <div id="adminCustomerList" class="management-desk-list" aria-live="polite"></div>
+            <div id="adminCustomersPagination" class="management-pagination" hidden>
+              <span id="adminCustomersCount">Показано: 0</span>
+              <button type="button" id="adminCustomersMore" class="account-primary">Показать ещё</button>
+            </div>
+          </section>
         </div>
       </section>
 
@@ -595,5 +634,6 @@
 
   <script src="./config.js?v=20261027-design1"></script>
   <script src="./app.js?v=20261027-admin2"></script>
+  <script src="./admin-desk.js?v=20261027-desk1"></script>
 </body>
 </html>
