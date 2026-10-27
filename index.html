@@ -6,7 +6,7 @@
   <meta name="theme-color" content="#17324a" />
   <title>ZapFormat — автозапчасти</title>
   <meta name="description" content="ZapFormat — поиск автозапчастей по артикулу и названию. Личный гараж, корзина и история заказов." />
-  <link rel="stylesheet" href="./styles.css?v=20261027-admin1" />
+  <link rel="stylesheet" href="./styles.css?v=20261027-admin2" />
 </head>
 <body class="guest-mode session-pending">
   <div class="app">
@@ -286,6 +286,17 @@
           <section class="management-profit" aria-labelledby="adminProfitTitle">
             <div><span class="eyebrow">ФИНАНСЫ · ТОЛЬКО ПОДТВЕРЖДЁННЫЕ ДАННЫЕ</span><h2 id="adminProfitTitle">Валовая прибыль по известной себестоимости</h2><p>Не является чистой прибылью: не вычтены налоги, доставка, операционные расходы и возвраты.</p></div>
             <div><strong id="adminGrossProfit">—</strong><small id="adminCostCoverage">Нет данных</small></div>
+          </section>
+          <section class="management-pricing" aria-labelledby="adminPricingTitle">
+            <div class="management-pricing-head">
+              <div><span class="eyebrow">ЦЕНООБРАЗОВАНИЕ · РАСЧЁТ БЕЗ СОХРАНЕНИЯ</span><h2 id="adminPricingTitle">Проверка наценки</h2><p>Это калькулятор для владельца. Он не изменяет реальные цены в каталоге или настройку сервера.</p></div>
+            </div>
+            <div class="management-pricing-grid">
+              <label><span>Закупка, ₽</span><input id="adminPriceCost" type="number" min="0" step="0.01" inputmode="decimal" placeholder="Введите закупочную цену" data-admin-pricing></label>
+              <label><span>Наценка, %</span><input id="adminMarkupPercent" type="number" min="0" max="1000" step="0.1" inputmode="decimal" value="15" data-admin-pricing></label>
+              <label><span>Минимум сверху, ₽</span><input id="adminMinMarkupRub" type="number" min="0" step="1" inputmode="decimal" value="0" data-admin-pricing></label>
+            </div>
+            <div class="management-pricing-result" id="adminPricingResult" role="status" aria-live="polite">Введите закупочную цену для расчёта.</div>
           </section>
           <section class="management-orders">
             <div class="management-orders-head"><div><span class="eyebrow">ОЧЕРЕДЬ ЗАКАЗОВ</span><h2>Последние заказы</h2></div>
@@ -579,6 +590,6 @@
 </div>
 
   <script src="./config.js?v=20261027-design1"></script>
-  <script src="./app.js?v=20261027-admin1"></script>
+  <script src="./app.js?v=20261027-admin2"></script>
 </body>
 </html>
