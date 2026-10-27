@@ -1800,7 +1800,10 @@ function updateAdminPricingPreview(){
 }
 document.querySelectorAll("[data-admin-pricing]").forEach(input=>input.addEventListener("input",updateAdminPricingPreview));
 
-document.getElementById("adminRefreshButton")?.addEventListener("click",()=>hydrateAdminDashboard());
+document.getElementById("adminRefreshButton")?.addEventListener("click",()=>{
+  hydrateAdminDashboard();
+  if(typeof window.hydrateAdminDesk==="function") window.hydrateAdminDesk();
+});
 document.getElementById("adminOrderFilter")?.addEventListener("change",()=>hydrateAdminDashboard());
 document.getElementById("adminLoadMoreButton")?.addEventListener("click",loadMoreAdminOrders);
 
