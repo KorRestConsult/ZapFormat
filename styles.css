@@ -5523,3 +5523,27 @@ body{min-width:0!important}
 @media(prefers-reduced-motion:reduce){
   .management-desk *{scroll-behavior:auto;transition-duration:0.01ms!important}
 }
+
+/* ZAPFORMAT: owner-controlled pricing bands */
+.pricing-editor{display:grid;gap:18px}
+.pricing-tier-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+.pricing-tier{display:flex;flex-direction:column;gap:11px;padding:19px;border:1px solid #dce3e9;border-radius:16px;background:linear-gradient(155deg,#fff,#f7f9fb);min-width:0}
+.pricing-tier>span{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.pricing-tier b{font-size:15px;line-height:1.3}
+.pricing-tier output{font-size:23px;font-weight:800;font-variant-numeric:tabular-nums;color:#132934}
+.pricing-tier input[type="range"]{width:100%;accent-color:#e5672a;cursor:pointer;min-height:30px}
+.pricing-tier small{line-height:1.45;color:#73808c}
+.pricing-editor .management-pricing-grid{grid-template-columns:repeat(3,minmax(0,1fr))}
+.pricing-editor .management-pricing-grid select,
+.pricing-editor .management-pricing-grid input{width:100%;min-height:43px;border:1px solid #d9e0e5;border-radius:9px;background:#fff;padding:9px 12px;color:#132934;font:inherit}
+.pricing-editor-actions{display:flex;align-items:center;justify-content:flex-end;flex-wrap:wrap;gap:12px}
+.pricing-editor-actions p{margin:0 auto 0 0;color:#647481;font-size:13px;max-width:440px}
+.pricing-editor-actions button{min-height:42px}
+.pricing-editor-actions button:disabled{opacity:.46;cursor:not-allowed}
+@media (max-width:760px){
+  .pricing-tier-grid,.pricing-editor .management-pricing-grid{grid-template-columns:1fr}
+  .pricing-tier{padding:16px}
+  .pricing-editor-actions{align-items:stretch}
+  .pricing-editor-actions p{flex-basis:100%;max-width:none}
+  .pricing-editor-actions button{flex:1}
+}
