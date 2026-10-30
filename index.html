@@ -273,7 +273,7 @@
       <section class="view" id="view-admin">
         <div class="management-page">
           <div class="management-heading">
-            <div><span class="eyebrow">ZAPFORMAT · ВЛАДЕЛЬЦУ</span><h1>Управление магазином</h1><p>Заказы, обращения и финансовая сводка. Только просмотр — без отправки поставщику и изменения цен.</p></div>
+            <div><span class="eyebrow">ZAPFORMAT · ВЛАДЕЛЬЦУ</span><h1>Управление магазином</h1><p>Заказы, финансовая сводка и наценка. Оформление закупок у поставщика — отдельно.</p></div>
             <button type="button" id="adminRefreshButton" class="account-primary">Обновить данные</button>
           </div>
           <div class="management-message" id="adminMessage" role="status" aria-live="polite">Загрузка данных…</div>
@@ -287,16 +287,31 @@
             <div><span class="eyebrow">ФИНАНСЫ · ТОЛЬКО ПОДТВЕРЖДЁННЫЕ ДАННЫЕ</span><h2 id="adminProfitTitle">Валовая прибыль по известной себестоимости</h2><p>Не является чистой прибылью: не вычтены налоги, доставка, операционные расходы и возвраты.</p></div>
             <div><strong id="adminGrossProfit">—</strong><small id="adminCostCoverage">Нет данных</small></div>
           </section>
-          <section class="management-pricing" aria-labelledby="adminPricingTitle">
+          <section class="management-pricing pricing-editor" aria-labelledby="adminPricingTitle">
             <div class="management-pricing-head">
-              <div><span class="eyebrow">ЦЕНООБРАЗОВАНИЕ · РАСЧЁТ БЕЗ СОХРАНЕНИЯ</span><h2 id="adminPricingTitle">Проверка наценки</h2><p>Это калькулятор для владельца. Он не изменяет реальные цены в каталоге или настройку сервера.</p></div>
+              <div>
+                <span class="eyebrow">ЦЕНООБРАЗОВАНИЕ · ПРАВИЛА МАГАЗИНА</span>
+                <h2 id="adminPricingTitle">Управление наценкой</h2>
+                <p>Настройте проценты для разных закупочных цен. Изменения применяются к новым предложениям только после нажатия «Сохранить». Ранее оформленные заказы не меняются.</p>
+              </div>
+            </div>
+            <div class="pricing-tier-grid" id="pricingTierGrid">
+              <label class="pricing-tier"><span><b>До 500 ₽</b><output for="pricing-low" id="pricing-low-value">15%</output></span><input type="range" id="pricing-low" data-pricing-tier="low" min="0" max="300" step="1" value="15"><small>Недорогие расходники и мелкие детали</small></label>
+              <label class="pricing-tier"><span><b>500–1 999 ₽</b><output for="pricing-medium" id="pricing-medium-value">15%</output></span><input type="range" id="pricing-medium" data-pricing-tier="medium" min="0" max="300" step="1" value="15"><small>Типовые фильтры, свечи и комплектующие</small></label>
+              <label class="pricing-tier"><span><b>2 000–9 999 ₽</b><output for="pricing-high" id="pricing-high-value">15%</output></span><input type="range" id="pricing-high" data-pricing-tier="high" min="0" max="300" step="1" value="15"><small>Средний сегмент</small></label>
+              <label class="pricing-tier"><span><b>От 10 000 ₽</b><output for="pricing-premium" id="pricing-premium-value">15%</output></span><input type="range" id="pricing-premium" data-pricing-tier="premium" min="0" max="300" step="1" value="15"><small>Дорогие узлы и агрегаты</small></label>
             </div>
             <div class="management-pricing-grid">
-              <label><span>Закупка, ₽</span><input id="adminPriceCost" type="number" min="0" step="0.01" inputmode="decimal" placeholder="Введите закупочную цену" data-admin-pricing></label>
-              <label><span>Наценка, %</span><input id="adminMarkupPercent" type="number" min="0" max="1000" step="0.1" inputmode="decimal" value="15" data-admin-pricing></label>
-              <label><span>Минимум сверху, ₽</span><input id="adminMinMarkupRub" type="number" min="0" step="1" inputmode="decimal" value="0" data-admin-pricing></label>
+              <label><span>Минимальная наценка на штуку, ₽</span><input id="pricingMinRub" type="number" min="0" max="50000" step="1" value="0" inputmode="decimal"></label>
+              <label><span>Округлять цену вверх</span><select id="pricingRounding"><option value="0.01">До копеек (без округления)</option><option value="1">До 1 ₽</option><option value="10">До 10 ₽</option><option value="50">До 50 ₽</option><option value="100">До 100 ₽</option></select></label>
+              <label><span>Пример закупочной цены, ₽</span><input id="pricingExampleCost" type="number" min="0" max="10000000" step="1" value="1183" inputmode="decimal"></label>
             </div>
-            <div class="management-pricing-result" id="adminPricingResult" role="status" aria-live="polite">Введите закупочную цену для расчёта.</div>
+            <div class="management-pricing-result" id="pricingLivePreview" role="status" aria-live="polite">Загружаем действующие правила…</div>
+            <div class="pricing-editor-actions">
+              <p id="pricingSaveStatus" role="status" aria-live="polite">Загружаем настройки…</p>
+              <button id="pricingDiscard" type="button" class="management-desk-reload">Отменить изменения</button>
+              <button id="pricingSave" type="button" class="account-primary" disabled>Сохранить правила</button>
+            </div>
           </section>
           <section class="management-orders">
             <div class="management-orders-head"><div><span class="eyebrow">ОЧЕРЕДЬ ЗАКАЗОВ</span><h2>Последние заказы</h2></div>
@@ -634,6 +649,6 @@
 
   <script src="./config.js?v=20261027-design1"></script>
   <script src="./app.js?v=20261027-desk2"></script>
-  <script src="./admin-desk.js?v=20261027-desk1"></script>
+  <script src="./admin-desk.js?v=20261030-pricing1"></script>
 </body>
 </html>
