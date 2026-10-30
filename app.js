@@ -815,7 +815,8 @@ function supplyStatusLabel(status){
   const raw=String(status||"").trim();
   if(!raw) return "";
   const value=raw.toLowerCase().replace(/[\s_-]+/g,"");
-  if(/cancel|canceled|cancelled|отмен|reject/.test(value)) return "Отменено";
+  if(/reject|refus|declin|отказ|нетвналич/.test(value)) return "Поставщик отказал";
+  if(/cancel|canceled|cancelled|отмен/.test(value)) return "Отменено";
   if(/complete|completed|delivered|issued|выдан|заверш/.test(value)) return "Завершено";
   if(/ready|готов/.test(value)) return "Готово к отправке";
   if(/ship|transit|delivery|dispatch|впути|достав/.test(value)) return "В пути";
@@ -852,12 +853,16 @@ function orderTrackingMeta(order,items=[]){
   const supplierState=String(order?.supplier_state||"").toLowerCase();
   const hasSupply=items.some(item=>Boolean(item?.supplier_status)) || supplierState==="submitted";
   const lastUpdated=order?.supplier_synced_at || order?.updated_at || order?.created_at || null;
+  const refusedItem=items.some(item=>/reject|refus|declin|отказ|нет\s*в\s*налич/i.test(String(item?.supplier_status||"")));
 
   if(["cancelled","rejected"].includes(status)){
     return {tone:"alert",title:"Заказ остановлен",text:"Дальнейшее движение по этому заказу остановлено.",lastUpdated};
   }
   if(["completed","refunded"].includes(status)){
     return {tone:"done",title:"Заказ завершён",text:"История движения сохранена в заказе.",lastUpdated};
+  }
+  if(refusedItem){
+    return {tone:"alert",title:"Есть позиция, требующая внимания",text:"Поставщик отказал по части заказа. Для этой детали нужен повторный подбор; остальные позиции продолжают обрабатываться.",lastUpdated};
   }
   if(status==="ready"){
     return {tone:"ready",title:"Готов к получению",text:"Позиции готовы. Оплата — наличными при получении.",lastUpdated};
@@ -1413,6 +1418,7 @@ async function openLiveOrderDetail(id,options={}){
     const history=data.history||[];
     const justCreated=Boolean(options.created);
     const tracking=orderTrackingMeta(order,items);
+    const refusedCount=items.filter(item=>/reject|refus|declin|отказ|нет\s*в\s*налич/i.test(String(item?.supplier_status||""))).length;
 
     mount.innerHTML=`
       ${justCreated ? `
@@ -1477,6 +1483,8 @@ async function openLiveOrderDetail(id,options={}){
           </div>
         </div>
       </section>
+
+      ${refusedCount ? '<aside class="order-partial-alert" role="status"><b>Есть отказ по '+refusedCount+' '+(refusedCount===1?'позиции':'позициям')+'.</b><p>Остальные детали продолжают обрабатываться. Для отказанной позиции потребуется подобрать замену — пожалуйста, не создавайте дублирующий заказ самостоятельно.</p></aside>' : ""}
 
       <section class="order-detail-block positions-block">
         <div class="order-detail-block-head"><span class="eyebrow">ПОЗИЦИИ</span><h3>Состав заказа</h3></div>
@@ -3786,6 +3794,25 @@ async function checkoutCart(){
   }
 }
 
+
+document.getElementById("accountOrdersRefresh")?.addEventListener("click",async e=>{
+  const button=e.currentTarget;
+  const message=document.getElementById("accountOrdersRefreshStatus");
+  button.disabled=true;
+  button.textContent="Проверяем…";
+  if(message)message.textContent="Запрашиваем актуальные статусы…";
+  try{
+    await hydrateAccountData();
+    if(message)message.textContent=accountDataHydrated
+      ?"Данные обновлены: "+new Date().toLocaleTimeString("ru-RU",{hour:"2-digit",minute:"2-digit"})
+      :"Часть данных пока недоступна. Повторите проверку позже.";
+  }catch(_error){
+    if(message)message.textContent="Не удалось проверить статусы. Повторите позже.";
+  }finally{
+    button.disabled=false;
+    button.textContent="Обновить статусы";
+  }
+});
 
 document.addEventListener("click",async e=>{
   const refreshOrder=e.target.closest("[data-refresh-order]");
