@@ -94,6 +94,7 @@ function loadCart(){
           qty:availableQty,
           days:Math.max(0,Number(x.days)||0),
           deliveryProbability:x.deliveryProbability??null,
+          packing:Math.max(1,Number(x.packing||1)),
           offerToken:x.offerToken||null,
           live:true,
           quoteOnly:Boolean(x.quoteOnly),
@@ -283,6 +284,7 @@ function cartItemFromAccount(item){
     priceAtAdd:price,
     previousPrice:null,
     orderQty:Math.max(1,Math.trunc(Number(item?.quantity)||1)),
+    packing:1,
     availableQty:available,
     selected:stale ? false : item?.selected!==false,
     comment:String(item?.comment||""),
@@ -2861,6 +2863,7 @@ async function loadLiveOffers(article,brand,description="",options={}){
       qty:Number(o.availability||0),
       days:Math.max(0,Math.ceil(Number(o.delivery_hours||0)/24)),
       deliveryProbability:o.delivery_probability??null,
+      packing:Math.max(1,Number(o.packing||1)),
       offerToken:o.offer_token||null,
       live:true,
       vehicleContext:searchVehicle ? {
@@ -3184,6 +3187,7 @@ function supplyRowHtml(x){
   }
   const term=deliveryLabel(x.days);
   const available=Math.max(0,Number(x.qty||0));
+  const minimum=Math.max(1,Number(x.packing||1));
   return `
     <div class="supply-row${available<=0?" unavailable":""}">
       <div class="supply-left">
@@ -3191,11 +3195,11 @@ function supplyRowHtml(x){
           <b>${term}</b>
           <small>Ожидаемый срок</small>
         </div>
-        <span class="supply-warehouse">${x.type==="analog"?"Аналог":"Точная позиция"}</span>
+        <span class="supply-warehouse">${x.type==="analog"?"Аналог":"Точная позиция"}${minimum>1?" · минимум "+minimum+" шт.":""}</span>
       </div>
-      <div class="supply-price">${rub(itemRetail(x))}</div>
+      <div class="supply-price">${rub(itemRetail(x))}${minimum>1?'<small class="supply-minimum">От '+rub(itemRetail(x)*minimum)+' за партию</small>':""}</div>
       <div class="supply-stock">${available>0?available+" шт.":"Нет в наличии"}</div>
-      <button class="cart-add-text" data-add="${escapeHtml(x.id)}" ${available<=0?"disabled":""}>В корзину</button>
+      <button class="cart-add-text" data-add="${escapeHtml(x.id)}" ${available<minimum?"disabled":""}>${available<minimum?"Недостаточно":"В корзину"}</button>
     </div>`;
 }
 
@@ -3294,12 +3298,15 @@ function addToCart(id,btn){
     showToast("Этой позиции сейчас нет в наличии.","warn");
     return;
   }
-  const orderQty=Math.min(quantities[id]||1,Math.max(1,Number(item.qty||1)));
+  const minimum=Math.max(1,Number(item.packing||1));
+  if(Number(item.qty||0)<minimum){showToast("Минимальная партия "+minimum+" шт., остатка недостаточно.","warn");return;}
+  const orderQty=Math.min(Math.max(minimum,quantities[id]||1),Math.max(minimum,Number(item.qty||1)));
   const price=item.quoteOnly ? 0 : itemRetail(item);
   const existing=cart.find(x=>x.id===id);
   if(existing){
     const available=Math.max(1,Number(item.qty||existing.availableQty||1));
-    existing.orderQty=Math.min(available,Number(existing.orderQty||1)+orderQty);
+    existing.orderQty=Math.min(available,Math.max(minimum,Number(existing.orderQty||1)+orderQty));
+    existing.packing=minimum;
     existing.availableQty=available;
     existing.selected=true;
     if(item.vehicleContext) existing.vehicleContext=item.vehicleContext;
@@ -3335,7 +3342,8 @@ function addToCart(id,btn){
 function changeCartQty(id,delta){
   const item=cart.find(x=>x.id===id); if(!item) return;
   const available=Math.max(0,Number(item.availableQty||0));
-  const requested=Math.max(1,Number(item.orderQty||1)+delta);
+  const minimum=Math.max(1,Number(item.packing||1));
+  const requested=Math.max(minimum,Number(item.orderQty||1)+delta);
   item.orderQty=available>0 ? Math.min(requested,available) : requested;
   saveCart();
 }
@@ -3438,6 +3446,7 @@ async function refreshCartOffers(options={}){
 
       const nextPrice=Number(checked.price||0);
       const nextAvailable=Number(checked.availability||0);
+      const nextPacking=Math.max(1,Number(checked.packing||1));
       const nextDays=Math.max(0,Math.ceil(Number(checked.delivery_hours||0)/24));
       const priceChanged=Math.abs(Number(item.price||0)-nextPrice)>0.009;
       const availabilityChanged=Number(item.availableQty||0)!==nextAvailable;
@@ -3452,11 +3461,12 @@ async function refreshCartOffers(options={}){
 
       item.price=nextPrice;
       item.availableQty=nextAvailable;
+      item.packing=nextPacking;
       item.days=nextDays;
       item.offerToken=checked.offer_token||item.offerToken;
       item.stale=false;
 
-      if(checked.status==="insufficient" || nextAvailable<item.orderQty){
+      if(checked.status==="insufficient" || checked.status==="minimum_quantity" || nextAvailable<item.orderQty || item.orderQty<nextPacking){
         item.selected=false;
         blocked++;
         if(checkoutIds.has(String(item.id))) checkoutBlocked++;
@@ -3510,7 +3520,8 @@ function selectedCartItems(){
     x.selected &&
     !x.stale &&
     Boolean(x.offerToken) &&
-    Number(x.availableQty||0)>=Number(x.orderQty||1)
+    Number(x.availableQty||0)>=Number(x.orderQty||1) &&
+    Number(x.orderQty||1)>=Math.max(1,Number(x.packing||1))
   );
 }
 
@@ -3554,7 +3565,8 @@ function renderCartPage(){
 
   root.innerHTML=cart.map((x,index)=>{
     const subtotal=x.price*x.orderQty;
-    const unavailable=Boolean(x.stale) || Number(x.availableQty||0)<Number(x.orderQty||1);
+    const minimum=Math.max(1,Number(x.packing||1));
+    const unavailable=Boolean(x.stale) || Number(x.availableQty||0)<Number(x.orderQty||1) || Number(x.orderQty||1)<minimum;
     const classes=["order-cart-row"];
     if(unavailable) classes.push("unavailable");
     if(x.priceChanged) classes.push("price-changed");
@@ -3573,6 +3585,7 @@ function renderCartPage(){
         <div class="article-cell"><span class="cart-article">${escapeHtml(x.article||"")}</span></div>
         <div class="description-cell cart-description">
           <span>${escapeHtml(x.name)}</span>
+          ${minimum>1?'<small class="cart-vehicle-context">Минимум поставщика: '+minimum+' шт.</small>':""}
           ${x.vehicleContext?.label ? '<small class="cart-vehicle-context">'+escapeHtml(x.vehicleContext.label)+(x.vehicleContext.vin?" · "+escapeHtml(shortVin(x.vehicleContext.vin)):"")+'</small>' : ""}
         </div>
         <div class="warehouse-cell">${escapeHtml(x.warehouse||"")}</div>
