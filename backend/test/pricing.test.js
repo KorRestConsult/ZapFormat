@@ -32,3 +32,45 @@ test("money is rounded to kopecks and invalid negative procurement is rejected",
   assert.equal(customerPrice("100.50", { DEFAULT_MARKUP_PERCENT: "15", MIN_MARKUP_RUB: "0" }), 115.58);
   assert.equal(customerPrice(-10), null);
 });
+
+test("saved policy applies four price bands and a minimum profit", () => {
+  const { setPricingPolicy, getPricingPolicy } = require("../src/pricing");
+  const policy={
+    tiers:[
+      {id:"low",percent:90},
+      {id:"medium",percent:70},
+      {id:"high",percent:25},
+      {id:"premium",percent:10}
+    ],
+    min_markup_rub:250,
+    round_to:10
+  };
+  try {
+    setPricingPolicy(policy);
+    assert.deepEqual(getPricingPolicy(),policy);
+    assert.equal(customerPrice(194),450);
+    assert.equal(customerPrice(1183),2020);
+    assert.equal(customerPrice(4000),5000);
+    assert.equal(customerPrice(10000),11000);
+  } finally {
+    setPricingPolicy(null);
+  }
+});
+
+test("invalid policies never replace saved markup settings", () => {
+  const { setPricingPolicy, getPricingPolicy } = require("../src/pricing");
+  const old=getPricingPolicy();
+  assert.throws(()=>setPricingPolicy({tiers:[],min_markup_rub:0,round_to:1}),/invalid_pricing_tiers/);
+  assert.deepEqual(getPricingPolicy(),old);
+});
+
+test("owner pricing API and catalog checkout packing rule are server-side", () => {
+  const { readFileSync }=require("node:fs");
+  const { resolve }=require("node:path");
+  const source=readFileSync(resolve(__dirname,"../src/server.js"),"utf8");
+  const auth=source.indexOf('app.use("/api/admin", requireDatabase, requireUser, requireAdmin)');
+  assert.ok(source.indexOf('app.get("/api/admin/pricing"')>auth);
+  assert.ok(source.indexOf('app.put("/api/admin/pricing"')>auth);
+  assert.ok(source.includes('INSERT INTO store_pricing_settings'));
+  assert.ok(source.includes('requested < offer.packing ? "minimum_quantity"'));
+});
