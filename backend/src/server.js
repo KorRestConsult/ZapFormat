@@ -15,7 +15,7 @@ const { PartGradeError, createPartGradeClient } = require("./partgrade");
 const { FapiError, createFapiClient } = require("./fapi");
 const { selectFapiNodes, selectFapiModification, uniqueOemRows } = require("./fapi-fitment");
 const { createOfferTokenCodec } = require("./offer-token");
-const { customerPrice } = require("./pricing");
+const { customerPrice, getPricingPolicy, setPricingPolicy, validatePricingPolicy } = require("./pricing");
 const { isAdminRole } = require("./admin-access");
 const { verifyGitHubActionsToken } = require("./github-oidc");
 const { interpretSearch, researchPartCandidates, normalizeVehicle } = require("./ai-search");
@@ -1147,6 +1147,46 @@ function requireAdmin(req, res, next) {
 }
 
 app.use("/api/admin", requireDatabase, requireUser, requireAdmin);
+
+// Owner/admin pricing settings. Stored server-side; clients never receive the
+// procurement price or the policy itself. Existing orders retain their prices.
+async function initPricingSettings() {
+  await pool.query(`CREATE TABLE IF NOT EXISTS store_pricing_settings (
+    id BOOLEAN PRIMARY KEY DEFAULT TRUE CHECK (id = TRUE),
+    policy JSONB NOT NULL,
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  )`);
+  const stored = await pool.query("SELECT policy FROM store_pricing_settings WHERE id = TRUE");
+  if (stored.rows[0]) setPricingPolicy(stored.rows[0].policy);
+}
+app.get("/api/admin/pricing", async (_req, res, next) => {
+  try {
+    const stored = await pool.query("SELECT policy, updated_at FROM store_pricing_settings WHERE id = TRUE");
+    res.json({
+      policy: stored.rows[0] ? setPricingPolicy(stored.rows[0].policy) : getPricingPolicy(),
+      updated_at: stored.rows[0]?.updated_at || null
+    });
+  } catch (error) { next(error); }
+});
+app.put("/api/admin/pricing", async (req, res, next) => {
+  let policy;
+  try {
+    policy = validatePricingPolicy(req.body?.policy);
+  } catch (_error) {
+    return res.status(400).json({ error: "invalid_pricing_policy" });
+  }
+  try {
+    const result = await pool.query(
+      `INSERT INTO store_pricing_settings (id, policy, updated_at)
+       VALUES (TRUE, $1::jsonb, NOW())
+       ON CONFLICT (id) DO UPDATE SET policy = EXCLUDED.policy, updated_at = NOW()
+       RETURNING updated_at`,
+      [JSON.stringify(policy)]
+    );
+    setPricingPolicy(policy);
+    res.json({ ok: true, policy: getPricingPolicy(), updated_at: result.rows[0].updated_at });
+  } catch (error) { next(error); }
+});
 
 // Read-only snapshot. Margin figures count ONLY items with a recorded cost.
 // Never label incomplete cost coverage as the total business profit.
@@ -5037,7 +5077,13 @@ app.use((error, _req, res, _next) => {
 });
 
 async function start() {
-  if (pool) await pool.query("SELECT 1");
+  if (pool) {
+    await pool.query("SELECT 1");
+    // Failure here must not take down checkout; the admin editor will show
+    // the storage error rather than pretend that a policy was saved.
+    try { await initPricingSettings(); }
+    catch (error) { console.error("[PricingSettings]", error?.message || "load_failed"); }
+  }
   app.listen(PORT, HOST, () => {
     console.log(`ZAPFORMAT API listening on http://${HOST}:${PORT}`);
   });
