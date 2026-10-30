@@ -6,7 +6,7 @@ const PRICE_TIERS = Object.freeze([
   { id: "high", min: 2000, max: 10000 },
   { id: "premium", min: 10000, max: null }
 ]);
-const ROUNDINGS = new Set([1, 10, 50, 100]);
+const ROUNDINGS = new Set([0.01, 1, 10, 50, 100]);
 let activePolicy = null;
 
 function asMoney(value) {
@@ -26,7 +26,7 @@ function defaultPolicy(env = process.env) {
       percent: Number.isFinite(percentage) ? Math.min(300, Math.max(0, percentage)) : 15
     })),
     min_markup_rub: Number.isFinite(minimum) ? Math.min(50000, Math.max(0, minimum)) : 0,
-    round_to: 1
+    round_to: 0.01
   };
 }
 
