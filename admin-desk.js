@@ -95,10 +95,118 @@
     }
   }
 
+
+  // Pricing is persisted on the API server, not in localStorage. A slider
+  // never changes retail prices until the owner explicitly saves the policy.
+  const pricingIds=["low","medium","high","premium"];
+  let savedPricing=null;
+  let pricingBusy=false;
+  const pricingInput=key=>byId("pricing-"+key);
+  const money=value=>new Intl.NumberFormat("ru-RU",{minimumFractionDigits:0,maximumFractionDigits:2}).format(value)+" ₽";
+  const getDraftPricing=()=>({
+    tiers:pricingIds.map(id=>({id,percent:Number(pricingInput(id)?.value)})),
+    min_markup_rub:Number(byId("pricingMinRub")?.value),
+    round_to:Number(byId("pricingRounding")?.value)
+  });
+  function renderPricingPreview(){
+    const draft=getDraftPricing();
+    pricingIds.forEach(id=>{
+      const label=byId("pricing-"+id+"-value");
+      if(label) label.textContent=String(pricingInput(id)?.value||"0")+"%";
+    });
+    const cost=Number(byId("pricingExampleCost")?.value);
+    const preview=byId("pricingLivePreview");
+    if(!preview) return;
+    if(!Number.isFinite(cost)||cost<0||cost>10000000||!Number.isFinite(draft.min_markup_rub)||
+       draft.min_markup_rub<0||draft.min_markup_rub>50000){
+      preview.textContent="Проверьте введённые суммы.";
+      return;
+    }
+    const tier=cost<500?0:cost<2000?1:cost<10000?2:3;
+    const percent=draft.tiers[tier].percent;
+    const rawKopecks=Math.round(cost*100)+
+      Math.max(Math.round(Math.round(cost*100)*percent/100),Math.round(draft.min_markup_rub*100));
+    const roundStep=Math.round(draft.round_to*100);
+    const retail=Math.ceil(rawKopecks/roundStep)*roundStep/100;
+    const profit=retail-cost;
+    const margin=retail?profit/retail*100:0;
+    preview.textContent="Пример: закупка "+money(cost)+" → продажа "+money(retail)+
+      " · наценка "+money(profit)+" · маржа "+margin.toFixed(1)+"%.";
+    const save=byId("pricingSave");
+    const dirty=savedPricing && JSON.stringify(draft)!==JSON.stringify(savedPricing);
+    if(save) save.disabled=pricingBusy||!dirty;
+  }
+  function applyPricing(policy){
+    for(const tier of policy.tiers||[]){
+      const input=pricingInput(tier.id);
+      if(input) input.value=String(tier.percent);
+    }
+    if(byId("pricingMinRub")) byId("pricingMinRub").value=String(policy.min_markup_rub);
+    if(byId("pricingRounding")) byId("pricingRounding").value=String(policy.round_to);
+    renderPricingPreview();
+  }
+  async function loadPricing(){
+    if(typeof isManagementUser!=="function"||!isManagementUser())return;
+    const status=byId("pricingSaveStatus");
+    pricingBusy=true;
+    if(status) status.textContent="Загружаем правила магазина…";
+    renderPricingPreview();
+    try {
+      const response=await apiRequest("/api/admin/pricing");
+      if(!isManagementUser())return;
+      savedPricing=response.policy;
+      applyPricing(savedPricing);
+      if(status) status.textContent=response.updated_at
+        ?"Правила действуют · обновлены "+formatDateTimeRu(response.updated_at)
+        :"Действуют начальные настройки. Новые правила ещё не сохранялись.";
+    } catch (error) {
+      console.warn("Pricing loading failed",error?.code||error?.message);
+      if(status) status.textContent="Не удалось загрузить правила с сервера. Сохранение отключено.";
+      savedPricing=null;
+    } finally {
+      pricingBusy=false;
+      renderPricingPreview();
+    }
+  }
+  async function savePricing(){
+    if(pricingBusy||!savedPricing||!isManagementUser())return;
+    const policy=getDraftPricing();
+    const status=byId("pricingSaveStatus");
+    pricingBusy=true;
+    if(status) status.textContent="Сохраняем на сервере…";
+    renderPricingPreview();
+    try {
+      const response=await apiRequest("/api/admin/pricing",{
+        method:"PUT",
+        body:JSON.stringify({policy})
+      });
+      if(!response.ok)throw new Error("pricing_not_saved");
+      savedPricing=response.policy;
+      applyPricing(savedPricing);
+      if(status) status.textContent="Правила сохранены. Новые цены будут рассчитаны по этим настройкам.";
+    } catch(error) {
+      console.warn("Pricing saving failed",error?.code||error?.message);
+      if(status) status.textContent="Ошибка сохранения: прежние правила остались без изменений.";
+    } finally {
+      pricingBusy=false;
+      renderPricingPreview();
+    }
+  }
+  document.querySelectorAll("[data-pricing-tier]").forEach(input=>input.addEventListener("input",renderPricingPreview));
+  ["pricingMinRub","pricingRounding","pricingExampleCost"].forEach(id=>{
+    byId(id)?.addEventListener("input",renderPricingPreview);
+    byId(id)?.addEventListener("change",renderPricingPreview);
+  });
+  byId("pricingDiscard")?.addEventListener("click",()=>{
+    if(savedPricing)applyPricing(savedPricing);
+  });
+  byId("pricingSave")?.addEventListener("click",savePricing);
+
   let searchDebounce;
   function hydrateAdminDesk(){
     load("requests");
     load("customers");
+    loadPricing();
   }
 
   byId("adminRequestFilter")?.addEventListener("change",()=>load("requests"));
