@@ -130,6 +130,27 @@ test('administration has read-only requests and customer sections', () => {
   assert.ok(desk.includes('load("customers")'), 'customer loading missing');
   assert.ok(desk.includes('escapeHtml(item.phone||'), 'phone escaping is required');
   assert.ok(desk.includes('escapeHtml(item.email||'), 'customer email escaping is required');
-  assert.doesNotMatch(desk, /method\s*:\s*["'](?:POST|PATCH|PUT|DELETE)/i, 'desk must remain read-only');
+  assert.match(desk, /api\/admin\/pricing/, 'only the pricing editor may write');
+  assert.match(desk, /savedPricing/, 'pricing must have an explicit saved snapshot');
+  assert.match(desk, /if\(pricingBusy\|\|!savedPricing\|\|!isManagementUser\(\)\)return/, 'pricing writes must require owner/admin session');
+  assert.doesNotMatch(desk.slice(desk.indexOf('function requestRow'),desk.indexOf('// Pricing is persisted')),
+    /method\s*:\s*["'](?:POST|PATCH|PUT|DELETE)/i, 'requests and customer desk must stay read-only');
   assert.match(css, /\.management-desk-row/, 'desk layout missing');
+});
+
+test('pricing controls are role-gated, explicitly saved and have four bands', () => {
+  const desk = readFileSync(resolve(root, 'admin-desk.js'), 'utf8');
+  for (const id of ['pricing-low','pricing-medium','pricing-high','pricing-premium','pricingMinRub',
+    'pricingRounding','pricingSave','pricingDiscard','pricingLivePreview']) {
+    assert.ok(html.includes('id="'+id+'"'), 'missing pricing control '+id);
+  }
+  assert.ok(html.includes('type="range"'), 'pricing must have slider controls');
+  assert.ok(desk.includes('method:"PUT"'), 'pricing must save to protected API');
+  assert.ok(desk.includes('"/api/admin/pricing"'), 'pricing must use protected endpoint');
+});
+
+test('supplier pack minimum is visible and validated in customer cart', () => {
+  assert.match(app, /packing:Math.max\(1,Number\(o.packing\|\|1\)\)/);
+  assert.match(app, /Минимум поставщика/);
+  assert.match(app, /checked.status==="minimum_quantity"/);
 });
