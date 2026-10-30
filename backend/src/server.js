@@ -508,7 +508,7 @@ async function revalidateOfferToken(token, quantity = 1, cache = new Map()) {
 
   const requested = Math.max(1, Math.min(999, Number(quantity || 1)));
   return {
-    status: offer.availability >= requested ? "ok" : "insufficient",
+    status: offer.availability < requested ? "insufficient" : requested < offer.packing ? "minimum_quantity" : "ok",
     requested_quantity: requested,
     ...offer
   };
