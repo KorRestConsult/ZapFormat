@@ -90,6 +90,9 @@ install -d -o zapformat -g zapformat -m 700 /var/lib/zapformat/fapi-cache
 mark_stage "syntax_checks"
 node --check app.js
 node --check backend/src/server.js
+node --check backend/src/admin-orders.js
+node --check backend/src/physical-intake.js
+node --check admin/app.js
 node --check backend/src/partgrade.js
 node --check backend/src/partgrade-private.js
 node --check backend/src/offer-token.js
@@ -143,6 +146,7 @@ if [[ -n "${DATABASE_URL:-}" ]]; then
   psql -X -v ON_ERROR_STOP=1 "${DATABASE_URL}" -f db/007_supplier_orders.sql >/dev/null
   psql -X -v ON_ERROR_STOP=1 "${DATABASE_URL}" -f db/008_order_item_comments.sql >/dev/null
   psql -X -v ON_ERROR_STOP=1 "${DATABASE_URL}" -f db/009_auth_verification.sql >/dev/null
+  psql -X -v ON_ERROR_STOP=1 "${DATABASE_URL}" -f db/010_physical_intake.sql >/dev/null
 fi
 
 mkdir -p /etc/systemd/system/zapformat-api.service.d
