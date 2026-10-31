@@ -4454,7 +4454,10 @@ function renderGarageOverview(){
             <h2>${escapeHtml(v.brand)} ${escapeHtml(v.model)}</h2>
             <p>${escapeHtml(v.year||"—")} · ${escapeHtml(v.engine||"Двигатель не указан")}${v.vin?" · VIN "+escapeHtml(v.vin):""}</p>
           </div>
-          <button class="garage-outline" data-garage-search="${escapeHtml([v.brand,v.model,v.engine].filter(Boolean).join(" "))}">Найти запчасть</button>
+          <div class="garage-car-actions">
+            <button class="garage-outline" data-garage-edit-vehicle>Изменить</button>
+            <button class="garage-primary" data-garage-search="${escapeHtml([v.brand,v.model,v.engine].filter(Boolean).join(" "))}">Найти запчасть</button>
+          </div>
         </div>
 
         <div class="garage-mileage-card">
@@ -4634,6 +4637,7 @@ function renderGarageApp(){
       <button class="account-primary" data-garage-add-vehicle>+ Добавить автомобиль</button>
     </div>
 
+    ${vehicles.length>1 ? `
     <div class="garage-vehicle-strip">
       ${vehicles.map(car=>`
         <button class="${String(car.id)===String(v.id)?"active":""}" data-garage-vehicle="${escapeHtml(car.id)}">
@@ -4644,10 +4648,7 @@ function renderGarageApp(){
           </span>
         </button>
       `).join("")}
-      <button class="garage-add-small" data-garage-edit-vehicle aria-label="Изменить выбранный автомобиль">✎</button>
-      <button class="garage-add-small garage-add-new" data-garage-add-vehicle aria-label="Добавить автомобиль">+</button>
-    </div>
-
+    </div>` : ""}
     <nav class="garage-tabs" aria-label="Разделы автомобиля">
       <button class="${garageTab==="overview"?"active":""}" data-garage-tab="overview">Обзор</button>
       ${garageState.maintenance?.length ? '<button class="'+(garageTab==="maintenance"?"active":"")+'" data-garage-tab="maintenance">ТО</button>' : ""}
