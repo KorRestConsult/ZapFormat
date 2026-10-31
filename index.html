@@ -187,6 +187,13 @@
                   <input name="name" autocomplete="given-name" required>
                 </label>
                 <label>
+                  <span>Тип покупателя</span>
+                  <select name="customer_type" id="registerCustomerType" required>
+                    <option value="individual">Физическое лицо</option>
+                    <option value="service">Автосервис</option>
+                  </select>
+                </label>
+                <label>
                   <span>Телефон</span>
                   <input name="identity" type="tel" inputmode="tel" autocomplete="tel" placeholder="+7 900 000-00-00" required>
                 </label>
@@ -204,13 +211,13 @@
                     <button class="auth-password-toggle" type="button" data-password-toggle="registerPasswordConfirm" aria-label="Показать пароль">Показать</button>
                   </div>
                 </label>
-                <small class="auth-hint">Мы отправим код подтверждения на этот номер.</small>
+                <small class="auth-hint" id="registerVerificationHint">Для регистрации подтвердите номер телефона.</small>
               </div>
 
               <div class="auth-stage" data-register-stage="verify" hidden>
-                <div class="auth-stage-note">Код отправлен на <b id="registerMaskedPhone">ваш номер</b></div>
+                <div class="auth-stage-note" id="registerVerificationNote">Для подтверждения номера <b id="registerMaskedPhone">вашего телефона</b> дождитесь звонка и введите последние четыре цифры номера звонящего.</div>
                 <label>
-                  <span>Код из SMS</span>
+                  <span class="verification-code-label">Код подтверждения</span>
                   <input name="verification_code" class="auth-code-input" inputmode="numeric" autocomplete="one-time-code" maxlength="6" placeholder="000000">
                 </label>
                 <div class="auth-inline-actions">
@@ -233,13 +240,13 @@
                   <span>Телефон или email</span>
                   <input name="identity" autocomplete="username" placeholder="+7 900 000-00-00 или email">
                 </label>
-                <small class="auth-hint">Код восстановления придёт на телефон, привязанный к аккаунту.</small>
+                <small class="auth-hint">Подтверждение выполняется по телефону, привязанному к аккаунту.</small>
               </div>
 
               <div class="auth-stage" data-reset-stage="verify" hidden>
-                <div class="auth-stage-note">Код отправлен на <b id="resetMaskedPhone">привязанный номер</b></div>
+                <div class="auth-stage-note" id="resetVerificationNote">Для восстановления доступа подтвердите <b id="resetMaskedPhone">привязанный номер</b>.</div>
                 <label>
-                  <span>Код из SMS</span>
+                  <span class="verification-code-label">Код подтверждения</span>
                   <input name="verification_code" class="auth-code-input" inputmode="numeric" autocomplete="one-time-code" maxlength="6" placeholder="000000">
                 </label>
                 <label>
@@ -653,7 +660,7 @@
 </div>
 
   <script src="./config.js?v=20261027-design1"></script>
-  <script src="./app.js?v=20261031-guest1"></script>
+  <script src="./app.js?v=20261031-call1"></script>
   <script src="./admin-desk.js?v=20261030-pricing1"></script>
 </body>
 </html>
