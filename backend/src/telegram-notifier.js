@@ -244,15 +244,23 @@ function directTelegramMultipart(ip, path, fields, file) {
   return new Promise((resolve, reject) => {
     const { boundary, body } = multipartBody(fields, file);
     const request = https.request({
-      host: ip, port: 443, servername: "api.telegram.org", family: 4,
-      path, method: "POST",
+      hostname: "api.telegram.org",
+      port: 443,
+      servername: "api.telegram.org",
+      family: 4,
+      lookup(_hostname, options, callback) {
+        if (options?.all) return callback(null, [{ address: ip, family: 4 }]);
+        return callback(null, ip, 4);
+      },
+      path,
+      method: "POST",
       headers: {
         Host: "api.telegram.org",
         "Content-Type": "multipart/form-data; boundary=" + boundary,
         "Content-Length": body.length,
         Accept: "application/json"
       },
-      timeout: 15000
+      timeout: 20000
     }, (response) => {
       const chunks = [];
       response.on("data", (chunk) => chunks.push(chunk));
