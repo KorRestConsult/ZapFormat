@@ -73,7 +73,7 @@ test('Checkout distinguishes authenticated orders from guest enquiries', () => {
   assert.ok(handler.includes('privacy_consent:true'));
   assert.ok(html.includes('id="guestQuoteAgree"'));
   assert.ok(html.includes('id="guestQuoteWebsite"'));
-  assert.ok(handler.includes('if(sessionUser && !accountPreferences?.delivery?.address)'));
+  assert.ok(handler.includes('if(sessionUser && !ownerTestMode() && !accountPreferences?.delivery?.address)'));
 });
 
 test('Public enquiry is rate-limited and cannot create a supplier order',()=>{
