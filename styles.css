@@ -5646,3 +5646,7 @@ body{width:100%;max-width:100%;margin:0;overflow-x:clip}
   #view-auth .auth-form .auth-password-toggle{max-width:90px!important;right:7px}
   #view-auth .auth-form .auth-code-input{letter-spacing:.12em}
 }
+
+/* Mobile guest choice is visible even when the desktop auth introduction is hidden. */
+.auth-guest-browse-button{display:block;width:100%;margin-top:12px;min-height:44px;padding:9px 12px;border:1px solid #d7e3e9;border-radius:10px;background:#fff;color:#26536d;font-size:14px;font-weight:700;text-align:center;cursor:pointer}
+.auth-guest-browse-button:focus-visible{outline:2px solid #d78542;outline-offset:2px}
