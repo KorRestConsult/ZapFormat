@@ -63,11 +63,11 @@ test('layout is responsive',()=>{
 });
 
 test('owner order details are only served through protected admin API',()=>{
-  assert.match(server,/app\\.get\\(\"\\/api\\/admin\\/orders\\/:id\"/);
-  assert.match(server,/purchase_price/);
-  assert.match(server,/missing_cost_items/);
-  assert.match(server,/delivery_address/);
-  assert.match(server,/line_gross_profit/);
-  assert.match(js,/aria-expanded/);
-  assert.match(js,/escape\\(order\\.comment\\)/);
+  assert.ok(server.includes('app.get("/api/admin/orders/:id"'));
+  assert.ok(server.includes('purchase_price'));
+  assert.ok(server.includes('missing_cost_items'));
+  assert.ok(server.includes('delivery_address'));
+  assert.ok(server.includes('line_gross_profit'));
+  assert.ok(js.includes('aria-expanded'));
+  assert.ok(js.includes('escape(order.comment)'));
 });
