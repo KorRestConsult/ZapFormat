@@ -3077,9 +3077,7 @@ async function loadLiveOffers(article,brand,description="",options={}){
   }catch(error){
     console.error("Catalog offers lookup failed",error);
     setSearchHead(maker+" "+number,"Не удалось загрузить предложения.",number);
-    renderSearchState("Предложения временно недоступны",supplierAvailable===false
-      ? "Каталог поставщика ещё подключается. Актуальные цены и наличие появятся после восстановления доступа."
-      : "Проверьте соединение и повторите поиск позже.");
+    renderSearchState("Предложения временно недоступны","Проверьте соединение и повторите поиск позже.");
     return false;
   }
 }
@@ -3121,15 +3119,6 @@ async function search(query,options={}){
     renderSearchState("Каталог временно недоступен","Попробуйте ещё раз чуть позже.");
     return false;
   }
-  if(supplierAvailable===false && !looksLikeVin(raw)){
-    setSearchHead(raw,"Подключаем каталог поставщика",raw);
-    renderSearchState(
-      "Поиск пока недоступен",
-      "Поставщик ещё не разрешил подключение к каталогу. Ваш запрос сохранён — попробуйте повторить поиск после восстановления связи."
-    );
-    return false;
-  }
-
   let vehicle=currentSearchVehicle();
 
   if(looksLikeVin(raw)){
@@ -3254,6 +3243,7 @@ async function search(query,options={}){
 
   try{
     const brandsData=await apiRequest("/api/catalog/brands?number="+encodeURIComponent(article));
+    supplierAvailable=true;
     const brands=(Array.isArray(brandsData?.brands)?brandsData.brands:[])
       .filter(x=>x?.brand)
       .sort((a,b)=>String(a.brand).localeCompare(String(b.brand),"ru",{sensitivity:"base"}));
@@ -3305,9 +3295,7 @@ async function search(query,options={}){
   }catch(error){
     console.error("Catalog brand lookup failed",error);
     setSearchHead(raw,"Не удалось загрузить каталог.",raw);
-    renderSearchState("Поиск временно недоступен",supplierAvailable===false
-      ? "Каталог поставщика ещё подключается. Данные о наличии и ценах пока не загружаются."
-      : "Проверьте соединение и повторите поиск позже.");
+    renderSearchState("Поиск временно недоступен","Проверьте соединение и повторите поиск позже.");
     return false;
   }
 }
