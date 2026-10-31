@@ -7,7 +7,7 @@
   <script>try{if(localStorage.getItem("zapformat-access-token"))document.documentElement.classList.add("zf-preauth")}catch(_){}</script>
   <title>ZapFormat — автозапчасти</title>
   <meta name="description" content="ZapFormat — поиск автозапчастей по артикулу и названию. Личный гараж, корзина и история заказов." />
-  <link rel="stylesheet" href="./styles.css?v=20261031-orders-visual1" />
+  <link rel="stylesheet" href="./styles.css?v=20261031-profile-unified1" />
 </head>
 <body class="guest-mode auth-route">
   <div class="app">
@@ -355,11 +355,12 @@
       <section class="view" id="view-profile">
         <div class="account-shell">
           <aside class="account-sidebar">
-            <div class="account-user">
+            <div class="account-user" data-account-tab="profile" role="button" tabindex="0" aria-label="Открыть профиль">
               <div class="account-avatar">ZF</div>
               <div>
                 <b>Личный кабинет</b>
                 <span>ZapFormat</span>
+                <small>Профиль</small>
               </div>
             </div>
 
@@ -368,9 +369,6 @@
               <button type="button" data-account-tab="returns">Возвраты</button>
               <button type="button" data-account-tab="garage">Гараж</button>
               <button type="button" data-account-tab="profile">Профиль</button>
-              <button type="button" data-account-tab="delivery">Получение</button>
-              <button type="button" data-account-tab="notifications">Уведомления <b class="notification-badge" id="notificationUnreadBadge" hidden>0</b></button>
-              <button type="button" data-account-tab="reports">Статистика</button>
             </nav>
             <button type="button" class="account-logout admin-nav-entry" id="adminSidebarButton" data-route="admin" hidden>Управление магазином</button>
             <button class="account-logout" id="logoutButton" type="button">Выйти</button>
@@ -421,44 +419,60 @@
             </section>
 
             <section class="account-pane" id="account-profile">
-              <div class="account-head"><div><span class="eyebrow">ПРОФИЛЬ</span><h2>Контактные данные</h2><p>Эти данные будут использоваться для заказов и уведомлений.</p></div></div>
-              <form class="account-form" id="profileForm">
-                <label><span>Имя</span><input name="name" autocomplete="given-name" placeholder="Имя" required maxlength="120"></label>
-                <label><span>Фамилия</span><input name="surname" autocomplete="family-name" placeholder="Фамилия"></label>
-                <label><span>Телефон</span><input name="phone" type="tel" autocomplete="tel" placeholder="+7"></label>
-                <label><span>Email</span><input name="email" type="email" autocomplete="email" placeholder="name@example.ru"></label>
-                <button type="submit" class="account-primary">Сохранить</button>
-              </form>
-            </section>
-
-            <section class="account-pane" id="account-delivery">
-              <div class="account-head"><div><span class="eyebrow">ПОЛУЧЕНИЕ</span><h2>Получение заказов</h2><p>Город, точка выдачи и контакт получателя. Оплата — наличными при получении.</p></div></div>
-              <form class="account-form" id="deliveryForm">
-                <label><span>Город</span><input name="city" autocomplete="address-level2" placeholder="Укажите ваш город" required maxlength="120"></label>
-                <label class="wide-field"><span>Точка выдачи / адрес</span><input name="address" autocomplete="street-address" placeholder="Улица, дом или название точки получения" required maxlength="500"></label>
-                <label><span>Получатель</span><input name="recipient" placeholder="ФИО"></label>
-                <label><span>Телефон</span><input name="phone" type="tel" placeholder="+7"></label>
-                <button type="submit" class="account-primary">Сохранить</button>
-              </form>
-            </section>
-
-            <section class="account-pane" id="account-notifications">
-              <div class="account-head"><div><span class="eyebrow">СОБЫТИЯ</span><h2>События в аккаунте</h2><p>Выберите, какие изменения показывать в ленте.</p></div></div>
-              <div class="notification-list">
-                <label><span><b>Статус заказа</b><small>Изменения по заказу и поставке</small></span><input type="checkbox" data-notification="orderStatus" checked></label>
-                <label><span><b>Изменение позиции</b><small>Статус конкретной запчасти</small></span><input type="checkbox" data-notification="positionChange" checked></label>
-                <label><span><b>Возвраты</b><small>Создание и изменения возврата</small></span><input type="checkbox" data-notification="returns" checked></label>
-              </div>
-
-              <div class="account-block notification-feed-block">
-                <div class="account-block-head">
-                  <div><span class="eyebrow">ЛЕНТА</span><h3>События</h3></div>
-                  <button id="markNotificationsRead" type="button">Всё прочитано</button>
-                </div>
-                <div class="notification-feed" id="notificationFeed">
-                  <div class="account-empty"><p>Событий пока нет.</p></div>
+              <div class="account-head profile-head">
+                <div>
+                  <span class="eyebrow">ПРОФИЛЬ</span>
+                  <h2>Личный кабинет</h2>
                 </div>
               </div>
+
+              <div class="profile-identity">
+                <div class="profile-photo" id="profilePhotoPreview">ZF</div>
+                <div class="profile-identity-copy">
+                  <span class="eyebrow">ОБО МНЕ</span>
+                  <h3 id="profileDisplayName">Клиент ZapFormat</h3>
+                  <p id="profileDisplayContact">Контактные данные</p>
+                  <button type="button" class="profile-photo-button" id="profileAvatarChange">Изменить фото</button>
+                  <input type="file" id="profileAvatarInput" accept="image/jpeg,image/png,image/webp" hidden>
+                </div>
+                <div class="profile-vehicle" id="profileVehiclePreview">
+                  <small>Мой автомобиль</small>
+                  <b>Автомобиль не выбран</b>
+                  <span>Добавьте его в гараж</span>
+                </div>
+              </div>
+
+              <section class="profile-section">
+                <div class="profile-section-head"><span class="eyebrow">КОНТАКТЫ</span><h3>Контактные данные</h3></div>
+                <form class="account-form" id="profileForm">
+                  <label><span>Имя</span><input name="name" autocomplete="given-name" placeholder="Имя" required maxlength="120"></label>
+                  <label><span>Фамилия</span><input name="surname" autocomplete="family-name" placeholder="Фамилия"></label>
+                  <label><span>Телефон</span><input name="phone" type="tel" autocomplete="tel" placeholder="+7"></label>
+                  <label><span>Email</span><input name="email" type="email" autocomplete="email" placeholder="name@example.ru"></label>
+                  <button type="submit" class="account-primary">Сохранить контакты</button>
+                </form>
+              </section>
+
+              <section class="profile-section" id="profileDeliverySection">
+                <div class="profile-section-head"><span class="eyebrow">ПОЛУЧЕНИЕ</span><h3>Адрес и получатель</h3></div>
+                <form class="account-form" id="deliveryForm">
+                  <label><span>Город</span><input name="city" autocomplete="address-level2" placeholder="Укажите ваш город" required maxlength="120"></label>
+                  <label class="wide-field"><span>Точка выдачи / адрес</span><input name="address" autocomplete="street-address" placeholder="Улица, дом или название точки получения" required maxlength="500"></label>
+                  <label><span>Получатель</span><input name="recipient" placeholder="ФИО"></label>
+                  <label><span>Телефон получателя</span><input name="phone" type="tel" placeholder="+7"></label>
+                  <button type="submit" class="account-primary">Сохранить получение</button>
+                </form>
+              </section>
+
+              <section class="profile-section profile-stats-section">
+                <div class="profile-section-head"><span class="eyebrow">МОИ ПОКУПКИ</span><h3>Статистика</h3></div>
+                <div class="account-stats" id="accountReportStats" aria-live="polite">
+                  <article><span>Заказов за месяц</span><b>—</b><small>Загрузка</small></article>
+                  <article><span>Покупок</span><b>—</b><small>Загрузка</small></article>
+                  <article><span>Возвратов</span><b>—</b><small>Загрузка</small></article>
+                  <article><span>Средний заказ</span><b>—</b><small>Загрузка</small></article>
+                </div>
+              </section>
             </section>
           </div>
         </div>
@@ -579,14 +593,14 @@
     <nav class="mobile-nav" aria-label="Основная навигация">
       <button type="button" data-route="home" aria-label="Поиск"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="10.8" cy="10.8" r="6.5"/><path d="m16 16 4 4"/></svg><span>Поиск</span></button>
       <button type="button" data-route="garage" aria-label="Гараж"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 13l2.2-5h13.6l2.2 5v6h-3v-2H6v2H3z"/><path d="M4 13h16M7 15h2m6 0h2"/></svg><span>Гараж</span></button>
-      <button type="button" data-route="orders" aria-label="Заказы"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 3h12v18l-3-2-3 2-3-2-3 2zM9 8h6M9 12h6"/></svg><span>Заказы</span><b class="nav-notification-badge" id="mobileNotificationBadge" hidden>0</b></button>
+      <button type="button" data-route="orders" aria-label="Заказы"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 3h12v18l-3-2-3 2-3-2-3 2zM9 8h6M9 12h6"/></svg><span>Заказы</span></button>
       <button type="button" data-route="cart" aria-label="Корзина"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 4h2l2.2 10h10.5l2.1-7H6"/><circle cx="9" cy="19" r="1.3"/><circle cx="18" cy="19" r="1.3"/></svg><span>Корзина</span><b id="mobileCartCount">0</b></button>
       <button type="button" data-route="profile" aria-label="Личный кабинет"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4 21c1-5 4-7 8-7s7 2 8 7"/></svg><span>Кабинет</span></button>
     </nav>
 </div>
 
   <script src="./config.js?v=20261027-design1"></script>
-  <script src="./app.js?v=20261031-account-clean1"></script>
+  <script src="./app.js?v=20261031-profile-unified1"></script>
   <script src="./admin-desk.js?v=20261030-pricing1"></script>
 </body>
 </html>
