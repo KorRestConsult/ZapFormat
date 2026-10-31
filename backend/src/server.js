@@ -609,10 +609,14 @@ async function revalidateOfferToken(token, quantity = 1, cache = new Map()) {
   if (!offer) return { status: "unavailable" };
 
   const requested = Math.max(1, Math.min(999, Number(quantity || 1)));
+  const rawPurchase = Number(found?.price);
   return {
     status: offer.availability < requested ? "insufficient" : requested < offer.packing ? "minimum_quantity" : "ok",
     requested_quantity: requested,
-    ...offer
+    ...offer,
+    purchase_price: Number.isFinite(rawPurchase) && rawPurchase >= 0
+      ? Math.round((rawPurchase + Number.EPSILON) * 100) / 100
+      : null
   };
 }
 
@@ -1617,15 +1621,15 @@ app.post("/api/admin/test-orders", async (req, res, next) => {
     );
     const order = orderResult.rows[0];
     const testItems = [
-      { brand: "BMW", article: "TEST-OIL-FILTER", description: "Тестовая позиция · масляный фильтр", quantity: 1, unit_price: 890 },
-      { brand: "BMW", article: "TEST-BRAKE-PADS", description: "Тестовая позиция · передние тормозные колодки", quantity: 1, unit_price: 2000 }
+      { brand: "BMW", article: "TEST-OIL-FILTER", description: "Тестовая позиция · масляный фильтр", quantity: 1, unit_price: 890, purchase_price: 650 },
+      { brand: "BMW", article: "TEST-BRAKE-PADS", description: "Тестовая позиция · передние тормозные колодки", quantity: 1, unit_price: 2000, purchase_price: 1500 }
     ];
     for (const item of testItems) {
       await client.query(
         `INSERT INTO order_items
-          (order_id, article, brand, description, quantity, unit_price, comment, status, created_at, updated_at)
-         VALUES ($1,$2,$3,$4,$5,$6,'TEST ONLY','new',now(),now())`,
-        [order.id, item.article, item.brand, item.description, item.quantity, item.unit_price]
+          (order_id, article, brand, description, quantity, unit_price, purchase_price, comment, status, created_at, updated_at)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,'TEST ONLY','new',now(),now())`,
+        [order.id, item.article, item.brand, item.description, item.quantity, item.unit_price, item.purchase_price]
       );
     }
     await client.query(
@@ -2043,6 +2047,9 @@ async function submitQuoteRequest(req, res, next) {
       item.article = checked.article || item.article;
       item.description = checked.description || item.description;
       item.quoted_price = checked.price;
+      item.purchase_price = Number.isFinite(Number(checked.purchase_price))
+        ? Math.max(0, Math.round(Number(checked.purchase_price) * 100) / 100)
+        : null;
       item.needs_confirmation = false;
       item.offer_token = checked.offer_token || item.offer_token;
       const identity = internalOfferIdentity(item.offer_token);
@@ -2160,8 +2167,8 @@ async function submitQuoteRequest(req, res, next) {
           const orderItem = await client.query(
             `INSERT INTO order_items
               (order_id, article, brand, description, supplier_code, supplier_offer_id,
-               warehouse, delivery_days, quantity, unit_price, vehicle_id, comment, status, created_at, updated_at)
-             VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,'new',$13,$13)
+               warehouse, delivery_days, quantity, unit_price, purchase_price, vehicle_id, comment, status, created_at, updated_at)
+             VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,'new',$14,$14)
              RETURNING id`,
             [
               order.id,
@@ -2174,6 +2181,7 @@ async function submitQuoteRequest(req, res, next) {
               deliveryDays,
               item.quantity,
               item.quoted_price,
+              item.purchase_price,
               item.vehicle_id,
               item.comment || null,
               now
@@ -2255,6 +2263,7 @@ async function submitQuoteRequest(req, res, next) {
           description: item.description,
           quantity: item.quantity,
           unit_price: item.quoted_price,
+          purchase_price: item.purchase_price,
           delivery_days: Number.isFinite(Number(validation[index]?.delivery_hours))
             ? Math.max(0, Math.ceil(Number(validation[index].delivery_hours) / 24))
             : null
