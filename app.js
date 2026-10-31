@@ -1668,20 +1668,24 @@ function adminText(id,value){
 }
 
 function adminOrderMarkup(order){
-  return '<article class="management-order-item">' +
-    '<div class="management-order-identity">' +
-      '<strong>Заказ №'+escapeHtml(order.order_number)+'</strong>' +
-      '<span>'+escapeHtml(formatDateTimeRu(order.created_at))+' · '+Number(order.items_count||0)+' поз.</span>' +
-    '</div>' +
-    '<div class="management-order-contact">' +
-      '<b>'+escapeHtml(order.recipient_name||"Получатель не указан")+'</b>' +
-      '<span>'+escapeHtml(order.recipient_phone||"Телефон не указан")+'</span>' +
-    '</div>' +
-    '<div class="management-order-summary">' +
-      '<strong>'+rub(Number(order.total_amount||0))+'</strong>' +
-      '<span class="status '+escapeHtml(requestStatusClass(order.status))+'">'+escapeHtml(requestStatusLabel(order.status))+'</span>' +
-    '</div>' +
-  '</article>';
+  const identity=escapeHtml(order.recipient_name||"Получатель не указан");
+  const status=escapeHtml(requestStatusLabel(order.status));
+  return '<details class="management-order-item" data-owner-order="'+escapeHtml(order.id)+'">'+
+    '<summary class="management-order-toggle">'+
+      '<div class="management-order-identity">'+
+        '<strong>Заказ №'+escapeHtml(order.order_number)+' · '+identity+'</strong>'+
+        '<span>'+escapeHtml(formatDateTimeRu(order.created_at))+' · '+Number(order.items_count||0)+' поз.</span>'+
+      '</div>'+
+      '<div class="management-order-summary">'+
+        '<strong>'+rub(Number(order.total_amount||0))+'</strong>'+
+        '<span class="status '+escapeHtml(requestStatusClass(order.status))+'">'+status+'</span>'+
+      '</div>'+
+      '<span class="management-order-chevron" aria-hidden="true">⌄</span>'+
+    '</summary>'+
+    '<div class="management-order-detail" data-owner-order-detail>'+
+      '<p class="management-order-loading">Откройте карточку для загрузки деталей…</p>'+
+    '</div>'+
+  '</details>';
 }
 
 function renderAdminOrders(orders,{append=false}={}){
