@@ -321,7 +321,7 @@
           alertMessage("Бот принят сервером. Теперь привяжите личный чат.","success");
           await openPage("telegram");
         }catch(error){
-          handleError(error,error.status===400?"BotFather-токен не прошёл проверку.":"Не удалось сохранить настройку Telegram.");
+          handleError(error,"Telegram: "+String(error?.message||"неизвестная ошибка")+".");
         }finally{
           state.busy=false;
           if($("telegramSetupButton"))$("telegramSetupButton").disabled=false;
