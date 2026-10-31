@@ -218,6 +218,10 @@ cat >/etc/systemd/system/zapformat-api.service.d/telegram-env.conf <<'EOF'
 [Service]
 EnvironmentFile=-/var/lib/zapformat/zapformat-telegram.env
 EOF
+cat >/etc/systemd/system/zapformat-api.service.d/email-env.conf <<'EOF'
+[Service]
+EnvironmentFile=-/var/lib/zapformat/zapformat-email.env
+EOF
 cat >/etc/systemd/system/zapformat-api.service.d/restart-policy.conf <<'EOF'
 [Unit]
 StartLimitIntervalSec=0

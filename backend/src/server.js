@@ -24,7 +24,7 @@ const { installStaffRoutes } = require("./staff-routes");
 const { installEmailRegistration } = require("./email-registration");
 const { verifyGitHubActionsToken } = require("./github-oidc");
 const { interpretSearch, researchPartCandidates, normalizeVehicle } = require("./ai-search");
-const { publicBootstrapJwk, installEncryptedOpenAIKey, installTimewebAIToken, installSmsRuToken, installFapiToken, installTelegramConfig } = require("./secret-bootstrap");
+const { publicBootstrapJwk, installEncryptedOpenAIKey, installTimewebAIToken, installSmsRuToken, installFapiToken, installTelegramConfig, installGmailSMTP } = require("./secret-bootstrap");
 const { configured: telegramConfigured, connected: telegramConnected, pairingCode: telegramPairingCode, getMe: telegramGetMe, getMeForToken: telegramGetMeForToken, discoverPairedChat, sendOwnerMessage, notifyOwnerOrderCreated } = require("./telegram-notifier");
 const {
   SmsDeliveryError,
@@ -1503,6 +1503,23 @@ function telegramPairingLink(username) {
   if (!username || !code) return null;
   return "https://t.me/" + encodeURIComponent(username) + "?start=" + encodeURIComponent(code);
 }
+
+app.get("/api/admin/email/status", (req,res) => {
+  if(req.user?.role!=="owner") return res.status(403).json({error:"owner_only"});
+  const email=String(process.env.SMTP_USER||"").trim();
+  res.json({configured:Boolean(email && process.env.SMTP_PASSWORD && process.env.EMAIL_FROM),
+    provider:"gmail",email:email || null});
+});
+app.post("/api/admin/email/config", async (req,res) => {
+  if(req.user?.role!=="owner") return res.status(403).json({error:"owner_only"});
+  try {
+    const result=await installGmailSMTP(req.body);
+    return res.json({ok:true,...result});
+  }catch(error){
+    return res.status(error?.code==="gmail_credentials_invalid"?400:502)
+      .json({error:error?.code==="gmail_credentials_invalid"?"gmail_credentials_invalid":"gmail_connection_failed"});
+  }
+});
 
 app.get("/api/admin/telegram/status", async (_req, res) => {
   let bot = null;

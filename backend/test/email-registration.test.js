@@ -47,3 +47,15 @@ test("email-only accounts cannot trigger direct supplier checkout; owner test re
   const src=require("node:fs").readFileSync(require("node:path").resolve(__dirname,"../src/server.js"),"utf8");
   assert.match(src,/allConfirmed \&\& \(Boolean\(requestUser\.phone_verified_at\) \|\| ownerTestMode\)/);
 });
+
+test("owner Gmail setup requires application credentials, never accepts raw account passwords",async()=>{
+ const {installGmailSMTP}=require("../src/secret-bootstrap");
+ await assert.rejects(installGmailSMTP({email:"unknown@example.com",app_password:"1234567812345678"}),/gmail_credentials_invalid/);
+ await assert.rejects(installGmailSMTP({email:"sender@gmail.com",app_password:"regularpassword"}),/gmail_credentials_invalid/);
+ const fs=require("node:fs");const path=require("node:path");
+ const source=fs.readFileSync(path.resolve(__dirname,"../src/server.js"),"utf8");
+ const app=fs.readFileSync(path.resolve(__dirname,"../../admin/admin.js"),"utf8");
+ assert.match(source,/app.post\("\/api\/admin\/email\/config"/);
+ assert.match(source,/if\(req.user\?\.role!=="owner"\)/);
+ assert.match(app,/gmailSetupForm/);
+});

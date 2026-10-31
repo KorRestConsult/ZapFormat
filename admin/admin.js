@@ -450,6 +450,49 @@
         if($("passwordChangeButton")) $("passwordChangeButton").disabled=false;
       }
     });
+    if(state.user?.role==="owner"){
+      const box=document.createElement("section");
+      box.className="panel";
+      box.innerHTML='<div class="panel-head"><h2>Почта для регистрации покупателей</h2></div>'+
+        '<p class="muted">Подключите Gmail, с которого покупатели будут получать шестизначные коды. Нужен только <b>пароль приложения Google</b>, не основной пароль учётной записи. Проверка не отправляет писем.</p>'+
+        '<form id="gmailSetupForm" class="security-form" autocomplete="off">'+
+        '<label>Почта отправителя<input id="gmailSender" type="email" autocomplete="off" value="korobicinlive@gmail.com" required></label>'+
+        '<label>Пароль приложения Google (16 символов)<input id="gmailAppPassword" type="password" autocomplete="off" spellcheck="false" placeholder="Пароль приложения, не обычный пароль" required></label>'+
+        '<button class="primary" type="submit" id="gmailConnectButton">Проверить и подключить почту</button></form>'+
+        '<p class="muted">Пароль приложения создаётся в <a href="https://myaccount.google.com/apppasswords" target="_blank" rel="noopener noreferrer">настройках Google</a> после включения двухэтапной проверки.</p>'+
+        '<p class="muted" id="gmailSetupStatus" aria-live="polite">Проверяем статус отправки…</p>';
+      $("page").append(box);
+      const status=box.querySelector("#gmailSetupStatus");
+      request("/api/admin/email/status").then(data=>{
+        if(!status.isConnected)return;
+        status.textContent=data.configured
+          ?"Отправка подключена: "+String(data.email||"")
+          :"Отправка писем ещё не подключена. Регистрация через почту пока скрыта от покупателей.";
+      }).catch(()=>{if(status.isConnected)status.textContent="Не удалось проверить отправителя.";});
+      box.querySelector("#gmailSetupForm").addEventListener("submit",async event=>{
+        event.preventDefault();
+        const button=box.querySelector("#gmailConnectButton");
+        if(button.disabled)return;
+        button.disabled=true;
+        status.textContent="Проверяем подключение к Gmail без отправки письма…";
+        try{
+          const result=await request("/api/admin/email/config",{
+            method:"POST",
+            body:{
+              email:box.querySelector("#gmailSender").value.trim(),
+              app_password:box.querySelector("#gmailAppPassword").value
+            }
+          });
+          box.querySelector("#gmailAppPassword").value="";
+          status.textContent="Почта подключена: "+String(result.email||"")+". Регистрация через email доступна.";
+        }catch(error){
+          box.querySelector("#gmailAppPassword").value="";
+          status.textContent=error.message==="gmail_credentials_invalid"
+            ?"Проверьте Gmail и шестнадцатизначный пароль приложения."
+            :"Gmail не подтвердил подключение. Проверьте пароль приложения и двухэтапную проверку.";
+        }finally{button.disabled=false;}
+      });
+    }
   }
   function staffApi(){return {request,page:$("page"),dateRu,alert:alertMessage,openPage};}
   async function openPage(page){

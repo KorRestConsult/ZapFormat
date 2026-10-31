@@ -8,6 +8,7 @@ const AI_ENV_FILE = "/var/lib/zapformat/zapformat-ai.env";
 const SMS_ENV_FILE = "/var/lib/zapformat/zapformat-sms.env";
 const FAPI_ENV_FILE = "/var/lib/zapformat/zapformat-fapi.env";
 const TELEGRAM_ENV_FILE = "/var/lib/zapformat/zapformat-telegram.env";
+const MAIL_ENV_FILE = "/var/lib/zapformat/zapformat-email.env";
 
 async function ensureBootstrapPrivateKey() {
   try {
@@ -175,6 +176,36 @@ async function installSmsRuToken(payload) {
   return { configured: true, provider: "sms.ru", test, method };
 }
 
+async function installGmailSMTP(payload) {
+  const user = String(payload?.email || "").trim().toLowerCase();
+  const password = String(payload?.app_password || "").replace(/\\s/g, "");
+  if (!/^[a-z0-9.+_-]+@gmail\\.com$/.test(user) || password.length !== 16 ||
+      !/^[a-zA-Z0-9]{16}$/.test(password)) {
+    throw Object.assign(new Error("gmail_credentials_invalid"), { code: "gmail_credentials_invalid" });
+  }
+  const transporter = require("nodemailer").createTransport({
+    host: "smtp.gmail.com", port: 465, secure: true,
+    auth: { user, pass: password },
+    connectionTimeout: 10000, greetingTimeout: 10000, socketTimeout: 12000
+  });
+  try { await transporter.verify(); }
+  catch (_error) {
+    throw Object.assign(new Error("gmail_connection_failed"), { code: "gmail_connection_failed" });
+  } finally { transporter.close(); }
+
+  const envBody = envLine("SMTP_HOST", "smtp.gmail.com") +
+    envLine("SMTP_PORT", "465") + envLine("SMTP_USER", user) +
+    envLine("SMTP_PASSWORD", password) + envLine("EMAIL_FROM", user);
+  await fs.writeFile(MAIL_ENV_FILE, envBody, { mode: 0o600 });
+  await fs.chmod(MAIL_ENV_FILE, 0o600).catch(() => {});
+  process.env.SMTP_HOST="smtp.gmail.com";
+  process.env.SMTP_PORT="465";
+  process.env.SMTP_USER=user;
+  process.env.SMTP_PASSWORD=password;
+  process.env.EMAIL_FROM=user;
+  return {configured:true,provider:"gmail",email:user};
+}
+
 async function installFapiToken(payload) {
   const apiKey = String(payload?.fapi_api_key || payload?.api_key || "").trim();
   if (!/^iis_[A-Za-z0-9_-]{20,}$/.test(apiKey) || /[\r\n]/.test(apiKey)) {
@@ -229,10 +260,12 @@ module.exports = {
   installEncryptedOpenAIKey,
   installTimewebAIToken,
   installSmsRuToken,
+  installGmailSMTP,
   installFapiToken,
   installTelegramConfig,
   AI_ENV_FILE,
   SMS_ENV_FILE,
   FAPI_ENV_FILE,
-  TELEGRAM_ENV_FILE
+  TELEGRAM_ENV_FILE,
+  MAIL_ENV_FILE
 };
