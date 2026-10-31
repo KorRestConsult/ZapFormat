@@ -59,16 +59,31 @@ test('Guests can browse and view cart, but account sections stay private', () =>
   assert.ok(html.includes('auth-guest-link'), 'no way to resume public search from login');
 });
 
-test('Checkout requires a signed-in customer and verified supplier', () => {
+test('Checkout distinguishes authenticated orders from guest enquiries', () => {
   const start = app.indexOf('async function checkoutCart(){');
-  const end = app.indexOf('\n\ndocument.addEventListener("click",', start);
-  assert.ok(start > 0 && end > start, 'cannot locate checkout handler');
-  const handler = app.slice(start, end);
-  const auth = handler.indexOf('if(!sessionUser)');
-  const supplier = handler.indexOf('if(supplierAvailable!==true)');
-  const createOrder = handler.indexOf('/api/quote-requests');
-  assert.ok(auth >= 0 && supplier > auth && createOrder > supplier,
-    'checkout must guard authentication and supplier availability before submission');
+  const end = app.indexOf('document.getElementById("accountOrdersRefresh")',start);
+  assert.ok(start>0 && end>start);
+  const handler=app.slice(start,end);
+  assert.ok(handler.includes('guestQuoteAgree'));
+  assert.ok(handler.includes('if(supplierAvailable!==true)'));
+  assert.ok(handler.includes('sessionUser ? "/api/quote-requests" : "/api/public/quote-requests"'));
+  assert.ok(handler.includes('privacy_consent:true'));
+  assert.ok(html.includes('id="guestQuoteAgree"'));
+  assert.ok(html.includes('id="guestQuoteWebsite"'));
+  assert.ok(handler.includes('if(sessionUser && !accountPreferences?.delivery?.address)'));
+});
+
+test('Public enquiry is rate-limited and cannot create a supplier order',()=>{
+  const source=readFileSync(resolve(root,'backend/src/server.js'),'utf8');
+  const start=source.indexOf('async function submitQuoteRequest(req, res, next)');
+  const end=source.indexOf('app.get("/api/integration/status"',start);
+  assert.ok(start>0&&end>start);
+  const handler=source.slice(start,end);
+  assert.ok(handler.includes('guest ? null :'));
+  assert.ok(handler.includes('if (pool && requestUser && allConfirmed)'));
+  assert.ok(handler.includes('privacy_consent_required'));
+  assert.ok(handler.includes('guestQuoteLimiter, requireDatabase'));
+  assert.ok(handler.includes('VALUES ($1,$2,$3,$4,\'new\',$6,$5)'));
 });
 
 test('Cart refresh cannot claim current prices while supplier is disconnected', () => {
