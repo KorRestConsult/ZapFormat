@@ -17,6 +17,7 @@ const { selectFapiNodes, selectFapiModification, uniqueOemRows } = require("./fa
 const { createOfferTokenCodec } = require("./offer-token");
 const { customerPrice, getPricingPolicy, setPricingPolicy, validatePricingPolicy } = require("./pricing");
 const { isAdminRole } = require("./admin-access");
+const { registerAdminOrders } = require("./admin-orders");
 const { verifyGitHubActionsToken } = require("./github-oidc");
 const { interpretSearch, researchPartCandidates, normalizeVehicle } = require("./ai-search");
 const { publicBootstrapJwk, installEncryptedOpenAIKey, installTimewebAIToken, installSmsRuToken, installFapiToken } = require("./secret-bootstrap");
@@ -702,15 +703,11 @@ async function saveSupplierOrderSnapshots(orderId, snapshots) {
               SET supplier_order_number = $2,
                   supplier_position_id = $3,
                   supplier_status = $4,
+                  -- Supplier status is not proof of delivery to our garage.
                   status = CASE
-                    WHEN status = 'completed' THEN status
-                    WHEN $5 = 'completed' THEN 'completed'
-                    WHEN status = 'ready' AND $5 = 'processing' THEN status
-                    ELSE $5
-                  END,
-                  received_at = CASE
-                    WHEN $5 = 'completed' THEN COALESCE(received_at, now())
-                    ELSE received_at
+                    WHEN status IN ('ready','completed','cancelled') THEN status
+                    WHEN $5 = 'cancelled' THEN 'cancelled'
+                    ELSE 'processing'
                   END,
                   updated_at = now()
             WHERE id = $1`,
@@ -743,58 +740,22 @@ async function saveSupplierOrderSnapshots(orderId, snapshots) {
       }
     }
 
-    const finalItemRows = await client.query(
-      "SELECT status FROM order_items WHERE order_id = $1 ORDER BY created_at ASC",
-      [orderId]
-    );
-    const nextOrderStatus = aggregateOrderStatusFromItems(
-      finalItemRows.rows.map((row) => row.status),
-      orderMeta?.status
-    );
-
+    // Supplier status can update procurement tracking, not physical receipt.
+    // Customer-ready status is exclusively set after owner-confirmed packing.
     await client.query(
       `UPDATE orders
           SET supplier_state = 'submitted',
               supplier_last_error = NULL,
               supplier_submitted_at = COALESCE(supplier_submitted_at, now()),
               supplier_synced_at = now(),
-              status = $2,
+              status = CASE
+                WHEN status IN ('ready','completed','cancelled') THEN status
+                ELSE 'processing'
+              END,
               updated_at = now()
         WHERE id = $1`,
-      [orderId, nextOrderStatus]
+      [orderId]
     );
-
-    const previousOrderStatus = String(orderMeta?.status || "").toLowerCase();
-    if (
-      nextOrderStatus !== previousOrderStatus &&
-      ["ready", "completed", "cancelled"].includes(nextOrderStatus)
-    ) {
-      const notes = {
-        ready: "Заказ готов к получению. Оплата наличными при получении",
-        completed: "Заказ завершён",
-        cancelled: "Заказ отменён"
-      };
-      await client.query(
-        `INSERT INTO order_status_history
-          (order_id, status, source, note, created_at)
-         VALUES ($1,$2,'supply',$3,now())`,
-        [orderId, nextOrderStatus, notes[nextOrderStatus]]
-      );
-      if (orderMeta?.user_id) {
-        await addUserNotification(
-          client,
-          orderMeta.user_id,
-          "order_status",
-          "order_status",
-          "Заказ #" + String(orderMeta.order_number) + " — " + (
-            nextOrderStatus === "ready" ? "готов к получению" :
-            nextOrderStatus === "completed" ? "завершён" :
-            "отменён"
-          ),
-          notes[nextOrderStatus]
-        );
-      }
-    }
 
     await client.query("COMMIT");
     return { orders: normalized.length, positions: positionUpdates };
@@ -1147,6 +1108,7 @@ function requireAdmin(req, res, next) {
 }
 
 app.use("/api/admin", requireDatabase, requireUser, requireAdmin);
+registerAdminOrders(app, pool, { addUserNotification });
 
 // Owner/admin pricing settings. Stored server-side; clients never receive the
 // procurement price or the policy itself. Existing orders retain their prices.
@@ -1733,6 +1695,22 @@ app.post("/api/internal/orders/:orderId/status", requireDatabase, requireInterna
     }
 
     if (current !== target) {
+      if (target === "ready" || target === "completed") {
+        const physical = await client.query(
+          `SELECT count(*)::int AS items_count,
+                  count(*) FILTER (WHERE received_quantity < quantity OR status = 'cancelled')::int AS missing_count
+             FROM order_items WHERE order_id = $1`, [order.id]
+        );
+        if (!physical.rows[0].items_count || Number(physical.rows[0].missing_count) > 0) {
+          await client.query("ROLLBACK");
+          return res.status(409).json({ error: "physical_intake_incomplete" });
+        }
+        const packed = await client.query("SELECT packed_at FROM orders WHERE id = $1", [order.id]);
+        if (!packed.rows[0]?.packed_at) {
+          await client.query("ROLLBACK");
+          return res.status(409).json({ error: "packing_not_confirmed" });
+        }
+      }
       await client.query(
         `UPDATE orders
             SET status = $2, updated_at = now()
