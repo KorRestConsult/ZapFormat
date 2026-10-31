@@ -45,3 +45,8 @@ test("mobile search and verification requests have bounded waits",()=>{
   assert.match(file,/register\/verify[\s\S]{0,100}timeoutMs:15000/);
   assert.match(file,/register\/start[\s\S]{0,100}timeoutMs:15000/);
 });
+
+test("answers to smart-search questions are never treated as part numbers",()=>{
+  assert.match(file,/const article=pendingSmartSearchBaseQuery \? null : extractArticleCandidate\(raw\)/);
+  assert.match(file,/search\(document.getElementById\(\"searchInput\"\).value,\{newRequest:true\}\)/);
+});

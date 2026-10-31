@@ -3081,6 +3081,7 @@ async function search(query,options={}){
   const raw=String(query||"").trim();
   setVinCatalogMode(false);
   if(!raw) return false;
+  if(options.newRequest){pendingSmartSearchBaseQuery="";pendingSmartSearchAnswers=[];pendingSmartSearchQuestion="";}
   saveSearchResume(raw,options.brand||"");
 
   let smartQuery=raw;
@@ -3240,7 +3241,7 @@ async function search(query,options={}){
     }
   }
 
-  const article=extractArticleCandidate(raw);
+  const article=pendingSmartSearchBaseQuery ? null : extractArticleCandidate(raw);
   if(!article){
     return runSmartPartSearch(smartQuery,vehicle);
   }
@@ -4141,7 +4142,7 @@ document.addEventListener("click",async e=>{
   }
 
   const route=e.target.closest("[data-route]"); if(route){ if(route.tagName==="A") e.preventDefault(); navigate(route.dataset.route); return; }
-  const query=e.target.closest("[data-query]"); if(query){ search(query.dataset.query); return; }
+  const query=e.target.closest("[data-query]"); if(query){ search(query.dataset.query,{newRequest:true}); return; }
   if(e.target.closest("[data-answer-smart-search]")){
     const input=document.getElementById("searchInput2");
     if(input){
@@ -4206,7 +4207,7 @@ document.addEventListener("click",async e=>{
   const remove=e.target.closest("[data-remove]"); if(remove){ removeFromCart(remove.dataset.remove); return; }
 });
 
-document.getElementById("searchForm").addEventListener("submit",e=>{e.preventDefault();search(document.getElementById("searchInput").value)});
+document.getElementById("searchForm").addEventListener("submit",e=>{e.preventDefault();search(document.getElementById("searchInput").value,{newRequest:true})});
 document.getElementById("searchForm2").addEventListener("submit",e=>{e.preventDefault();search(document.getElementById("searchInput2").value)});
 
 renderCart();
