@@ -227,3 +227,15 @@ test('returning customer does not see a flash of login before session restore',(
   assert.match(css,/html\.zf-preauth #view-home\{display:block!important\}/);
   assert.match(app,/apiRequest\("\/api\/auth\/me",\{timeoutMs:8000\}\)/);
 });
+
+test('Lost SMS.RU call response is recovered without another paid provider request',()=>{
+  const server=readFileSync(resolve(root,'backend/src/server.js'),'utf8');
+  assert.match(server,/app\.post\("\/api\/auth\/register\/recover"/);
+  const endpoint=server.slice(server.indexOf('app.post("/api/auth/register/recover"'),server.indexOf('app.post("/api/auth/register/verify"'));
+  assert.match(endpoint,/bcrypt\.compare\(password,row\.password_hash\)/);
+  assert.doesNotMatch(endpoint,/createAuthChallenge|sendVerificationCall|sendVerificationCode/);
+  assert.match(app,/async function recoverAcceptedRegistration\(\)/);
+  assert.match(app,/\["request_timeout","network_unavailable","otp_too_soon"\]/);
+  assert.match(html,/id="registerRecoverButton"/);
+  assert.match(css,/\.auth-recovery-check\[hidden\]\{display:none!important\}/);
+});
