@@ -159,7 +159,7 @@ let registrationChallengeId="";
 let registrationDraft=null;
 let resetChallengeId="";
 let resetIdentity="";
-let authCapabilities={phone_verification:null,password_recovery:null,session_days:null};
+let authCapabilities={phone_verification:null,password_recovery:null,verification_method:"sms",session_days:null};
 let supplierAvailable=null;
 let guestQuoteAvailable=false;
 const authCooldownTimers=new Map();
@@ -370,6 +370,11 @@ function setAuthStatus(message,type=""){
 function applyAuthCapabilities(){
   const registerAvailable=authCapabilities.phone_verification!==false;
   const recoveryAvailable=authCapabilities.password_recovery!==false;
+  const isCall=authCapabilities.verification_method==="call";
+  document.querySelectorAll(".verification-code-label").forEach(x=>x.textContent=isCall?"Последние 4 цифры номера звонящего":"Код из SMS");
+  document.querySelectorAll('[name="verification_code"]').forEach(x=>{x.maxLength=isCall?4:6;x.placeholder=isCall?"0000":"000000";});
+  const registrationNote=document.getElementById("registerVerificationHint");
+  if(registrationNote)registrationNote.textContent=isCall?"После заполнения формы вам поступит звонок. Введите последние 4 цифры входящего номера.":"Мы отправим код на указанный телефон.";
   const registerTab=document.querySelector('[data-auth-tab="register"]');
   const forgotButton=document.querySelector('[data-auth-tab="forgot"]');
   const notice=document.getElementById("authCapabilityNotice");
@@ -377,12 +382,12 @@ function applyAuthCapabilities(){
   if(registerTab){
     registerTab.disabled=!registerAvailable;
     registerTab.setAttribute("aria-disabled",registerAvailable?"false":"true");
-    registerTab.title=registerAvailable?"":"Регистрация по SMS временно недоступна";
+    registerTab.title=registerAvailable?"":"Регистрация по телефону временно недоступна";
   }
   if(forgotButton){
     forgotButton.disabled=!recoveryAvailable;
     forgotButton.setAttribute("aria-disabled",recoveryAvailable?"false":"true");
-    forgotButton.title=recoveryAvailable?"":"Восстановление по SMS временно недоступно";
+    forgotButton.title=recoveryAvailable?"":"Восстановление по телефону временно недоступно";
   }
   if(notice){
     const unavailable=[];
@@ -402,7 +407,8 @@ async function hydrateAuthCapabilities(){
     authCapabilities={
       phone_verification:Boolean(data?.phone_verification),
       password_recovery:Boolean(data?.password_recovery),
-      session_days:Number(data?.session_days||0)||null
+      session_days:Number(data?.session_days||0)||null,
+      verification_method:data?.verification_method==="call"?"call":"sms"
     };
   }catch(error){
     console.warn("Auth capabilities check failed",error);
@@ -414,10 +420,10 @@ async function hydrateAuthCapabilities(){
 function showAuthTab(tab){
   if(tab==="register" && authCapabilities.phone_verification===false){
     tab="login";
-    setAuthStatus("Регистрация по SMS временно недоступна. Попробуйте позже.","error");
+    setAuthStatus("Регистрация по телефону временно недоступна. Попробуйте позже.","error");
   }else if(tab==="forgot" && authCapabilities.password_recovery===false){
     tab="login";
-    setAuthStatus("Восстановление пароля по SMS временно недоступно. Попробуйте позже.","error");
+    setAuthStatus("Восстановление пароля по телефону временно недоступно. Попробуйте позже.","error");
   }else{
     setAuthStatus("");
   }
@@ -436,7 +442,7 @@ function startAuthCooldown(kind,seconds=60){
   if(!button) return;
   const oldTimer=authCooldownTimers.get(kind);
   if(oldTimer) clearInterval(oldTimer);
-  const defaultText="Отправить код ещё раз";
+  const defaultText=authCapabilities.verification_method==="call"?"Повторить звонок":"Отправить код ещё раз";
   let left=Math.max(1,Number(seconds)||60);
   button.disabled=true;
   button.textContent=`Повтор через ${left} с`;
@@ -500,7 +506,7 @@ async function resendAuthCode(kind,button){
       const masked=document.getElementById("resetMaskedPhone");
       if(masked) masked.textContent=result.masked_phone||"привязанный номер";
     }
-    setAuthStatus("Новый код отправлен.","success");
+    setAuthStatus(authCapabilities.verification_method==="call"?"Новый звонок запрошен.":"Новый код отправлен.","success");
     startAuthCooldown(kind,result.resend_in||60);
   }catch(error){
     if(error?.code==="otp_too_soon") startAuthCooldown(kind,error?.data?.retry_after||60);
@@ -4967,13 +4973,14 @@ document.getElementById("registerForm")?.addEventListener("submit",async e=>{
     registrationDraft={
       name:String(data.name||"").trim(),
       surname:"",
+      customer_type:data.customer_type==="service"?"service":"individual",
       phone:identity,
       password:data.password,
       password_confirmation:data.password_confirmation
     };
 
     button.disabled=true;
-    setAuthStatus("Отправляем код подтверждения…");
+    setAuthStatus(authCapabilities.verification_method==="call"?"Запрашиваем звонок…":"Отправляем код подтверждения…");
     try{
       const result=await apiRequest("/api/auth/register/start",{
         method:"POST",
@@ -4982,9 +4989,11 @@ document.getElementById("registerForm")?.addEventListener("submit",async e=>{
       registrationChallengeId=result.challenge_id;
       const masked=document.getElementById("registerMaskedPhone");
       if(masked) masked.textContent=result.masked_phone||identity;
+      const note=document.getElementById("registerVerificationNote");
+      if(note)note.firstChild.textContent=authCapabilities.verification_method==="call"?"Ожидайте звонка на номер ":"Код отправлен на номер ";
       setAuthStage("register","verify");
       button.textContent="Подтвердить и создать аккаунт";
-      setAuthStatus("Код отправлен по SMS.","success");
+      setAuthStatus(authCapabilities.verification_method==="call"?"Ожидайте звонка. Введите последние четыре цифры номера звонящего.":"Код отправлен по SMS.","success");
       startAuthCooldown("register",result.resend_in||60);
       form.querySelector('[name="verification_code"]')?.focus();
     }catch(error){
@@ -4995,9 +5004,10 @@ document.getElementById("registerForm")?.addEventListener("submit",async e=>{
     return;
   }
 
-  const code=String(data.verification_code||"").replace(/\D/g,"").slice(0,6);
-  if(code.length!==6){
-    setAuthStatus("Введите шестизначный код из SMS.","error");
+  const digitsNeeded=authCapabilities.verification_method==="call"?4:6;
+  const code=String(data.verification_code||"").replace(/\D/g,"").slice(0,digitsNeeded);
+  if(code.length!==digitsNeeded){
+    setAuthStatus(authCapabilities.verification_method==="call"?"Введите последние четыре цифры номера звонящего.":"Введите шестизначный код из SMS.","error");
     form.querySelector('[name="verification_code"]')?.focus();
     return;
   }
@@ -5061,9 +5071,11 @@ document.getElementById("forgotForm")?.addEventListener("submit",async e=>{
       resetChallengeId=result.challenge_id;
       const masked=document.getElementById("resetMaskedPhone");
       if(masked) masked.textContent=result.masked_phone||"привязанный номер";
+      const note=document.getElementById("resetVerificationNote");
+      if(note)note.firstChild.textContent=authCapabilities.verification_method==="call"?"Ожидайте звонка на ":"Код отправлен на ";
       setAuthStage("reset","verify");
       button.textContent="Сохранить новый пароль";
-      setAuthStatus("Если аккаунт найден, код отправлен по SMS.","success");
+      setAuthStatus(authCapabilities.verification_method==="call"?"Если номер привязан к аккаунту, ожидайте звонка. Введите последние четыре цифры номера.":"Если аккаунт найден, код отправлен по SMS.","success");
       startAuthCooldown("reset",result.resend_in||60);
       form.querySelector('[name="verification_code"]')?.focus();
     }catch(error){
@@ -5074,11 +5086,12 @@ document.getElementById("forgotForm")?.addEventListener("submit",async e=>{
     return;
   }
 
-  const code=String(data.verification_code||"").replace(/\D/g,"").slice(0,6);
+  const digitsNeeded=authCapabilities.verification_method==="call"?4:6;
+  const code=String(data.verification_code||"").replace(/\D/g,"").slice(0,digitsNeeded);
   const password=String(data.password||"");
   const confirmation=String(data.password_confirmation||"");
-  if(code.length!==6){
-    setAuthStatus("Введите шестизначный код из SMS.","error");
+  if(code.length!==digitsNeeded){
+    setAuthStatus(authCapabilities.verification_method==="call"?"Введите четыре цифры номера звонящего.":"Введите шестизначный код из SMS.","error");
     return;
   }
   if(password.length<8){
