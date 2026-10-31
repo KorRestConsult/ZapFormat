@@ -22,3 +22,5 @@
 .order-totals{margin-top:18px;display:flex;gap:15px;align-items:center;flex-wrap:wrap;padding:14px;border:1px solid #e7edf5;border-radius:9px;background:#f6f9fd;font-size:13px}
 .order-totals span{margin-right:15px}.order-detail .muted{font-size:12px;margin:10px 0}
 @media(max-width:780px){.order-detail{padding:10px}.order-detail-row td{padding:6px!important}}
+
+.order-actions{display:flex;gap:10px;flex-wrap:wrap;margin:14px 0}.order-actions .secondary{font-size:12px}
