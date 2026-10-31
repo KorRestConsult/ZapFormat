@@ -202,3 +202,21 @@ test('Mobile forms avoid Safari keyboard autozoom and do not overlap bottom navi
   assert.match(css, /body:has\(input:focus\) \.mobile-nav/);
   assert.match(css, /body\.auth-route \.mobile-nav/);
 });
+
+
+test('registration remains tappable even when the capabilities endpoint is slow or offline',()=>{
+  assert.match(html, /<button type="button" data-auth-tab="register">Регистрация<\/button>/);
+  assert.doesNotMatch(html, /data-auth-tab="register" disabled/);
+  const apply = app.slice(app.indexOf('function applyAuthCapabilities()'),app.indexOf('async function hydrateAuthCapabilities()'));
+  assert.match(apply, /registerTab\.disabled=false/);
+  assert.match(app, /timeoutMs:8000/);
+  assert.match(app, /if\(tab==="register" && authCapabilities\.phone_verification===false\)\{\s*setAuthStatus/);
+});
+test('mobile auth does not autozoom the verification stage and has stable viewport rules',()=>{
+  assert.match(html, /name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,viewport-fit=cover"/);
+  assert.match(css, /html,body\{scroll-behavior:auto!important\}/);
+  assert.match(css, /#view-auth \.auth-form input,\s*#view-auth \.auth-form select\{\s*font-size:18px!important/);
+  assert.match(app, /function restoreIosViewportScale\(\)/);
+  const register = app.slice(app.indexOf('document.getElementById("registerForm")?.addEventListener'),app.indexOf('document.getElementById("forgotForm")?.addEventListener'));
+  assert.doesNotMatch(register, /startAuthCooldown\("register",result\.resend_in\|\|60\);\s*form\.querySelector\('\[name="verification_code"\]'\)\?\.focus\(\);/);
+});
