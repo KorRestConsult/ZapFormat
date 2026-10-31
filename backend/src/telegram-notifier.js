@@ -182,7 +182,7 @@ function orderMessage({ order, items = [], test = false, supplier = {} }) {
   const lines = [];
   const orderNumber = cleanLine(order?.order_number || order?.id);
   const allItems = Array.isArray(items) ? items : [];
-  const visible = allItems.slice(0, 6);
+  const visible = allItems.slice(0, 5);
   const totalItems = allItems.reduce((sum, item) => sum + Number(item?.quantity || 1), 0);
   const saleTotal = Number(order?.total_amount || allItems.reduce(
     (sum, item) => sum + Number(item?.unit_price || 0) * Number(item?.quantity || 1), 0
@@ -196,54 +196,89 @@ function orderMessage({ order, items = [], test = false, supplier = {} }) {
     : null;
   const grossProfit = costComplete ? saleTotal - purchaseTotal : null;
   const marginPercent = costComplete && saleTotal > 0 ? (grossProfit / saleTotal) * 100 : null;
+  const divider = "────────────────";
 
-  lines.push(test ? "🧪 ТЕСТОВЫЙ ЗАКАЗ · ZF-" + orderNumber : "🟠 НОВЫЙ ЗАКАЗ · ZF-" + orderNumber);
-  lines.push(cleanLine(order?.recipient_name, "Клиент") + " · " + cleanLine(order?.recipient_phone));
-  lines.push(totalItems + " шт. · клиент " + rub(saleTotal));
+  lines.push(test ? "🧪 ZAPFORMAT · TEST · ZF-" + orderNumber : "🟠 ZAPFORMAT · ZF-" + orderNumber);
+  lines.push(test ? "Тестовый заказ" : "Новый заказ");
+  lines.push(divider);
+  lines.push("👤 " + cleanLine(order?.recipient_name, "Клиент") + " · " + cleanLine(order?.recipient_phone));
+  lines.push(totalItems + " шт. · " + rub(saleTotal));
   lines.push("");
 
   lines.push("💰 ЭКОНОМИКА");
   if (costComplete) {
     lines.push("Закупка: " + rub(purchaseTotal));
     lines.push("Клиент: " + rub(saleTotal));
-    lines.push("Заработок: " + rub(grossProfit) + " · маржа " + marginPercent.toFixed(1) + "%");
-    lines.push("Чистая прибыль: — расходы заказа не подключены");
+    lines.push("Заработок: " + rub(grossProfit));
+    lines.push("Маржа: " + marginPercent.toFixed(1).replace(".", ",") + "%");
+    lines.push("Чистыми: — расходы ещё не учтены");
   } else {
-    lines.push("Закупка: себестоимость зафиксирована не полностью");
+    lines.push("Закупка: неполная себестоимость");
     lines.push("Клиент: " + rub(saleTotal));
-    lines.push("Прибыль: не считаю до полной себестоимости");
+    lines.push("Заработок: — до полной себестоимости");
   }
-  lines.push("");
+  lines.push(divider);
 
+  lines.push("📦 ЗАКАЗ");
   visible.forEach((item, index) => {
     const title = [item?.brand, item?.article].filter(Boolean).join(" ");
     const quantity = Number(item?.quantity || 1);
     const lineTotal = Number(item?.unit_price || 0) * quantity;
-    lines.push((index + 1) + ". " + cleanLine(title, "Позиция") + " × " + quantity + " — " + rub(lineTotal));
-    if (Number.isFinite(Number(item?.delivery_days))) {
-      const days = Math.max(0, Number(item.delivery_days));
-      lines.push("   срок: " + days + " д.");
-    }
+    lines.push((index + 1) + ". " + cleanLine(title, "Позиция") + " × " + quantity);
+    if (item?.description) lines.push("   " + cleanLine(item.description));
+    lines.push("   " + rub(lineTotal) + (Number.isFinite(Number(item?.delivery_days)) ? " · " + Math.max(0, Number(item.delivery_days)) + " д." : ""));
   });
   if (allItems.length > visible.length) lines.push("… ещё " + (allItems.length - visible.length) + " поз.");
+  lines.push(divider);
 
-  lines.push("");
   const supply = supplyLabel(supplier, test);
   lines.push(supply.icon + " " + supply.text);
-
   const supplierOrders = [...new Set(
     (Array.isArray(supplier?.orders) ? supplier.orders : [])
       .map((value) => String(value || "").trim())
       .filter(Boolean)
   )];
-  if (supplierOrders.length) {
-    lines.push("Поставщик: " + supplierOrders.map((number) => "№" + number).join(", "));
-  }
-  if (supplier?.reason && supplier?.submitted !== true) {
-    lines.push("Причина: " + supplyReason(supplier.reason));
-  }
+  if (supplierOrders.length) lines.push("Поставщик: " + supplierOrders.map((number) => "№" + number).join(", "));
+  if (supplier?.reason && supplier?.submitted !== true) lines.push("Причина: " + supplyReason(supplier.reason));
 
   return lines.join("\n").slice(0, 1000);
+}
+
+function orderKeyboard({ order, supplier = {} }) {
+  const orderId = String(order?.id || "").trim();
+  const phone = String(order?.recipient_phone || "").replace(/[^\d+]/g, "");
+  const supplierOrders = [...new Set(
+    (Array.isArray(supplier?.orders) ? supplier.orders : [])
+      .map((value) => String(value || "").trim())
+      .filter(Boolean)
+  )];
+  const adminBase = "https://korrestconsult.github.io/ZapFormat/admin/";
+  const rows = [];
+
+  if (orderId || phone) {
+    const row = [];
+    if (orderId) row.push({ text: "📋 Открыть заказ", url: adminBase + "?order=" + encodeURIComponent(orderId) });
+    if (phone) row.push({ text: "👤 Клиент", url: "tg://resolve?phone=" + encodeURIComponent(phone) + "&profile" });
+    if (row.length) rows.push(row);
+  }
+
+  const second = [];
+  if (supplierOrders.length) {
+    second.push({
+      text: "📦 PartGrade",
+      url: "https://partgrade.com/orders/?id_order=" + encodeURIComponent(supplierOrders[0])
+    });
+  } else {
+    second.push({ text: "📦 PartGrade", url: "https://partgrade.com/orders/?id_order=-1" });
+  }
+  if (orderId) {
+    second.push({
+      text: "↻ Обновить данные",
+      url: adminBase + "?order=" + encodeURIComponent(orderId) + "&refresh=1"
+    });
+  }
+  rows.push(second);
+  return { inline_keyboard: rows.filter((row) => row.length) };
 }
 
 function multipartBody(fields, file) {
@@ -301,7 +336,7 @@ function directTelegramMultipart(ip, path, fields, file) {
   });
 }
 
-async function telegramDocument(buffer, filename, caption = "") {
+async function telegramDocument(buffer, filename, caption = "", replyMarkup = null) {
   const token = botToken();
   const chatId = ownerChatId();
   if (!token || !chatId) return { sent: false, reason: "telegram_not_connected" };
@@ -315,6 +350,7 @@ async function telegramDocument(buffer, filename, caption = "") {
     const form = new FormData();
     form.append("chat_id", chatId);
     if (safeCaption) form.append("caption", safeCaption);
+    if (replyMarkup) form.append("reply_markup", JSON.stringify(replyMarkup));
     form.append("document", new Blob([buffer], { type: "application/pdf" }), filename);
     const response = await fetch(TELEGRAM_API + path, { method: "POST", body: form, signal: AbortSignal.timeout(15000) });
     status = response.status;
@@ -327,7 +363,11 @@ async function telegramDocument(buffer, filename, caption = "") {
   if (networkError) {
     for (const ip of TELEGRAM_FALLBACK_IPS) {
       try {
-        const response = await directTelegramMultipart(ip, path, { chat_id: chatId, caption: safeCaption }, {
+        const response = await directTelegramMultipart(ip, path, {
+          chat_id: chatId,
+          caption: safeCaption,
+          ...(replyMarkup ? { reply_markup: JSON.stringify(replyMarkup) } : {})
+        }, {
           field: "document", filename, contentType: "application/pdf", buffer
         });
         status = response.status;
@@ -363,15 +403,17 @@ async function sendOwnerMessage(text, extra = {}) {
 }
 async function notifyOwnerOrderCreated(payload) {
   const caption = orderMessage(payload);
+  const keyboard = orderKeyboard(payload);
   if (Buffer.isBuffer(payload?.invoice_pdf) && payload.invoice_pdf.length) {
     const invoice = await telegramDocument(
       payload.invoice_pdf,
       payload.invoice_filename || ("ZapFormat-ZF-" + cleanLine(payload?.order?.order_number || payload?.order?.id) + ".pdf"),
-      caption
+      caption,
+      keyboard
     );
     return { sent: invoice.sent === true, message_id: invoice.message_id || null, invoice };
   }
-  return sendOwnerMessage(caption);
+  return sendOwnerMessage(caption, { reply_markup: keyboard });
 }
 
 module.exports = {
