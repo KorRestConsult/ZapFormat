@@ -483,7 +483,29 @@ function startAuthCooldown(kind,seconds=60){
   authCooldownTimers.set(kind,timer);
 }
 
+function restorePendingRegistration(){
+  if(sessionUser || !document.getElementById("view-auth")?.classList.contains("active"))return;
+  let data;
+  try{data=JSON.parse(sessionStorage.getItem("zapformat-register-challenge")||"null");}catch{return;}
+  if(!data?.id || !Number.isFinite(data.expiresAt) || data.expiresAt<=Date.now()){
+    try{sessionStorage.removeItem("zapformat-register-challenge");}catch{}
+    return;
+  }
+  registrationChallengeId=String(data.id);
+  registrationDraft=null; // Never persist plain-text passwords or personal registration details.
+  showAuthTab("register");
+  setAuthStage("register","verify");
+  const masked=document.getElementById("registerMaskedPhone");
+  if(masked) masked.textContent=String(data.masked||"ваш номер");
+  const button=document.getElementById("registerSubmitButton");
+  if(button)button.textContent="Подтвердить и создать аккаунт";
+  setAuthStatus("Продолжайте подтверждение. Если оператор заблокировал вызов, проверьте SMS с номером звонящего.","success");
+  const countdown=Math.ceil((data.expiresAt-Date.now())/1000);
+  if(countdown>0)startAuthCooldown("register",Math.min(60,countdown));
+}
+
 function resetRegistrationFlow(){
+  try{sessionStorage.removeItem("zapformat-register-challenge");}catch{}
   registrationChallengeId="";
   registrationDraft=null;
   setAuthStage("register","details");
@@ -752,6 +774,12 @@ async function refreshStorefrontStatus(){
 function applySessionUser(){
   document.body.classList.remove("session-pending");
   document.body.classList.toggle("guest-mode",!sessionUser);
+  const headerStatus=document.getElementById("sessionEntryButton");
+  if(headerStatus){
+    headerStatus.textContent=sessionUser?"Кабинет · "+String(sessionUser.name||"Клиент").slice(0,20):"Гость · Войти";
+    headerStatus.dataset.route=sessionUser?"profile":"auth";
+    headerStatus.setAttribute("aria-label",sessionUser?"Открыть личный кабинет":"Войти или зарегистрироваться");
+  }
   const headerProfile=document.getElementById("accountEntryButton");
   if(headerProfile){
     headerProfile.textContent=sessionUser?.name || "Войти";
@@ -1870,8 +1898,10 @@ function showRoute(route){
   }
 
   // Browsing the catalog and reviewing the cart are available without an account.
+  document.body.classList.toggle("auth-route",route==="auth");
   const protectedProductRoute=!(["auth","home","search","cart"].includes(route));
   if(protectedProductRoute && !sessionUser){
+    document.body.classList.add("auth-route");
     pendingAccountRoute=route==="search" ? "home" : route;
     document.querySelectorAll(".view").forEach(v=>v.classList.remove("active"));
     document.getElementById("view-auth")?.classList.add("active");
@@ -1920,6 +1950,9 @@ function showRoute(route){
 }
 
 function navigate(route, push=true){
+  if(!sessionUser && (route==="home"||route==="auth")){
+    try{sessionStorage.setItem("zapformat-guest-choice",route==="home"?"browse":"auth");}catch{}
+  }
   showRoute(route);
   if(push){
     const url = route==="home" ? location.pathname : location.pathname+"?view="+encodeURIComponent(route);
@@ -4136,8 +4169,12 @@ function restoreFromUrl(){
     }
   } else if(sessionUser && resume?.query){
     search(resume.query,{push:false,brand:resume.brand||undefined});
-  } else {
+  } else if(sessionUser){
     showRoute("home");
+  } else {
+    let choice="auth";
+    try{choice=sessionStorage.getItem("zapformat-guest-choice")||"auth";}catch{}
+    showRoute(choice==="browse"?"home":"auth");
   }
 }
 document.addEventListener("visibilitychange",()=>{
@@ -4153,7 +4190,7 @@ refreshStorefrontStatus().catch(()=>null);
 setInterval(()=>refreshStorefrontStatus().catch(()=>null),120000);
 hydrateSession()
   .catch(()=>null)
-  .finally(()=>restoreFromUrl());
+  .finally(()=>{restoreFromUrl();restorePendingRegistration();});
 
 document.addEventListener("change",e=>{
   const select=e.target.closest("[data-cart-select]");
@@ -5016,8 +5053,9 @@ document.getElementById("registerForm")?.addEventListener("submit",async e=>{
       const masked=document.getElementById("registerMaskedPhone");
       if(masked) masked.textContent=result.masked_phone||identity;
       const note=document.getElementById("registerVerificationNote");
-      if(note)note.firstChild.textContent=authCapabilities.verification_method==="call"?"Ожидайте звонка на номер ":"Код отправлен на номер ";
+      if(note)note.firstChild.textContent=authCapabilities.verification_method==="call"?"Ожидайте звонка на ":"Код отправлен на ";
       setAuthStage("register","verify");
+      try{sessionStorage.setItem("zapformat-register-challenge",JSON.stringify({id:result.challenge_id,masked:result.masked_phone||identity,expiresAt:Date.now()+1000*(Number(result.expires_in)||600)}));}catch{}
       button.textContent="Подтвердить и создать аккаунт";
       setAuthStatus(authCapabilities.verification_method==="call"?"Ожидайте звонка. Введите последние четыре цифры номера звонящего.":"Код отправлен по SMS.","success");
       startAuthCooldown("register",result.resend_in||60);
@@ -5052,6 +5090,7 @@ document.getElementById("registerForm")?.addEventListener("submit",async e=>{
     hydrateAccountData().catch(error=>console.warn("ZapFormat account hydration failed",error));
     registrationChallengeId="";
     registrationDraft=null;
+    try{sessionStorage.removeItem("zapformat-register-challenge");}catch{}
     setAuthStatus("Номер подтверждён. Аккаунт создан.","success");
 
     const params=new URLSearchParams(location.search);
