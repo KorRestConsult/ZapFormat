@@ -3081,7 +3081,7 @@ async function search(query,options={}){
   const raw=String(query||"").trim();
   setVinCatalogMode(false);
   if(!raw) return false;
-  if(options.newRequest){pendingSmartSearchBaseQuery="";pendingSmartSearchAnswers=[];pendingSmartSearchQuestion="";}
+  if(options.newRequest){pendingSmartSearchBaseQuery="";pendingSmartSearchAnswers=[];pendingSmartSearchQuestion="";transientVinVehicle=null;}
   saveSearchResume(raw,options.brand||"");
 
   let smartQuery=raw;

@@ -71,3 +71,7 @@ test("public manual enquiry form uses its own protected, non-purchase workflow",
   assert.match(route,/VALUES\(\$1,'',\$2,1,\$3,true\)/);
   assert.doesNotMatch(route,/submitSupplierOrder|PARTGRADE_AUTO_ORDER|revalidateOfferToken/);
 });
+
+test("new search does not carry a stale VIN into a different car",()=>{
+  assert.match(file,/if\(options.newRequest\)\{[^\n]*transientVinVehicle=null;/);
+});
