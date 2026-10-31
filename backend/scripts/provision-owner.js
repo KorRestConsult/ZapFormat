@@ -3,10 +3,7 @@
 // Run only in a trusted server TTY with DATABASE_URL configured.
 // This script creates the first owner directly in PostgreSQL.
 // It has no HTTP route, shared password, or client-facing registration.
-require("dotenv").config();
 const crypto = require("node:crypto");
-const bcrypt = require("bcryptjs");
-const { Pool } = require("pg");
 
 function parseArgs(args) {
   const allowed = new Set(["name", "surname", "email", "phone"]);
@@ -34,7 +31,7 @@ function parseArgs(args) {
   return out;
 }
 
-async function provisionOwner(db, input, password) {
+async function provisionOwner(db, input, password, { hashPassword = value => require("bcryptjs").hash(value, 12) } = {}) {
   const client = await db.connect();
   let committed = false;
   try {
@@ -48,7 +45,7 @@ async function provisionOwner(db, input, password) {
       [input.email, input.phone || null]
     );
     if (collisions.rowCount) throw new Error("identity_already_registered");
-    const passwordHash = await bcrypt.hash(password, 12);
+    const passwordHash = await hashPassword(password);
     const created = await client.query(
       `INSERT INTO users (name, surname, email, phone, password_hash, role, status)
        VALUES ($1, $2, $3, $4, $5, 'owner', 'active') RETURNING id, email, role`,
@@ -66,6 +63,8 @@ async function provisionOwner(db, input, password) {
 }
 
 async function main() {
+  require("dotenv").config();
+  const { Pool } = require("pg");
   if (!process.stdin.isTTY || !process.stdout.isTTY) {
     throw new Error("Provisioning is allowed only in an interactive secure server terminal (TTY)");
   }
