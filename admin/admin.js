@@ -15,6 +15,7 @@
     requests:["Обращения","Заявки клиентов и запросы на подбор","ОБРАЩЕНИЯ"],
     pricing:["Ценовая политика","Настройка наценок по себестоимости","НАЦЕНКИ"],
     customers:["Клиенты","Покупатели, автосервисы и история обращений","КЛИЕНТЫ"],
+    telegram:["Telegram","Личные уведомления владельца о заказах","TELEGRAM"],
     logistics:["Склад и доставка","Контроль статусов поставок и готовности","ЛОГИСТИКА"],
     analytics:["Аналитика","Финансовые показатели и качество данных","АНАЛИТИКА"],
     security:["Безопасность","Смена пароля и защита учётной записи","БЕЗОПАСНОСТЬ"]
@@ -290,6 +291,95 @@
     if(error.status===401||error.status===403){loggedOut("Сеанс завершён либо нет прав владельца.");return;}
     alertMessage(fallback||"Данные временно недоступны.","error");
   }
+
+  function renderTelegram(status){
+    const bot=status?.bot||null;
+    const configured=status?.configured===true;
+    const connected=status?.connected===true;
+    const pairingLink=String(status?.pairing_link||"");
+    const suffix=String(state.user?.phone||"").replace(/\D/g,"").slice(-4);
+    const botName=bot?.username?"@"+bot.username:(bot?.name||"Бот");
+
+    if(!configured){
+      $("page").innerHTML=panel("Telegram-бот владельца",
+        '<p class="muted">Создайте обычного бота через BotFather. Токен вставляется только здесь и отправляется напрямую на ZapFormat API по HTTPS. В браузере он не сохраняется.</p>'+
+        '<form id="telegramSetupForm" class="security-form" autocomplete="off">'+
+          '<label>Токен BotFather<input id="telegramBotToken" type="password" autocomplete="off" spellcheck="false" placeholder="123456789:AA..." required></label>'+
+          '<button class="primary" type="submit" id="telegramSetupButton">Подключить бота</button>'+
+        '</form>'+
+        '<div class="callout">После проверки токена ZapFormat создаст одноразовую ссылку привязки. Случайный пользователь не сможет стать получателем уведомлений.</div>'
+      );
+      $("telegramSetupForm").addEventListener("submit",async event=>{
+        event.preventDefault();
+        if(state.busy)return;
+        const token=$("telegramBotToken").value.trim();
+        if(!token)return;
+        state.busy=true;$("telegramSetupButton").disabled=true;alertMessage("Проверяем бота…");
+        try{
+          await request("/api/admin/telegram/config",{method:"POST",body:{bot_token:token}});
+          $("telegramBotToken").value="";
+          alertMessage("Бот принят сервером. Теперь привяжите личный чат.","success");
+          await openPage("telegram");
+        }catch(error){
+          handleError(error,error.status===400?"BotFather-токен не прошёл проверку.":"Не удалось сохранить настройку Telegram.");
+        }finally{
+          state.busy=false;
+          if($("telegramSetupButton"))$("telegramSetupButton").disabled=false;
+        }
+      });
+      return;
+    }
+
+    const connection = connected
+      ? '<div class="callout success"><b>Подключено.</b> Новые заказы могут отправляться в '+escape(botName)+'.</div>'
+      : '<div class="callout"><b>Бот проверен:</b> '+escape(botName)+'. Теперь откройте персональную ссылку, нажмите Start и вернитесь сюда.</div>';
+
+    $("page").innerHTML=panel("Telegram-бот владельца",
+      connection+
+      (!connected && pairingLink
+        ? '<div class="savebar"><span>Шаг 1 — открыть бота и нажать Start</span><a class="primary button-link" href="'+escape(pairingLink)+'" target="_blank" rel="noopener">Открыть '+escape(botName)+'</a></div>'+
+          '<div class="savebar"><span>Шаг 2 — после Start подтвердить привязку</span><button class="secondary" id="telegramDiscoverButton" type="button">Подключить мой чат</button></div>'
+        : '')+
+      (connected
+        ? '<div class="savebar"><span>Проверка канала</span><button class="secondary" id="telegramTestButton" type="button">Отправить тестовое сообщение</button></div>'+
+          '<div class="savebar"><span>Тестовый заказ владельца'+(suffix?" · номер …"+escape(suffix):"")+'</span><button class="primary" id="telegramTestOrderButton" type="button" '+(!suffix?'disabled':'')+'>Создать тестовый заказ</button></div>'+
+          '<p class="muted">Тестовый заказ записывается в ZapFormat и появляется в кабинете/админке, но имеет серверный флаг TEST. Отправка такого заказа в PartGrade запрещена на уровне backend.</p>'
+        : '')
+    );
+
+    $("telegramDiscoverButton")?.addEventListener("click",async()=>{
+      if(state.busy)return;state.busy=true;$("telegramDiscoverButton").disabled=true;alertMessage("Ищем ваш /start…");
+      try{
+        await request("/api/admin/telegram/discover",{method:"POST",body:{}});
+        alertMessage("Личный Telegram-чат подключён.","success");
+        await openPage("telegram");
+      }catch(error){
+        handleError(error,error.status===409?"Пока не вижу ваш Start. Откройте бота по персональной ссылке и нажмите Start.":"Не удалось привязать Telegram-чат.");
+      }finally{state.busy=false;if($("telegramDiscoverButton"))$("telegramDiscoverButton").disabled=false;}
+    });
+
+    $("telegramTestButton")?.addEventListener("click",async()=>{
+      if(state.busy)return;state.busy=true;$("telegramTestButton").disabled=true;alertMessage("Отправляем тест…");
+      try{
+        await request("/api/admin/telegram/test-message",{method:"POST",body:{}});
+        alertMessage("Тестовое сообщение отправлено в Telegram.","success");
+      }catch(error){handleError(error,"Не удалось отправить тестовое сообщение.");}
+      finally{state.busy=false;if($("telegramTestButton"))$("telegramTestButton").disabled=false;}
+    });
+
+    $("telegramTestOrderButton")?.addEventListener("click",async()=>{
+      if(state.busy||!suffix)return;
+      state.busy=true;$("telegramTestOrderButton").disabled=true;alertMessage("Создаём тестовый заказ без PartGrade…");
+      try{
+        const result=await request("/api/admin/test-orders",{method:"POST",body:{phone_suffix:suffix}});
+        const number=result?.order?.order_number||"—";
+        alertMessage("Тестовый заказ ZF-"+number+" создан. Telegram: "+(result?.telegram?.sent?"отправлено":"не отправлено")+".","success");
+      }catch(error){
+        handleError(error,error.status===404?"Аккаунт владельца по номеру не найден.":"Не удалось создать тестовый заказ.");
+      }finally{state.busy=false;if($("telegramTestOrderButton"))$("telegramTestOrderButton").disabled=false;}
+    });
+  }
+
   function renderSecurity(){
     $("page").innerHTML=panel("Пароль владельца", `<p class="muted">Для смены пароля укажите действующий пароль и придумайте новый длиной от 12 до 128 символов. После успешной смены все прежние сеансы будут отключены, потребуется войти снова.</p>
       <form id="passwordChangeForm" class="security-form" autocomplete="off">
@@ -334,6 +424,11 @@
     try{
       if(["orders","requests","customers"].includes(page)){await loadList(page);return;}
       if(page==="security"){renderSecurity();return;}
+      if(page==="telegram"){
+        const status=await request("/api/admin/telegram/status");
+        if(seq!==state.seq||!state.user)return;
+        renderTelegram(status);return;
+      }
       if(page==="pricing"){
         const data=await request("/api/admin/pricing");
         if(seq!==state.seq||!state.user)return;
