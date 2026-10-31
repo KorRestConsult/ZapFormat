@@ -7,7 +7,7 @@
   <script>try{if(localStorage.getItem("zapformat-access-token"))document.documentElement.classList.add("zf-preauth")}catch(_){}</script>
   <title>ZapFormat — автозапчасти</title>
   <meta name="description" content="ZapFormat — поиск автозапчастей по артикулу и названию. Личный гараж, корзина и история заказов." />
-  <link rel="stylesheet" href="./styles.css?v=20261031-orders-table2" />
+  <link rel="stylesheet" href="./styles.css?v=20261031-orders-table3" />
 </head>
 <body class="guest-mode auth-route">
   <div class="app">
@@ -389,10 +389,9 @@
 </select>
               </div>
               <div class="account-table orders-detail-table" id="accountOrdersTable">
-                <div class="account-table-head">
+                <div class="account-table-head orders-primary-head">
                   <span>Дата заказа</span><span>№ заказа</span><span>Бренд</span><span>Код детали</span><span>Описание</span>
                   <span>Срок</span><span>Кол-во</span><span>Цена</span><span>Сумма</span><span>Статус</span>
-                  <span>Отгрузка</span><span>Ваш комментарий</span><span>Ответ менеджера</span><span>Возврат</span><span>Запрос на удаление</span>
                 </div>
                 <div class="account-empty"><p>Здесь будут ваши заказы.</p></div>
               </div>
@@ -593,7 +592,7 @@
 </div>
 
   <script src="./config.js?v=20261027-design1"></script>
-  <script src="./app.js?v=20261031-orders-table2"></script>
+  <script src="./app.js?v=20261031-orders-table3"></script>
   <script src="./admin-desk.js?v=20261030-pricing1"></script>
 </body>
 </html>
