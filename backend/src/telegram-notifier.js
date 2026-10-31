@@ -221,6 +221,92 @@ function orderMessage({ order, items = [], test = false, supplier = {} }) {
   return lines.join("\n").slice(0, 3900);
 }
 
+function multipartBody(fields, file) {
+  const boundary = "----ZapFormat" + Date.now().toString(16) + Math.random().toString(16).slice(2);
+  const parts = [];
+  const push = (value) => parts.push(Buffer.isBuffer(value) ? value : Buffer.from(String(value), "utf8"));
+  for (const [name, value] of Object.entries(fields || {})) {
+    if (value == null) continue;
+    push("--" + boundary + "\r\n");
+    push('Content-Disposition: form-data; name="' + name + '"\r\n\r\n');
+    push(String(value));
+    push("\r\n");
+  }
+  push("--" + boundary + "\r\n");
+  push('Content-Disposition: form-data; name="' + file.field + '"; filename="' + file.filename.replace(/"/g, "") + '"\r\n');
+  push("Content-Type: " + (file.contentType || "application/octet-stream") + "\r\n\r\n");
+  push(file.buffer);
+  push("\r\n--" + boundary + "--\r\n");
+  return { boundary, body: Buffer.concat(parts) };
+}
+
+function directTelegramMultipart(ip, path, fields, file) {
+  return new Promise((resolve, reject) => {
+    const { boundary, body } = multipartBody(fields, file);
+    const request = https.request({
+      host: ip, port: 443, servername: "api.telegram.org", family: 4,
+      path, method: "POST",
+      headers: {
+        Host: "api.telegram.org",
+        "Content-Type": "multipart/form-data; boundary=" + boundary,
+        "Content-Length": body.length,
+        Accept: "application/json"
+      },
+      timeout: 15000
+    }, (response) => {
+      const chunks = [];
+      response.on("data", (chunk) => chunks.push(chunk));
+      response.on("end", () => {
+        let data = {};
+        try { data = JSON.parse(Buffer.concat(chunks).toString("utf8")); } catch {}
+        resolve({ status: response.statusCode || 0, data });
+      });
+    });
+    request.on("timeout", () => request.destroy(Object.assign(new Error("telegram_timeout"), { code: "ETIMEDOUT" })));
+    request.on("error", reject);
+    request.end(body);
+  });
+}
+
+async function telegramDocument(buffer, filename, caption = "") {
+  const token = botToken();
+  const chatId = ownerChatId();
+  if (!token || !chatId) return { sent: false, reason: "telegram_not_connected" };
+  const path = "/bot" + token + "/sendDocument";
+  let networkError = null;
+  let status = 0;
+  let data = {};
+  try {
+    const form = new FormData();
+    form.append("chat_id", chatId);
+    if (caption) form.append("caption", String(caption).slice(0, 900));
+    form.append("document", new Blob([buffer], { type: "application/pdf" }), filename);
+    const response = await fetch(TELEGRAM_API + path, { method: "POST", body: form, signal: AbortSignal.timeout(15000) });
+    status = response.status;
+    data = await response.json().catch(() => ({}));
+  } catch (cause) { networkError = cause; }
+
+  if (networkError) {
+    for (const ip of TELEGRAM_FALLBACK_IPS) {
+      try {
+        const response = await directTelegramMultipart(ip, path, { chat_id: chatId, caption }, {
+          field: "document", filename, contentType: "application/pdf", buffer
+        });
+        status = response.status;
+        data = response.data;
+        networkError = null;
+        break;
+      } catch (cause) { networkError = cause; }
+    }
+  }
+  if (networkError || status < 200 || status >= 300 || data?.ok !== true) {
+    const error = new Error(networkError ? "telegram_unavailable" : "telegram_api_error");
+    error.code = networkError ? "telegram_unavailable" : "telegram_api_error";
+    throw error;
+  }
+  return { sent: true, message_id: data.result?.message_id || null };
+}
+
 async function sendOwnerMessage(text, extra = {}) {
   const chatId = ownerChatId();
   if (!connected()) return { sent: false, reason: "telegram_not_connected" };
@@ -233,7 +319,16 @@ async function sendOwnerMessage(text, extra = {}) {
   return { sent: true, message_id: result?.message_id || null };
 }
 async function notifyOwnerOrderCreated(payload) {
-  return sendOwnerMessage(orderMessage(payload));
+  const message = await sendOwnerMessage(orderMessage(payload));
+  let invoice = { sent: false, reason: "invoice_not_generated" };
+  if (Buffer.isBuffer(payload?.invoice_pdf) && payload.invoice_pdf.length) {
+    invoice = await telegramDocument(
+      payload.invoice_pdf,
+      payload.invoice_filename || ("ZapFormat-ZF-" + cleanLine(payload?.order?.order_number || payload?.order?.id) + ".pdf"),
+      "Заказ-накладная ZF-" + cleanLine(payload?.order?.order_number || payload?.order?.id)
+    );
+  }
+  return { ...message, invoice };
 }
 
 module.exports = {
@@ -244,6 +339,7 @@ module.exports = {
   getMeForToken,
   discoverPairedChat,
   sendOwnerMessage,
+  telegramDocument,
   notifyOwnerOrderCreated,
   orderMessage
 };
