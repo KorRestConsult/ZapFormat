@@ -6064,3 +6064,127 @@ html.zf-preauth #sessionEntryButton::after{content:"Проверяем вход�
     grid-template-columns:1fr 1fr;
   }
 }
+
+
+/* Detailed customer orders table — 31 October 2026 */
+#account-orders .orders-detail-table{
+  overflow-x:auto!important;
+  overflow-y:hidden!important;
+  border:1px solid #d5dade!important;
+  border-radius:12px!important;
+  background:#fff!important;
+  box-shadow:0 8px 22px rgba(25,38,47,.045)!important;
+  -webkit-overflow-scrolling:touch;
+}
+#account-orders .orders-detail-table .account-table-head,
+#account-orders .orders-detail-table .orders-detail-row{
+  display:grid!important;
+  grid-template-columns:
+    92px 96px 105px 118px minmax(230px,1.8fr)
+    88px 72px 102px 108px 118px
+    120px 160px 160px 110px 142px!important;
+  min-width:1720px!important;
+  gap:0!important;
+  padding:0!important;
+  align-items:stretch!important;
+}
+#account-orders .orders-detail-table .account-table-head{
+  background:#eef1f2!important;
+  color:#343b40!important;
+  border-top:3px solid var(--flipper-orange)!important;
+  border-bottom:1px solid #cdd3d6!important;
+  font-family:"PT Sans",-apple-system,BlinkMacSystemFont,"Segoe UI",Arial,sans-serif!important;
+  font-size:12px!important;
+  font-weight:800!important;
+  letter-spacing:0!important;
+  text-transform:none!important;
+}
+#account-orders .orders-detail-table .account-table-head>span,
+#account-orders .orders-detail-table .orders-detail-row>*{
+  min-width:0;
+  margin:0!important;
+  padding:11px 9px!important;
+  display:flex;
+  align-items:center;
+  border-right:1px solid #d6dbde;
+  line-height:1.25;
+}
+#account-orders .orders-detail-table .account-table-head>span{
+  justify-content:center;
+  text-align:center;
+}
+#account-orders .orders-detail-table .account-table-head>span:nth-child(5),
+#account-orders .orders-detail-table .account-table-head>span:nth-child(12),
+#account-orders .orders-detail-table .account-table-head>span:nth-child(13){
+  justify-content:flex-start;
+  text-align:left;
+}
+#account-orders .orders-detail-table .account-table-head>span:last-child,
+#account-orders .orders-detail-table .orders-detail-row>*:last-child{
+  border-right:0;
+}
+#account-orders .orders-detail-table .orders-detail-row{
+  background:#fff!important;
+  border-top:1px solid #e5e8ea!important;
+  color:#404040!important;
+  font-family:"PT Sans",-apple-system,BlinkMacSystemFont,"Segoe UI",Arial,sans-serif!important;
+  font-size:12px!important;
+}
+#account-orders .orders-detail-table .orders-detail-row:nth-child(odd){
+  background:#fbfbfa!important;
+}
+#account-orders .orders-detail-table .orders-detail-row:hover{
+  background:#fff7ef!important;
+}
+#account-orders .orders-detail-table .orders-detail-row>*{
+  justify-content:center;
+  text-align:center;
+  word-break:break-word;
+}
+#account-orders .orders-detail-table .orders-col-description,
+#account-orders .orders-detail-table .orders-col-comment,
+#account-orders .orders-detail-table .orders-col-manager{
+  justify-content:flex-start;
+  text-align:left;
+}
+#account-orders .orders-detail-table .orders-col-number,
+#account-orders .orders-detail-table .orders-col-article,
+#account-orders .orders-detail-table .orders-col-price,
+#account-orders .orders-detail-table .orders-col-sum{
+  font-weight:800!important;
+  color:#2f363a!important;
+}
+#account-orders .orders-detail-table .orders-col-status{
+  align-self:center;
+  justify-self:stretch;
+  justify-content:center;
+  min-height:100%;
+  border-radius:0!important;
+}
+#account-orders .orders-detail-table .orders-col-delete,
+#account-orders .orders-detail-table .orders-col-return{
+  color:#69747a;
+}
+#account-orders .orders-detail-table .account-empty{
+  min-width:100%;
+  padding:28px 18px!important;
+}
+
+@media(max-width:900px){
+  #account-orders .orders-detail-table .account-table-head,
+  #account-orders .orders-detail-table .orders-detail-row{
+    grid-template-columns:
+      92px 96px 105px 118px 230px
+      88px 72px 102px 108px 118px
+      120px 160px 160px 110px 142px!important;
+    min-width:1720px!important;
+  }
+  #account-orders .orders-detail-table .account-table-head{
+    display:grid!important;
+  }
+  #account-orders .orders-detail-table .orders-detail-row>*{
+    display:flex!important;
+    grid-column:auto!important;
+    grid-row:auto!important;
+  }
+}
