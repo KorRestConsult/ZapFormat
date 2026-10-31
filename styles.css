@@ -5650,3 +5650,36 @@ body{width:100%;max-width:100%;margin:0;overflow-x:clip}
 /* Mobile guest choice is visible even when the desktop auth introduction is hidden. */
 .auth-guest-browse-button{display:block;width:100%;margin-top:12px;min-height:44px;padding:9px 12px;border:1px solid #d7e3e9;border-radius:10px;background:#fff;color:#26536d;font-size:14px;font-weight:700;text-align:center;cursor:pointer}
 .auth-guest-browse-button:focus-visible{outline:2px solid #d78542;outline-offset:2px}
+
+
+/* iPhone Safari: prevent animated viewport jumps and keep forms in a fixed layout width.
+   Only vertical page scrolling is allowed; the keyboard must not resize the card. */
+html,body{scroll-behavior:auto!important}
+@media(max-width:900px){
+  #view-auth, #view-auth .auth-shell, #view-auth .auth-card{
+    min-height:0!important;
+    max-height:none!important;
+    transform:none!important;
+    animation:none!important;
+    transition:none!important
+  }
+  #view-auth .auth-form,
+  #view-auth .auth-stage,
+  #view-auth .auth-tabs{
+    transform:none!important;
+    transition:none!important;
+    min-width:0!important;
+    max-width:100%!important
+  }
+  #view-auth input:focus,
+  #view-auth select:focus{
+    scroll-margin-top:80px;
+    scroll-margin-bottom:22px
+  }
+  #view-auth .auth-form input,
+  #view-auth .auth-form select{
+    font-size:18px!important;
+    line-height:1.4!important;
+    min-height:48px;
+  }
+}
