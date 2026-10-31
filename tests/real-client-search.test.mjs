@@ -38,3 +38,10 @@ test("VIN clarification never writes to a saved garage vehicle",()=>{
   assert.match(file,/transientVinVehicle=exact \|\| \{/);
   assert.match(file,/VIN указан, но совместимость деталей ещё не подтверждена/);
 });
+
+test("mobile search and verification requests have bounded waits",()=>{
+  const sources=(file.match(/timeoutMs:28000/g)||[]).length;
+  assert.equal(sources,3);
+  assert.match(file,/register\/verify[\s\S]{0,100}timeoutMs:15000/);
+  assert.match(file,/register\/start[\s\S]{0,100}timeoutMs:15000/);
+});

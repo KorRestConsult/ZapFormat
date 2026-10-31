@@ -2818,6 +2818,7 @@ async function runSmartPartSearch(query,vehicle){
     if(vehicle?.id){
       try{
         data=await apiRequest("/api/catalog/ai-search",{
+          timeoutMs:28000,
           method:"POST",
           body:JSON.stringify({
             query:lastSmartSearchQuery,
@@ -2827,6 +2828,7 @@ async function runSmartPartSearch(query,vehicle){
       }catch(primaryError){
         console.warn("Primary smart search failed; trying fallback",primaryError);
         data=await apiRequest("/api/catalog/ai-search-public",{
+          timeoutMs:28000,
           method:"POST",
           body:JSON.stringify({
             query:lastSmartSearchQuery,
@@ -2836,6 +2838,7 @@ async function runSmartPartSearch(query,vehicle){
       }
     }else{
       data=await apiRequest("/api/catalog/ai-search-public",{
+          timeoutMs:28000,
         method:"POST",
         body:JSON.stringify({
           query:lastSmartSearchQuery,
@@ -5209,6 +5212,7 @@ document.getElementById("registerForm")?.addEventListener("submit",async e=>{
   setAuthStatus("Проверяем код…");
   try{
     const result=await apiRequest("/api/auth/register/verify",{
+      timeoutMs:15000,
       method:"POST",
       body:JSON.stringify({challenge_id:registrationChallengeId,code})
     });
