@@ -178,7 +178,7 @@ app.use(cors({
   },
   credentials: true,
   methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
-  allowedHeaders: ["Content-Type", "Accept", "Authorization"]
+  allowedHeaders: ["Content-Type", "Accept", "Authorization", "X-ZapFormat-Owner-Test-Token"]
 }));
 
 const authLimiter = rateLimit({
