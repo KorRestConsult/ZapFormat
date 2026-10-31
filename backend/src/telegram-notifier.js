@@ -279,7 +279,7 @@ async function telegramDocument(buffer, filename, caption = "") {
   try {
     const form = new FormData();
     form.append("chat_id", chatId);
-    if (caption) form.append("caption", String(caption).slice(0, 900));
+    if (caption) form.append("caption", String(caption).slice(0, 1000));
     form.append("document", new Blob([buffer], { type: "application/pdf" }), filename);
     const response = await fetch(TELEGRAM_API + path, { method: "POST", body: form, signal: AbortSignal.timeout(15000) });
     status = response.status;
@@ -319,16 +319,16 @@ async function sendOwnerMessage(text, extra = {}) {
   return { sent: true, message_id: result?.message_id || null };
 }
 async function notifyOwnerOrderCreated(payload) {
-  const message = await sendOwnerMessage(orderMessage(payload));
-  let invoice = { sent: false, reason: "invoice_not_generated" };
+  const caption = orderMessage(payload);
   if (Buffer.isBuffer(payload?.invoice_pdf) && payload.invoice_pdf.length) {
-    invoice = await telegramDocument(
+    const invoice = await telegramDocument(
       payload.invoice_pdf,
       payload.invoice_filename || ("ZapFormat-ZF-" + cleanLine(payload?.order?.order_number || payload?.order?.id) + ".pdf"),
-      "Заказ-накладная ZF-" + cleanLine(payload?.order?.order_number || payload?.order?.id)
+      caption
     );
+    return { sent: invoice.sent === true, message_id: invoice.message_id || null, invoice };
   }
-  return { ...message, invoice };
+  return sendOwnerMessage(caption);
 }
 
 module.exports = {
