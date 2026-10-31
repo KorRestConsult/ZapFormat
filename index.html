@@ -7,7 +7,7 @@
   <script>try{if(localStorage.getItem("zapformat-access-token"))document.documentElement.classList.add("zf-preauth")}catch(_){}</script>
   <title>ZapFormat — автозапчасти</title>
   <meta name="description" content="ZapFormat — поиск автозапчастей по артикулу и названию. Личный гараж, корзина и история заказов." />
-  <link rel="stylesheet" href="./styles.css?v=20261031-call-recovery9" />
+  <link rel="stylesheet" href="./styles.css?v=20261031-home-clean1" />
 </head>
 <body class="guest-mode auth-route">
   <div class="app">
@@ -17,12 +17,10 @@
           <span class="logo-main">ZAP</span><span class="logo-ai">FORMAT</span>
         </a>
         <button type="button" id="sessionEntryButton" class="session-entry" data-route="auth" aria-label="Войти или зарегистрироваться">Гость · Войти</button>
-<nav class="desktop-nav" aria-label="Разделы магазина">
-          <button type="button" data-route="home">Поиск</button>
+        <nav class="desktop-nav" aria-label="Разделы магазина">
           <button type="button" id="adminNavButton" data-route="admin" hidden>Управление</button>
         </nav>
         <div class="header-actions">
-          <button type="button" id="headerVehicleButton" class="header-vehicle" data-route="garage" hidden><span id="headerVehicleMark">AUTO</span><b id="headerVehicleName">Мой автомобиль</b></button>
           <button type="button" id="accountEntryButton" data-route="auth">Войти</button>
           <button type="button" class="cart-pill" data-route="cart">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M3 4h2l2.2 10h10.5l2.1-7H6"/><circle cx="9" cy="19" r="1.4"/><circle cx="18" cy="19" r="1.4"/></svg>
@@ -36,32 +34,27 @@
       <section class="view" id="view-home">
         <div class="minimal-home">
           <div class="minimal-hero">
-            <div class="hero-intro">
-              <span class="minimal-kicker"><span class="hero-kicker-dot"></span> ZAPFORMAT · АВТОЗАПЧАСТИ</span>
             <div class="hero-search-panel">
               <div class="search-panel-heading">
                 <span>ПОИСК ЗАПЧАСТЕЙ</span>
                 <h2>Что ищем?</h2>
-                <p>Начните с номера детали или обычного названия.</p>
               </div>
               <form class="minimal-search" id="searchForm" role="search">
                 <label for="searchInput" class="visually-hidden">Артикул или название запчасти</label>
                 <textarea id="searchInput" rows="1" autocomplete="off" enterkeyhint="search" placeholder="Например, 0986AF1111 или тормозные колодки"></textarea>
                 <button type="submit"><span>Найти</span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="m5 12 14 0M13 6l6 6-6 6"/></svg></button>
               </form>
-              <button class="search-vehicle-context" id="homeVehicleContext" data-route="garage" type="button" hidden>
-                <span class="search-vehicle-dot"></span>
-                <span><small>Ищем для</small><b id="homeVehicleName">моего автомобиля</b></span>
-                <span class="search-vehicle-change">Сменить</span>
-              </button>
-              <button class="search-vehicle-setup" id="homeVehicleSetup" data-route="garage" type="button">+ Добавить автомобиль <small>необязательно</small></button>
-              <div class="minimal-search-hints"><span>По номеру</span><span>По названию</span><span>С учётом автомобиля</span></div>
               <div class="storefront-status" id="storefrontStatus" role="status" aria-live="polite">
                 <span class="storefront-status-dot" aria-hidden="true"></span>
                 <span id="storefrontStatusText">Проверяем подключение к каталогу…</span>
               </div>
               <div class="minimal-note">Цена, наличие и срок поставки подтверждаются перед заказом.</div>
             </div>
+          </div>
+          <div class="storefront-steps" aria-label="Возможности ZapFormat">
+            <div><b>01 / НАЙТИ</b><strong>Поиск и аналоги</strong><span>По артикулу или названию детали. Без случайного подбора.</span></div>
+            <div><b>02 / СОХРАНИТЬ</b><strong>Гараж и корзина</strong><span>Ваши автомобили, выбранные детали и комментарии.</span></div>
+            <div><b>03 / КОНТРОЛИРОВАТЬ</b><strong>Заказы и статусы</strong><span>История заказов, изменения позиций и события.</span></div>
           </div>
         </div>
       </section>
