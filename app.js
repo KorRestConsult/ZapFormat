@@ -166,7 +166,7 @@ let registrationChallengeId="";
 let registrationDraft=null;
 let resetChallengeId="";
 let resetIdentity="";
-let authCapabilities={phone_verification:null,password_recovery:null,verification_method:"sms",session_days:null};
+let authCapabilities={phone_verification:null,password_recovery:null,verification_method:"call",session_days:null};
 let supplierAvailable=null;
 let guestQuoteAvailable=false;
 const authCooldownTimers=new Map();
@@ -2099,7 +2099,7 @@ function looksLikeVin(value){
 
 function extractArticleCandidate(value){
   const raw=String(value||"").trim();
-  if(looksLikeArticle(raw) && !looksLikeVin(raw)) return raw;
+  if(looksLikeArticle(raw) && !looksLikeVin(raw) && (/\d/.test(raw) || !/[А-Яа-яЁё]/.test(raw))) return raw;
   const tokens=raw
     .split(/\s+/)
     .map(token=>token.replace(/^[^A-Za-zА-Яа-я0-9]+|[^A-Za-zА-Яа-я0-9._\/-]+$/g,""))
@@ -3149,6 +3149,10 @@ async function search(query,options={}){
     // and continue the original parts request instead of starting a new VIN search.
     if(pendingSmartSearchBaseQuery){
       vehicle=await attachVinToCurrentVehicle(vin);
+      if(!vehicle){
+        transientVinVehicle={vin,brand:"",model:"",year:null,engine:""};
+        vehicle=transientVinVehicle;
+      }
       return runSmartPartSearch(smartQuery,vehicle);
     }
 
@@ -3184,7 +3188,7 @@ async function search(query,options={}){
     renderSearchState("VIN","Определяем точную модификацию автомобиля.");
 
     try{
-      const result=await apiRequest("/api/catalog/vin-browser?vin="+encodeURIComponent(vin));
+      const result=await apiRequest("/api/catalog/vin-browser?vin="+encodeURIComponent(vin),{timeoutMs:32000});
       const decoded=result?.decoded||{};
       transientVinVehicle={
         id:active?.id||null,
@@ -3249,9 +3253,13 @@ async function search(query,options={}){
       setSearchHead(vin,"Не удалось расшифровать VIN.",vin);
       renderSearchState(
         "VIN временно не расшифрован",
-        error?.code==="fapi_payment_required"
-          ? "На балансе Vindec недостаточно средств для расшифровки."
-          : "Проверьте VIN или повторите попытку позже."
+        error?.status===429
+          ? "Лимит запросов по VIN на этом устройстве исчерпан. Попробуйте позже."
+          : error?.code==="request_timeout"
+            ? "Каталог VIN не ответил за 32 секунды. Попробуйте позже или укажите автомобиль вручную."
+            : error?.code==="fapi_payment_required"||error?.code==="fapi_http_402"
+              ? "Лимит платного каталога VIN исчерпан. Автомобиль можно добавить вручную."
+              : "Проверьте VIN или повторите попытку позже."
       );
       return false;
     }
@@ -5109,6 +5117,10 @@ document.getElementById("loginForm")?.addEventListener("submit",async e=>{
 function applyAcceptedRegistrationChallenge(result,identity,recovered=false){
   registrationChallengeId=String(result.challenge_id||"");
   if(!registrationChallengeId)throw new Error("verification_not_found");
+  if(result.verification_method==="call"||result.verification_method==="sms"){
+    authCapabilities.verification_method=result.verification_method;
+    applyAuthCapabilities();
+  }
   const masked=document.getElementById("registerMaskedPhone");
   if(masked)masked.textContent=result.masked_phone||identity||"ваш номер";
   const note=document.getElementById("registerVerificationNote");
@@ -5138,7 +5150,7 @@ async function recoverAcceptedRegistration(){
   if(recoverButton)recoverButton.disabled=true;
   try{
     const result=await apiRequest("/api/auth/register/recover",{
-      timeoutMs:15000,
+      timeoutMs:10000,
       method:"POST",
       body:JSON.stringify({phone:registrationDraft.phone,password:registrationDraft.password})
     });
@@ -5191,10 +5203,10 @@ document.getElementById("registerForm")?.addEventListener("submit",async e=>{
     };
 
     button.disabled=true;
-    setAuthStatus(authCapabilities.verification_method==="call"?"Запрашиваем звонок…":"Отправляем код подтверждения…");
+    setAuthStatus("Запрашиваем подтверждение телефона. Если ответ задержится, проверим запрос без повторного звонка…");
     try{
       const result=await apiRequest("/api/auth/register/start",{
-        timeoutMs:20000,
+        timeoutMs:15000,
         method:"POST",
         body:JSON.stringify(registrationDraft)
       });

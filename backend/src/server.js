@@ -211,6 +211,14 @@ const aiSearchLimiter = rateLimit({
   legacyHeaders: false
 });
 
+// Public VIN lookups use a paid catalog. Cap anonymous requests per IP.
+const publicVinLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000,
+  limit: 6,
+  standardHeaders: "draft-8",
+  legacyHeaders: false
+});
+
 const catalogImageLimiter = rateLimit({
   windowMs: 60 * 1000,
   limit: 180,
@@ -2944,7 +2952,7 @@ async function persistVehicleCatalogBinding(userId, vehicleId, resolved) {
   );
 }
 
-app.get("/api/catalog/vin-browser", requireUser, aiSearchLimiter, async (req, res, next) => {
+app.get("/api/catalog/vin-browser", publicVinLimiter, async (req, res, next) => {
   try {
     if (!fapi.configured()) return res.status(503).json({ error: "fapi_not_configured" });
     const vin = String(req.query?.vin || "").trim().toUpperCase();
@@ -2952,7 +2960,19 @@ app.get("/api/catalog/vin-browser", requireUser, aiSearchLimiter, async (req, re
 
     // Decode VIN first so the customer still sees the identified vehicle
     // even if the paid catalog quota is unavailable.
-    const decodedRaw = await fapi.decodeVin(vin);
+    let decodedRaw;
+    try {
+      decodedRaw = await fapi.decodeVin(vin);
+    } catch (error) {
+      if (error instanceof FapiError && Number(error.status) === 402) {
+        return res.json({
+          ok: true, provider: "fapi_v2", ready: false,
+          catalog_status: "credits_exhausted", decoded: null,
+          modification: null, nodes: []
+        });
+      }
+      throw error;
+    }
     let context;
     try {
       context = await resolveFapiVinContext(vin);
@@ -3211,6 +3231,17 @@ app.post("/api/catalog/ai-search-public", aiSearchLimiter, async (req, res, next
       } catch (error) {
         console.warn("[FapiPublicFitment]", error?.code || error?.message || "failed");
       }
+    }
+
+    if (!suppliedVehicle && /^шаров(ые|ая|ую|ые опоры)?$/i.test(query)) {
+      return res.json({
+        ok: true,
+        mode: "clarification",
+        interpreter: interpreted.mode,
+        vehicle: null,
+        intent,
+        question: "Для какого автомобиля нужны шаровые опоры? Укажите VIN либо марку, модель и год."
+      });
     }
 
     if (intent?.clarification_needed) {

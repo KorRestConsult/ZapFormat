@@ -79,6 +79,7 @@ function fallbackIntent(query, vehicle) {
   else if (/втулк.*стабилизатор/.test(lower)) category = "stabilizer_bushing";
   else if (/амортизатор/.test(lower)) category = "shock_absorber";
   else if (/ступич.*подшипник/.test(lower)) category = "wheel_bearing";
+  else if (/шаров/.test(lower)) category = "other_part";
 
   const clarificationNeeded = category === "unknown" || category === "filter_ambiguous";
   const clarificationQuestion =
@@ -92,7 +93,7 @@ function fallbackIntent(query, vehicle) {
     kind: "part_request",
     normalized_query: raw,
     category,
-    part_name: raw,
+    part_name: /шаров/.test(lower) ? "Шаровая опора" : raw,
     side,
     axle,
     quantity,
