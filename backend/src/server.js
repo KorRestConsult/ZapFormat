@@ -110,6 +110,13 @@ const quoteLimiter = rateLimit({
   legacyHeaders: false
 });
 
+const guestQuoteLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000,
+  limit: 5,
+  standardHeaders: "draft-8",
+  legacyHeaders: false
+});
+
 const aiSearchLimiter = rateLimit({
   windowMs: 60 * 1000,
   limit: 20,
@@ -1394,10 +1401,17 @@ app.get("/api/health", async (_req, res, next) => {
   }
 });
 
-app.post("/api/quote-requests", quoteLimiter, requireUser, async (req, res, next) => {
+async function submitQuoteRequest(req, res, next) {
+  // Guest enquiries are leads for manual confirmation, not orders or supplier purchases.
+  const guest = req.path === "/api/public/quote-requests";
+  if (guest) {
+    if (String(req.body?.website||"").trim()) return res.status(202).json({ok:true,status:"received"});
+    if (req.body?.privacy_consent !== true) return res.status(400).json({error:"privacy_consent_required"});
+  }
   try {
     const name = String(req.body?.name || "").trim().slice(0, 120);
     const phone = normalizePhone(req.body?.phone);
+    if (guest && !String(req.body?.name||"").trim()) return res.status(400).json({error:"name_required"});
     const rawItems = Array.isArray(req.body?.items) ? req.body.items : [];
 
     if (!phone || phone.replace(/\D/g, "").length < 10) {
@@ -1497,7 +1511,7 @@ app.post("/api/quote-requests", quoteLimiter, requireUser, async (req, res, next
       "-" +
       crypto.randomBytes(3).toString("hex").toUpperCase();
 
-    const requestUser = pool ? await currentUser(req) : null;
+    const requestUser = guest ? null : (pool ? await currentUser(req) : null);
 
     if (pool && requestUser) {
       const requestedVehicleIds=[...new Set(items.map((item)=>item.vehicle_id).filter(Boolean))];
@@ -1654,7 +1668,7 @@ app.post("/api/quote-requests", quoteLimiter, requireUser, async (req, res, next
       name: name || requestUser?.name || null,
       phone,
       items,
-      source: "zapformat-web",
+      source: guest ? "zapformat-public-web" : "zapformat-web",
       status: "new"
     };
 
@@ -1664,8 +1678,8 @@ app.post("/api/quote-requests", quoteLimiter, requireUser, async (req, res, next
         await client.query("BEGIN");
         await client.query(
           `INSERT INTO quote_requests (id, user_id, name, phone, status, source, created_at)
-           VALUES ($1,$2,$3,$4,'new','zapformat-web',$5)`,
-          [requestId, requestUser?.id || null, record.name, phone, now]
+           VALUES ($1,$2,$3,$4,'new',$6,$5)`,
+          [requestId, requestUser?.id || null, record.name, phone, now, record.source]
         );
 
         for (const item of items) {
@@ -1719,7 +1733,9 @@ app.post("/api/quote-requests", quoteLimiter, requireUser, async (req, res, next
   } catch (error) {
     next(error);
   }
-});
+}
+app.post("/api/quote-requests", quoteLimiter, requireUser, submitQuoteRequest);
+app.post("/api/public/quote-requests", guestQuoteLimiter, requireDatabase, submitQuoteRequest);
 
 app.get("/api/integration/status", async (_req, res, next) => {
   try {
