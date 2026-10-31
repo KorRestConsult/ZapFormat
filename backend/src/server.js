@@ -19,7 +19,8 @@ const { customerPrice, getPricingPolicy, setPricingPolicy, validatePricingPolicy
 const { isAdminRole } = require("./admin-access");
 const { verifyGitHubActionsToken } = require("./github-oidc");
 const { interpretSearch, researchPartCandidates, normalizeVehicle } = require("./ai-search");
-const { publicBootstrapJwk, installEncryptedOpenAIKey, installTimewebAIToken, installSmsRuToken, installFapiToken } = require("./secret-bootstrap");
+const { publicBootstrapJwk, installEncryptedOpenAIKey, installTimewebAIToken, installSmsRuToken, installFapiToken, installTelegramConfig } = require("./secret-bootstrap");
+const { configured: telegramConfigured, connected: telegramConnected, pairingCode: telegramPairingCode, getMe: telegramGetMe, getMeForToken: telegramGetMeForToken, discoverPairedChat, sendOwnerMessage, notifyOwnerOrderCreated } = require("./telegram-notifier");
 const {
   SmsDeliveryError,
   createOtpCode,
@@ -836,7 +837,7 @@ async function submitSupplierOrder(orderId) {
   if (!pool) return { submitted: false, reason: "database_not_configured" };
 
   const orderResult = await pool.query(
-    `SELECT id, order_number, supplier_state
+    `SELECT id, order_number, supplier_state, is_test
        FROM orders
       WHERE id = $1
       LIMIT 1`,
@@ -844,6 +845,7 @@ async function submitSupplierOrder(orderId) {
   );
   const order = orderResult.rows[0];
   if (!order) return { submitted: false, reason: "order_not_found" };
+  if (order.is_test) return { submitted: false, reason: "test_order_blocked" };
 
   const linked = await pool.query(
     `SELECT supplier_order_number
@@ -1168,6 +1170,170 @@ function requireAdmin(req, res, next) {
 
 app.use("/api/admin", requireDatabase, requireUser, requireAdmin);
 
+
+function telegramPairingLink(username) {
+  const code = telegramPairingCode();
+  if (!username || !code) return null;
+  return "https://t.me/" + encodeURIComponent(username) + "?start=" + encodeURIComponent(code);
+}
+
+app.get("/api/admin/telegram/status", async (_req, res) => {
+  let bot = null;
+  let error = null;
+  if (telegramConfigured()) {
+    try {
+      const me = await telegramGetMe();
+      bot = {
+        id: me?.id || null,
+        username: me?.username || null,
+        name: me?.first_name || null
+      };
+    } catch (telegramError) {
+      error = telegramError?.code || "telegram_unavailable";
+    }
+  }
+  res.json({
+    configured: telegramConfigured(),
+    connected: telegramConnected(),
+    bot,
+    pairing_link: bot?.username && !telegramConnected() ? telegramPairingLink(bot.username) : null,
+    error
+  });
+});
+
+app.post("/api/admin/telegram/config", async (req, res) => {
+  if (req.user?.role !== "owner") return res.status(403).json({ error: "forbidden" });
+  const token = String(req.body?.bot_token || "").trim();
+  if (!/^\d{5,15}:[A-Za-z0-9_-]{20,}$/.test(token) || token.length > 256) {
+    return res.status(400).json({ error: "telegram_bot_token_invalid" });
+  }
+  try {
+    const me = await telegramGetMeForToken(token);
+    const pairing = crypto.randomBytes(12).toString("base64url");
+    await installTelegramConfig({ bot_token: token, owner_chat_id: "", pairing_code: pairing });
+    res.json({
+      ok: true,
+      configured: true,
+      connected: false,
+      bot: { id: me?.id || null, username: me?.username || null, name: me?.first_name || null },
+      pairing_link: me?.username ? telegramPairingLink(me.username) : null
+    });
+  } catch (error) {
+    res.status(400).json({ error: error?.code || error?.message || "telegram_config_failed" });
+  }
+});
+
+app.post("/api/admin/telegram/discover", async (req, res) => {
+  if (req.user?.role !== "owner") return res.status(403).json({ error: "forbidden" });
+  try {
+    const chat = await discoverPairedChat();
+    if (!chat) return res.status(409).json({ error: "telegram_pairing_not_found" });
+    await installTelegramConfig({ owner_chat_id: chat.chat_id });
+    await sendOwnerMessage("✅ ZapFormat подключён. Новые заказы будут приходить сюда.");
+    const me = await telegramGetMe().catch(() => null);
+    res.json({
+      ok: true,
+      connected: true,
+      bot: me ? { username: me.username || null, name: me.first_name || null } : null,
+      owner: { first_name: chat.first_name || null, username: chat.username || null }
+    });
+  } catch (error) {
+    res.status(400).json({ error: error?.code || error?.message || "telegram_pairing_failed" });
+  }
+});
+
+app.post("/api/admin/telegram/test-message", async (req, res) => {
+  if (!telegramConnected()) return res.status(409).json({ error: "telegram_not_connected" });
+  try {
+    const result = await sendOwnerMessage("🧪 ZapFormat · тест связи\nБот принимает уведомления от магазина.");
+    res.json({ ok: true, sent: result.sent === true });
+  } catch (error) {
+    res.status(502).json({ error: error?.code || "telegram_send_failed" });
+  }
+});
+
+app.post("/api/admin/test-orders", async (req, res, next) => {
+  const suffix = String(req.body?.phone_suffix || "").replace(/\D/g, "").slice(-8);
+  if (suffix.length < 4) return res.status(400).json({ error: "phone_suffix_required" });
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+    const users = await client.query(
+      `SELECT id, name, surname, phone
+         FROM users
+        WHERE status = 'active'
+          AND regexp_replace(COALESCE(phone,''),'\\D','','g') LIKE '%' || $1
+        ORDER BY created_at DESC
+        LIMIT 2`,
+      [suffix]
+    );
+    if (users.rowCount !== 1) {
+      await client.query("ROLLBACK");
+      return res.status(users.rowCount ? 409 : 404).json({ error: users.rowCount ? "phone_suffix_ambiguous" : "test_user_not_found" });
+    }
+    const user = users.rows[0];
+    const address = await client.query(
+      `SELECT id, recipient_name, recipient_phone
+         FROM user_addresses
+        WHERE user_id = $1
+        ORDER BY is_default DESC, updated_at DESC, created_at DESC
+        LIMIT 1`,
+      [user.id]
+    );
+    const recipientName = [user.name, user.surname].filter(Boolean).join(" ") || "Тестовый клиент";
+    const recipientPhone = user.phone || address.rows[0]?.recipient_phone || null;
+    const orderResult = await client.query(
+      `INSERT INTO orders
+        (user_id, status, total_amount, currency, delivery_address_id, recipient_name, recipient_phone,
+         comment, supplier_state, is_test, created_at, updated_at)
+       VALUES ($1,'new',2890,'RUB',$2,$3,$4,'TEST: Telegram integration','test_only',true,now(),now())
+       RETURNING id, order_number, status, total_amount, currency, recipient_name, recipient_phone, created_at, is_test`,
+      [user.id, address.rows[0]?.id || null, recipientName, recipientPhone]
+    );
+    const order = orderResult.rows[0];
+    const testItems = [
+      { brand: "BMW", article: "TEST-OIL-FILTER", description: "Тестовая позиция · масляный фильтр", quantity: 1, unit_price: 890 },
+      { brand: "BMW", article: "TEST-BRAKE-PADS", description: "Тестовая позиция · передние тормозные колодки", quantity: 1, unit_price: 2000 }
+    ];
+    for (const item of testItems) {
+      await client.query(
+        `INSERT INTO order_items
+          (order_id, article, brand, description, quantity, unit_price, comment, status, created_at, updated_at)
+         VALUES ($1,$2,$3,$4,$5,$6,'TEST ONLY','new',now(),now())`,
+        [order.id, item.article, item.brand, item.description, item.quantity, item.unit_price]
+      );
+    }
+    await client.query(
+      `INSERT INTO order_status_history (order_id,status,source,note,created_at)
+       VALUES ($1,'new','test','Тестовый заказ: отправка поставщику заблокирована',now())`,
+      [order.id]
+    );
+    await client.query("COMMIT");
+
+    let telegram = { sent: false, reason: "telegram_not_connected" };
+    try {
+      telegram = await notifyOwnerOrderCreated({ order, items: testItems, test: true });
+    } catch (error) {
+      telegram = { sent: false, reason: error?.code || "telegram_send_failed" };
+    }
+    res.status(201).json({
+      ok: true,
+      order: {
+        id: order.id,
+        order_number: String(order.order_number),
+        total_amount: Number(order.total_amount),
+        is_test: true
+      },
+      telegram
+    });
+  } catch (error) {
+    await client.query("ROLLBACK").catch(() => {});
+    next(error);
+  } finally {
+    client.release();
+  }
+});
+
 // One-time owner-authorized SMS.RU setup. Never expose or log the API key.
 // Provisioning is disabled once a key is saved; no changes to the admin interface.
 app.post("/api/admin/integrations/smsru/setup", async (req, res) => {
@@ -1323,7 +1489,7 @@ app.get("/api/admin/orders", async (req, res, next) => {
     const result = await pool.query(`
       SELECT o.id, o.order_number, o.status, o.total_amount, o.currency,
              o.created_at, o.updated_at, o.supplier_state,
-             o.recipient_name, o.recipient_phone,
+             o.recipient_name, o.recipient_phone, o.is_test,
              count(i.id)::int AS items_count
         FROM orders o
         LEFT JOIN order_items i ON i.order_id = o.id
@@ -1348,7 +1514,7 @@ app.get("/api/admin/orders/:id", async (req, res, next) => {
     const result = await pool.query(
       `SELECT o.id, o.order_number, o.status, o.total_amount, o.currency,
               o.comment, o.created_at, o.updated_at, o.supplier_state,
-              o.recipient_name, o.recipient_phone,
+              o.recipient_name, o.recipient_phone, o.is_test,
               a.city AS delivery_city, a.address AS delivery_address,
               a.label AS delivery_label
          FROM orders o
@@ -1692,6 +1858,12 @@ async function submitQuoteRequest(req, res, next) {
         );
 
         await client.query("COMMIT");
+
+        void notifyOwnerOrderCreated({
+          order: { ...order, recipient_name: name || delivery?.recipient_name || requestUser.name || null, recipient_phone: phone || delivery?.recipient_phone || requestUser.phone || null },
+          items: items.map((item) => ({ brand: item.brand, article: item.article, description: item.description, quantity: item.quantity, unit_price: item.quoted_price })),
+          test: false
+        }).catch((error) => console.warn("[TelegramNotify]", error?.code || "send_failed"));
 
         if (String(process.env.PARTGRADE_AUTO_ORDER_AFTER_CHECKOUT || "").toLowerCase() === "true") {
           await submitSupplierOrder(order.id).catch((error) => {
