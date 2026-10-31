@@ -181,12 +181,38 @@ function supplyReason(value) {
 function orderMessage({ order, items = [], test = false, supplier = {} }) {
   const lines = [];
   const orderNumber = cleanLine(order?.order_number || order?.id);
-  const visible = Array.isArray(items) ? items.slice(0, 12) : [];
-  const totalItems = (Array.isArray(items) ? items : []).reduce((sum, item) => sum + Number(item?.quantity || 1), 0);
+  const allItems = Array.isArray(items) ? items : [];
+  const visible = allItems.slice(0, 6);
+  const totalItems = allItems.reduce((sum, item) => sum + Number(item?.quantity || 1), 0);
+  const saleTotal = Number(order?.total_amount || allItems.reduce(
+    (sum, item) => sum + Number(item?.unit_price || 0) * Number(item?.quantity || 1), 0
+  ));
+  const costComplete = allItems.length > 0 && allItems.every((item) => {
+    const value = Number(item?.purchase_price);
+    return item?.purchase_price !== null && item?.purchase_price !== undefined && Number.isFinite(value) && value >= 0;
+  });
+  const purchaseTotal = costComplete
+    ? allItems.reduce((sum, item) => sum + Number(item.purchase_price) * Number(item?.quantity || 1), 0)
+    : null;
+  const grossProfit = costComplete ? saleTotal - purchaseTotal : null;
+  const marginPercent = costComplete && saleTotal > 0 ? (grossProfit / saleTotal) * 100 : null;
 
   lines.push(test ? "🧪 ТЕСТОВЫЙ ЗАКАЗ · ZF-" + orderNumber : "🟠 НОВЫЙ ЗАКАЗ · ZF-" + orderNumber);
   lines.push(cleanLine(order?.recipient_name, "Клиент") + " · " + cleanLine(order?.recipient_phone));
-  lines.push(totalItems + " шт. · " + rub(order?.total_amount));
+  lines.push(totalItems + " шт. · клиент " + rub(saleTotal));
+  lines.push("");
+
+  lines.push("💰 ЭКОНОМИКА");
+  if (costComplete) {
+    lines.push("Закупка: " + rub(purchaseTotal));
+    lines.push("Клиент: " + rub(saleTotal));
+    lines.push("Заработок: " + rub(grossProfit) + " · маржа " + marginPercent.toFixed(1) + "%");
+    lines.push("Чистая прибыль: — расходы заказа не подключены");
+  } else {
+    lines.push("Закупка: себестоимость зафиксирована не полностью");
+    lines.push("Клиент: " + rub(saleTotal));
+    lines.push("Прибыль: не считаю до полной себестоимости");
+  }
   lines.push("");
 
   visible.forEach((item, index) => {
@@ -194,13 +220,12 @@ function orderMessage({ order, items = [], test = false, supplier = {} }) {
     const quantity = Number(item?.quantity || 1);
     const lineTotal = Number(item?.unit_price || 0) * quantity;
     lines.push((index + 1) + ". " + cleanLine(title, "Позиция") + " × " + quantity + " — " + rub(lineTotal));
-    if (item?.description) lines.push("   " + cleanLine(item.description));
     if (Number.isFinite(Number(item?.delivery_days))) {
       const days = Math.max(0, Number(item.delivery_days));
       lines.push("   срок: " + days + " д.");
     }
   });
-  if (items.length > visible.length) lines.push("… ещё " + (items.length - visible.length) + " поз.");
+  if (allItems.length > visible.length) lines.push("… ещё " + (allItems.length - visible.length) + " поз.");
 
   lines.push("");
   const supply = supplyLabel(supplier, test);
@@ -212,13 +237,13 @@ function orderMessage({ order, items = [], test = false, supplier = {} }) {
       .filter(Boolean)
   )];
   if (supplierOrders.length) {
-    lines.push("Заказ поставщика: " + supplierOrders.map((number) => "№" + number).join(", "));
+    lines.push("Поставщик: " + supplierOrders.map((number) => "№" + number).join(", "));
   }
   if (supplier?.reason && supplier?.submitted !== true) {
     lines.push("Причина: " + supplyReason(supplier.reason));
   }
 
-  return lines.join("\n").slice(0, 3900);
+  return lines.join("\n").slice(0, 1000);
 }
 
 function multipartBody(fields, file) {
