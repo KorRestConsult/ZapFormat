@@ -5790,6 +5790,45 @@ app.post("/api/internal/fapi-smoke", async (req, res) => {
   }
 });
 
+app.post("/api/internal/telegram-card-smoke", async (req, res) => {
+  try {
+    const auth = String(req.get("authorization") || "");
+    const token = auth.replace(/^Bearer\s+/i, "").trim();
+    const claims = await verifyGitHubActionsToken(token);
+    const requestedSha = String(req.body?.sha || "").trim().toLowerCase();
+    if (!/^[a-f0-9]{40}$/.test(requestedSha) || requestedSha !== String(claims.sha || "").toLowerCase()) {
+      return res.status(400).json({ error: "sha_mismatch" });
+    }
+
+    const latest = await pool.query(
+      `SELECT id FROM orders WHERE is_test = true ORDER BY created_at DESC, id DESC LIMIT 1`
+    );
+    if (!latest.rowCount) return res.status(404).json({ error: "test_order_not_found" });
+
+    const invoice = await orderInvoicePdf(latest.rows[0].id);
+    if (!invoice) return res.status(404).json({ error: "test_order_not_found" });
+
+    const result = await notifyOwnerOrderCreated({
+      order: { ...invoice.order, payment_label: "Наличными при получении" },
+      items: invoice.items,
+      supplier: { state: "test_only", submitted: false, orders: invoice.supplier_orders || [] },
+      invoice_pdf: invoice.pdf,
+      invoice_filename: "ZapFormat-ZF-" + String(invoice.order.order_number) + "-TEST.pdf",
+      test: true
+    });
+
+    return res.json({
+      ok: true,
+      smoke: true,
+      order_number: String(invoice.order.order_number),
+      telegram: result
+    });
+  } catch (error) {
+    console.error("[TelegramCardSmoke]", error?.code || error?.message || "smoke_failed");
+    return res.status(502).json({ error: "telegram_card_smoke_failed" });
+  }
+});
+
 app.post("/api/internal/search-smoke", async (req, res) => {
   try {
     const auth = String(req.get("authorization") || "");
