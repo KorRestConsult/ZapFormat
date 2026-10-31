@@ -5,26 +5,41 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="robots" content="noindex,nofollow">
 <meta name="theme-color" content="#101a2c">
-<title>ZapFormat — Кабинет владельца</title>
-<link rel="stylesheet" href="./admin.css?v=20261031-telegram1">
-<script defer src="./admin.js?v=20261031-telegram-card2"></script>
+<title>ZapFormat — Служебный кабинет</title>
+<link rel="stylesheet" href="./admin.css?v=20261031-staff1">
+<script defer src="./staff.js?v=20261031-staff1"></script>
+<script defer src="./admin.js?v=20261031-staff1"></script>
 </head>
 <body>
 <div class="auth-shell" id="authScreen">
   <div class="auth-brand"><div class="brand-icon">Z<span>F</span></div><h1>ZapFormat</h1><p>Управление магазином</p></div>
   <section class="auth-card" aria-labelledby="authTitle">
     <div class="eyebrow">ЗАКРЫТАЯ ПАНЕЛЬ</div>
-    <h2 id="authTitle">Вход для владельца</h2>
-    <p class="muted">Отдельный доступ к заказам, финансам и ценовой политике. Клиентский кабинет находится на другом экране.</p>
+    <h2 id="authTitle">Вход в служебный кабинет</h2>
+    <p class="muted">Владелец управляет магазином, сотрудники видят только разрешённые задачи.</p>
     <form id="loginForm">
       <label for="login">Телефон или электронная почта</label>
       <input id="login" name="login" autocomplete="username" required placeholder="+7 900 000-00-00" maxlength="120">
       <label for="password">Пароль</label>
       <input id="password" name="password" type="password" autocomplete="current-password" required placeholder="Пароль">
-      <button type="submit" class="primary full" id="loginButton">Войти в управление <span aria-hidden="true">→</span></button>
+      <button type="submit" class="primary full" id="loginButton">Войти в кабинет <span aria-hidden="true">→</span></button>
+    </form>
+    <button type="button" class="secondary full" id="courierRegisterToggle">Подать заявку курьера</button>
+    <form id="courierRegisterForm" hidden>
+      <label for="courierName">Имя</label><input id="courierName" maxlength="120" autocomplete="given-name" required>
+      <label for="courierSurname">Фамилия</label><input id="courierSurname" maxlength="120" autocomplete="family-name">
+      <label for="courierPhone">Телефон</label><input id="courierPhone" type="tel" autocomplete="tel" placeholder="+7 900 000-00-00" required>
+      <label for="courierPassword">Пароль (от 8 символов)</label><input id="courierPassword" type="password" minlength="8" autocomplete="new-password" required>
+      <label for="courierPasswordAgain">Повторите пароль</label><input id="courierPasswordAgain" type="password" minlength="8" autocomplete="new-password" required>
+      <button class="primary full" id="courierRegisterSubmit" type="submit">Подтвердить телефон</button>
+    </form>
+    <form id="courierVerifyForm" hidden>
+      <p class="muted" id="courierVerificationHelp"></p>
+      <label for="courierCode">Код подтверждения</label><input id="courierCode" inputmode="numeric" autocomplete="one-time-code" maxlength="6" required>
+      <button class="primary full" id="courierVerifySubmit" type="submit">Отправить заявку</button>
     </form>
     <p class="form-error" id="authError" role="alert" aria-live="polite"></p>
-    <div class="auth-foot">Доступ предоставляется только учётным записям с ролью владельца или администратора.</div>
+    <div class="auth-foot">Курьер регистрируется с подтверждением телефона. Доступ открывается после одобрения владельца.</div>
   </section>
   <a class="store-link" href="../">← Перейти в магазин</a>
 </div>
@@ -41,6 +56,9 @@
       <button type="button" data-page="telegram"><span class="nav-icon">✈</span> Telegram</button>
       <button type="button" data-page="logistics"><span class="nav-icon">▣</span> Склад и доставка</button>
       <button type="button" data-page="analytics"><span class="nav-icon">▥</span> Аналитика</button>
+      <button type="button" data-page="staff"><span class="nav-icon">♙</span> Сотрудники</button>
+      <button type="button" data-page="deliveries" hidden><span class="nav-icon">▣</span> Мои доставки</button>
+      <button type="button" data-page="apply" hidden><span class="nav-icon">♙</span> Заявка курьера</button>
       <button type="button" data-page="security"><span class="nav-icon">◇</span> Безопасность</button>
     </nav>
     <div class="sidebar-bottom"><a href="../" target="_blank" rel="noopener">↗ Открыть магазин</a><button type="button" id="logoutButton">Выйти из панели</button><div class="sidebar-caption">Данные защищены на сервере</div></div>

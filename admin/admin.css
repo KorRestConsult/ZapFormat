@@ -26,3 +26,21 @@
 .order-actions{display:flex;gap:10px;flex-wrap:wrap;margin:14px 0}.order-actions .secondary{font-size:12px}
 
 .button-link{display:inline-flex;align-items:center;justify-content:center;text-decoration:none}.callout.success{background:#eef9f1;color:#2f6b3c;border-color:#d8eedc}
+
+/* ZapFormat staff: responsive role-specific workspaces */
+#courierRegisterToggle{margin-top:12px;justify-content:center}
+#courierRegisterForm,#courierVerifyForm{padding-top:10px}
+.staff-line{display:flex;align-items:center;justify-content:space-between;gap:14px;border-bottom:1px solid #eef2f7;padding:14px 0;font-size:13px}
+.staff-line:last-child{border:0}
+.staff-line b{font-size:14px}
+.staff-actions{display:flex;gap:9px;flex-wrap:wrap;align-items:center}
+.staff-actions button{font-size:13px;padding:10px 13px}
+.staff-assign{display:grid;grid-template-columns:2fr 1.4fr auto;gap:12px;align-items:end}
+.staff-assign label{font-size:12px;font-weight:700;color:#667891}
+.staff-assign select{margin-top:7px}
+.staff-assign button{min-height:48px}
+.staff-info{display:grid;grid-template-columns:1fr 1.5fr 1fr;gap:15px;margin:16px 0}
+.staff-info>div{display:flex;flex-direction:column;gap:5px;overflow-wrap:anywhere}
+.staff-info strong{font-size:14px}
+.staff-positions{padding:15px;background:#f5f8fc;border-radius:11px;font-size:13px;line-height:1.9;margin:12px 0 17px}
+@media(max-width:780px){.staff-info{grid-template-columns:1fr}.staff-assign{grid-template-columns:1fr}.staff-line{align-items:flex-start;flex-direction:column}.staff-actions{width:100%}.staff-assign button{width:100%}}

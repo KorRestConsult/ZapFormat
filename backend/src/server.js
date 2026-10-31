@@ -20,6 +20,7 @@ const { createOfferTokenCodec } = require("./offer-token");
 const { createOrderInvoicePdf } = require("./invoice-pdf");
 const { customerPrice, getPricingPolicy, setPricingPolicy, validatePricingPolicy } = require("./pricing");
 const { isAdminRole } = require("./admin-access");
+const { installStaffRoutes } = require("./staff-routes");
 const { verifyGitHubActionsToken } = require("./github-oidc");
 const { interpretSearch, researchPartCandidates, normalizeVehicle } = require("./ai-search");
 const { publicBootstrapJwk, installEncryptedOpenAIKey, installTimewebAIToken, installSmsRuToken, installFapiToken, installTelegramConfig } = require("./secret-bootstrap");
@@ -1429,6 +1430,7 @@ app.post("/api/print-agent/jobs/:jobId/fail", async (req, res, next) => {
 });
 
 app.use("/api/admin", requireDatabase, requireUser, requireAdmin);
+installStaffRoutes({ app, pool, requireDatabase, requireUser });
 app.post("/api/admin/print-agent/pairing", async (req, res, next) => {
   if (req.user?.role !== "owner") return res.status(403).json({ error: "forbidden" });
   try {

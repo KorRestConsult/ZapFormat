@@ -18,6 +18,9 @@
     telegram:["Telegram","Личные уведомления владельца о заказах","TELEGRAM"],
     logistics:["Склад и доставка","Контроль статусов поставок и готовности","ЛОГИСТИКА"],
     analytics:["Аналитика","Финансовые показатели и качество данных","АНАЛИТИКА"],
+    staff:["Сотрудники","Доступ, назначения, журнал действий","СОТРУДНИКИ"],
+    deliveries:["Мои доставки","Назначенные заказы","ДОСТАВКИ"],
+    apply:["Заявка курьера","Подача заявки на работу","ЗАЯВКА"],
     security:["Безопасность","Смена пароля и защита учётной записи","БЕЗОПАСНОСТЬ"]
   };
   const state = {token:"",user:null,page:"overview",seq:0,overview:null,orders:[],requests:[],customers:[],filterOrders:"",filterRequests:"",searchCustomers:"",offsets:{orders:0,requests:0,customers:0},more:{orders:false,requests:false,customers:false},pricing:null,savedPricing:null,pricingAt:null,busy:false};
@@ -41,7 +44,7 @@
     } finally {clearTimeout(timer);}
   }
   function setToken(value){state.token=String(value||"");try{if(value)localStorage.setItem(KEY,state.token);else localStorage.removeItem(KEY);}catch{}}
-  function authorized(user){return !!user && ["owner","admin"].includes(String(user.role));}
+  function authorized(user){return !!user && ["owner","admin","courier","customer"].includes(String(user.role));}
   function loggedOut(reason=""){
     state.seq++;state.user=null;state.overview=null;state.savedPricing=null;state.pricing=null;
     setToken("");$("appScreen").hidden=true;$("authScreen").hidden=false;
@@ -51,7 +54,11 @@
     state.user=user;$("authScreen").hidden=true;$("appScreen").hidden=false;
     $("userName").textContent=[user.name,user.surname].filter(Boolean).join(" ")||"Владелец";
     const linkedOrder=String(new URLSearchParams(location.search).get("order")||"").trim();
-    openPage(linkedOrder?"orders":"overview");
+    const role=String(user.role||"");
+    const pages=role==="courier"?["deliveries","security"]:role==="customer"?["apply","security"]:role==="owner"?Object.keys(captions):Object.keys(captions).filter(x=>!["staff","deliveries","apply"].includes(x));
+    document.querySelectorAll("[data-page]").forEach(b=>b.hidden=!pages.includes(b.dataset.page));
+    const lab=document.querySelector(".brand small");if(lab)lab.textContent=role==="courier"?"Кабинет курьера":role==="owner"?"Панель владельца":role==="customer"?"Заявка сотрудника":"Панель администратора";
+    openPage(role==="courier"?"deliveries":role==="customer"?"apply":linkedOrder?"orders":"overview");
   }
   async function restoreSession(){
     let token="";try{token=String(localStorage.getItem(KEY)||"");}catch{}
@@ -415,8 +422,13 @@
       }
     });
   }
+  function staffApi(){return {request,page:$("page"),dateRu,alert:alertMessage,openPage};}
   async function openPage(page){
     if(!state.user||!captions[page])return;
+    const role=String(state.user.role||"");
+    if(role==="courier"&&!["deliveries","security"].includes(page))return;
+    if(role==="customer"&&!["apply","security"].includes(page))return;
+    if(role!=="owner"&&page==="staff")return;
     const seq=++state.seq;state.page=page;
     const [title,subtitle,bread]=captions[page];
     $("pageTitle").textContent=title;$("pageSubtitle").textContent=subtitle;$("breadcrumbs").textContent=bread;
@@ -424,6 +436,9 @@
     alertMessage("");$("page").innerHTML='<div class="loading"><span class="spinner"></span>Загружаем данные из ZapFormat…</div>';
     try{
       if(["orders","requests","customers"].includes(page)){await loadList(page);return;}
+      if(page==="staff"){await window.ZapFormatStaffUI.renderOwner(staffApi());return;}
+      if(page==="deliveries"){await window.ZapFormatStaffUI.renderCourier(staffApi());return;}
+      if(page==="apply"){await window.ZapFormatStaffUI.renderApplicant(staffApi());return;}
       if(page==="security"){renderSecurity();return;}
       if(page==="telegram"){
         const status=await request("/api/admin/telegram/status");
@@ -437,9 +452,9 @@
         state.savedPricing=structuredClone(data.policy);state.pricing=structuredClone(data.policy);state.pricingAt=data.updated_at;renderPricing();return;
       }
       if(page==="overview"){
-        const [overview,queue]=await Promise.all([request("/api/admin/overview"),request("/api/admin/orders?limit=8")]);
+        const [overview,queue,staff]=await Promise.all([request("/api/admin/overview"),request("/api/admin/orders?limit=8"),state.user.role==="owner"?request("/api/admin/staff/overview").catch(()=>null):Promise.resolve(null)]);
         if(seq!==state.seq||!state.user)return;
-        state.overview=overview;renderOverview(overview,queue.orders||[]);return;
+        state.overview=overview;renderOverview(overview,queue.orders||[]);if(staff)window.ZapFormatStaffUI.appendStaffPreview(staffApi(),staff);return;
       }
       if(page==="analytics"){
         const overview=await request("/api/admin/overview");
@@ -476,5 +491,6 @@
   });
   const linkedOrderId=String(new URLSearchParams(location.search).get("order")||"").trim();
   if(linkedOrderId)state.page="orders";
+  window.ZapFormatStaffUI.initRegistration({request,setToken,loggedIn});
   restoreSession();
 })();
