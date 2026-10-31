@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="ru"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#142b3e">
+<title>ZapFormat · Панель владельца</title>
+<link rel="stylesheet" href="./styles.css">
+</head><body>
+<div class="app">
+  <header class="masthead">
+    <div class="brand"><span class="brand-mark">Z<span>·</span>F</span><div><b>ZAPFORMAT</b><small>Панель владельца</small></div></div>
+    <div class="mast-actions"><span class="live-indicator" id="connectionState">Закрытый доступ</span><button class="text-button" id="signOut" hidden>Выйти</button></div>
+  </header>
+
+  <main>
+    <section class="login-layout" id="loginScreen">
+      <div class="login-banner"><span class="eyebrow">ЛИЧНЫЙ КАБИНЕТ ВЛАДЕЛЬЦА</span><h1>Управление магазином.<br>Без лишних движений.</h1><p>Заказы, закупочные цены, наценки и клиенты. Один удобный экран, рассчитанный прежде всего на iPhone.</p><div class="banner-small">Единая база данных с магазином · Серверная проверка прав</div></div>
+      <form class="login-card" id="loginForm">
+        <span class="eyebrow">ЗАЩИЩЁННЫЙ ВХОД</span><h2>Добро пожаловать</h2>
+        <label>Электронная почта или телефон<input name="login" autocomplete="username" required placeholder="Ваш логин"></label>
+        <label>Пароль<input name="password" type="password" autocomplete="current-password" required placeholder="Введите пароль"></label>
+        <button type="submit" class="primary" id="loginSubmit">Войти в админку</button>
+        <p class="form-message" id="loginMessage" role="status"></p>
+        <div class="login-demo"><span>Сначала оценить внешний вид?</span><button type="button" class="ghost" id="enterDemo">Посмотреть демо</button></div>
+      </form>
+    </section>
+
+    <section class="workspace" id="workspace" hidden>
+      <div class="workspace-intro"><div><span class="eyebrow">ВАШ РАБОЧИЙ СТОЛ</span><h1>Сегодня <small id="dateLabel"></small></h1><p id="welcomeLine">Контролируйте магазин в несколько касаний.</p></div><button class="ghost refresh" id="refreshButton">↻ Обновить</button></div>
+      <div class="demo-note" id="demoNote" hidden><strong>Демонстрация</strong> — все имена и цифры вымышлены. Изменения не отправляются на сервер. <button type="button" id="exitDemo">Вернуться ко входу</button></div>
+      <nav class="main-tabs" aria-label="Основные разделы">
+        <button type="button" class="active" data-tab="orders" aria-selected="true">Заказы</button>
+        <button type="button" data-tab="pricing" aria-selected="false">Наценки</button>
+        <button type="button" data-tab="customers" aria-selected="false">Клиенты</button>
+      </nav>
+
+      <section class="tab-panel" data-pane="orders">
+        <div class="stats-grid"><div class="stat"><span>Активные заказы</span><b id="activeOrders">—</b><small>Требуют внимания</small></div><div class="stat"><span>На сегодня</span><b id="allOrders">—</b><small>Всего в списке</small></div><div class="stat accent"><span>Плановая валовая прибыль</span><b id="grossProfit">—</b><small id="grossNote">Только при известной закупке</small></div></div>
+        <div class="panel">
+          <div class="panel-heading"><div><span class="eyebrow">ОЧЕРЕДЬ ЗАКАЗОВ</span><h2>Покупатели и запчасти</h2><p>Нажмите на заказ, чтобы раскрыть состав, приёмку и финансовый итог.</p></div><label class="filter-label">Статус<select id="orderFilter"><option value="">Все</option><option value="new">Новые</option><option value="processing">В работе</option><option value="ready">Готовые</option><option value="completed">Завершённые</option><option value="cancelled">Отменённые</option></select></label></div>
+          <div class="order-list" id="orderList"><div class="empty-state">Загружаем заказы…</div></div>
+          <div class="list-footer"><small id="orderCount"></small><button id="loadMore" type="button" class="ghost" hidden>Показать ещё</button></div>
+        </div>
+      </section>
+
+      <section class="tab-panel" data-pane="pricing" hidden>
+        <div class="panel"><div class="panel-heading"><div><span class="eyebrow">ЦЕНЫ ПОД ВАШИМ КОНТРОЛЕМ</span><h2>Управление наценкой</h2><p>Проценты применяются к новым предложениям после сохранения. Оформленные заказы не пересчитываются.</p></div></div>
+          <div id="pricingControls" class="pricing-grid"></div>
+          <div class="pricing-fields"><label>Минимальная наценка, ₽<input id="minimumMarkup" type="number" min="0" max="50000" step="1" value="0"></label><label>Округление, ₽<select id="roundTo"><option value="0.01">Без округления</option><option value="1">До 1 ₽</option><option value="10">До 10 ₽</option><option value="50">До 50 ₽</option><option value="100">До 100 ₽</option></select></label><label>Пример закупки, ₽<input id="exampleCost" type="number" min="0" max="10000000" value="1500"></label></div>
+          <div class="price-preview" id="pricingPreview">Расчёт появится здесь.</div>
+          <div class="pricing-actions"><p id="pricingMessage" role="status">Изменения не затрагивают старые заказы.</p><button class="ghost" id="resetPricing" type="button">Отменить</button><button class="primary" id="savePricing" type="button">Сохранить наценки</button></div>
+        </div>
+      </section>
+
+      <section class="tab-panel" data-pane="customers" hidden>
+        <div class="panel"><div class="panel-heading"><div><span class="eyebrow">ВАША КЛИЕНТСКАЯ БАЗА</span><h2>Покупатели</h2><p>Контакты и история. Закупочные цены клиентам недоступны.</p></div><label class="search-label">Поиск<input type="search" id="customerSearch" placeholder="Имя, телефон или почта" maxlength="80"></label></div><div class="customer-list" id="customerList"></div><div class="list-footer"><small id="customerCount"></small><button id="loadMoreCustomers" class="ghost" type="button" hidden>Показать ещё</button></div></div>
+      </section>
+
+      <p class="footer-note" id="dashboardMessage" role="status"></p>
+    </section>
+  </main>
+  <footer class="site-footer"><span>ZAPFORMAT · MANAGEMENT</span><span>Доступ только владельцу и назначенным администраторам</span></footer>
+</div>
+<script src="./app.js"></script>
+</body></html>
