@@ -5562,3 +5562,51 @@ body{min-width:0!important}
 .guest-quote-consent input[type="checkbox"]{width:18px;height:18px;flex:0 0 auto;margin-top:2px}
 .guest-quote-consent small{display:block;font-size:12px;color:#667b96;line-height:1.5;margin-top:7px}
 .guest-quote-consent .guest-honeypot{position:absolute!important;left:-10000px!important;height:1px!important;width:1px!important;opacity:0!important;pointer-events:none!important}
+
+
+/* Mobile viewport containment: keep every app route stable within the device width.
+   Do not hide the page behind horizontal clipping; constrain its grid children. */
+html{width:100%;max-width:100%;-webkit-text-size-adjust:100%}
+body{width:100%;max-width:100%;margin:0;overflow-x:clip}
+.app,main,.view,.auth-shell,.auth-card,.auth-form,.auth-stage,
+.auth-stage>label,.auth-password-field,.auth-tabs,.auth-tabs button{
+  box-sizing:border-box;min-width:0;max-width:100%
+}
+.auth-tabs{grid-template-columns:repeat(2,minmax(0,1fr));width:100%}
+.auth-tabs button{min-width:0;white-space:normal;overflow-wrap:anywhere}
+.auth-form input,.auth-form select,.auth-password-field input,
+.auth-form button.auth-submit{
+  display:block;box-sizing:border-box;width:100%;min-width:0;max-width:100%
+}
+.auth-form select{min-height:48px;border:1px solid #d2dce3;background:#fff;color:var(--text);border-radius:8px;padding:10px 12px}
+.auth-form .auth-password-toggle{width:auto;max-width:92px}
+.auth-stage-note,.auth-hint,.auth-status{overflow-wrap:anywhere}
+@media(max-width:900px){
+  main,.app,.view{width:100%;min-width:0;max-width:100%}
+  .auth-shell{min-width:0;max-width:100%!important;grid-template-columns:minmax(0,1fr)!important}
+  .auth-card{min-width:0;width:100%;max-width:100%}
+}
+@media(max-width:680px){
+  body{background:#f3f6f8}
+  .topbar{position:relative}
+  .auth-shell{width:100%!important;margin:0 auto;padding:12px 0 24px!important}
+  .auth-card{width:100%!important;padding:14px!important;margin:0}
+  .auth-form{width:100%;min-width:0;max-width:100%}
+  .auth-form label,.auth-form label>span{min-width:0;max-width:100%}
+  .auth-form input,.auth-form select{font-size:16px!important;max-width:100%}
+  .auth-tabs button{font-size:clamp(12px,3.5vw,15px)!important}
+  .auth-form .auth-password-toggle{font-size:12px;max-width:92px}
+  .auth-stage-note,.auth-hint{font-size:13px;line-height:1.45}
+  .mobile-nav,body.guest-mode .mobile-nav{
+    position:fixed!important;left:0!important;right:0!important;bottom:0!important;
+    transform:none!important;width:100%!important;max-width:100%!important;
+    height:calc(62px + env(safe-area-inset-bottom))!important;
+    padding:4px 8px calc(4px + env(safe-area-inset-bottom))!important;
+    border-radius:0!important;border-left:0!important;border-right:0!important;
+    border-bottom:0!important;box-shadow:none!important;z-index:90
+  }
+  .mobile-nav button,body.guest-mode .mobile-nav button{
+    width:100%!important;min-width:0!important;height:54px!important;min-height:0!important
+  }
+  main{padding-bottom:calc(84px + env(safe-area-inset-bottom))!important}
+}
