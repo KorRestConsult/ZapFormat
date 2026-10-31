@@ -67,6 +67,9 @@ const fapi = createFapiClient();
 const vehicleCatalog = createAbcpCarbaseProvider(partGrade);
 const offerTokens = createOfferTokenCodec();
 const sendVerificationCode = createSmsRuSender();
+const {createSmsRuCallSender}=require("./auth-call");
+const sendVerificationCall=createSmsRuCallSender();
+const VERIFICATION_METHOD=String(process.env.PHONE_VERIFICATION_METHOD||"sms").toLowerCase()==="call"?"call":"sms";
 const OTP_TTL_MINUTES = Math.max(3, Math.min(30, Number(process.env.OTP_TTL_MINUTES || 10)));
 const OTP_RESEND_SECONDS = Math.max(30, Math.min(300, Number(process.env.OTP_RESEND_SECONDS || 60)));
 const OTP_MAX_ATTEMPTS = 5;
@@ -180,7 +183,9 @@ async function createAuthChallenge({
   userId = null,
   name = null,
   surname = null,
-  passwordHash = null
+  passwordHash = null,
+  customerType = "individual",
+  ip = "-1"
 }) {
   const secret = otpSecret();
   if (!secret) {
@@ -217,13 +222,19 @@ async function createAuthChallenge({
 
   await pool.query(
     `INSERT INTO auth_challenges
-      (id, purpose, phone, user_id, name, surname, password_hash, code_hash, expires_at)
-     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)`,
-    [id, purpose, phone, userId, name, surname, passwordHash, codeHash, expiresAt]
+      (id, purpose, phone, user_id, name, surname, password_hash, code_hash, expires_at, customer_type)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)`,
+    [id, purpose, phone, userId, name, surname, passwordHash, codeHash, expiresAt, customerType]
   );
 
   try {
-    await sendVerificationCode({ phone, code });
+    if (VERIFICATION_METHOD === "call") {
+      const call=await sendVerificationCall({phone,ip});
+      await pool.query("UPDATE auth_challenges SET code_hash = $2 WHERE id = $1",
+        [id,otpHash(secret,id,call.code)]);
+    } else {
+      await sendVerificationCode({ phone, code });
+    }
   } catch (error) {
     await pool.query("DELETE FROM auth_challenges WHERE id = $1", [id]).catch(() => {});
     throw error;
@@ -233,7 +244,8 @@ async function createAuthChallenge({
     challenge_id: id,
     masked_phone: maskPhone(phone),
     expires_in: OTP_TTL_MINUTES * 60,
-    resend_in: OTP_RESEND_SECONDS
+    resend_in: OTP_RESEND_SECONDS,
+    verification_method: VERIFICATION_METHOD
   };
 }
 
@@ -1062,6 +1074,7 @@ function publicUser(row) {
     surname: row.surname,
     email: row.email,
     phone: row.phone,
+    customer_type: row.customer_type||"individual",
     created_at: row.created_at
   };
 }
@@ -3007,7 +3020,8 @@ app.get("/api/auth/capabilities", (_req, res) => {
   res.json({
     phone_verification: Boolean(String(process.env.SMSRU_API_ID || "").trim()),
     password_recovery: Boolean(String(process.env.SMSRU_API_ID || "").trim()),
-    session_days: SESSION_DAYS
+    session_days: SESSION_DAYS,
+    verification_method: VERIFICATION_METHOD
   });
 });
 
@@ -3015,6 +3029,8 @@ app.post("/api/auth/register/start", authLimiter, async (req, res, next) => {
   try {
     const name = String(req.body?.name || "").trim().slice(0, 120);
     const surname = String(req.body?.surname || "").trim().slice(0, 120) || null;
+    const customerType = String(req.body?.customer_type || "individual").trim();
+    if (!["individual","service"].includes(customerType)) return res.status(400).json({error:"invalid_customer_type"});
     const phone = normalizePhone(req.body?.phone);
     const password = String(req.body?.password || "");
     const passwordConfirmation = String(req.body?.password_confirmation || "");
@@ -3046,7 +3062,9 @@ app.post("/api/auth/register/start", authLimiter, async (req, res, next) => {
       phone,
       name,
       surname,
-      passwordHash
+      passwordHash,
+      customerType,
+      ip: req.ip
     });
 
     return res.status(202).json({ ok: true, ...challenge });
@@ -3063,7 +3081,7 @@ app.post("/api/auth/register/verify", authLimiter, async (req, res, next) => {
     const challengeId = String(req.body?.challenge_id || "").trim();
     const code = String(req.body?.code || "").trim();
 
-    if (!challengeId || !/^\d{6}$/.test(code)) {
+    if (!challengeId || !(VERIFICATION_METHOD==="call"?/^\d{4}$/:/^\d{6}$/).test(code)) {
       return res.status(400).json({ error: "verification_code_required" });
     }
 
@@ -3107,10 +3125,10 @@ app.post("/api/auth/register/verify", authLimiter, async (req, res, next) => {
 
     const inserted = await client.query(
       `INSERT INTO users
-        (name, surname, email, phone, password_hash, phone_verified_at)
-       VALUES ($1,$2,NULL,$3,$4,now())
+        (name, surname, email, phone, password_hash, phone_verified_at, customer_type)
+       VALUES ($1,$2,NULL,$3,$4,now(),$5)
        RETURNING *`,
-      [challenge.name, challenge.surname, challenge.phone, challenge.password_hash]
+      [challenge.name, challenge.surname, challenge.phone, challenge.password_hash, challenge.customer_type||"individual"]
     );
     const user = inserted.rows[0];
 
@@ -3175,7 +3193,8 @@ app.post("/api/auth/password-reset/start", authLimiter, async (req, res, next) =
     const challenge = await createAuthChallenge({
       purpose: "password_reset",
       phone: user.phone,
-      userId: user.id
+      userId: user.id,
+      ip: req.ip
     });
     return res.status(202).json({ ok: true, ...challenge });
   } catch (error) {
@@ -3193,7 +3212,7 @@ app.post("/api/auth/password-reset/verify", authLimiter, async (req, res, next) 
     const password = String(req.body?.password || "");
     const passwordConfirmation = String(req.body?.password_confirmation || "");
 
-    if (!challengeId || !/^\d{6}$/.test(code)) {
+    if (!challengeId || !(VERIFICATION_METHOD==="call"?/^\d{4}$/:/^\d{6}$/).test(code)) {
       return res.status(400).json({ error: "verification_code_required" });
     }
     if (password.length < 8) {
