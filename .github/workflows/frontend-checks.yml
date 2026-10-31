@@ -8,6 +8,7 @@ on:
       - 'app.js'
       - 'styles.css'
       - 'config.js'
+      - 'admin/**'
       - 'tests/**'
       - '.github/workflows/frontend-checks.yml'
   pull_request:
@@ -16,6 +17,7 @@ on:
       - 'app.js'
       - 'styles.css'
       - 'config.js'
+      - 'admin/**'
       - 'tests/**'
       - '.github/workflows/frontend-checks.yml'
   workflow_dispatch:
@@ -40,6 +42,7 @@ jobs:
         run: |
           node --check app.js
           node --check config.js
+          node --check admin/admin.js
 
       - name: Validate interface, routes and checkout guards
-        run: node --test tests/ui-contract.test.mjs
+        run: node --test tests/ui-contract.test.mjs tests/admin-page.test.mjs
