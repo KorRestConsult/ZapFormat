@@ -1045,7 +1045,8 @@ function renderLiveAccount(overview,orders,requests,garage){
       items_count:Number(order.items_count||0),
       total:Number(order.total_amount||0),
       status:order.status,
-      search_text:String(order.search_text||"")
+      search_text:String(order.search_text||""),
+      items:Array.isArray(order.items)?order.items:[]
     })),
     ...(requests||[]).map(request=>({
       kind:"request",
@@ -1086,25 +1087,57 @@ function renderLiveAccount(overview,orders,requests,garage){
 
   const table=document.getElementById("accountOrdersTable");
   if(table){
-    const head='<div class="account-table-head"><span>Заказ</span><span>Дата</span><span>Позиций</span><span>Сумма</span><span>Статус</span><span></span></div>';
-    const rows=entries.map(row=>{
+    const head='<div class="account-table-head">'+
+      '<span>Дата заказа</span><span>№ заказа</span><span>Бренд</span><span>Код детали</span><span>Описание</span>'+
+      '<span>Срок</span><span>Кол-во</span><span>Цена</span><span>Сумма</span><span>Статус</span>'+
+      '<span>Отгрузка</span><span>Ваш комментарий</span><span>Ответ менеджера</span><span>Возврат</span><span>Запрос на удаление</span>'+
+      '</div>';
+
+    const detailRows=entries.flatMap(row=>{
+      if(row.kind==="order" && Array.isArray(row.items) && row.items.length){
+        return row.items.map(item=>({row,item}));
+      }
+      return [{row,item:null}];
+    });
+
+    const rows=detailRows.map(({row,item})=>{
       const isOrder=row.kind==="order";
-      const totalText=isOrder
-        ? rub(row.total)
-        : (row.needs_confirmation&&row.total===0 ? "уточняется" : rub(row.total));
       const detailAttr=isOrder
         ? `data-live-order-detail="${row.key}"`
         : `data-live-request-detail="${row.key}"`;
-      const updatedAt=row.supplier_synced_at||row.updated_at||row.created_at;
-      return `<div class="account-table-row" ${detailAttr} role="button" tabindex="0" aria-label="Открыть заказ ${escapeHtml(row.number)}" data-order-status="${escapeHtml(String(row.status||""))}" data-order-search="${escapeHtml(row.search_text||"")}">
-        <b class="order-list-number">#${escapeHtml(row.number)}</b>
-        <span class="order-list-date">${formatDateRu(row.created_at)}<small>обновлено ${formatDateTimeRu(updatedAt)}</small></span>
-        <span class="order-list-items">${row.items_count} поз.</span>
-        <span class="order-list-total">${totalText}</span>
-        <strong class="status order-list-status ${requestStatusClass(row.status)}">${requestStatusLabel(row.status)}</strong>
-        <button class="order-list-open" ${detailAttr} type="button">Открыть</button>
+      const unitPrice=item ? Number(item.unit_price||0) : 0;
+      const quantity=item ? Number(item.quantity||0) : Number(row.items_count||0);
+      const lineTotal=item ? unitPrice*quantity : Number(row.total||0);
+      const deadline=item?.expected_at
+        ? formatDateRu(item.expected_at)
+        : (Number.isFinite(Number(item?.delivery_days)) ? String(Number(item.delivery_days))+" дн." : "—");
+      const itemStatus=item?.status||row.status;
+      const shipment=item?.received_at
+        ? "Получено"
+        : (item?.supplier_status ? supplyStatusLabel(item.supplier_status) : "—");
+      const returnText=item?.return_status ? requestStatusLabel(item.return_status) : "—";
+      const description=item?.description||(!isOrder?row.search_text:"")||"—";
+      const searchText=[row.search_text,item?.brand,item?.article,item?.description].filter(Boolean).join(" ");
+
+      return `<div class="account-table-row orders-detail-row" ${detailAttr} role="button" tabindex="0" aria-label="Открыть заказ ${escapeHtml(row.number)}" data-order-status="${escapeHtml(String(row.status||""))}" data-order-search="${escapeHtml(searchText)}">
+        <span class="orders-col-date">${formatDateRu(row.created_at)}</span>
+        <b class="orders-col-number">#${escapeHtml(row.number)}</b>
+        <span class="orders-col-brand">${escapeHtml(item?.brand||"—")}</span>
+        <span class="orders-col-article">${escapeHtml(item?.article||"—")}</span>
+        <span class="orders-col-description">${escapeHtml(description)}</span>
+        <span class="orders-col-term">${escapeHtml(deadline)}</span>
+        <span class="orders-col-qty">${quantity||"—"}</span>
+        <span class="orders-col-price">${item?rub(unitPrice):"—"}</span>
+        <span class="orders-col-sum">${lineTotal?rub(lineTotal):"—"}</span>
+        <strong class="status orders-col-status ${requestStatusClass(itemStatus)}">${escapeHtml(requestStatusLabel(itemStatus))}</strong>
+        <span class="orders-col-shipment">${escapeHtml(shipment)}</span>
+        <span class="orders-col-comment">${escapeHtml(item?.comment||"—")}</span>
+        <span class="orders-col-manager">${escapeHtml(item?.manager_reply||"—")}</span>
+        <span class="orders-col-return">${escapeHtml(returnText)}</span>
+        <span class="orders-col-delete">—</span>
       </div>`;
     }).join("");
+
     table.innerHTML=head+(rows||'<div class="account-empty"><p>Реальных заказов пока нет.</p></div>');
   }
 
