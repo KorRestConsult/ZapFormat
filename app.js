@@ -779,6 +779,7 @@ async function refreshStorefrontStatus(){
 }
 
 function applySessionUser(){
+  document.documentElement.classList.remove("zf-preauth");
   document.body.classList.remove("session-pending");
   document.body.classList.toggle("guest-mode",!sessionUser);
   const headerStatus=document.getElementById("sessionEntryButton");
@@ -1675,7 +1676,7 @@ async function hydrateSession(){
     return null;
   }
   try{
-    const data=await apiRequest("/api/auth/me");
+    const data=await apiRequest("/api/auth/me",{timeoutMs:8000});
     sessionUser=data.user;
     applySessionUser();
     if(document.getElementById("view-auth")?.classList.contains("active")){
