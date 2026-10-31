@@ -17,6 +17,7 @@ const { PartGradeError, createPartGradeClient } = require("./partgrade");
 const { FapiError, createFapiClient } = require("./fapi");
 const { selectFapiNodes, selectFapiModification, uniqueOemRows } = require("./fapi-fitment");
 const { createOfferTokenCodec } = require("./offer-token");
+const { createOrderInvoicePdf } = require("./invoice-pdf");
 const { customerPrice, getPricingPolicy, setPricingPolicy, validatePricingPolicy } = require("./pricing");
 const { isAdminRole } = require("./admin-access");
 const { verifyGitHubActionsToken } = require("./github-oidc");
@@ -86,6 +87,84 @@ const pool = hasDatabase
         : false
     })
   : null;
+
+function printTokenHash(value) {
+  return crypto.createHash("sha256").update(String(value || ""), "utf8").digest("hex");
+}
+
+async function orderInvoiceData(orderId) {
+  const orderResult = await pool.query(
+    `SELECT o.id, o.order_number, o.status, o.total_amount, o.currency,
+            o.comment, o.created_at, o.recipient_name, o.recipient_phone, o.is_test,
+            a.city AS delivery_city, a.address AS delivery_address
+       FROM orders o
+       LEFT JOIN user_addresses a ON a.id = o.delivery_address_id
+      WHERE o.id = $1 LIMIT 1`,
+    [orderId]
+  );
+  if (!orderResult.rowCount) return null;
+  const itemsResult = await pool.query(
+    `SELECT brand, article, description, quantity, unit_price, delivery_days
+       FROM order_items
+      WHERE order_id = $1
+      ORDER BY created_at, id`,
+    [orderId]
+  );
+  const suppliers = await pool.query(
+    `SELECT supplier_order_number
+       FROM supplier_orders
+      WHERE order_id = $1
+      ORDER BY created_at`,
+    [orderId]
+  ).catch(() => ({ rows: [] }));
+  return {
+    order: orderResult.rows[0],
+    items: itemsResult.rows,
+    supplier_orders: suppliers.rows.map((row) => String(row.supplier_order_number)).filter(Boolean)
+  };
+}
+
+async function orderInvoicePdf(orderId) {
+  const data = await orderInvoiceData(orderId);
+  if (!data) return null;
+  const pdf = await createOrderInvoicePdf({
+    order: data.order,
+    items: data.items,
+    supplierOrders: data.supplier_orders,
+    test: data.order.is_test === true
+  });
+  return { ...data, pdf };
+}
+
+async function enqueuePrintJob(orderId) {
+  const id = crypto.randomUUID();
+  const result = await pool.query(
+    `INSERT INTO print_jobs (id, order_id, kind, status, created_at)
+     VALUES ($1,$2,'invoice','queued',now())
+     ON CONFLICT (order_id, kind) DO NOTHING
+     RETURNING id`,
+    [id, orderId]
+  );
+  return result.rows[0]?.id || null;
+}
+
+async function requirePrintAgent(req, res, next) {
+  const token = String(req.get("x-zapformat-print-token") || "").trim();
+  if (!token) return res.status(401).json({ error: "print_agent_unauthorized" });
+  try {
+    const found = await pool.query(
+      `SELECT id, name
+         FROM print_agents
+        WHERE token_hash = $1 AND enabled = true
+        LIMIT 1`,
+      [printTokenHash(token)]
+    );
+    if (!found.rowCount) return res.status(401).json({ error: "print_agent_unauthorized" });
+    req.printAgent = found.rows[0];
+    await pool.query("UPDATE print_agents SET last_seen_at = now() WHERE id = $1", [req.printAgent.id]);
+    next();
+  } catch (error) { next(error); }
+}
 
 app.set("trust proxy", 1);
 app.use(helmet());
@@ -1218,7 +1297,177 @@ app.get("/api/telegram/network-health", async (_req, res) => {
   res.status(result.reachable ? 200 : 502).json(result);
 });
 
+app.post("/api/print-agent/pair", requireDatabase, async (req, res, next) => {
+  const code = String(req.body?.pairing_code || "").trim().toUpperCase();
+  const name = String(req.body?.name || "ZapFormat Mac").trim().slice(0, 120) || "ZapFormat Mac";
+  if (!/^[A-Z0-9_-]{6,32}$/.test(code)) return res.status(400).json({ error: "invalid_pairing_code" });
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+    const pairing = await client.query(
+      `SELECT id FROM print_agent_pairings
+        WHERE code_hash = $1 AND used_at IS NULL AND expires_at > now()
+        FOR UPDATE LIMIT 1`,
+      [printTokenHash(code)]
+    );
+    if (!pairing.rowCount) {
+      await client.query("ROLLBACK");
+      return res.status(404).json({ error: "pairing_not_found" });
+    }
+    const token = crypto.randomBytes(32).toString("base64url");
+    const agentId = crypto.randomUUID();
+    await client.query(
+      "INSERT INTO print_agents (id,name,token_hash,created_at,last_seen_at) VALUES ($1,$2,$3,now(),now())",
+      [agentId, name, printTokenHash(token)]
+    );
+    await client.query("UPDATE print_agent_pairings SET used_at = now() WHERE id = $1", [pairing.rows[0].id]);
+    await client.query("COMMIT");
+    res.status(201).json({ ok: true, agent_id: agentId, token });
+  } catch (error) {
+    await client.query("ROLLBACK").catch(() => {});
+    next(error);
+  } finally { client.release(); }
+});
+
+app.use("/api/print-agent", requireDatabase, requirePrintAgent);
+
+app.get("/api/print-agent/jobs/next", async (req, res, next) => {
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+    await client.query(
+      `UPDATE print_jobs SET status='queued', agent_id=NULL, claimed_at=NULL
+        WHERE status='claimed' AND claimed_at < now() - interval '10 minutes'`
+    );
+    const found = await client.query(
+      `SELECT pj.id, pj.order_id, o.order_number
+         FROM print_jobs pj
+         JOIN orders o ON o.id = pj.order_id
+        WHERE pj.status='queued'
+        ORDER BY pj.created_at
+        FOR UPDATE OF pj SKIP LOCKED
+        LIMIT 1`
+    );
+    if (!found.rowCount) {
+      await client.query("COMMIT");
+      return res.status(204).end();
+    }
+    const job = found.rows[0];
+    await client.query(
+      `UPDATE print_jobs
+          SET status='claimed', agent_id=$2, claimed_at=now(), attempts=attempts+1
+        WHERE id=$1`,
+      [job.id, req.printAgent.id]
+    );
+    await client.query("COMMIT");
+    res.json({
+      job_id: job.id,
+      order_id: job.order_id,
+      order_number: String(job.order_number),
+      filename: "ZapFormat-ZF-" + String(job.order_number) + ".pdf"
+    });
+  } catch (error) {
+    await client.query("ROLLBACK").catch(() => {});
+    next(error);
+  } finally { client.release(); }
+});
+
+app.get("/api/print-agent/jobs/:jobId/pdf", async (req, res, next) => {
+  try {
+    const job = await pool.query(
+      `SELECT pj.order_id, o.order_number
+         FROM print_jobs pj JOIN orders o ON o.id=pj.order_id
+        WHERE pj.id=$1 AND pj.agent_id=$2 AND pj.status='claimed'
+        LIMIT 1`,
+      [String(req.params.jobId || ""), req.printAgent.id]
+    );
+    if (!job.rowCount) return res.status(404).json({ error: "print_job_not_found" });
+    const invoice = await orderInvoicePdf(job.rows[0].order_id);
+    if (!invoice) return res.status(404).json({ error: "order_not_found" });
+    res.setHeader("Content-Type", "application/pdf");
+    res.setHeader("Content-Disposition", 'inline; filename="ZapFormat-ZF-' + String(job.rows[0].order_number) + '.pdf"');
+    res.send(invoice.pdf);
+  } catch (error) { next(error); }
+});
+
+app.post("/api/print-agent/jobs/:jobId/complete", async (req, res, next) => {
+  try {
+    const cups = String(req.body?.cups_job_id || "").trim().slice(0, 120) || null;
+    const result = await pool.query(
+      `UPDATE print_jobs
+          SET status='printed', completed_at=now(), cups_job_id=$3, last_error=NULL
+        WHERE id=$1 AND agent_id=$2 AND status='claimed'
+        RETURNING id`,
+      [String(req.params.jobId || ""), req.printAgent.id, cups]
+    );
+    if (!result.rowCount) return res.status(404).json({ error: "print_job_not_found" });
+    res.json({ ok: true });
+  } catch (error) { next(error); }
+});
+
+app.post("/api/print-agent/jobs/:jobId/fail", async (req, res, next) => {
+  try {
+    const message = String(req.body?.error || "print_failed").slice(0, 500);
+    const result = await pool.query(
+      `UPDATE print_jobs
+          SET status = CASE WHEN attempts >= 5 THEN 'failed' ELSE 'queued' END,
+              agent_id=NULL, claimed_at=NULL, last_error=$3
+        WHERE id=$1 AND agent_id=$2 AND status='claimed'
+        RETURNING id,status`,
+      [String(req.params.jobId || ""), req.printAgent.id, message]
+    );
+    if (!result.rowCount) return res.status(404).json({ error: "print_job_not_found" });
+    res.json({ ok: true, status: result.rows[0].status });
+  } catch (error) { next(error); }
+});
+
 app.use("/api/admin", requireDatabase, requireUser, requireAdmin);
+app.post("/api/admin/print-agent/pairing", async (req, res, next) => {
+  if (req.user?.role !== "owner") return res.status(403).json({ error: "forbidden" });
+  try {
+    await pool.query("DELETE FROM print_agent_pairings WHERE expires_at < now() OR used_at IS NOT NULL");
+    const code = crypto.randomBytes(7).toString("base64url").replace(/[^A-Za-z0-9]/g, "").slice(0, 10).toUpperCase();
+    const id = crypto.randomUUID();
+    await pool.query(
+      "INSERT INTO print_agent_pairings (id,code_hash,expires_at,created_at) VALUES ($1,$2,now()+interval '10 minutes',now())",
+      [id, printTokenHash(code)]
+    );
+    res.status(201).json({ ok: true, pairing_code: code, expires_in: 600 });
+  } catch (error) { next(error); }
+});
+
+app.get("/api/admin/print-agent/status", async (_req, res, next) => {
+  try {
+    const agents = await pool.query(
+      "SELECT id,name,enabled,last_seen_at,created_at FROM print_agents ORDER BY created_at DESC LIMIT 10"
+    );
+    const jobs = await pool.query(
+      `SELECT status,count(*)::int AS count FROM print_jobs GROUP BY status`
+    );
+    res.json({ agents: agents.rows, jobs: Object.fromEntries(jobs.rows.map((row) => [row.status, row.count])) });
+  } catch (error) { next(error); }
+});
+
+app.get("/api/admin/orders/:id/invoice.pdf", async (req, res, next) => {
+  try {
+    const invoice = await orderInvoicePdf(String(req.params.id || ""));
+    if (!invoice) return res.status(404).json({ error: "order_not_found" });
+    res.setHeader("Content-Type", "application/pdf");
+    res.setHeader("Content-Disposition", 'inline; filename="ZapFormat-ZF-' + String(invoice.order.order_number) + '.pdf"');
+    res.send(invoice.pdf);
+  } catch (error) { next(error); }
+});
+
+app.post("/api/admin/orders/:id/print-queue", async (req, res, next) => {
+  if (req.user?.role !== "owner") return res.status(403).json({ error: "forbidden" });
+  try {
+    const order = await pool.query("SELECT id FROM orders WHERE id=$1 LIMIT 1", [String(req.params.id || "")]);
+    if (!order.rowCount) return res.status(404).json({ error: "order_not_found" });
+    const jobId = await enqueuePrintJob(order.rows[0].id);
+    res.status(201).json({ ok: true, job_id: jobId, queued: true });
+  } catch (error) { next(error); }
+});
+
 app.get("/api/admin/network-diagnostic", async (_req, res) => {
   try {
     const raw = await fs.readFile("/var/lib/zapformat/network-diagnostic.json", "utf8");
