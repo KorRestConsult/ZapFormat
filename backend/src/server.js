@@ -4029,7 +4029,7 @@ app.get("/api/account/orders", requireUser, async (req, res, next) => {
                         FROM order_status_history h
                        WHERE h.order_item_id = i.id
                          AND h.note IS NOT NULL
-                         AND h.source <> 'supplier'
+                         AND h.source IN ('admin','owner','manager')
                        ORDER BY h.created_at DESC
                        LIMIT 1
                     )
