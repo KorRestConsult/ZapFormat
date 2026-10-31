@@ -35,6 +35,7 @@ jobs:
           node --check backend/src/vehicle-catalog.js
           node --check backend/src/secret-bootstrap.js
           cd backend
+          npm ci --ignore-scripts --no-audit --no-fund
           npm test
 
       - name: Check production deploy agent before queueing
