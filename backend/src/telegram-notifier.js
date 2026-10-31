@@ -148,23 +148,76 @@ function rub(value) {
   const amount = Number(value || 0);
   return new Intl.NumberFormat("ru-RU", { maximumFractionDigits: 2 }).format(amount) + " ₽";
 }
-function orderMessage({ order, items = [], test = false }) {
+function supplyLabel(supplier = {}, test = false) {
+  if (test || supplier?.state === "test_only") {
+    return { icon: "🧪", text: "PartGrade: тест — не отправляется" };
+  }
+  if (supplier?.submitted === true || supplier?.state === "submitted") {
+    return { icon: "✅", text: "PartGrade: отправлен" };
+  }
+  if (supplier?.state === "ready_to_submit") {
+    return { icon: "⏳", text: "PartGrade: ожидает отправки" };
+  }
+  if (["submit_failed", "configuration_required", "manual_required"].includes(String(supplier?.state || ""))) {
+    return { icon: "⚠️", text: "PartGrade: требует внимания" };
+  }
+  return { icon: "•", text: "PartGrade: статус не определён" };
+}
+
+function supplyReason(value) {
+  const reason = String(value || "").trim();
+  const labels = {
+    database_not_configured: "база данных недоступна",
+    order_not_found: "заказ не найден",
+    test_order_blocked: "тестовый заказ",
+    order_items_missing: "нет позиций заказа",
+    offer_identity_missing: "не хватает идентификатора предложения поставщика",
+    supplier_order_not_created: "поставщик не создал заказ",
+    supplier_submit_failed: "ошибка отправки поставщику"
+  };
+  return labels[reason] || reason.replace(/_/g, " ");
+}
+
+function orderMessage({ order, items = [], test = false, supplier = {} }) {
   const lines = [];
-  lines.push(test ? "🧪 ТЕСТОВЫЙ ЗАКАЗ" : "🟠 НОВЫЙ ЗАКАЗ ZAPFORMAT");
-  lines.push("");
-  lines.push("ZF-" + cleanLine(order?.order_number || order?.id));
-  lines.push(cleanLine(order?.recipient_name, "Клиент") + " · " + cleanLine(order?.recipient_phone));
-  lines.push("");
+  const orderNumber = cleanLine(order?.order_number || order?.id);
   const visible = Array.isArray(items) ? items.slice(0, 12) : [];
+  const totalItems = (Array.isArray(items) ? items : []).reduce((sum, item) => sum + Number(item?.quantity || 1), 0);
+
+  lines.push(test ? "🧪 ТЕСТОВЫЙ ЗАКАЗ · ZF-" + orderNumber : "🟠 НОВЫЙ ЗАКАЗ · ZF-" + orderNumber);
+  lines.push(cleanLine(order?.recipient_name, "Клиент") + " · " + cleanLine(order?.recipient_phone));
+  lines.push(totalItems + " шт. · " + rub(order?.total_amount));
+  lines.push("");
+
   visible.forEach((item, index) => {
     const title = [item?.brand, item?.article].filter(Boolean).join(" ");
-    lines.push((index + 1) + ". " + cleanLine(title, "Позиция") + " × " + Number(item?.quantity || 1));
+    const quantity = Number(item?.quantity || 1);
+    const lineTotal = Number(item?.unit_price || 0) * quantity;
+    lines.push((index + 1) + ". " + cleanLine(title, "Позиция") + " × " + quantity + " — " + rub(lineTotal));
     if (item?.description) lines.push("   " + cleanLine(item.description));
+    if (Number.isFinite(Number(item?.delivery_days))) {
+      const days = Math.max(0, Number(item.delivery_days));
+      lines.push("   срок: " + days + " д.");
+    }
   });
   if (items.length > visible.length) lines.push("… ещё " + (items.length - visible.length) + " поз.");
+
   lines.push("");
-  lines.push("Сумма: " + rub(order?.total_amount));
-  if (test) lines.push("PartGrade: НЕ ОТПРАВЛЯЕТСЯ");
+  const supply = supplyLabel(supplier, test);
+  lines.push(supply.icon + " " + supply.text);
+
+  const supplierOrders = [...new Set(
+    (Array.isArray(supplier?.orders) ? supplier.orders : [])
+      .map((value) => String(value || "").trim())
+      .filter(Boolean)
+  )];
+  if (supplierOrders.length) {
+    lines.push("Заказ поставщика: " + supplierOrders.map((number) => "№" + number).join(", "));
+  }
+  if (supplier?.reason && supplier?.submitted !== true) {
+    lines.push("Причина: " + supplyReason(supplier.reason));
+  }
+
   return lines.join("\n").slice(0, 3900);
 }
 
