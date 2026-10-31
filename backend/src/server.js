@@ -4000,7 +4000,44 @@ app.get("/api/account/orders", requireUser, async (req, res, next) => {
       `SELECT o.id, o.order_number, o.status, o.total_amount, o.currency,
               o.created_at, o.updated_at, o.supplier_state, o.supplier_synced_at,
               count(i.id)::int AS items_count,
-              COALESCE(string_agg(DISTINCT concat_ws(' ', i.brand, i.article), ' '),'') AS search_text
+              COALESCE(string_agg(DISTINCT concat_ws(' ', i.brand, i.article), ' '),'') AS search_text,
+              COALESCE(
+                jsonb_agg(
+                  jsonb_build_object(
+                    'id', i.id,
+                    'brand', i.brand,
+                    'article', i.article,
+                    'description', i.description,
+                    'delivery_days', i.delivery_days,
+                    'quantity', i.quantity,
+                    'unit_price', i.unit_price,
+                    'comment', i.comment,
+                    'status', i.status,
+                    'supplier_status', i.supplier_status,
+                    'expected_at', i.expected_at,
+                    'received_at', i.received_at,
+                    'return_status', (
+                      SELECT r.status
+                        FROM returns r
+                       WHERE r.order_item_id = i.id
+                         AND r.user_id = o.user_id
+                       ORDER BY r.created_at DESC
+                       LIMIT 1
+                    ),
+                    'manager_reply', (
+                      SELECT h.note
+                        FROM order_status_history h
+                       WHERE h.order_item_id = i.id
+                         AND h.note IS NOT NULL
+                         AND h.source <> 'supplier'
+                       ORDER BY h.created_at DESC
+                       LIMIT 1
+                    )
+                  )
+                  ORDER BY i.created_at
+                ) FILTER (WHERE i.id IS NOT NULL),
+                '[]'::jsonb
+              ) AS items
          FROM orders o
          LEFT JOIN order_items i ON i.order_id = o.id
         WHERE o.user_id = $1
