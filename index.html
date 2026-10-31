@@ -273,21 +273,30 @@
       <section class="view" id="view-admin">
         <div class="management-page">
           <div class="management-heading">
-            <div><span class="eyebrow">ZAPFORMAT · ВЛАДЕЛЬЦУ</span><h1>Управление магазином</h1><p>Заказы, финансовая сводка и наценка. Оформление закупок у поставщика — отдельно.</p></div>
+            <div><span class="eyebrow">ZAPFORMAT · ВЛАДЕЛЬЦУ</span><h1>Сегодня</h1><p>Заказы, поставки и деньги — на одном экране. Операции с поставщиком выполняются отдельно.</p></div>
             <button type="button" id="adminRefreshButton" class="account-primary">Обновить данные</button>
           </div>
+          <nav class="management-tabs" aria-label="Разделы административной панели">
+            <button type="button" class="active" data-admin-tab="orders" aria-pressed="true">Заказы</button>
+            <button type="button" data-admin-tab="pricing" aria-pressed="false">Наценки</button>
+            <button type="button" data-admin-tab="customers" aria-pressed="false">Клиенты</button>
+            <details class="management-more">
+              <summary>Ещё</summary>
+              <button type="button" data-admin-tab="requests" aria-pressed="false">Обращения</button>
+            </details>
+          </nav>
           <div class="management-message" id="adminMessage" role="status" aria-live="polite">Загрузка данных…</div>
-          <section class="management-stats" aria-label="Показатели магазина">
+          <section class="management-stats" data-admin-pane="orders" aria-label="Показатели магазина">
             <article><span>Все заказы</span><strong id="adminOrdersTotal">—</strong><small>За всё время</small></article>
             <article><span>Активные заказы</span><strong id="adminOrdersActive">—</strong><small>Не завершены и не отменены</small></article>
             <article><span>Активные обращения</span><strong id="adminRequestsActive">—</strong><small>Ожидают обработки</small></article>
             <article><span>Сумма заказов</span><strong id="adminRevenue">—</strong><small>Без отменённых</small></article>
           </section>
-          <section class="management-profit" aria-labelledby="adminProfitTitle">
+          <section class="management-profit" data-admin-pane="orders" aria-labelledby="adminProfitTitle">
             <div><span class="eyebrow">ФИНАНСЫ · ТОЛЬКО ПОДТВЕРЖДЁННЫЕ ДАННЫЕ</span><h2 id="adminProfitTitle">Валовая прибыль по известной себестоимости</h2><p>Не является чистой прибылью: не вычтены налоги, доставка, операционные расходы и возвраты.</p></div>
             <div><strong id="adminGrossProfit">—</strong><small id="adminCostCoverage">Нет данных</small></div>
           </section>
-          <section class="management-pricing pricing-editor" aria-labelledby="adminPricingTitle">
+          <section class="management-pricing pricing-editor" data-admin-pane="pricing" aria-labelledby="adminPricingTitle" hidden>
             <div class="management-pricing-head">
               <div>
                 <span class="eyebrow">ЦЕНООБРАЗОВАНИЕ · ПРАВИЛА МАГАЗИНА</span>
@@ -313,7 +322,7 @@
               <button id="pricingSave" type="button" class="account-primary" disabled>Сохранить правила</button>
             </div>
           </section>
-          <section class="management-orders">
+          <section class="management-orders" data-admin-pane="orders">
             <div class="management-orders-head"><div><span class="eyebrow">ОЧЕРЕДЬ ЗАКАЗОВ</span><h2>Последние заказы</h2></div>
               <label class="management-filter"><span>Статус</span><select id="adminOrderFilter">
                 <option value="">Все</option>
@@ -332,7 +341,7 @@
               <button type="button" id="adminLoadMoreButton" class="account-primary">Показать ещё</button>
             </div>
           </section>
-          <section class="management-orders management-desk" aria-labelledby="adminRequestsTitle">
+          <section class="management-orders management-desk" data-admin-pane="requests" aria-labelledby="adminRequestsTitle" hidden>
             <div class="management-orders-head">
               <div><span class="eyebrow">ВХОДЯЩИЕ ОБРАЩЕНИЯ</span><h2 id="adminRequestsTitle">Заявки покупателей</h2></div>
               <div class="management-desk-controls">
@@ -354,7 +363,7 @@
               <button type="button" id="adminRequestsMore" class="account-primary">Показать ещё</button>
             </div>
           </section>
-          <section class="management-orders management-desk" aria-labelledby="adminCustomersTitle">
+          <section class="management-orders management-desk" data-admin-pane="customers" aria-labelledby="adminCustomersTitle" hidden>
             <div class="management-orders-head">
               <div><span class="eyebrow">КЛИЕНТСКАЯ БАЗА · ТОЛЬКО ВЛАДЕЛЬЦУ И АДМИНИСТРАТОРУ</span><h2 id="adminCustomersTitle">Покупатели</h2></div>
               <div class="management-desk-controls">
@@ -650,5 +659,6 @@
   <script src="./config.js?v=20261027-design1"></script>
   <script src="./app.js?v=20261030-customer1"></script>
   <script src="./admin-desk.js?v=20261030-pricing1"></script>
+  <script src="./owner-orders.js?v=20261031-admin1"></script>
 </body>
 </html>
