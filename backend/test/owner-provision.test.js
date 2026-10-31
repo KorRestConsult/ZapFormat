@@ -31,7 +31,7 @@ test("owner provisioning requires explicit name and a valid email",()=>{
 
 test("bootstrap creates first owner in atomic locked transaction",async()=>{
   const fixture=dbFixture();
-  const created=await provisionOwner(fixture.db,{name:"Operator",email:"test@example.com"},"server-generated-strong-secret");
+  const created=await provisionOwner(fixture.db,{name:"Operator",email:"test@example.com"},"server-generated-strong-secret",{hashPassword:async value=>"$2b$" + value.length});
   assert.deepEqual(created,{id:"test-uuid",email:"test@example.com",role:"owner"});
   assert.ok(fixture.queries.some(([sql])=>sql==="BEGIN"));
   assert.ok(fixture.queries.some(([sql])=>sql.includes("pg_advisory_xact_lock")));
@@ -46,7 +46,7 @@ test("bootstrap creates first owner in atomic locked transaction",async()=>{
 
 test("second owner is rejected without modifying users",async()=>{
   const fixture=dbFixture({hasOwner:true});
-  await assert.rejects(provisionOwner(fixture.db,{name:"Operator",email:"test@example.com"},"secret"),/owner_already_exists/);
+  await assert.rejects(provisionOwner(fixture.db,{name:"Operator",email:"test@example.com"},"secret",{hashPassword:async()=>"$2b$mock"}),/owner_already_exists/);
   assert.ok(fixture.queries.some(([sql])=>sql==="ROLLBACK"));
   assert.ok(!fixture.queries.some(([sql])=>sql.includes("INSERT INTO users")));
   assert.equal(fixture.wasReleased(),true);
