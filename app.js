@@ -1216,8 +1216,7 @@ function renderAccountReturns(data){
       '<div class="account-empty">'+
         '<div class="empty-icon">↩</div>'+
         '<h3>Возвратов пока нет</h3>'+
-        '<p>Откройте завершённый заказ и выберите нужную позицию.</p>'+
-        '<button data-account-tab="orders">Перейти к заказам</button>'+
+        '<p>Возврат создаётся из завершённого заказа.</p>'+
       '</div>';
     return;
   }
@@ -2160,7 +2159,7 @@ function updateVehicleContextUi(){
     if(catalog) catalog.hidden=true;
     if(searchInput) searchInput.placeholder="VIN, артикул или название детали";
     if(searchInput2) searchInput2.placeholder="VIN, артикул или название детали";
-    if(disclaimer) disclaimer.textContent="Информация по аналогам справочная. Перед заказом совместимость уточняется по автомобилю.";
+    if(disclaimer) disclaimer.textContent="Совместимость — по автомобилю.";
     return;
   }
 
@@ -2188,7 +2187,7 @@ function updateVehicleContextUi(){
   if(searchInput) searchInput.placeholder="VIN, артикул или деталь для "+label;
   if(searchInput2) searchInput2.placeholder="VIN, артикул или деталь для "+label;
   if(disclaimer){
-    disclaimer.textContent="Выбран "+label+". Автомобиль используется как контекст поиска и заказа; это не подтверждение применимости конкретной детали.";
+    disclaimer.textContent=vehicle.vin ? "Совместимость учитывается по VIN." : "VIN не указан — совместимость проверьте перед заказом.";
   }
 }
 
@@ -3060,8 +3059,8 @@ async function loadLiveOffers(article,brand,description="",options={}){
 
     setSearchHead(
       datasets[key].title,
-      datasets[key].subtitle+" · актуальные цены и наличие"+
-        (searchVehicle?" · контекст: "+vehicleLabel(searchVehicle):""),
+      datasets[key].subtitle+
+        (searchVehicle?" · "+vehicleLabel(searchVehicle):""),
       number
     );
     setCatalogControlsVisible(true);
@@ -3723,6 +3722,7 @@ function renderCartPage(){
         '<p>Найдите нужную деталь и добавьте предложение в корзину.</p>'+
         '<button type="button" class="account-primary" data-route="home">Найти запчасть</button>'+
       '</div>';
+    document.querySelector("#view-cart .cart-livebar")?.setAttribute("hidden","");
     const total=document.getElementById("orderCartTotal");
     if(total) total.textContent=rub(0);
     updateCheckoutMode();
@@ -3730,6 +3730,7 @@ function renderCartPage(){
   }
 
   setCartCheckoutVisible(true);
+  document.querySelector("#view-cart .cart-livebar")?.removeAttribute("hidden");
 
   root.innerHTML=cart.map((x,index)=>{
     const subtotal=x.price*x.orderQty;
@@ -3756,7 +3757,6 @@ function renderCartPage(){
           ${minimum>1?'<small class="cart-vehicle-context">Минимум поставщика: '+minimum+' шт.</small>':""}
           ${x.vehicleContext?.label ? '<small class="cart-vehicle-context">'+escapeHtml(x.vehicleContext.label)+(x.vehicleContext.vin?" · "+escapeHtml(shortVin(x.vehicleContext.vin)):"")+'</small>' : ""}
         </div>
-        <div class="warehouse-cell">${escapeHtml(x.warehouse||"")}</div>
         <div class="term-cell">${x.stale?"обновить":deliveryLabel(x.days)}</div>
         <div class="qty-cell">
           <div class="cart-stepper">
@@ -4473,7 +4473,6 @@ function renderGarageOverview(){
           <div>
             <small>Текущий пробег</small>
             <strong>${new Intl.NumberFormat("ru-RU").format(v.mileage||0)} км</strong>
-            <span>Пробег хранится в аккаунте и помогает вести историю автомобиля.</span>
           </div>
           <div class="garage-mileage-edit">
             <input id="garageMileageInput" inputmode="numeric" value="${v.mileage||0}" aria-label="Пробег">
@@ -4643,7 +4642,6 @@ function renderGarageApp(){
       <div>
         <span class="eyebrow">ГАРАЖ</span>
         <h2>Мои автомобили</h2>
-        <p>Выберите основной автомобиль. По нему открываются пробег, замеры, история и поиск деталей.</p>
       </div>
       <button class="account-primary" data-garage-add-vehicle>+ Добавить автомобиль</button>
     </div>
