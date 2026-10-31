@@ -78,6 +78,7 @@ function installStaffRoutes({ app, pool, requireDatabase, requireUser }) {
     const note = String(req.body?.note || "").trim().slice(0, 300);
     if (!uuid(id)) return res.status(400).json({ error: "invalid_assignment_id" });
     if (!Object.hasOwn(transitions, status)) return res.status(400).json({ error: "invalid_delivery_status" });
+    if (status === "problem" && !note) return res.status(400).json({ error: "problem_note_required" });
     const result = await runTx(async (db) => {
       const existing = await db.query(
         "SELECT ca.id,ca.order_id,ca.status FROM courier_assignments ca WHERE ca.id=$1 AND ca.courier_id=$2 FOR UPDATE",

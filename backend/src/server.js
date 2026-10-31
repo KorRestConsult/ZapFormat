@@ -1735,7 +1735,8 @@ async function initPricingSettings() {
   const stored = await pool.query("SELECT policy FROM store_pricing_settings WHERE id = TRUE");
   if (stored.rows[0]) setPricingPolicy(stored.rows[0].policy);
 }
-app.get("/api/admin/pricing", async (_req, res, next) => {
+app.get("/api/admin/pricing", async (req, res, next) => {
+  if (req.user?.role !== "owner") return res.status(403).json({ error: "owner_only" });
   try {
     const stored = await pool.query("SELECT policy, updated_at FROM store_pricing_settings WHERE id = TRUE");
     res.json({
@@ -1745,6 +1746,7 @@ app.get("/api/admin/pricing", async (_req, res, next) => {
   } catch (error) { next(error); }
 });
 app.put("/api/admin/pricing", async (req, res, next) => {
+  if (req.user?.role !== "owner") return res.status(403).json({ error: "owner_only" });
   let policy;
   try {
     policy = validatePricingPolicy(req.body?.policy);

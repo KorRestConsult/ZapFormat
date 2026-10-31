@@ -55,7 +55,7 @@
     $("userName").textContent=[user.name,user.surname].filter(Boolean).join(" ")||"Владелец";
     const linkedOrder=String(new URLSearchParams(location.search).get("order")||"").trim();
     const role=String(user.role||"");
-    const pages=role==="courier"?["deliveries","security"]:role==="customer"?["apply","security"]:role==="owner"?Object.keys(captions).filter(x=>!["deliveries","apply"].includes(x)):Object.keys(captions).filter(x=>!["staff","deliveries","apply"].includes(x));
+    const pages=role==="courier"?["deliveries","security"]:role==="customer"?["apply","security"]:role==="owner"?Object.keys(captions).filter(x=>!["deliveries","apply"].includes(x)):Object.keys(captions).filter(x=>!["staff","deliveries","apply","pricing"].includes(x));
     document.querySelectorAll("[data-page]").forEach(b=>b.hidden=!pages.includes(b.dataset.page));
     const lab=document.querySelector(".brand small");if(lab)lab.textContent=role==="courier"?"Кабинет курьера":role==="owner"?"Панель владельца":role==="customer"?"Заявка сотрудника":"Панель администратора";
     openPage(role==="courier"?"deliveries":role==="customer"?"apply":linkedOrder?"orders":"overview");
@@ -493,7 +493,14 @@
   if(linkedOrderId)state.page="orders";
   window.ZapFormatStaffUI.initRegistration({request,setToken,loggedIn});
   setInterval(async()=>{
-    if(state.user?.role!=="owner"||state.page!=="overview"||document.hidden)return;
+    if(state.user?.role!=="owner"||document.hidden)return;
+    const currentPage=state.page;
+    if(!["overview","staff"].includes(currentPage))return;
+    if(currentPage==="staff"&&["INPUT","SELECT","TEXTAREA"].includes(document.activeElement?.tagName))return;
+    if(currentPage==="staff"){
+      await window.ZapFormatStaffUI.renderOwner(staffApi()).catch(()=>{});
+      return;
+    }
     const seq=state.seq;
     try{
       const data=await request("/api/admin/staff/overview");
