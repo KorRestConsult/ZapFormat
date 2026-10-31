@@ -14,8 +14,8 @@ function pairingCode() {
 function configured() { return Boolean(botToken()); }
 function connected() { return Boolean(botToken() && ownerChatId()); }
 
-async function telegramCall(method, payload = {}) {
-  const token = botToken();
+async function telegramCall(method, payload = {}, tokenOverride = null) {
+  const token = String(tokenOverride || botToken()).trim();
   if (!token) {
     const error = new Error("telegram_not_configured");
     error.code = "telegram_not_configured";
@@ -47,6 +47,7 @@ async function telegramCall(method, payload = {}) {
 }
 
 async function getMe() { return telegramCall("getMe"); }
+async function getMeForToken(token) { return telegramCall("getMe", {}, token); }
 
 async function discoverPairedChat() {
   const code = pairingCode();
@@ -124,6 +125,7 @@ module.exports = {
   connected,
   pairingCode,
   getMe,
+  getMeForToken,
   discoverPairedChat,
   sendOwnerMessage,
   notifyOwnerOrderCreated,
