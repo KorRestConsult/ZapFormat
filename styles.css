@@ -5555,3 +5555,10 @@ body{min-width:0!important}
 .order-partial-alert p{margin:0;color:#664d35;font-size:14px;line-height:1.55}
 .supply-minimum{display:block;font-size:11px;color:#926c34;line-height:1.3;margin-top:4px}
 @media(max-width:600px){.order-partial-alert{padding:14px}.account-head #accountOrdersRefresh{min-height:40px}}
+
+/* Guest quote checkout: explicit consent without making an unverified order. */
+.guest-quote-consent{background:#f0f5fc;border:1px solid #dae6f5;border-radius:12px;padding:14px 17px;margin:12px 0}
+.guest-quote-consent label{display:flex;align-items:flex-start;gap:10px;font-size:14px;font-weight:600;color:#223a57;line-height:1.5}
+.guest-quote-consent input[type="checkbox"]{width:18px;height:18px;flex:0 0 auto;margin-top:2px}
+.guest-quote-consent small{display:block;font-size:12px;color:#667b96;line-height:1.5;margin-top:7px}
+.guest-quote-consent .guest-honeypot{position:absolute!important;left:-10000px!important;height:1px!important;width:1px!important;opacity:0!important;pointer-events:none!important}
