@@ -621,6 +621,14 @@ function updateCheckoutMode(){
       ? (!sessionUser ? "Заявка отправится менеджеру на подтверждение, без оплаты и закупки." : "Перед подтверждением ещё раз проверим цену и наличие. Оплата — только наличными при получении.")
       : "Оформление временно недоступно: ждём подключения каталога поставщика. Заказ не будет отправлен.";
   }
+  const paymentNote=document.getElementById("checkoutPaymentNote");
+  if(paymentNote){
+    const title=paymentNote.querySelector("b"),body=paymentNote.querySelector("span");
+    if(title)title.textContent=sessionUser?"Только наличными при получении.":"До подтверждения заявки оплата не требуется.";
+    if(body)body.textContent=sessionUser
+      ?"Онлайн-оплаты и оплаты картой на сайте нет. Деньги передаются при получении заказа."
+      :"Это заявка на подбор и подтверждение. Менеджер согласует цену, срок и получение перед закупкой.";
+  }
   renderCheckoutContact();
   renderCheckoutDelivery();
 }
@@ -3676,6 +3684,11 @@ async function checkoutCart(){
   const savedPhone=String(sessionUser?.phone||accountPreferences?.delivery?.recipient_phone||"").trim();
   const name=String(document.getElementById("quoteName")?.value||savedName||"").trim();
   const phone=String(document.getElementById("quotePhone")?.value||savedPhone||"").trim();
+  if(!sessionUser && !name){
+    showToast("Укажите имя для связи по заявке.","warn");
+    document.getElementById("quoteName")?.focus();
+    return;
+  }
   if(phone.replace(/\D/g,"").length<10){
     showToast("Укажите телефон для заказа.","warn");
     document.getElementById("quotePhone")?.focus();
