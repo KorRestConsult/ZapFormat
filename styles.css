@@ -6773,3 +6773,33 @@ html.zf-preauth #sessionEntryButton::after{content:"Проверяем вход�
     border-top:1px solid #eef2f4!important;
   }
 }
+
+
+/* Final cleanup after full-site audit */
+.garage-car-actions{
+  display:flex;
+  gap:8px;
+  align-items:center;
+  justify-content:flex-end;
+}
+.garage-car-actions .garage-primary,
+.garage-car-actions .garage-outline{
+  min-height:40px;
+}
+.site-footer-inner{
+  justify-content:flex-start!important;
+}
+.site-footer-brand p,
+.site-footer nav{
+  display:none!important;
+}
+@media(max-width:760px){
+  .garage-car-actions{
+    grid-column:1/-1;
+    justify-content:stretch;
+  }
+  .garage-car-actions .garage-primary,
+  .garage-car-actions .garage-outline{
+    flex:1 1 auto;
+  }
+}
