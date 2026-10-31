@@ -111,6 +111,13 @@ try:
 except Exception as e:
     out["dns"]={"error":type(e).__name__+":"+str(e)}
 run("ip_route",["ip","route","show"])
+run("ip_rule",["ip","rule","show"])
+run("route_bad",["ip","route","get","149.154.166.110"])
+run("route_good",["ip","route","get","149.154.167.220"])
+run("tcp_trace_bad",["bash","-lc","(command -v traceroute >/dev/null && traceroute -n -T -p 443 -w 1 -q 1 -m 12 149.154.166.110) || true"])
+run("tcp_trace_good",["bash","-lc","(command -v traceroute >/dev/null && traceroute -n -T -p 443 -w 1 -q 1 -m 12 149.154.167.220) || true"])
+run("curl_bad_source",["curl","-4","-I","-sS","--interface","168.113.211.246","--connect-timeout","5","--max-time","7","--resolve","api.telegram.org:443:149.154.166.110","https://api.telegram.org/"])
+run("curl_good_source",["curl","-4","-I","-sS","--interface","168.113.211.246","--connect-timeout","5","--max-time","7","--resolve","api.telegram.org:443:149.154.167.220","https://api.telegram.org/"])
 run("ufw",["ufw","status","verbose"])
 run("iptables_output",["iptables","-S","OUTPUT"])
 run("nft",["nft","list","ruleset"])
