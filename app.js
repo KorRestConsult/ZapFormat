@@ -2448,7 +2448,7 @@ function renderVinCatalogLocked(data){
   const root=smartSearchMount();
   if(!root) return;
   vinCatalogState={
-    vin:String(data?.decoded?.vin||""),
+    vin:String(data?.decoded?.vin||data?.vin||""),
     decoded:data?.decoded||{},
     modification:data?.modification||{},
     nodes:[],
@@ -2465,17 +2465,17 @@ function renderVinCatalogLocked(data){
   setVinCatalogCount(sections.length,"разделов");
   root.innerHTML=`
     <div class="vin-catalog-browser">
-      ${vinCatalogHeroHtml()}
+      ${data?.decoded?.brand_name || data?.decoded?.manufacturer ? vinCatalogHeroHtml() : ""}
       <section class="vin-catalog-panel">
         <div class="vin-catalog-panel-head">
           <div>
             <span class="eyebrow">КАТАЛОГ АВТОМОБИЛЯ</span>
-            <h3>Автомобиль определён</h3>
+            <h3>${data?.decoded?.brand_name || data?.decoded?.manufacturer ? "Автомобиль определён" : "VIN принят"}</h3>
           </div>
         </div>
         <div class="vin-catalog-notice">
           <b>Каталог деталей временно недоступен.</b>
-          <span>VIN уже распознан. Разделы автомобиля появятся автоматически после восстановления каталога.</span>
+          <span>${data?.decoded?.brand_name || data?.decoded?.manufacturer ? "VIN распознан, но каталог деталей недоступен." : "Платный сервис VIN пока недоступен. Автомобиль и совместимость ещё не подтверждены."}</span>
         </div>
         <div class="vin-category-grid vin-category-grid-locked">
           ${sections.map(name=>`
@@ -2495,7 +2495,7 @@ function renderVinCatalogBrowser(data,nodeId=0){
 
   if(data){
     vinCatalogState={
-      vin:String(data?.decoded?.vin||""),
+      vin:String(data?.decoded?.vin||data?.vin||""),
       decoded:data?.decoded||{},
       modification:data?.modification||{},
       nodes:Array.isArray(data?.nodes)?data.nodes:[],
@@ -2612,7 +2612,7 @@ function renderVinDecodeResult(vin,decoded){
     decoded?.fuel_type||"",
     decoded?.power_hp ? decoded.power_hp+" л.с." : ""
   ].filter(Boolean).join(" · ");
-  const title=[brand,model].filter(Boolean).join(" ")||"Автомобиль определён";
+  const title=[brand,model].filter(Boolean).join(" ")||"VIN принят — автомобиль пока не определён";
 
   exactRoot.innerHTML=`
     <div class="vehicle-search-state smart-selection-state">
@@ -3233,7 +3233,7 @@ async function search(query,options={}){
           vehicleDetail+" · каталог деталей обновляется",
           vin
         );
-        renderVinCatalogLocked(result);
+        renderVinCatalogLocked({...result,vin});
         requestAnimationFrame(()=>document.querySelector(".vin-catalog-browser")?.scrollIntoView({behavior:"smooth",block:"start"}));
       }else{
         vinCatalogState=null;
