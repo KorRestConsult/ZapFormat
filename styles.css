@@ -1,4 +1,5 @@
 :root{
+  --flipper-orange:#FF8200;
   --navy:#17324a;--navy-2:#214560;--navy-3:#0f2639;
   --orange:#f49a45;--orange-dark:#df7d26;
   --bg:#eef2f5;--panel:#ffffff;--soft:#f7f9fb;--line:#dce3e8;
@@ -5721,4 +5722,120 @@ html.zf-preauth #sessionEntryButton::after{content:"Проверяем вход�
 @media(max-width:680px){
   #view-home .minimal-hero{padding:14px!important;border-radius:18px!important}
   #view-home .hero-search-panel{padding:17px 14px!important}
+}
+
+
+/* Orders visual refinement — 31 October 2026 */
+.logo-ai{color:var(--flipper-orange)!important}
+
+#account-orders{
+  font-family:"PT Sans",-apple-system,BlinkMacSystemFont,"Segoe UI",Arial,sans-serif;
+}
+#account-orders .account-head{
+  background:#fff!important;
+  border:1px solid #d7dde1!important;
+  box-shadow:0 8px 24px rgba(25,38,47,.055)!important;
+}
+#account-orders .account-head .eyebrow{
+  color:#707a80!important;
+  font-weight:700!important;
+  letter-spacing:.13em!important;
+}
+#account-orders .account-head h2{
+  color:#30383d!important;
+  font-weight:800!important;
+  letter-spacing:-.035em!important;
+}
+#account-orders #accountOrdersRefresh{
+  background:var(--flipper-orange)!important;
+  color:#151515!important;
+  border:1px solid #e97600!important;
+  box-shadow:0 5px 14px rgba(255,130,0,.22)!important;
+  font-weight:800!important;
+}
+#account-orders #accountOrdersRefresh:hover{
+  background:#f47c00!important;
+}
+#account-orders .account-status-update{
+  color:#687278!important;
+  font-size:12px!important;
+}
+#account-orders .account-toolbar{
+  background:#fff!important;
+  border:1px solid #d7dde1!important;
+  box-shadow:none!important;
+}
+#account-orders .account-toolbar input,
+#account-orders .account-toolbar select{
+  border:1px solid #cfd6da!important;
+  color:#333b40!important;
+  background:#fff!important;
+}
+#account-orders .account-toolbar input:focus,
+#account-orders .account-toolbar select:focus{
+  border-color:var(--flipper-orange)!important;
+  outline:2px solid rgba(255,130,0,.12)!important;
+  outline-offset:0;
+}
+#account-orders .account-table{
+  border:1px solid #cfd6da!important;
+  box-shadow:0 10px 26px rgba(25,38,47,.06)!important;
+  background:#fff!important;
+}
+#account-orders .account-table-head{
+  background:#27333a!important;
+  color:#fff!important;
+  font-size:12px!important;
+  font-weight:800!important;
+  letter-spacing:.035em!important;
+  text-transform:none!important;
+  border-top:3px solid var(--flipper-orange)!important;
+  padding-top:13px!important;
+  padding-bottom:13px!important;
+}
+#account-orders .account-table-row{
+  color:#404040!important;
+  background:#fff!important;
+  border-top:1px solid #e2e5e7!important;
+}
+#account-orders .account-table-row:nth-child(odd){
+  background:#fbfbfa!important;
+}
+#account-orders .account-table-row:hover{
+  background:#fff7ef!important;
+}
+#account-orders .order-list-number{
+  color:#242b2f!important;
+  font-weight:800!important;
+}
+#account-orders .order-list-total{
+  color:#242b2f!important;
+  font-weight:800!important;
+}
+#account-orders .order-list-open{
+  color:#b95e00!important;
+  font-weight:800!important;
+}
+#account-orders .account-empty{
+  color:#626c72!important;
+}
+
+@media(max-width:680px){
+  #account-orders .account-head{
+    border-radius:12px!important;
+  }
+  #account-orders .account-head h2{
+    font-size:28px!important;
+  }
+  #account-orders #accountOrdersRefresh{
+    min-height:42px!important;
+    border-radius:9px!important;
+  }
+  #account-orders .account-table-row{
+    border-left:3px solid transparent!important;
+  }
+  #account-orders .account-table-row:active{
+    border-left-color:var(--flipper-orange)!important;
+    background:#fff7ef!important;
+  }
 }
