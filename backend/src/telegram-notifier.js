@@ -1,6 +1,11 @@
 "use strict";
 
+const https = require("node:https");
 const TELEGRAM_API = "https://api.telegram.org";
+const TELEGRAM_FALLBACK_IPS = String(process.env.ZAPFORMAT_TELEGRAM_FALLBACK_IPS || "149.154.167.220")
+  .split(",")
+  .map((value) => value.trim())
+  .filter(Boolean);
 
 function botToken() {
   return String(process.env.ZAPFORMAT_TELEGRAM_BOT_TOKEN || "").trim();
@@ -14,6 +19,39 @@ function pairingCode() {
 function configured() { return Boolean(botToken()); }
 function connected() { return Boolean(botToken() && ownerChatId()); }
 
+function directTelegramRequest(ip, path, payload) {
+  return new Promise((resolve, reject) => {
+    const body = JSON.stringify(payload || {});
+    const request = https.request({
+      host: ip,
+      port: 443,
+      servername: "api.telegram.org",
+      family: 4,
+      path,
+      method: "POST",
+      headers: {
+        Host: "api.telegram.org",
+        "Content-Type": "application/json",
+        "Accept": "application/json",
+        "Content-Length": Buffer.byteLength(body)
+      },
+      timeout: 12000
+    }, (response) => {
+      const chunks = [];
+      response.on("data", (chunk) => chunks.push(chunk));
+      response.on("end", () => {
+        const raw = Buffer.concat(chunks).toString("utf8");
+        let data = {};
+        try { data = JSON.parse(raw); } catch {}
+        resolve({ status: response.statusCode || 0, ok: (response.statusCode || 0) >= 200 && (response.statusCode || 0) < 300, data });
+      });
+    });
+    request.on("timeout", () => request.destroy(Object.assign(new Error("telegram_timeout"), { code: "ETIMEDOUT" })));
+    request.on("error", reject);
+    request.end(body);
+  });
+}
+
 async function telegramCall(method, payload = {}, tokenOverride = null) {
   const token = String(tokenOverride || botToken()).trim();
   if (!token) {
@@ -21,25 +59,50 @@ async function telegramCall(method, payload = {}, tokenOverride = null) {
     error.code = "telegram_not_configured";
     throw error;
   }
-  let response;
+
+  const path = "/bot" + token + "/" + method;
+  let status = 0;
+  let data = {};
+  let networkError = null;
+
   try {
-    response = await fetch(TELEGRAM_API + "/bot" + token + "/" + method, {
+    const response = await fetch(TELEGRAM_API + path, {
       method: "POST",
       headers: { "Content-Type": "application/json", "Accept": "application/json" },
       body: JSON.stringify(payload),
       signal: AbortSignal.timeout(12000)
     });
+    status = response.status;
+    data = await response.json().catch(() => ({}));
   } catch (cause) {
+    networkError = cause;
+  }
+
+  if (networkError) {
+    for (const ip of TELEGRAM_FALLBACK_IPS) {
+      try {
+        const response = await directTelegramRequest(ip, path, payload);
+        status = response.status;
+        data = response.data;
+        networkError = null;
+        break;
+      } catch (cause) {
+        networkError = cause;
+      }
+    }
+  }
+
+  if (networkError) {
     const error = new Error("telegram_unavailable");
     error.code = "telegram_unavailable";
-    error.cause = cause;
+    error.cause = networkError;
     throw error;
   }
-  const data = await response.json().catch(() => ({}));
-  if (!response.ok || data?.ok !== true) {
+
+  if (status < 200 || status >= 300 || data?.ok !== true) {
     const error = new Error("telegram_api_error");
     error.code = "telegram_api_error";
-    error.status = response.status;
+    error.status = status;
     error.telegram_error_code = data?.error_code || null;
     throw error;
   }
