@@ -69,7 +69,7 @@ const offerTokens = createOfferTokenCodec();
 const sendVerificationCode = createSmsRuSender();
 const {createSmsRuCallSender}=require("./auth-call");
 const sendVerificationCall=createSmsRuCallSender();
-const VERIFICATION_METHOD=String(process.env.PHONE_VERIFICATION_METHOD||"sms").toLowerCase()==="call"?"call":"sms";
+function verificationMethod(){ return String(process.env.PHONE_VERIFICATION_METHOD||"sms").toLowerCase()==="call"?"call":"sms"; }
 const OTP_TTL_MINUTES = Math.max(3, Math.min(30, Number(process.env.OTP_TTL_MINUTES || 10)));
 const OTP_RESEND_SECONDS = Math.max(30, Math.min(300, Number(process.env.OTP_RESEND_SECONDS || 60)));
 const OTP_MAX_ATTEMPTS = 5;
@@ -228,7 +228,7 @@ async function createAuthChallenge({
   );
 
   try {
-    if (VERIFICATION_METHOD === "call") {
+    if (verificationMethod() === "call") {
       const call=await sendVerificationCall({phone,ip});
       await pool.query("UPDATE auth_challenges SET code_hash = $2 WHERE id = $1",
         [id,otpHash(secret,id,call.code)]);
@@ -245,7 +245,7 @@ async function createAuthChallenge({
     masked_phone: maskPhone(phone),
     expires_in: OTP_TTL_MINUTES * 60,
     resend_in: OTP_RESEND_SECONDS,
-    verification_method: VERIFICATION_METHOD
+    verification_method: verificationMethod()
   };
 }
 
@@ -3021,7 +3021,7 @@ app.get("/api/auth/capabilities", (_req, res) => {
     phone_verification: Boolean(String(process.env.SMSRU_API_ID || "").trim()),
     password_recovery: Boolean(String(process.env.SMSRU_API_ID || "").trim()),
     session_days: SESSION_DAYS,
-    verification_method: VERIFICATION_METHOD
+    verification_method: verificationMethod()
   });
 });
 
@@ -3081,7 +3081,7 @@ app.post("/api/auth/register/verify", authLimiter, async (req, res, next) => {
     const challengeId = String(req.body?.challenge_id || "").trim();
     const code = String(req.body?.code || "").trim();
 
-    if (!challengeId || !(VERIFICATION_METHOD==="call"?/^\d{4}$/:/^\d{6}$/).test(code)) {
+    if (!challengeId || !(verificationMethod()==="call"?/^\d{4}$/:/^\d{6}$/).test(code)) {
       return res.status(400).json({ error: "verification_code_required" });
     }
 
@@ -3212,7 +3212,7 @@ app.post("/api/auth/password-reset/verify", authLimiter, async (req, res, next) 
     const password = String(req.body?.password || "");
     const passwordConfirmation = String(req.body?.password_confirmation || "");
 
-    if (!challengeId || !(VERIFICATION_METHOD==="call"?/^\d{4}$/:/^\d{6}$/).test(code)) {
+    if (!challengeId || !(verificationMethod()==="call"?/^\d{4}$/:/^\d{6}$/).test(code)) {
       return res.status(400).json({ error: "verification_code_required" });
     }
     if (password.length < 8) {
