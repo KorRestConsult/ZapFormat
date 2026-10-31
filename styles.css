@@ -6821,3 +6821,6 @@ html.zf-preauth #sessionEntryButton::after{content:"Проверяем вход�
     margin:0!important;
   }
 }
+
+/* Owner-only storefront test mode. Activated only with ?test=1 and an owner session. */
+.owner-test-banner{position:sticky;top:0;z-index:1200;display:flex;align-items:center;justify-content:center;gap:12px;min-height:38px;padding:7px 16px;background:#ff8200;color:#111820;border-bottom:1px solid rgba(17,24,32,.18);box-shadow:0 6px 18px rgba(17,24,32,.12);font-size:13px;letter-spacing:.01em}.owner-test-banner b{font-size:12px;letter-spacing:.12em}.owner-test-banner span{font-weight:650}.owner-test-mode #checkoutOrderButton,.owner-test-mode [data-cart-action="start-checkout"]{box-shadow:0 0 0 2px rgba(255,130,0,.16)}@media(max-width:680px){.owner-test-banner{align-items:flex-start;justify-content:flex-start;gap:8px;padding:8px 12px;font-size:11px}.owner-test-banner b{white-space:nowrap;font-size:10px}}

@@ -2068,6 +2068,11 @@ async function submitQuoteRequest(req, res, next) {
       crypto.randomBytes(3).toString("hex").toUpperCase();
 
     const requestUser = guest ? null : (pool ? await currentUser(req) : null);
+    const testModeRequested = req.body?.test_mode === true;
+    const ownerTestMode = testModeRequested && requestUser?.role === "owner";
+    if (testModeRequested && !ownerTestMode) {
+      return res.status(403).json({ error: "test_mode_owner_only" });
+    }
 
     if (pool && requestUser) {
       const requestedVehicleIds=[...new Set(items.map((item)=>item.vehicle_id).filter(Boolean))];
@@ -2100,7 +2105,7 @@ async function submitQuoteRequest(req, res, next) {
         );
 
         const deliveryResult = await client.query(
-          `SELECT id, recipient_name, recipient_phone
+          `SELECT id, recipient_name, recipient_phone, city, address
              FROM user_addresses
             WHERE user_id = $1
             ORDER BY is_default DESC, updated_at DESC, created_at DESC
@@ -2116,15 +2121,17 @@ async function submitQuoteRequest(req, res, next) {
         const orderResult = await client.query(
           `INSERT INTO orders
             (user_id, status, total_amount, currency, delivery_address_id,
-             recipient_name, recipient_phone, created_at, updated_at)
-           VALUES ($1,'new',$2,'RUB',$3,$4,$5,$6,$6)
-           RETURNING id, order_number, status, total_amount, currency, created_at`,
+             recipient_name, recipient_phone, supplier_state, is_test, created_at, updated_at)
+           VALUES ($1,'new',$2,'RUB',$3,$4,$5,$6,$7,$8,$8)
+           RETURNING id, order_number, status, total_amount, currency, created_at, is_test`,
           [
             requestUser.id,
             Math.round((totalAmount + Number.EPSILON) * 100) / 100,
             delivery?.id || null,
             name || delivery?.recipient_name || requestUser.name || null,
             phone || delivery?.recipient_phone || requestUser.phone || null,
+            ownerTestMode ? "test_only" : "ready_to_submit",
+            ownerTestMode,
             now
           ]
         );
@@ -2185,18 +2192,11 @@ async function submitQuoteRequest(req, res, next) {
           "Цена и наличие проверены. Оплата — наличными при получении."
         );
 
-        await client.query(
-          `UPDATE orders
-              SET supplier_state = 'ready_to_submit', updated_at = now()
-            WHERE id = $1`,
-          [order.id]
-        );
-
         await client.query("COMMIT");
 
-        const autoSupplierSubmit = String(process.env.PARTGRADE_AUTO_ORDER_AFTER_CHECKOUT || "").toLowerCase() === "true";
+        const autoSupplierSubmit = !ownerTestMode && String(process.env.PARTGRADE_AUTO_ORDER_AFTER_CHECKOUT || "").toLowerCase() === "true";
         let supplierNotification = {
-          state: "ready_to_submit",
+          state: ownerTestMode ? "test_only" : "ready_to_submit",
           submitted: false,
           orders: []
         };
@@ -2254,23 +2254,25 @@ async function submitQuoteRequest(req, res, next) {
             order: invoiceOrder,
             items: invoiceItems,
             supplierOrders: supplierNotification.orders,
-            test: false
+            test: ownerTestMode
           });
         } catch (error) {
           console.warn("[InvoicePDF]", error?.message || "invoice_generation_failed");
         }
 
-        await enqueuePrintJob(order.id).catch((error) => {
-          console.warn("[PrintQueue]", error?.message || "print_queue_failed");
-        });
+        if (!ownerTestMode) {
+          await enqueuePrintJob(order.id).catch((error) => {
+            console.warn("[PrintQueue]", error?.message || "print_queue_failed");
+          });
+        }
 
         void notifyOwnerOrderCreated({
           order: invoiceOrder,
           items: invoiceItems,
           supplier: supplierNotification,
           invoice_pdf: invoicePdf,
-          invoice_filename: "ZapFormat-ZF-" + String(order.order_number) + ".pdf",
-          test: false
+          invoice_filename: "ZapFormat-ZF-" + String(order.order_number) + (ownerTestMode ? "-TEST" : "") + ".pdf",
+          test: ownerTestMode
         }).catch((error) => console.warn("[TelegramNotify]", error?.code || "send_failed"));
 
         return res.status(201).json({
@@ -2281,6 +2283,7 @@ async function submitQuoteRequest(req, res, next) {
           status: order.status,
           total_amount: Number(order.total_amount),
           currency: order.currency,
+          is_test: ownerTestMode,
           items: items.length
         });
       } catch (error) {

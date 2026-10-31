@@ -131,6 +131,7 @@ const API_BASE = (() => {
   return location.hostname.endsWith("github.io") ? "" : location.origin;
 })();
 const AUTH_TOKEN_KEY="zapformat-access-token";
+const TEST_MODE_REQUESTED=new URLSearchParams(location.search).get("test")==="1";
 const SEARCH_RESUME_KEY="zapformat-search-resume";
 let authToken="";
 try{ authToken=String(localStorage.getItem(AUTH_TOKEN_KEY)||"").trim(); }catch{}
@@ -656,8 +657,8 @@ function updateCheckoutMode(){
   const selected=selectedCartItems();
   const selectedCount=selected.length;
   const selectedTotal=selected.reduce((sum,item)=>sum+Number(item.price||0)*Number(item.orderQty||0),0);
-  const finalLabel=selectedCount ? "Подтвердить заказ · "+selectedCount : "Подтвердить заказ";
-  const entryLabel=selectedCount ? "Перейти к оформлению · "+selectedCount : "Перейти к оформлению";
+  const finalLabel=ownerTestMode() ? (selectedCount ? "Создать TEST-заказ · "+selectedCount : "Создать TEST-заказ") : (selectedCount ? "Подтвердить заказ · "+selectedCount : "Подтвердить заказ");
+  const entryLabel=ownerTestMode() ? (selectedCount ? "Тестовое оформление · "+selectedCount : "Тестовое оформление") : (selectedCount ? "Перейти к оформлению · "+selectedCount : "Перейти к оформлению");
 
   checkoutButtons().forEach(button=>{
     if(!button.dataset.busy){
@@ -681,7 +682,7 @@ function updateCheckoutMode(){
   const note=document.querySelector(".checkout-recheck-note");
   if(note){
     note.textContent=supplierAvailable===true
-      ? (!sessionUser && guestQuoteAvailable ? "Заявка отправится менеджеру на подтверждение, без оплаты и закупки." : "Перед подтверждением ещё раз проверим цену и наличие. Оплата — только наличными при получении.")
+      ? (ownerTestMode() ? "TEST: цену и наличие проверим у PartGrade, но заказ поставщику не создадим." : (!sessionUser && guestQuoteAvailable ? "Заявка отправится менеджеру на подтверждение, без оплаты и закупки." : "Перед подтверждением ещё раз проверим цену и наличие. Оплата — только наличными при получении."))
       : "Оформление временно недоступно: ждём подключения каталога поставщика. Заказ не будет отправлен.";
   }
   const paymentNote=document.getElementById("checkoutPaymentNote");
@@ -784,6 +785,12 @@ function applySessionUser(){
   document.documentElement.classList.remove("zf-preauth");
   document.body.classList.remove("session-pending");
   document.body.classList.toggle("guest-mode",!sessionUser);
+  document.body.classList.toggle("owner-test-mode",ownerTestMode());
+  let testBanner=document.getElementById("ownerTestModeBanner");
+  if(ownerTestMode()){
+    if(!testBanner){ testBanner=document.createElement("div"); testBanner.id="ownerTestModeBanner"; testBanner.className="owner-test-banner"; document.body.prepend(testBanner); }
+    testBanner.innerHTML="<b>TEST РЕЖИМ</b><span>PartGrade проверяется, но заказ поставщику не отправляется.</span>";
+  }else if(testBanner){ testBanner.remove(); }
   const headerStatus=document.getElementById("sessionEntryButton");
   if(headerStatus){
     headerStatus.textContent=sessionUser?String(sessionUser.name||"Клиент").slice(0,20):"Гость · Войти";
@@ -1808,6 +1815,7 @@ function syncMobileNav(route){
 function isManagementUser(){
   return Boolean(sessionUser) && ["owner","admin"].includes(String(sessionUser.role||""));
 }
+function ownerTestMode(){ return TEST_MODE_REQUESTED && String(sessionUser?.role||"")==="owner"; }
 
 let adminLoading=false;
 const ADMIN_ORDER_PAGE_SIZE=30;
@@ -3897,6 +3905,7 @@ async function checkoutCart(){
       body:JSON.stringify({
         name,
         phone,
+        ...(ownerTestMode() ? {test_mode:true} : {}),
         ...(sessionUser ? {} : {privacy_consent:true,website:document.getElementById("guestQuoteWebsite")?.value||""}),
         items:selected.map(x=>({
           client_id:x.id,
@@ -3921,7 +3930,7 @@ async function checkoutCart(){
     localStorage.removeItem("zapformat-quote-phone");
 
     if(result.kind==="order" && result.order_number){
-      showToast("Заказ #"+result.order_number+" создан.");
+      showToast((result.is_test?"TEST-заказ ZF-":"Заказ #")+result.order_number+" создан.");
       if(sessionUser){
         accountDataHydrated=false;
         await hydrateAccountData();
