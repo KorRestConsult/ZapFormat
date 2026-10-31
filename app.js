@@ -172,26 +172,47 @@ async function apiRequest(path,options={}){
     error.code="backend_not_configured";
     throw error;
   }
-  const response=await fetch(API_BASE+path,{
-    ...options,
-    credentials:"include",
-    headers:{
-      "Accept":"application/json",
-      ...(options.body ? {"Content-Type":"application/json"} : {}),
-      ...(authToken ? {"Authorization":"Bearer "+authToken} : {}),
-      ...(options.headers||{})
+  // Verification must never leave the form spinning indefinitely on mobile networks.
+  const {timeoutMs,...requestOptions}=options;
+  const controller=timeoutMs?new AbortController():null;
+  const timeout=controller?setTimeout(()=>controller.abort(),timeoutMs):null;
+  try{
+    const response=await fetch(API_BASE+path,{
+      ...requestOptions,
+      ...(controller?{signal:controller.signal}:{}),
+      credentials:"include",
+      headers:{
+        "Accept":"application/json",
+        ...(options.body ? {"Content-Type":"application/json"} : {}),
+        ...(authToken ? {"Authorization":"Bearer "+authToken} : {}),
+        ...(options.headers||{})
+      }
+    });
+    if(response.status===204) return null;
+    const data=await response.json().catch(()=>({}));
+    if(!response.ok){
+      const error=new Error(data.error||("http_"+response.status));
+      error.code=data.error||("http_"+response.status);
+      error.status=response.status;
+      error.data=data;
+      throw error;
     }
-  });
-  if(response.status===204) return null;
-  const data=await response.json().catch(()=>({}));
-  if(!response.ok){
-    const error=new Error(data.error||("http_"+response.status));
-    error.code=data.error||("http_"+response.status);
-    error.status=response.status;
-    error.data=data;
+    return data;
+  }catch(error){
+    if(controller?.signal.aborted){
+      const timeoutError=new Error("request_timeout");
+      timeoutError.code="request_timeout";
+      throw timeoutError;
+    }
+    if(error instanceof TypeError && /fetch|network|load|failed/i.test(String(error.message||""))){
+      const networkError=new Error("network_unavailable");
+      networkError.code="network_unavailable";
+      throw networkError;
+    }
     throw error;
+  }finally{
+    if(timeout!==null)clearTimeout(timeout);
   }
-  return data;
 }
 
 
@@ -347,12 +368,14 @@ function authErrorText(error){
     name_and_identity_required:"Укажите имя и номер телефона.",
     identity_required:"Укажите телефон или email.",
     login_and_password_required:"Введите телефон/email и пароль.",
-    verification_code_required:"Введите шестизначный код из SMS.",
-    verification_code_invalid:"Неверный код. Проверьте SMS и попробуйте ещё раз.",
+    verification_code_required:"Введите код подтверждения.",
+    verification_code_invalid:"Неверный код подтверждения. Проверьте номер входящего звонка.",
     verification_expired:"Код истёк или использован. Запросите новый.",
-    verification_unavailable:"Подтверждение по SMS временно недоступно.",
-    sms_send_failed:"Не удалось отправить SMS. Попробуйте ещё раз.",
-    otp_too_soon:"Код уже отправлен. Подождите немного перед повтором.",
+    verification_unavailable:"Подтверждение по звонку временно недоступно.",
+    sms_send_failed:"SMS.RU не подтвердил отправку звонка. Деньги могут не списаться. Попробуйте позже.",
+    request_timeout:"Сервер не ответил за 20 секунд. Проверьте интернет и повторите попытку позже.",
+    network_unavailable:"Нет связи с сервером ZapFormat. Проверьте сеть или VPN.",
+    otp_too_soon:"Недавний запрос уже есть. Подождите минуту перед повтором.",
     phone_verification_required:"Подтвердите номер телефона.",
     unauthorized:"Нужно войти в аккаунт.",
     conflict:"Такие данные уже используются другим аккаунтом."
@@ -490,6 +513,7 @@ async function resendAuthCode(kind,button){
     if(kind==="register"){
       if(!registrationDraft) return resetRegistrationFlow();
       result=await apiRequest("/api/auth/register/start",{
+        timeoutMs:20000,
         method:"POST",
         body:JSON.stringify(registrationDraft)
       });
@@ -499,6 +523,7 @@ async function resendAuthCode(kind,button){
     }else{
       if(!resetIdentity) return resetPasswordFlow();
       result=await apiRequest("/api/auth/password-reset/start",{
+        timeoutMs:20000,
         method:"POST",
         body:JSON.stringify({identity:resetIdentity})
       });
@@ -4983,6 +5008,7 @@ document.getElementById("registerForm")?.addEventListener("submit",async e=>{
     setAuthStatus(authCapabilities.verification_method==="call"?"Запрашиваем звонок…":"Отправляем код подтверждения…");
     try{
       const result=await apiRequest("/api/auth/register/start",{
+        timeoutMs:20000,
         method:"POST",
         body:JSON.stringify(registrationDraft)
       });
@@ -5064,6 +5090,7 @@ document.getElementById("forgotForm")?.addEventListener("submit",async e=>{
     setAuthStatus("Отправляем код восстановления…");
     try{
       const result=await apiRequest("/api/auth/password-reset/start",{
+        timeoutMs:20000,
         method:"POST",
         body:JSON.stringify({identity})
       });
