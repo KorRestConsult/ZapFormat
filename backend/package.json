@@ -8,7 +8,8 @@
     "start": "node src/server.js",
     "dev": "node --watch src/server.js",
     "db:migrate": "psql \"$DATABASE_URL\" -f db/001_init.sql && psql \"$DATABASE_URL\" -f db/002_garage_owner_app.sql",
-    "test": "node --test"
+    "test": "node --test",
+    "owner:provision": "node scripts/provision-owner.js"
   },
   "engines": {
     "node": ">=20"
