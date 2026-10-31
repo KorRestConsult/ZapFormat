@@ -110,6 +110,7 @@ run("telegram_root_curl",["curl","-4","-I","-sS","--connect-timeout","6","--max-
 run("telegram_tcp_166_110",["bash","-lc","timeout 6 bash -c '</dev/tcp/149.154.166.110/443'"])
 run("telegram_tcp_167_220",["bash","-lc","timeout 6 bash -c '</dev/tcp/149.154.167.220/443'"])
 run("telegram_resolve_167_220",["curl","-4","-I","-sS","--connect-timeout","6","--max-time","10","--resolve","api.telegram.org:443:149.154.167.220","https://api.telegram.org/"])
+run("telegram_ipv6",["curl","-6","-I","-sS","--connect-timeout","6","--max-time","10","https://api.telegram.org/"])
 run("telegram_tcp_167_99",["bash","-lc","timeout 6 bash -c '</dev/tcp/149.154.167.99/443'"])
 run("trace_telegram",["bash","-lc","(command -v tracepath >/dev/null && tracepath -n 149.154.166.110) || (command -v traceroute >/dev/null && traceroute -n -w 1 -q 1 149.154.166.110) || true"])
 run("google_curl",["curl","-4","-I","-sS","--connect-timeout","6","--max-time","8","https://www.google.com/"])
