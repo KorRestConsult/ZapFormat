@@ -137,7 +137,11 @@
         (x.status==="active"?'<button class="secondary" type="button" data-staff-block="'+e(x.id)+'">Заблокировать</button>':"")+'</div>';
     });
     html+='</section>';
+    html+='<section class="panel"><div class="panel-head"><h2>Кабинет курьера · предпросмотр</h2></div>'+
+      '<p class="muted">Безопасная демонстрация. Не создаёт сотрудника, заказ или доставку.</p>'+
+      '<button type="button" class="secondary" id="staffCourierPreview">Посмотреть глазами курьера</button></section>';
     show(api).innerHTML=html;
+    el("staffCourierPreview")?.addEventListener("click",()=>renderCourierPreview(api));
     show(api).querySelectorAll("[data-staff-decision]").forEach(b=>b.addEventListener("click",async ()=>{
       const decision=b.dataset.staffDecision;
       if(!window.confirm(decision==="approve"?"Предоставить этому человеку доступ курьера?":"Отклонить заявку курьера?"))return;
@@ -194,6 +198,41 @@
         await api.openPage("deliveries");
       }catch(error){api.alert(getError(error),"error");b.disabled=false;}
     }));
+  }
+  // Read-only owner preview uses the exact courier renderer with fabricated demo data.
+  // Never requests or mutates a supplier order or any real delivery.
+  async function renderCourierPreview(api){
+    const statusValues=["assigned","accepted","picked_up","delivered","problem"];
+    const captions={assigned:"Назначен",accepted:"Принят",picked_up:"В пути",delivered:"Доставлен",problem:"Проблема"};
+    const root=api.page;
+    root.innerHTML='<section class="panel"><div class="panel-head"><h2>Демонстрация кабинета курьера</h2></div>'+
+      '<p class="muted">Только пример. Заказ ZF-DEMO, контакты и детали вымышлены. Кнопки работы с заказом отключены.</p>'+
+      '<button type="button" class="secondary" id="staffPreviewBack">Вернуться к сотрудникам</button>'+
+      '<div class="staff-actions" id="staffPreviewStatuses"></div></section><div id="staffPreviewContent"></div>';
+    root.querySelector("#staffPreviewBack").addEventListener("click",()=>api.openPage("staff"));
+    const picker=root.querySelector("#staffPreviewStatuses");
+    const target=root.querySelector("#staffPreviewContent");
+    async function render(status){
+      picker.innerHTML=statusValues.map(s=>'<button type="button" class="'+
+        (s===status?'primary':'secondary')+'" data-preview-status="'+apiEscape(s)+'">'+apiEscape(captions[s])+'</button>').join("");
+      picker.querySelectorAll("[data-preview-status]").forEach(b=>b.addEventListener("click",()=>render(b.dataset.previewStatus)));
+      const orders=[{
+        assignment_id:"demo-not-real",order_number:"DEMO",delivery_status:status,
+        assigned_at:new Date().toISOString(),recipient_name:"Пример получателя",
+        recipient_phone:null,delivery_city:"Рязань",delivery_address:"Демонстрационный адрес",
+        items:[{brand:"DEMO",article:"TEST-001",description:"Шаровая опора (образец)",quantity:2}]
+      }];
+      await renderCourier({...api,page:target,
+        request:async path=>{
+          if(path==="/api/staff/courier/orders")return {orders};
+          throw new Error("demo_read_only");
+        }});
+      target.querySelectorAll("[data-delivery-id]").forEach(button=>{
+        button.disabled=true;
+        button.title="Демонстрация: изменение статуса недоступно";
+      });
+    }
+    await render("assigned");
   }
   async function renderApplicant(api){
     const data=await api.request("/api/staff/application");

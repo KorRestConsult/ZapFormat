@@ -74,3 +74,12 @@ test('owner order details are only served through protected admin API',()=>{
   assert.ok(js.includes('aria-expanded'));
   assert.ok(js.includes('escape(order.comment)'));
 });
+
+test("owner courier demo is read-only and has no supplier writes",()=>{
+  const ui=readFileSync("admin/staff.js","utf8");
+  assert.match(ui,/function renderCourierPreview\(api\)/);
+  assert.match(ui,/staffCourierPreview/);
+  assert.match(ui,/demo_read_only/);
+  assert.match(ui,/button\.disabled=true/);
+  assert.doesNotMatch(ui.slice(ui.indexOf("async function renderCourierPreview"),ui.indexOf("async function renderApplicant")),/submitSupplierOrder|partgrade\.com/);
+});
