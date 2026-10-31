@@ -7,7 +7,7 @@
   <script>try{if(localStorage.getItem("zapformat-access-token"))document.documentElement.classList.add("zf-preauth")}catch(_){}</script>
   <title>ZapFormat — автозапчасти</title>
   <meta name="description" content="ZapFormat — поиск автозапчастей по артикулу и названию. Личный гараж, корзина и история заказов." />
-  <link rel="stylesheet" href="./styles.css?v=20261031-orders-table4" />
+  <link rel="stylesheet" href="./styles.css?v=20261031-audit1" />
 </head>
 <body class="guest-mode auth-route">
   <div class="app">
@@ -72,16 +72,13 @@
           <strong>Сменить ›</strong>
         </button>
 
-        <div class="catalog-disclaimer" id="catalogDisclaimer">
-          Информация по аналогам справочная. Применимость к автомобилю подтверждается отдельно.
-        </div>
+        <div class="catalog-disclaimer" id="catalogDisclaimer">Совместимость — по автомобилю.</div>
 
         <div class="catalog-actions">
           <button class="filters-toggle" type="button" aria-expanded="false">Показать фильтры</button>
           <div class="sort-row">
             <span>Сортировка:</span>
             <button type="button" data-sort="stock">Нал.</button>
-            <button type="button" data-sort="warehouse">Склад</button>
             <button type="button" data-sort="speed">Ожид. срок</button>
             <button type="button" class="active" data-sort="price">Цена ▲</button>
           </div>
@@ -377,7 +374,7 @@
           <div class="account-content">
 
             <section class="account-pane active" id="account-orders">
-              <div class="account-head"><div><span class="eyebrow">ЗАКАЗЫ</span><h2>Мои заказы</h2></div><button type="button" class="account-primary" id="accountOrdersRefresh">Обновить статусы</button></div><p class="account-status-update" id="accountOrdersRefreshStatus" role="status" aria-live="polite">Данные обновляются автоматически при открытии раздела.</p>
+              <div class="account-head"><div><span class="eyebrow">ЗАКАЗЫ</span><h2>Мои заказы</h2></div><button type="button" class="account-primary" id="accountOrdersRefresh">Обновить статусы</button></div><p class="account-status-update" id="accountOrdersRefreshStatus" role="status" aria-live="polite" hidden></p>
               <div class="account-toolbar">
                 <input id="orderSearch" placeholder="Номер заказа или артикул">
                 <select id="orderStatusFilter" aria-label="Статус заказа">
@@ -402,7 +399,7 @@
             </section>
 
             <section class="account-pane" id="account-returns">
-              <div class="account-head"><div><span class="eyebrow">ВОЗВРАТЫ И ОБРАЩЕНИЯ</span><h2>Возвраты</h2><p>История обращений, номер заказа и статус каждой заявки.</p></div><button class="account-primary" data-account-tab="orders" type="button">Мои заказы</button></div>
+              <div class="account-head"><div><span class="eyebrow">ВОЗВРАТЫ</span><h2>Возвраты</h2></div></div>
               <div class="account-block" id="accountReturnsList" aria-live="polite"><div class="account-empty"><p>Загружаем возвраты…</p></div></div>
             </section>
 
@@ -494,7 +491,6 @@
             <span>Бренд</span>
             <span>Артикул</span>
             <span>Описание</span>
-            <span>Склад</span>
             <span>Срок</span>
             <span>Кол-во</span>
             <span>Наличие</span>
@@ -592,7 +588,7 @@
 </div>
 
   <script src="./config.js?v=20261027-design1"></script>
-  <script src="./app.js?v=20261031-orders-table3"></script>
+  <script src="./app.js?v=20261031-audit1"></script>
   <script src="./admin-desk.js?v=20261030-pricing1"></script>
 </body>
 </html>
