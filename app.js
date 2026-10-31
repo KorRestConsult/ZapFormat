@@ -2127,34 +2127,6 @@ function shortVin(vin){
   return "VIN ••••"+value.slice(-6);
 }
 
-async function attachVinToCurrentVehicle(vin){
-  const value=normalizeVin(vin);
-  const vehicle=currentSearchVehicle();
-  if(!sessionUser || !vehicle?.id || !looksLikeVin(value)) return vehicle||null;
-
-  const existing=normalizeVin(vehicle.vin||"");
-  if(existing===value) return vehicle;
-  if(existing && existing!==value) return vehicle;
-
-  try{
-    const result=await apiRequest("/api/garage/vehicles/"+encodeURIComponent(vehicle.id),{
-      method:"PATCH",
-      body:JSON.stringify({vin:value})
-    });
-    const normalized=normalizeGarageVehicle(result.vehicle);
-    garageState.vehicle=normalized;
-    garageVehicles=garageVehicles.map(item=>
-      String(item.id)===String(normalized.id) ? normalized : item
-    );
-    saveGarageState();
-    updateVehicleContextUi();
-    return normalized;
-  }catch(error){
-    console.warn("VIN save failed",error);
-    return vehicle;
-  }
-}
-
 function updateVehicleContextUi(){
   const vehicle=currentSearchVehicle();
   updateProfileVehiclePreview();
@@ -2207,7 +2179,7 @@ function updateVehicleContextUi(){
   if(searchInput) searchInput.placeholder="VIN, артикул или деталь для "+label;
   if(searchInput2) searchInput2.placeholder="VIN, артикул или деталь для "+label;
   if(disclaimer){
-    disclaimer.textContent=vehicle.vin ? "Совместимость учитывается по VIN." : "VIN не указан — совместимость проверьте перед заказом.";
+    disclaimer.textContent=vehicle.vin ? (vehicle.catalogModificationId ? "Модификация подтверждена каталогом — проверяйте применяемость конкретной позиции." : "VIN указан, но совместимость деталей ещё не подтверждена.") : "VIN не указан — совместимость проверьте перед заказом.";
   }
 }
 
@@ -3147,12 +3119,13 @@ async function search(query,options={}){
     // If VIN is an answer to the AI's clarification, keep the conversation
     // and continue the original parts request instead of starting a new VIN search.
     if(pendingSmartSearchBaseQuery){
-      vehicle=await attachVinToCurrentVehicle(vin);
-      if(!vehicle){
-        transientVinVehicle={vin,brand:"",model:"",year:null,engine:""};
-        vehicle=transientVinVehicle;
-      }
-      return runSmartPartSearch(smartQuery,vehicle);
+      // Answering a clarification with a VIN must NEVER mutate an existing
+      // garage vehicle. A VIN can refer to an entirely different car.
+      const exact=garageVehicles.find(item=>normalizeVin(item.vin)===vin);
+      transientVinVehicle=exact || {
+        id:null,vin,brand:"",model:"",generation:"",year:null,engine:""
+      };
+      return runSmartPartSearch(smartQuery,transientVinVehicle);
     }
 
     let matched=garageVehicles.find(x=>normalizeVin(x.vin)===vin) || null;

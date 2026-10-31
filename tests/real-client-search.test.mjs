@@ -31,3 +31,10 @@ test('VIN is recognized separately and not sent as article',()=>{
 });
 
 test("guest VIN context survives to the next parts query",()=>{ assert.match(file,/if\(transientVinVehicle\) return transientVinVehicle;\s*if\(!sessionUser\) return null;/); });
+
+test("VIN clarification never writes to a saved garage vehicle",()=>{
+  assert.doesNotMatch(file,/attachVinToCurrentVehicle/);
+  assert.match(file,/const exact=garageVehicles.find\(item=>normalizeVin\(item.vin\)===vin\)/);
+  assert.match(file,/transientVinVehicle=exact \|\| \{/);
+  assert.match(file,/VIN указан, но совместимость деталей ещё не подтверждена/);
+});
