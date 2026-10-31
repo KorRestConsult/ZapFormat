@@ -1385,7 +1385,12 @@ app.post("/api/admin/test-orders", async (req, res, next) => {
 
     let telegram = { sent: false, reason: "telegram_not_connected" };
     try {
-      telegram = await notifyOwnerOrderCreated({ order, items: testItems, test: true });
+      telegram = await notifyOwnerOrderCreated({
+        order,
+        items: testItems,
+        supplier: { state: "test_only", submitted: false, orders: [] },
+        test: true
+      });
     } catch (error) {
       telegram = { sent: false, reason: error?.code || "telegram_send_failed" };
     }
@@ -1932,17 +1937,60 @@ async function submitQuoteRequest(req, res, next) {
 
         await client.query("COMMIT");
 
+        const autoSupplierSubmit = String(process.env.PARTGRADE_AUTO_ORDER_AFTER_CHECKOUT || "").toLowerCase() === "true";
+        let supplierNotification = {
+          state: "ready_to_submit",
+          submitted: false,
+          orders: []
+        };
+
+        if (autoSupplierSubmit) {
+          try {
+            const supplierResult = await submitSupplierOrder(order.id);
+            const supplierStateResult = await pool.query(
+              "SELECT supplier_state FROM orders WHERE id = $1 LIMIT 1",
+              [order.id]
+            );
+            supplierNotification = {
+              state: supplierStateResult.rows[0]?.supplier_state || (supplierResult?.submitted ? "submitted" : "submit_failed"),
+              submitted: supplierResult?.submitted === true,
+              orders: Array.isArray(supplierResult?.supplier_orders) ? supplierResult.supplier_orders : [],
+              reason: supplierResult?.reason || null
+            };
+          } catch (error) {
+            console.error("[SupplySubmit]", error?.message || "supplier_submit_failed");
+            const supplierStateResult = await pool.query(
+              "SELECT supplier_state FROM orders WHERE id = $1 LIMIT 1",
+              [order.id]
+            ).catch(() => ({ rows: [] }));
+            supplierNotification = {
+              state: supplierStateResult.rows[0]?.supplier_state || "submit_failed",
+              submitted: false,
+              orders: [],
+              reason: error?.code || error?.message || "supplier_submit_failed"
+            };
+          }
+        }
+
         void notifyOwnerOrderCreated({
-          order: { ...order, recipient_name: name || delivery?.recipient_name || requestUser.name || null, recipient_phone: phone || delivery?.recipient_phone || requestUser.phone || null },
-          items: items.map((item) => ({ brand: item.brand, article: item.article, description: item.description, quantity: item.quantity, unit_price: item.quoted_price })),
+          order: {
+            ...order,
+            recipient_name: name || delivery?.recipient_name || requestUser.name || null,
+            recipient_phone: phone || delivery?.recipient_phone || requestUser.phone || null
+          },
+          items: items.map((item, index) => ({
+            brand: item.brand,
+            article: item.article,
+            description: item.description,
+            quantity: item.quantity,
+            unit_price: item.quoted_price,
+            delivery_days: Number.isFinite(Number(validation[index]?.delivery_hours))
+              ? Math.max(0, Math.ceil(Number(validation[index].delivery_hours) / 24))
+              : null
+          })),
+          supplier: supplierNotification,
           test: false
         }).catch((error) => console.warn("[TelegramNotify]", error?.code || "send_failed"));
-
-        if (String(process.env.PARTGRADE_AUTO_ORDER_AFTER_CHECKOUT || "").toLowerCase() === "true") {
-          await submitSupplierOrder(order.id).catch((error) => {
-            console.error("[SupplySubmit]", error?.message || "supplier_submit_failed");
-          });
-        }
 
         return res.status(201).json({
           ok: true,
