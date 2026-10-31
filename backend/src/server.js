@@ -178,7 +178,9 @@ app.use(cors({
   },
   credentials: true,
   methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
-  // Owner TEST checkout uses a separate privileged header; ordinary checkout remains unchanged.\n  allowedHeaders: ["Content-Type", "Accept", "Authorization", "X-ZapFormat-Owner-Test-Token"]\n}));
+  // Owner TEST checkout uses a separate privileged header; ordinary checkout remains unchanged.
+  allowedHeaders: ["Content-Type", "Accept", "Authorization", "X-ZapFormat-Owner-Test-Token"]
+}));
 
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
