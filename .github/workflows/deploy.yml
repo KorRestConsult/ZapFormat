@@ -150,7 +150,8 @@ jobs:
               "sha": os.environ["GITHUB_SHA"],
               "smsru_api_id": os.environ["SMSRU_API_ID"],
               "smsru_from": os.environ.get("SMSRU_FROM", ""),
-              "smsru_test": "false"
+              "smsru_test": "false",
+              "phone_verification_method": "call"
           }))
           PY
           curl -fsS -X POST \
