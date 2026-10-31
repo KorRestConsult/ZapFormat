@@ -283,7 +283,7 @@
       const all=Array.isArray(data[kind])?data[kind]:[];
       const page=all.slice(0,PAGE_SIZE);
       state[kind]=more?state[kind].concat(page):page;state.offsets[kind]=offset+page.length;state.more[kind]=all.length>PAGE_SIZE;
-      if(kind==="orders")renderOrders();else if(kind==="requests")renderRequests();else renderCustomers();
+      if(kind==="orders"){renderOrders();await openLinkedOrder();}else if(kind==="requests")renderRequests();else renderCustomers();
       alertMessage("");
     }catch(error){if(seq!==state.seq)return;handleError(error,"Сервер не вернул список. Проверьте соединение и права доступа.");}
   }
@@ -452,6 +452,16 @@
       }
     }catch(error){if(seq!==state.seq)return;$("page").innerHTML='<div class="panel"><div class="empty">Этот раздел сейчас не доступен. Данные не заменяются вымышленными цифрами.</div></div>';handleError(error,"Не удалось получить сведения с сервера.");}
   }
+  async function openLinkedOrder(){
+    const params=new URLSearchParams(location.search);
+    const id=String(params.get("order")||"").trim();
+    if(!id || state.page!=="orders")return;
+    const button=[...$("page").querySelectorAll("[data-order-id]")].find(b=>String(b.dataset.orderId||"")===id);
+    if(button){
+      await toggleOrderDetails(button);
+      button.scrollIntoView({behavior:"smooth",block:"center"});
+    }
+  }
   function bindNavigation(){
     $("page").querySelectorAll("[data-open]").forEach(b=>b.addEventListener("click",()=>openPage(b.dataset.open)));
   }
@@ -463,5 +473,7 @@
     const print=e.target.closest("[data-print-order]");
     if(print&&state.orderDetails?.has(print.dataset.printOrder))printOrderSheet(state.orderDetails.get(print.dataset.printOrder),print.dataset.printKind);
   });
+  const linkedOrderId=String(new URLSearchParams(location.search).get("order")||"").trim();
+  if(linkedOrderId)state.page="orders";
   restoreSession();
 })();
