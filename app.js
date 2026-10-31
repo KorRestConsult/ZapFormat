@@ -457,6 +457,8 @@ function showAuthTab(tab){
 function setAuthStage(kind,stage){
   document.querySelectorAll(`[data-${kind}-stage]`).forEach(node=>{
     node.hidden=node.dataset[kind+"Stage"]!==stage;
+    // Hidden required fields must not block the visible verification form.
+    node.querySelectorAll("input,select,textarea").forEach(control=>control.disabled=node.hidden);
   });
 }
 
@@ -533,7 +535,12 @@ async function resendAuthCode(kind,button){
   try{
     let result;
     if(kind==="register"){
-      if(!registrationDraft) return resetRegistrationFlow();
+      if(!registrationDraft){
+        resetRegistrationFlow();
+        button.disabled=false;
+        setAuthStatus("Для нового звонка заполните данные ещё раз. Пароль не сохраняется в браузере.","error");
+        return;
+      }
       result=await apiRequest("/api/auth/register/start",{
         timeoutMs:20000,
         method:"POST",
@@ -5090,7 +5097,7 @@ document.getElementById("registerForm")?.addEventListener("submit",async e=>{
     hydrateAccountData().catch(error=>console.warn("ZapFormat account hydration failed",error));
     registrationChallengeId="";
     registrationDraft=null;
-    try{sessionStorage.removeItem("zapformat-register-challenge");}catch{}
+    try{sessionStorage.removeItem("zapformat-register-challenge");sessionStorage.removeItem("zapformat-guest-choice");}catch{}
     setAuthStatus("Номер подтверждён. Аккаунт создан.","success");
 
     const params=new URLSearchParams(location.search);
