@@ -403,9 +403,10 @@ function applyAuthCapabilities(){
   const notice=document.getElementById("authCapabilityNotice");
 
   if(registerTab){
-    registerTab.disabled=!registerAvailable;
-    registerTab.setAttribute("aria-disabled",registerAvailable?"false":"true");
-    registerTab.title=registerAvailable?"":"Регистрация по телефону временно недоступна";
+    // The registration form must remain accessible during brief API outages.
+    registerTab.disabled=false;
+    registerTab.setAttribute("aria-disabled","false");
+    registerTab.title=registerAvailable?"":"Связь с сервером подтверждения нестабильна — форму можно заполнить и повторить запрос";
   }
   if(forgotButton){
     forgotButton.disabled=!recoveryAvailable;
@@ -426,7 +427,7 @@ function applyAuthCapabilities(){
 async function hydrateAuthCapabilities(){
   if(!backendConfigured()) return authCapabilities;
   try{
-    const data=await apiRequest("/api/auth/capabilities");
+    const data=await apiRequest("/api/auth/capabilities",{timeoutMs:8000});
     authCapabilities={
       phone_verification:Boolean(data?.phone_verification),
       password_recovery:Boolean(data?.password_recovery),
@@ -442,8 +443,7 @@ async function hydrateAuthCapabilities(){
 
 function showAuthTab(tab){
   if(tab==="register" && authCapabilities.phone_verification===false){
-    tab="login";
-    setAuthStatus("Регистрация по телефону временно недоступна. Попробуйте позже.","error");
+    setAuthStatus("Сервер подтверждения временно недоступен. Форма открыта, запрос можно повторить позже.","error");
   }else if(tab==="forgot" && authCapabilities.password_recovery===false){
     tab="login";
     setAuthStatus("Восстановление пароля по телефону временно недоступно. Попробуйте позже.","error");
@@ -5066,7 +5066,7 @@ document.getElementById("registerForm")?.addEventListener("submit",async e=>{
       button.textContent="Подтвердить и создать аккаунт";
       setAuthStatus(authCapabilities.verification_method==="call"?"Ожидайте звонка. Введите последние четыре цифры номера звонящего.":"Код отправлен по SMS.","success");
       startAuthCooldown("register",result.resend_in||60);
-      form.querySelector('[name="verification_code"]')?.focus();
+      // Let the user tap the code field; forced focus triggers unexpected Safari scrolling.
     }catch(error){
       setAuthStatus(authErrorText(error),"error");
     }finally{
@@ -5542,3 +5542,18 @@ document.addEventListener("change",async e=>{
     await hydrateAccountData().catch(()=>{});
   }
 });
+
+/* Restore an iOS Safari keyboard/pinch zoom that stayed after the form closed.
+   Only reassert scale if the user is no longer editing a field. */
+function restoreIosViewportScale(){
+  if(!/iPhone|iPad|iPod/i.test(navigator.userAgent) || window.innerWidth>900)return;
+  if(document.activeElement?.matches?.("input,textarea,select"))return;
+  if((window.visualViewport?.scale||1)<=1.02)return;
+  const viewport=document.querySelector('meta[name="viewport"]');
+  if(!viewport)return;
+  const original=viewport.content;
+  viewport.content="width=device-width, initial-scale=1, minimum-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover";
+  requestAnimationFrame(()=>requestAnimationFrame(()=>{viewport.content=original;}));
+}
+window.addEventListener("pageshow",restoreIosViewportScale);
+document.addEventListener("focusout",()=>setTimeout(restoreIosViewportScale,300));
