@@ -34,8 +34,11 @@ test('Every account navigation tab has a matching pane', () => {
   for (const tab of tabs) {
     assert.ok(ids.has('account-' + tab), 'missing customer pane: ' + tab);
   }
-  for (const tab of ['orders', 'garage', 'returns', 'reports', 'profile', 'delivery']) {
+  for (const tab of ['orders', 'garage', 'returns', 'profile']) {
     assert.ok(tabs.has(tab), 'missing account tab: ' + tab);
+  }
+  for (const removed of ['reports', 'delivery', 'notifications']) {
+    assert.ok(!tabs.has(removed), 'legacy standalone account tab must stay merged into profile: ' + removed);
   }
 });
 
