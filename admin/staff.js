@@ -213,12 +213,13 @@
     const pending=(data.applications||[]).length;
     const events=(data.activity||[]).slice(0,5);
     const e=apiEscape;
-    const section=document.createElement("section");section.className="panel";
+    const section=document.createElement("section");section.className="panel";section.dataset.staffPreview="1";
     section.innerHTML='<div class="panel-head"><h2>Сотрудники · оперативная лента</h2><button type="button" class="secondary" id="openStaffFromOverview">Управление</button></div>'+
       '<p class="muted">Заявок на согласование: <b>'+pending+'</b></p>'+
       (events.length?events.map(x=>'<div class="staff-line"><span>'+e(names[x.action]||x.action)+' · '+e(full(x))+
       (x.order_number?' · ZF-'+e(x.order_number):"")+'</span><span class="muted">'+e(api.dateRu(x.created_at))+'</span></div>').join(""):'<p class="muted">Действий сотрудников пока нет.</p>');
-    target.append(section);
+    const previous=target.querySelector("[data-staff-preview]");
+    if(previous)previous.replaceWith(section);else target.append(section);
     section.querySelector("#openStaffFromOverview").addEventListener("click",()=>api.openPage("staff"));
   }
   window.ZapFormatStaffUI={initRegistration,renderOwner,renderCourier,renderApplicant,appendStaffPreview};
