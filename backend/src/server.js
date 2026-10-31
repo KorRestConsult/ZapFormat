@@ -21,6 +21,7 @@ const { createOrderInvoicePdf } = require("./invoice-pdf");
 const { customerPrice, getPricingPolicy, setPricingPolicy, validatePricingPolicy } = require("./pricing");
 const { isAdminRole } = require("./admin-access");
 const { installStaffRoutes } = require("./staff-routes");
+const { installEmailRegistration } = require("./email-registration");
 const { verifyGitHubActionsToken } = require("./github-oidc");
 const { interpretSearch, researchPartCandidates, normalizeVehicle } = require("./ai-search");
 const { publicBootstrapJwk, installEncryptedOpenAIKey, installTimewebAIToken, installSmsRuToken, installFapiToken, installTelegramConfig } = require("./secret-bootstrap");
@@ -3783,6 +3784,8 @@ app.post("/api/catalog/revalidate", async (req, res, next) => {
     next(error);
   }
 });
+
+installEmailRegistration({ app, pool, limiter:authLimiter, issueSession, publicUser, otpSecret, sessionDays:SESSION_DAYS });
 
 app.get("/api/auth/capabilities", (_req, res) => {
   res.json({

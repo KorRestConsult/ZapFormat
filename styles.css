@@ -6840,3 +6840,8 @@ html.zf-preauth #sessionEntryButton::after{content:"Проверяем вход�
 .manual-lead-submit{padding:13px 16px;border:0;border-radius:8px;background:#f28c00;color:#141d27;font-weight:750;font-size:15px;cursor:pointer}
 .manual-lead-submit:disabled{opacity:.55;cursor:wait}
 .manual-lead-status{font-size:13px;line-height:1.5;color:#334e63;margin:10px 0 0}
+
+/* Email and phone registration tabs must remain one row on mobile. */
+.auth-tabs{grid-template-columns:repeat(3,minmax(0,1fr))}
+.auth-tabs button{min-width:0;font-size:12px;white-space:nowrap;padding:10px 4px}
+@media(max-width:410px){.auth-tabs button{font-size:11px;padding:10px 3px}}

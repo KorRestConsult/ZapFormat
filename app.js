@@ -5110,6 +5110,66 @@ document.addEventListener("click",async e=>{
   }
 });
 
+let emailRegistrationChallengeId="";
+document.getElementById("emailRegisterEdit")?.addEventListener("click",()=>{
+  emailRegistrationChallengeId="";setAuthStage("email","details");setAuthStatus("");
+});
+document.getElementById("emailRegisterForm")?.addEventListener("submit",async e=>{
+  e.preventDefault();
+  const form=e.currentTarget,starting=!emailRegistrationChallengeId;
+  const button=document.getElementById(starting?"emailRegisterStart":"emailRegisterVerify");
+  if(button.disabled)return;button.disabled=true;
+  try {
+    if(starting){
+      const values=Object.fromEntries(new FormData(form).entries());
+      if(values.password!==values.password_confirmation){setAuthStatus("Пароли не совпадают.","error");return;}
+      setAuthStatus("Отправляем код на почту…");
+      const data=await apiRequest("/api/auth/email-registration/start",{
+        method:"POST",timeoutMs:16000,body:JSON.stringify(values)
+      });
+      if(!data?.challenge_id)throw Error("verification_not_found");
+      emailRegistrationChallengeId=data.challenge_id;
+      document.getElementById("emailMaskedAddress").textContent=data.masked_email||"указанную почту";
+      setAuthStage("email","verify");
+      setAuthStatus("Код отправлен. Проверьте входящие и «Спам».","success");
+    }else{
+      const code=String(document.getElementById("emailRegisterCode").value||"").trim();
+      if(!/^\d{6}$/.test(code)){setAuthStatus("Введите шестизначный код.","error");return;}
+      setAuthStatus("Проверяем почту…");
+      const result=await apiRequest("/api/auth/email-registration/verify",{
+        method:"POST",timeoutMs:16000,
+        body:JSON.stringify({challenge_id:emailRegistrationChallengeId,code})
+      });
+      if(!result?.access_token||!result?.user)throw Error("verification_not_found");
+      sessionUser=result.user;saveAuthToken(result.access_token);
+      applySessionUser();
+      hydrateCartFromAccount().catch(console.warn);
+      hydrateAccountData().catch(console.warn);
+      emailRegistrationChallengeId="";form.reset();setAuthStage("email","details");
+      setAuthStatus("Почта подтверждена. Аккаунт создан.","success");
+      const params=new URLSearchParams(location.search);
+      const pendingSearch=pendingSearchAfterAuth||loadSearchResume()||
+        (params.get("q")?{query:params.get("q"),brand:params.get("brand")||null}:null);
+      pendingSearchAfterAuth=null;
+      if(pendingSearch?.query){navigate("home");await search(pendingSearch.query,{brand:pendingSearch.brand||undefined});}
+      else navigate(pendingAccountRoute||"home");
+    }
+  }catch(error){
+    const messages={
+      email_not_configured:"Отправка писем ещё не настроена. Используйте регистрацию по телефону.",
+      email_delivery_failed:"Почтовый сервис не принял письмо. Повторите позже.",
+      invalid_email_registration:"Проверьте имя и email.",
+      user_already_exists:"Этот email уже зарегистрирован. Войдите с паролем.",
+      otp_too_soon:"Подождите минуту перед повторной отправкой.",
+      verification_code_invalid:"Неверный код из письма.",
+      verification_expired:"Код истёк. Запросите новый.",
+      verification_code_required:"Введите шестизначный код.",
+      request_timeout:"Сервер не ответил. Проверьте почту перед повторной отправкой."
+    };
+    setAuthStatus(messages[error?.code]||authErrorText(error),"error");
+  }finally{button.disabled=false;}
+});
+
 document.getElementById("loginForm")?.addEventListener("submit",async e=>{
   e.preventDefault();
   const form=e.currentTarget;

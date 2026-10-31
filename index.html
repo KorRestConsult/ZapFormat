@@ -7,7 +7,7 @@
   <script>try{if(localStorage.getItem("zapformat-access-token"))document.documentElement.classList.add("zf-preauth")}catch(_){}</script>
   <title>ZapFormat — автозапчасти</title>
   <meta name="description" content="ZapFormat — поиск автозапчастей по артикулу и названию. Личный гараж, корзина и история заказов." />
-  <link rel="stylesheet" href="./styles.css?v=20261031-manual-lead1" />
+  <link rel="stylesheet" href="./styles.css?v=20261031-email-signup1" />
 </head>
 <body class="guest-mode auth-route">
   <div class="app">
@@ -139,6 +139,7 @@
             <div class="auth-tabs" role="tablist" aria-label="Авторизация">
               <button class="active" type="button" data-auth-tab="login">Войти</button>
               <button type="button" data-auth-tab="register">Регистрация</button>
+              <button type="button" data-auth-tab="email">Через почту</button>
             </div>
             <div class="auth-capability-notice" id="authCapabilityNotice" hidden></div>
 
@@ -211,6 +212,24 @@
 
               <button class="account-primary auth-submit" id="registerSubmitButton" type="submit">Получить код</button>
               <button class="auth-recovery-check" id="registerRecoverButton" type="button" hidden>Проверить уже отправленный звонок (без повторной оплаты)</button>
+            </form>
+
+            <form class="auth-form" id="emailRegisterForm" data-auth-pane="email">
+              <div class="auth-stage" data-email-stage="details">
+                <p class="auth-hint">Регистрация по почте без подтверждения номера телефона.</p>
+                <label><span>Имя</span><input name="name" autocomplete="given-name" maxlength="120" required></label>
+                <label><span>Тип покупателя</span><select name="customer_type"><option value="individual">Физическое лицо</option><option value="service">Автосервис</option></select></label>
+                <label><span>Email</span><input name="email" type="email" autocomplete="email" inputmode="email" maxlength="254" placeholder="name@example.com" required></label>
+                <label><span>Пароль</span><input name="password" type="password" minlength="8" maxlength="128" autocomplete="new-password" required></label>
+                <label><span>Повторите пароль</span><input name="password_confirmation" type="password" minlength="8" maxlength="128" autocomplete="new-password" required></label>
+                <button class="account-primary auth-submit" type="submit" id="emailRegisterStart">Отправить код на почту</button>
+              </div>
+              <div class="auth-stage" data-email-stage="verify" hidden>
+                <p class="auth-hint">Письмо отправлено на <strong id="emailMaskedAddress"></strong>. Проверьте папку «Спам», если письма нет.</p>
+                <label><span>Код из письма (6 цифр)</span><input id="emailRegisterCode" name="email_code" inputmode="numeric" autocomplete="one-time-code" maxlength="6" pattern="[0-9]{6}"></label>
+                <button class="account-primary auth-submit" type="submit" id="emailRegisterVerify">Подтвердить и создать аккаунт</button>
+                <button type="button" class="auth-link" id="emailRegisterEdit">Изменить адрес</button>
+              </div>
             </form>
 
             <form class="auth-form" id="forgotForm" data-auth-pane="forgot">
@@ -595,7 +614,7 @@
 </div>
 
   <script src="./config.js?v=20261027-design1"></script>
-  <script src="./app.js?v=20261031-realclient-fix8"></script>
+  <script src="./app.js?v=20261031-email-signup1"></script>
   <script src="./admin-desk.js?v=20261030-pricing1"></script>
 </body>
 </html>
