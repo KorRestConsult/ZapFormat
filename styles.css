@@ -6803,3 +6803,21 @@ html.zf-preauth #sessionEntryButton::after{content:"Проверяем вход�
     flex:1 1 auto;
   }
 }
+
+
+/* Mobile garage action fix */
+@media(max-width:680px){
+  .garage-car-actions{
+    display:grid!important;
+    grid-template-columns:1fr 1fr!important;
+    gap:8px!important;
+    width:100%!important;
+  }
+  .garage-car-actions .garage-outline,
+  .garage-car-actions .garage-primary{
+    grid-column:auto!important;
+    width:100%!important;
+    min-width:0!important;
+    margin:0!important;
+  }
+}
