@@ -89,6 +89,30 @@
   function orderRows(items){
     return items.map(i=>'<tr><td><button type="button" class="order-toggle" aria-expanded="false" data-order-id="'+escape(i.id)+'">№ '+escape(i.order_number||i.id||"—")+' <span aria-hidden="true">⌄</span></button><small>'+dateRu(i.created_at)+'</small></td><td>'+escape(i.recipient_name||"Получатель не указан")+'<small>'+escape(i.recipient_phone||"")+'</small></td><td class="nowrap">'+formatRub(i.total_amount)+'</td><td>'+formatInt(i.items_count)+'</td><td>'+badge(i.status)+'</td></tr>');
   }
+  // Printable private picking sheets are generated from a real, authenticated order.
+  // Courier sheets never include supplier cost or the store's gross profit.
+  function printOrderSheet(data, kind){
+    if(!state.user || !data?.order || !Array.isArray(data.items))return;
+    const order=data.order, items=data.items, owner=kind==="owner";
+    const popup=window.open("","_blank","width=900,height=850");
+    if(!popup){alertMessage("Браузер заблокировал окно печати. Разрешите всплывающее окно для этой админки.","error");return;}
+    const receiptDate=new Date().toLocaleString("ru-RU",{timeZone:"Europe/Moscow"});
+    const phone=escape(order.recipient_phone||"Не указан");
+    const address=escape([order.delivery_city,order.delivery_address].filter(Boolean).join(", ")||"Не указан");
+    const rows=items.map((it,i)=>'<tr><td>'+(i+1)+'</td><td><b>'+escape([it.brand,it.article].filter(Boolean).join(" "))+'</b><div class="desc">'+escape(it.description||"")+'</div></td><td>'+formatInt(it.quantity)+'</td>'+
+      (owner?'<td>'+ (it.line_purchase===null?"—":formatRub(it.line_purchase))+'</td>':'')+
+      '<td>'+escape(statusLabels[it.status]||it.status||"—")+(it.expected_at?'<div class="desc">Ожидается '+dateRu(it.expected_at)+'</div>':"")+'</td><td>□</td></tr>').join("");
+    const html='<!doctype html><html lang="ru"><head><meta charset="utf-8"><title>ZapFormat — '+(owner?"лист закупки":"лист доставки")+' № '+escape(order.order_number||"")+'</title><style>@page{size:A4;margin:16mm}*{box-sizing:border-box}body{font:13px Arial,sans-serif;margin:0;color:#172434}header{display:flex;justify-content:space-between;border-bottom:3px solid #1a426c;padding-bottom:12px}h1{font-size:24px;margin:0;color:#143556}h2{font-size:17px;margin:18px 0 9px}.meta{display:grid;grid-template-columns:1fr 1fr;gap:8px 22px;padding:14px 0}.meta div{line-height:1.5}.muted,.desc{color:#6a7585;font-size:11px}.desc{margin-top:3px}table{width:100%;border-collapse:collapse;margin:12px 0}th,td{border-bottom:1px solid #d6dce5;text-align:left;padding:11px 7px;vertical-align:top}th{background:#edf2f7;font-size:11px}td:last-child{font-size:23px}footer{margin-top:28px;display:flex;gap:20px;justify-content:space-between}footer div{border-bottom:1px solid #aeb8c5;padding:14px 0;min-width:28%}p{line-height:1.5}.print-actions{text-align:right;margin-bottom:15px}.print-actions button{background:#1a426c;color:white;border:0;border-radius:7px;padding:10px 15px;cursor:pointer}@media print{.print-actions{display:none}}</style></head><body>'+
+      '<div class="print-actions"><button onclick="window.print()">Печать / Сохранить PDF</button></div>'+
+      '<header><div><h1>ZapFormat</h1><div class="muted">'+(owner?"ЗАКУПКА И КОМПЛЕКТАЦИЯ":"КОМПЛЕКТАЦИЯ И ДОСТАВКА")+'</div></div><div>Заказ <b>№ '+escape(order.order_number||"")+'</b><div class="muted">'+escape(receiptDate)+' · Москва</div></div></header>'+
+      '<div class="meta"><div>Клиент: <b>'+escape(order.recipient_name||"Не указан")+'</b></div><div>Телефон: <b>'+phone+'</b></div><div>Доставка: '+address+'</div><div>Статус: '+escape(statusLabels[order.status]||order.status||"—")+'</div></div>'+
+      '<h2>Состав заказа</h2><table><thead><tr><th>№</th><th>Артикул / наименование</th><th>Кол-во</th>'+(owner?'<th>Закупка</th>':'')+'<th>Состояние</th><th>✓</th></tr></thead><tbody>'+rows+'</tbody></table>'+
+      (owner?'<p><b>Закупка:</b> '+(data.costing?.complete?formatRub(data.costing.known_purchase):"неполная себестоимость")+' · <b>Продажа:</b> '+formatRub(order.total_amount)+'</p>':'<p><b>Сумма заказа:</b> '+formatRub(order.total_amount)+'</p>')+
+      (order.comment?'<p>Комментарий: '+escape(order.comment)+'</p>':"")+
+      '<footer><div>Собрал / проверил</div><div>Передал курьеру</div><div>Получил клиент</div></footer><p class="muted">Внутренний лист комплектации. Не является кассовым чеком или юридической товарной накладной.</p></body></html>';
+    popup.document.open();popup.document.write(html);popup.document.close();popup.focus();
+  }
+
   async function toggleOrderDetails(button){
     const row=button.closest("tr");
     if(!row || !state.user)return;
@@ -108,6 +132,7 @@
       const data=await request("/api/admin/orders/"+encodeURIComponent(id));
       if(seq!==state.seq || !state.user || !host.isConnected)return;
       const order=data.order||{}, cost=data.costing||{}, items=Array.isArray(data.items)?data.items:[];
+      state.orderDetails = state.orderDetails||new Map();state.orderDetails.set(id,data);
       const phone=String(order.recipient_phone||"");
       const href=phone.replace(/[^\d+]/g,"");
       const contact=href?'<a href="tel:'+escape(href)+'">'+escape(phone)+'</a>':"Телефон не указан";
@@ -120,6 +145,7 @@
           '<tr><td><strong>'+escape([i.brand,i.article].filter(Boolean).join(" "))+'</strong><small>'+escape(i.description||"")+'</small></td><td>'+formatInt(i.quantity)+'</td><td>'+ (i.line_purchase===null?"—":formatRub(i.line_purchase))+'</td><td>'+formatRub(i.line_sale)+'</td><td>'+badge(i.status)+'<small>'+(i.expected_at?"Ожидается: "+dateRu(i.expected_at):"")+(i.received_at?" · Получено: "+dateRu(i.received_at):"")+'</small></td></tr>'
         ),"Позиции заказа отсутствуют.")+
         '<div class="order-totals"><span>Итого продажа: <strong>'+formatRub(order.total_amount)+'</strong></span><span>Закупка: <strong>'+totalPurchase+'</strong></span><span>Валовая разница: <strong>'+gross+'</strong></span></div>'+
+        '<div class="order-actions"><button class="secondary" type="button" data-print-order="'+escape(id)+'" data-print-kind="owner">Печатать лист закупки</button><button class="secondary" type="button" data-print-order="'+escape(id)+'" data-print-kind="courier">Лист для курьера (без закупки)</button></div>'+
         '<p class="muted">Учтено закупок по '+formatInt(cost.costed_items)+' из '+formatInt(items.length)+' позиций. Расходы на доставку, возвраты и налоги в валовую разницу не входят.</p>'+
         (order.comment?'<p>Комментарий клиента: '+escape(order.comment)+'</p>':"")+'</div></td>';
     }catch(error){
@@ -338,6 +364,9 @@
   $("logoutButton").addEventListener("click",logout);
   $("refreshButton").addEventListener("click",()=>openPage(state.page));
   $("menu").addEventListener("click",e=>{const b=e.target.closest("[data-page]");if(b)openPage(b.dataset.page);});
-  $("page").addEventListener("click",e=>{const b=e.target.closest("[data-order-id]");if(b)toggleOrderDetails(b);});
+  $("page").addEventListener("click",e=>{const b=e.target.closest("[data-order-id]");if(b)toggleOrderDetails(b);
+    const print=e.target.closest("[data-print-order]");
+    if(print&&state.orderDetails?.has(print.dataset.printOrder))printOrderSheet(state.orderDetails.get(print.dataset.printOrder),print.dataset.printKind);
+  });
   restoreSession();
 })();
