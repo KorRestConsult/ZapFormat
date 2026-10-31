@@ -1201,6 +1201,19 @@ app.get("/api/admin/telegram/status", async (_req, res) => {
   });
 });
 
+app.get("/api/admin/telegram/network", async (_req, res) => {
+  try {
+    const response = await fetch("https://api.telegram.org", {
+      method: "GET",
+      redirect: "manual",
+      signal: AbortSignal.timeout(8000)
+    });
+    res.json({ ok: true, reachable: true, status: response.status });
+  } catch {
+    res.status(502).json({ ok: false, reachable: false, error: "telegram_unavailable" });
+  }
+});
+
 app.post("/api/admin/telegram/config", async (req, res) => {
   if (req.user?.role !== "owner") return res.status(403).json({ error: "forbidden" });
   const token = String(req.body?.bot_token || "").trim();
