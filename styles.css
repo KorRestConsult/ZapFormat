@@ -6661,3 +6661,115 @@ html.zf-preauth #sessionEntryButton::after{content:"Проверяем вход�
   #view-profile .garage-owner-head{padding:15px!important}
   #account-returns .account-empty{min-height:150px!important;padding:24px 16px!important}
 }
+
+
+/* Mobile cart guard after desktop audit overrides */
+@media(max-width:1100px){
+  #view-cart .order-table-head{display:none!important}
+  #view-cart .order-cart-row{
+    min-width:0!important;
+    width:100%!important;
+    display:grid!important;
+    grid-template-columns:28px minmax(0,1fr) auto!important;
+    grid-template-rows:auto auto auto auto auto auto!important;
+    gap:0 8px!important;
+    margin-bottom:9px!important;
+    padding:10px!important;
+    border:1px solid #d9e2e7!important;
+    border-radius:11px!important;
+    background:#fff!important;
+    box-shadow:0 2px 8px rgba(31,55,74,.035)!important;
+  }
+  #view-cart .order-cart-row>div{
+    min-width:0!important;
+    padding:0!important;
+    border:0!important;
+  }
+  #view-cart .order-cart-row .row-number,
+  #view-cart .order-cart-row .brand-cell,
+  #view-cart .order-cart-row .sum-cell{display:none!important}
+  #view-cart .order-cart-row .row-select{
+    display:flex!important;
+    grid-column:1!important;
+    grid-row:1/5!important;
+    align-items:flex-start!important;
+    justify-content:center!important;
+    padding-top:2px!important;
+  }
+  #view-cart .order-cart-row .article-cell{
+    display:flex!important;
+    grid-column:2!important;
+    grid-row:1!important;
+    font-size:13px!important;
+    font-weight:900!important;
+  }
+  #view-cart .order-cart-row .description-cell{
+    display:block!important;
+    grid-column:2!important;
+    grid-row:2!important;
+    margin-top:4px!important;
+    color:#667782!important;
+    font-size:10px!important;
+    line-height:1.3!important;
+  }
+  #view-cart .order-cart-row .term-cell{
+    display:flex!important;
+    grid-column:2!important;
+    grid-row:3!important;
+    margin-top:7px!important;
+    color:#526873!important;
+    font-size:9px!important;
+  }
+  #view-cart .order-cart-row .term-cell:before{
+    content:"Срок ";
+    color:#9aa5ad;
+    margin-right:4px;
+  }
+  #view-cart .order-cart-row .availability-cell{
+    display:flex!important;
+    grid-column:2!important;
+    grid-row:4!important;
+    margin-top:3px!important;
+    color:#526873!important;
+    font-size:9px!important;
+  }
+  #view-cart .order-cart-row .availability-cell:before{
+    content:"В наличии ";
+    color:#9aa5ad;
+    font-weight:500;
+    margin-right:4px;
+  }
+  #view-cart .order-cart-row .price-cell{
+    display:flex!important;
+    grid-column:3!important;
+    grid-row:1!important;
+    justify-content:flex-end!important;
+    align-self:start!important;
+    padding-left:7px!important;
+    font-size:13px!important;
+    font-weight:900!important;
+  }
+  #view-cart .order-cart-row .qty-cell{
+    display:flex!important;
+    grid-column:3!important;
+    grid-row:2/5!important;
+    justify-content:flex-end!important;
+    align-self:center!important;
+    padding-left:8px!important;
+  }
+  #view-cart .order-cart-row .comment-cell{
+    display:block!important;
+    grid-column:1/4!important;
+    grid-row:5!important;
+    margin-top:9px!important;
+  }
+  #view-cart .order-cart-row .remove-cell{
+    display:flex!important;
+    grid-column:1/4!important;
+    grid-row:6!important;
+    justify-content:flex-end!important;
+    margin-top:7px!important;
+    padding-top:7px!important;
+    border-top:1px solid #eef2f4!important;
+  }
+}
