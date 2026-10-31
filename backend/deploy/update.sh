@@ -27,6 +27,9 @@ if [[ -f /etc/zapformat/zapformat-api.env ]]; then
     psql "${DATABASE_URL}" -f db/001_init.sql >/dev/null
     psql "${DATABASE_URL}" -f db/002_garage_owner_app.sql >/dev/null
     psql "${DATABASE_URL}" -f db/003_quote_requests.sql >/dev/null
+    for migration in db/0[0-9][0-9]_*.sql; do
+      psql -X -v ON_ERROR_STOP=1 "${DATABASE_URL}" -f "$migration" >/dev/null
+    done
   fi
 fi
 
