@@ -5697,3 +5697,8 @@ html.zf-preauth #sessionEntryButton::after{content:"Проверяем вход�
   #view-auth .auth-form select,
   #view-auth .auth-form textarea{font-size:18px!important}
 }
+
+/* Recover a server-accepted phone verification without requesting or billing another call. */
+.auth-recovery-check{display:block;width:100%;margin-top:7px;padding:12px;border:1px solid #bfd1dd;border-radius:9px;background:#edf5f9;color:#173b55;cursor:pointer;font-size:14px;font-weight:700;line-height:1.4;text-align:center}
+.auth-recovery-check[hidden]{display:none!important}
+.auth-recovery-check:disabled{opacity:.6;cursor:wait}
