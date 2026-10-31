@@ -1168,6 +1168,19 @@ function requireAdmin(req, res, next) {
   next();
 }
 
+app.get("/api/telegram/network-health", async (_req, res) => {
+  try {
+    const response = await fetch("https://api.telegram.org", {
+      method: "GET",
+      redirect: "manual",
+      signal: AbortSignal.timeout(8000)
+    });
+    res.json({ ok: true, reachable: true, status: response.status });
+  } catch {
+    res.status(502).json({ ok: false, reachable: false });
+  }
+});
+
 app.use("/api/admin", requireDatabase, requireUser, requireAdmin);
 
 
