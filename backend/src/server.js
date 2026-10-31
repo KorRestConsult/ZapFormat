@@ -1168,6 +1168,48 @@ function requireAdmin(req, res, next) {
 
 app.use("/api/admin", requireDatabase, requireUser, requireAdmin);
 
+// One-time owner-authorized SMS.RU setup. Never expose or log the API key.
+// Provisioning is disabled once a key is saved; no changes to the admin interface.
+app.post("/api/admin/integrations/smsru/setup", async (req, res) => {
+  if (req.user?.role !== "owner") return res.status(403).json({error:"forbidden"});
+  if (String(process.env.SMSRU_API_ID || "").trim()) {
+    return res.status(409).json({error:"smsru_already_configured"});
+  }
+  const apiId=String(req.body?.api_id || "").trim();
+  if (!/^[A-Za-z0-9_-]{16,}$/.test(apiId) || apiId.length > 128) {
+    return res.status(400).json({error:"invalid_api_id"});
+  }
+  try {
+    // Free read-only provider check prevents persisting accidental/wrong credentials.
+    const response=await fetch("https://sms.ru/my/balance",{
+      method:"POST",
+      headers:{"Content-Type":"application/x-www-form-urlencoded;charset=UTF-8"},
+      body:new URLSearchParams({api_id:apiId,json:"1"}),
+      signal:AbortSignal.timeout(12000)
+    });
+    const data=await response.json().catch(()=>null);
+    if (!response.ok || data?.status!=="OK" || Number(data?.status_code)!==100) {
+      return res.status(422).json({error:"smsru_key_not_verified"});
+    }
+    const result=await installSmsRuToken({
+      smsru_api_id:apiId,
+      smsru_from:"",
+      smsru_test:"false",
+      phone_verification_method:"call"
+    });
+    return res.status(201).json({
+      ok:result.configured,
+      method:"call",
+      provider:"sms.ru",
+      balance_rub:Number.isFinite(Number(data.balance))?Number(data.balance):null
+    });
+  } catch (error) {
+    // Do not print submitted credentials or provider responses.
+    console.error("[SMSRU_SETUP]",error?.code||error?.name||"failed");
+    return res.status(503).json({error:"smsru_setup_unavailable"});
+  }
+});
+
 // Owner/admin pricing settings. Stored server-side; clients never receive the
 // procurement price or the policy itself. Existing orders retain their prices.
 async function initPricingSettings() {
