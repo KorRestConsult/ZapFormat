@@ -98,6 +98,7 @@ node --check backend/src/github-oidc.js
 node --check backend/src/ai-search.js
 node --check backend/src/vehicle-catalog.js
 node --check backend/src/secret-bootstrap.js
+node --check backend/src/telegram-notifier.js
 node --check backend/src/auth-otp.js
 node --check backend/src/auth-call.js
 node --check backend/src/fapi.js
@@ -145,6 +146,7 @@ if [[ -n "${DATABASE_URL:-}" ]]; then
   psql -X -v ON_ERROR_STOP=1 "${DATABASE_URL}" -f db/008_order_item_comments.sql >/dev/null
   psql -X -v ON_ERROR_STOP=1 "${DATABASE_URL}" -f db/009_auth_verification.sql >/dev/null
   psql -X -v ON_ERROR_STOP=1 "${DATABASE_URL}" -f db/010_customer_type.sql >/dev/null
+  psql -X -v ON_ERROR_STOP=1 "${DATABASE_URL}" -f db/011_test_orders.sql >/dev/null
 fi
 
 mkdir -p /etc/systemd/system/zapformat-api.service.d
@@ -159,6 +161,10 @@ EOF
 cat >/etc/systemd/system/zapformat-api.service.d/fapi-env.conf <<'EOF'
 [Service]
 EnvironmentFile=-/var/lib/zapformat/zapformat-fapi.env
+EOF
+cat >/etc/systemd/system/zapformat-api.service.d/telegram-env.conf <<'EOF'
+[Service]
+EnvironmentFile=-/var/lib/zapformat/zapformat-telegram.env
 EOF
 cat >/etc/systemd/system/zapformat-api.service.d/restart-policy.conf <<'EOF'
 [Unit]
