@@ -507,6 +507,8 @@ function restorePendingRegistration(){
 }
 
 function resetRegistrationFlow(){
+  const recoverButton=document.getElementById("registerRecoverButton");
+  if(recoverButton)recoverButton.hidden=true;
   try{sessionStorage.removeItem("zapformat-register-challenge");}catch{}
   registrationChallengeId="";
   registrationDraft=null;
@@ -5016,6 +5018,59 @@ document.getElementById("loginForm")?.addEventListener("submit",async e=>{
   }
 });
 
+// Recover the challenge already accepted by the server if the original HTTPS response
+// is lost. No new phone call is requested here and no duplicate provider charge is made.
+function applyAcceptedRegistrationChallenge(result,identity,recovered=false){
+  registrationChallengeId=String(result.challenge_id||"");
+  if(!registrationChallengeId)throw new Error("verification_not_found");
+  const masked=document.getElementById("registerMaskedPhone");
+  if(masked)masked.textContent=result.masked_phone||identity||"ваш номер";
+  const note=document.getElementById("registerVerificationNote");
+  if(note)note.firstChild.textContent=authCapabilities.verification_method==="call"?"Ожидайте звонка на ":"Код отправлен на ";
+  setAuthStage("register","verify");
+  try{sessionStorage.setItem("zapformat-register-challenge",JSON.stringify({
+    id:registrationChallengeId,
+    masked:result.masked_phone||identity||"ваш номер",
+    expiresAt:Date.now()+1000*(Number(result.expires_in)||600)
+  }));}catch{}
+  const button=document.getElementById("registerSubmitButton");
+  if(button)button.textContent="Подтвердить и создать аккаунт";
+  const recoverButton=document.getElementById("registerRecoverButton");
+  if(recoverButton)recoverButton.hidden=true;
+  setAuthStatus(recovered
+    ?"Сервер подтвердил, что запрос звонка был принят. Введите четыре цифры звонящего (или номер из SMS о заблокированном звонке)."
+    :"Ожидайте звонка. Если оператор заблокировал вызов, проверьте SMS с номером звонящего.","success");
+  startAuthCooldown("register",result.resend_in||60);
+}
+
+async function recoverAcceptedRegistration(){
+  if(!registrationDraft?.phone||!registrationDraft?.password){
+    setAuthStatus("Заполните форму повторно: данные регистрации не сохраняются после закрытия вкладки.","error");
+    return false;
+  }
+  const recoverButton=document.getElementById("registerRecoverButton");
+  if(recoverButton)recoverButton.disabled=true;
+  try{
+    const result=await apiRequest("/api/auth/register/recover",{
+      timeoutMs:15000,
+      method:"POST",
+      body:JSON.stringify({phone:registrationDraft.phone,password:registrationDraft.password})
+    });
+    applyAcceptedRegistrationChallenge(result,registrationDraft.phone,true);
+    return true;
+  }catch(error){
+    if(recoverButton)recoverButton.hidden=false;
+    setAuthStatus("Пока не удалось проверить ответ сервера. Звонок мог быть отправлен. Нажмите «Проверить уже отправленный звонок» позже — новый звонок не заказывается.","error");
+    return false;
+  }finally{
+    if(recoverButton)recoverButton.disabled=false;
+  }
+}
+document.getElementById("registerRecoverButton")?.addEventListener("click",()=>{
+  setAuthStatus("Проверяем уже принятый запрос без нового звонка…");
+  recoverAcceptedRegistration().catch(()=>{});
+});
+
 document.getElementById("registerForm")?.addEventListener("submit",async e=>{
   e.preventDefault();
   const form=e.currentTarget;
@@ -5057,19 +5112,15 @@ document.getElementById("registerForm")?.addEventListener("submit",async e=>{
         method:"POST",
         body:JSON.stringify(registrationDraft)
       });
-      registrationChallengeId=result.challenge_id;
-      const masked=document.getElementById("registerMaskedPhone");
-      if(masked) masked.textContent=result.masked_phone||identity;
-      const note=document.getElementById("registerVerificationNote");
-      if(note)note.firstChild.textContent=authCapabilities.verification_method==="call"?"Ожидайте звонка на ":"Код отправлен на ";
-      setAuthStage("register","verify");
-      try{sessionStorage.setItem("zapformat-register-challenge",JSON.stringify({id:result.challenge_id,masked:result.masked_phone||identity,expiresAt:Date.now()+1000*(Number(result.expires_in)||600)}));}catch{}
-      button.textContent="Подтвердить и создать аккаунт";
-      setAuthStatus(authCapabilities.verification_method==="call"?"Ожидайте звонка. Введите последние четыре цифры номера звонящего.":"Код отправлен по SMS.","success");
-      startAuthCooldown("register",result.resend_in||60);
-      // Let the user tap the code field; forced focus triggers unexpected Safari scrolling.
+      applyAcceptedRegistrationChallenge(result,identity);
+      // Do not auto-focus iPhone fields: Safari would unexpectedly zoom.
     }catch(error){
-      setAuthStatus(authErrorText(error),"error");
+      if(["request_timeout","network_unavailable","otp_too_soon"].includes(error?.code)){
+        setAuthStatus("Сервер мог принять заявку. Проверяем её без нового звонка…");
+        await recoverAcceptedRegistration();
+      }else{
+        setAuthStatus(authErrorText(error),"error");
+      }
     }finally{
       button.disabled=false;
     }
