@@ -50,7 +50,8 @@
   function loggedIn(user){
     state.user=user;$("authScreen").hidden=true;$("appScreen").hidden=false;
     $("userName").textContent=[user.name,user.surname].filter(Boolean).join(" ")||"Владелец";
-    openPage("overview");
+    const linkedOrder=String(new URLSearchParams(location.search).get("order")||"").trim();
+    openPage(linkedOrder?"orders":"overview");
   }
   async function restoreSession(){
     let token="";try{token=String(localStorage.getItem(KEY)||"");}catch{}
