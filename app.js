@@ -1815,7 +1815,14 @@ function syncMobileNav(route){
 function isManagementUser(){
   return Boolean(sessionUser) && ["owner","admin"].includes(String(sessionUser.role||""));
 }
-function ownerTestMode(){ return TEST_MODE_REQUESTED && String(sessionUser?.role||"")==="owner"; }
+function ownerTestMode(){
+  if(!TEST_MODE_REQUESTED) return false;
+  try{return Boolean(localStorage.getItem("zapformat-admin-access-token"));}catch{return false;}
+}
+function ownerTestToken(){
+  if(!ownerTestMode()) return "";
+  try{return String(localStorage.getItem("zapformat-admin-access-token")||"").trim();}catch{return "";}
+}
 
 let adminLoading=false;
 const ADMIN_ORDER_PAGE_SIZE=30;
@@ -3902,6 +3909,7 @@ async function checkoutCart(){
 
     const result=await apiRequest(sessionUser ? "/api/quote-requests" : "/api/public/quote-requests",{
       method:"POST",
+      headers:ownerTestMode()?{"X-ZapFormat-Owner-Test-Token":ownerTestToken()}:undefined,
       body:JSON.stringify({
         name,
         phone,
