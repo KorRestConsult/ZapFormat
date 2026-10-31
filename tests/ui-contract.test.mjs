@@ -169,3 +169,11 @@ test('supplier pack minimum is visible and validated in customer cart', () => {
   assert.match(app, /Минимум поставщика/);
   assert.match(app, /checked.status==="minimum_quantity"/);
 });
+
+
+test('Public mobile first paint cannot be blank while authorization is pending', () => {
+  assert.match(html, /<body class="guest-mode">/, 'public page starts visibly rather than hiding main pending API');
+  assert.doesNotMatch(html, /<body[^>]*session-pending/, 'never hide the whole store behind session restoration');
+  assert.match(html, /<section class="view active" id="view-auth">/, 'login should remain readable even if JavaScript or authentication fails');
+  assert.match(app, /document\.body\.classList\.remove\("session-pending"\)/, 'successful auth can still finalize loading state');
+});
