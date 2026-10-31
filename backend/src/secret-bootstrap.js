@@ -155,19 +155,23 @@ async function installSmsRuToken(payload) {
   }
   const from = String(payload?.smsru_from || "").trim().replace(/[\r\n]/g, "");
   const test = String(payload?.smsru_test || "false") === "true";
+  const method = String(payload?.phone_verification_method||"sms");
+  if(!["sms","call"].includes(method))throw new Error("verification_method_invalid");
 
   process.env.SMSRU_API_ID = apiId;
   process.env.SMSRU_FROM = from;
   process.env.SMSRU_TEST = test ? "true" : "false";
+  process.env.PHONE_VERIFICATION_METHOD = method;
 
   const envBody =
     envLine("SMSRU_API_ID", apiId) +
     envLine("SMSRU_FROM", from) +
-    envLine("SMSRU_TEST", test ? "true" : "false");
+    envLine("SMSRU_TEST", test ? "true" : "false") +
+    envLine("PHONE_VERIFICATION_METHOD", method);
 
   await fs.writeFile(SMS_ENV_FILE, envBody, { mode: 0o600 });
   await fs.chmod(SMS_ENV_FILE, 0o600).catch(() => {});
-  return { configured: true, provider: "sms.ru", test };
+  return { configured: true, provider: "sms.ru", test, method };
 }
 
 async function installFapiToken(payload) {
