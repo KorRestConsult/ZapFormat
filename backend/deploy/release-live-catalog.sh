@@ -99,6 +99,7 @@ node --check backend/src/ai-search.js
 node --check backend/src/vehicle-catalog.js
 node --check backend/src/secret-bootstrap.js
 node --check backend/src/auth-otp.js
+node --check backend/src/auth-call.js
 node --check backend/src/fapi.js
 node --check backend/src/fapi-fitment.js
 
@@ -143,6 +144,7 @@ if [[ -n "${DATABASE_URL:-}" ]]; then
   psql -X -v ON_ERROR_STOP=1 "${DATABASE_URL}" -f db/007_supplier_orders.sql >/dev/null
   psql -X -v ON_ERROR_STOP=1 "${DATABASE_URL}" -f db/008_order_item_comments.sql >/dev/null
   psql -X -v ON_ERROR_STOP=1 "${DATABASE_URL}" -f db/009_auth_verification.sql >/dev/null
+  psql -X -v ON_ERROR_STOP=1 "${DATABASE_URL}" -f db/010_customer_type.sql >/dev/null
 fi
 
 mkdir -p /etc/systemd/system/zapformat-api.service.d
