@@ -1276,6 +1276,52 @@ app.get("/api/admin/orders", async (req, res, next) => {
   }
 });
 
+// Detailed owner view of one real customer order. Never exposed by public routes.
+app.get("/api/admin/orders/:id", async (req, res, next) => {
+  try {
+    const id = String(req.params.id || "");
+    if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id)) {
+      return res.status(400).json({ error: "invalid_order_id" });
+    }
+    const result = await pool.query(
+      `SELECT o.id, o.order_number, o.status, o.total_amount, o.currency,
+              o.comment, o.created_at, o.updated_at, o.supplier_state,
+              o.recipient_name, o.recipient_phone,
+              a.city AS delivery_city, a.address AS delivery_address,
+              a.label AS delivery_label
+         FROM orders o
+         LEFT JOIN user_addresses a ON a.id = o.delivery_address_id
+        WHERE o.id = $1 LIMIT 1`,
+      [id]
+    );
+    if (!result.rowCount) return res.status(404).json({ error: "order_not_found" });
+    const items = await pool.query(
+      `SELECT id, brand, article, description, quantity, unit_price, purchase_price,
+              status, supplier_status, expected_at, received_at, created_at
+         FROM order_items
+        WHERE order_id = $1
+        ORDER BY created_at, id`,
+      [id]
+    );
+    const positions = items.rows.map(item => {
+      const sale = Number(item.unit_price) * Number(item.quantity);
+      const hasCost = item.purchase_price !== null && item.purchase_price !== undefined;
+      const cost = hasCost ? Number(item.purchase_price) * Number(item.quantity) : null;
+      return {...item, line_sale: Number(sale.toFixed(2)),
+        line_purchase: hasCost ? Number(cost.toFixed(2)) : null,
+        line_gross_profit: hasCost ? Number((sale-cost).toFixed(2)) : null};
+    });
+    const knownCost = positions.filter(x => x.line_purchase !== null);
+    const knownPurchase = knownCost.reduce((sum,x)=>sum + x.line_purchase,0);
+    const knownProfit = knownCost.reduce((sum,x)=>sum + x.line_gross_profit,0);
+    res.json({order:result.rows[0],items:positions,
+      costing:{costed_items:knownCost.length,missing_cost_items:positions.length-knownCost.length,
+        known_purchase:Number(knownPurchase.toFixed(2)),
+        known_gross_profit:Number(knownProfit.toFixed(2)),
+        complete:positions.length>0&&knownCost.length===positions.length}});
+  } catch (error) { next(error); }
+});
+
 // Owner/admin service desk. Read-only, role-protected by /api/admin middleware.
 // Keep all personal/contact details inside the authenticated admin API.
 app.get("/api/admin/requests", async (req, res, next) => {
