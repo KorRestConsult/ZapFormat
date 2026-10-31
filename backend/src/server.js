@@ -1936,6 +1936,50 @@ app.get("/api/admin/requests", async (req, res, next) => {
   }
 });
 
+// Read-only owner diagnostics. No phone call, SMS, or code is generated.
+app.get("/api/admin/verification-health", async (req, res, next) => {
+  if (req.user?.role !== "owner") return res.status(403).json({ error: "owner_only" });
+  res.set("Cache-Control", "no-store");
+  try {
+    const counts = await pool.query(
+      "SELECT count(*)::int AS started, count(*) FILTER (WHERE consumed_at IS NOT NULL)::int AS confirmed, count(*) FILTER (WHERE consumed_at IS NULL AND expires_at > now())::int AS awaiting, max(created_at) AS latest_at FROM auth_challenges WHERE purpose='register' AND created_at >= now() - interval '24 hours'"
+    );
+    const key = String(process.env.SMSRU_API_ID || "").trim();
+    const report = {
+      configured: Boolean(key),
+      method: verificationMethod(),
+      started_24h: Number(counts.rows[0]?.started || 0),
+      confirmed_24h: Number(counts.rows[0]?.confirmed || 0),
+      awaiting_24h: Number(counts.rows[0]?.awaiting || 0),
+      last_request_at: counts.rows[0]?.latest_at || null,
+      provider_status: key ? "unavailable" : "not_configured",
+      balance_rub: null,
+      provider_code: null
+    };
+    if (key) {
+      try {
+        const result = await fetch("https://sms.ru/my/balance", {
+          method: "POST",
+          headers: { "Content-Type": "application/x-www-form-urlencoded;charset=UTF-8" },
+          body: new URLSearchParams({ api_id: key, json: "1" }),
+          signal: AbortSignal.timeout(6000)
+        });
+        const body = await result.json().catch(() => ({}));
+        const statusCode = Number(body.status_code);
+        report.provider_code = Number.isFinite(statusCode) ? statusCode : null;
+        report.provider_status = result.ok && body.status === "OK" && statusCode === 100
+          ? "reachable" : "rejected";
+        if (report.provider_status === "reachable" && Number.isFinite(Number(body.balance))) {
+          report.balance_rub = Number(body.balance);
+        }
+      } catch {
+        report.provider_status = "unavailable";
+      }
+    }
+    return res.json(report);
+  } catch (error) { next(error); }
+});
+
 app.get("/api/admin/customers", async (req, res, next) => {
   try {
     const search = String(req.query?.q || "").trim().slice(0, 80);

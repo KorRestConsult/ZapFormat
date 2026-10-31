@@ -199,6 +199,35 @@
     $("page").innerHTML=panel("Клиенты",'<div class="toolbar"><label>Поиск <input id="customerSearch" placeholder="Имя, телефон или почта" value="'+escape(state.searchCustomers)+'" maxlength="80"></label><span class="muted">Только просмотр клиентских данных.</span></div><div id="customersList">'+table(["Клиент","Контакты","Заказы","Обращения"],customerRows(state.customers))+'</div><div class="pagination"><span>Показано: '+formatInt(state.customers.length)+'</span><button id="customersMore" class="secondary" '+(!state.more.customers?"hidden":"")+'>Загрузить ещё</button></div>');
     let debounce;$("customerSearch").addEventListener("input",e=>{const value=e.target.value;clearTimeout(debounce);debounce=setTimeout(()=>{state.searchCustomers=value;loadList("customers");},400);});
     $("customersMore").addEventListener("click",()=>loadList("customers",true));
+    if(state.user?.role==="owner"){
+      const box=document.createElement("section");
+      box.className="panel";
+      box.innerHTML='<div class="panel-head"><h2>Регистрация покупателей</h2></div><p class="muted">Проверка SMS.RU без отправки звонков, SMS и без доступа к кодам клиентов.</p><button type="button" class="secondary" id="checkRegistration">Проверить подтверждение телефонов</button><div id="registrationHealth" class="muted" aria-live="polite"></div>';
+      $("page").prepend(box);
+      box.querySelector("#checkRegistration").addEventListener("click",async event=>{
+        const button=event.currentTarget;
+        const output=box.querySelector("#registrationHealth");
+        button.disabled=true;
+        output.textContent="Проверяем доступность SMS.RU и статистику за 24 часа…";
+        try{
+          const data=await request("/api/admin/verification-health");
+          const status=data.provider_status==="reachable"
+            ?"SMS.RU отвечает"
+            :data.provider_status==="not_configured"?"SMS.RU не настроен"
+            :data.provider_status==="rejected"?"SMS.RU отклонил диагностический запрос"
+            :"SMS.RU не ответил";
+          const balance=data.balance_rub===null?"":(" · баланс "+formatRub(data.balance_rub));
+          output.textContent=status+balance+
+            ". За 24 часа: запросов "+formatInt(data.started_24h)+
+            ", подтверждений "+formatInt(data.confirmed_24h)+
+            ", ожидающих "+formatInt(data.awaiting_24h)+
+            ". Последний запрос: "+dateRu(data.last_request_at)+
+            ". Успешная проверка баланса не означает гарантированной доставки каждого звонка.";
+        }catch{
+          output.textContent="Не удалось получить диагностику. Отправка звонков не выполнялась.";
+        }finally{button.disabled=false;}
+      });
+    }
   }
   function renderLogistics(queue){
     const active=queue.filter(i=>!["completed","cancelled"].includes(i.status));
