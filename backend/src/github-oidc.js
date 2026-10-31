@@ -47,7 +47,7 @@ function audienceMatches(aud, expectedAudience = AUDIENCE) {
 async function verifyGitHubActionsToken(token, options = {}) {
   const expectedAudience = String(options.audience || AUDIENCE);
   const expectedRef = String(options.ref || REF);
-  const expectedEventName = String(options.eventName || "push");
+  const allowedEventNames = options.eventName ? [String(options.eventName)] : ["push", "workflow_dispatch"];
   const parts = String(token || "").split(".");
   if (parts.length !== 3) throw new Error("invalid_token");
 
@@ -80,7 +80,7 @@ async function verifyGitHubActionsToken(token, options = {}) {
   if (Number.isFinite(payload.nbf) && payload.nbf > now + 30) throw new Error("token_not_yet_valid");
   if (payload.repository !== REPOSITORY) throw new Error("invalid_repository");
   if (payload.ref !== expectedRef) throw new Error("invalid_ref");
-  if (payload.event_name !== expectedEventName) throw new Error("invalid_event");
+  if (!allowedEventNames.includes(payload.event_name)) throw new Error("invalid_event");
   if (!/^[a-f0-9]{40}$/.test(String(payload.sha || ""))) throw new Error("invalid_sha");
 
   return payload;
