@@ -87,6 +87,32 @@ install -m 750 "${APP_DIR}/backend/deploy/autodeploy-runner.sh" /usr/local/sbin/
 install -d -o zapformat -g zapformat -m 700 /var/lib/zapformat/partgrade-private
 install -d -o zapformat -g zapformat -m 700 /var/lib/zapformat/fapi-cache
 
+mark_stage "network_diagnostic"
+python3 - <<'PY'
+import json, subprocess, pathlib, socket
+out={}
+def run(name, cmd):
+    try:
+        p=subprocess.run(cmd, capture_output=True, text=True, timeout=8)
+        out[name]={"code":p.returncode,"stdout":p.stdout[-12000:],"stderr":p.stderr[-4000:]}
+    except Exception as e:
+        out[name]={"error":type(e).__name__+":"+str(e)}
+try:
+    out["dns"]={"api.telegram.org":socket.getaddrinfo("api.telegram.org",443,proto=socket.IPPROTO_TCP)}
+except Exception as e:
+    out["dns"]={"error":type(e).__name__+":"+str(e)}
+run("ip_route",["ip","route","show"])
+run("ufw",["ufw","status","verbose"])
+run("iptables_output",["iptables","-S","OUTPUT"])
+run("nft",["nft","list","ruleset"])
+run("telegram_curl",["curl","-4","-I","-sS","--connect-timeout","6","--max-time","8","https://api.telegram.org/"])
+run("google_curl",["curl","-4","-I","-sS","--connect-timeout","6","--max-time","8","https://www.google.com/"])
+run("partgrade_curl",["curl","-4","-I","-sS","--connect-timeout","6","--max-time","8","https://partgrade.com/"])
+path=pathlib.Path("/var/lib/zapformat/network-diagnostic.json")
+path.write_text(json.dumps(out,ensure_ascii=False),encoding="utf-8")
+path.chmod(0o644)
+PY
+
 mark_stage "syntax_checks"
 node --check app.js
 node --check backend/src/server.js
