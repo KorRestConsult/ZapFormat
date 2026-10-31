@@ -5690,3 +5690,10 @@ html.zf-preauth #view-auth.active{display:none!important}
 html.zf-preauth #view-home{display:block!important}
 html.zf-preauth #sessionEntryButton{font-size:0!important}
 html.zf-preauth #sessionEntryButton::after{content:"Проверяем вход…";font-size:12px}
+
+/* Higher-specificity override: keep Safari auth controls above its auto-zoom threshold. */
+@media(max-width:900px){
+  #view-auth .auth-form input:not([type="checkbox"]),
+  #view-auth .auth-form select,
+  #view-auth .auth-form textarea{font-size:18px!important}
+}
