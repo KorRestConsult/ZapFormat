@@ -5683,3 +5683,10 @@ html,body{scroll-behavior:auto!important}
     min-height:48px;
   }
 }
+
+/* When a saved session exists, paint the catalog while the real session is checked.
+   Avoid flashing login, or leaving an empty page behind an API request. */
+html.zf-preauth #view-auth.active{display:none!important}
+html.zf-preauth #view-home{display:block!important}
+html.zf-preauth #sessionEntryButton{font-size:0!important}
+html.zf-preauth #sessionEntryButton::after{content:"Проверяем вход…";font-size:12px}
