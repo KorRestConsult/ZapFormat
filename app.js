@@ -2109,10 +2109,9 @@ function extractArticleCandidate(value){
 }
 
 function currentSearchVehicle(){
-  if(!sessionUser) return null;
-  // A VIN entered by the customer is the active search context until they
-  // explicitly switch back to a saved garage vehicle.
+  // A VIN entered by a guest remains active for their next parts search.
   if(transientVinVehicle) return transientVinVehicle;
+  if(!sessionUser) return null;
   if(garageState?.vehicle?.id) return garageState.vehicle;
   return null;
 }
@@ -2626,9 +2625,9 @@ function renderVinDecodeResult(vin,decoded){
         ${decoded?.drive_type?'<div class="smart-spec-row"><b>Привод</b><span>'+escapeHtml(String(decoded.drive_type))+'</span></div>':""}
         ${decoded?.body_type?'<div class="smart-spec-row"><b>Кузов</b><span>'+escapeHtml(String(decoded.body_type))+'</span></div>':""}
       </div>
-      <p class="vehicle-search-note">Автомобиль распознан. Когда точный каталог этой модификации доступен, разделы деталей открываются здесь автоматически — ничего дополнительно вводить не нужно.</p>
+      <p class="vehicle-search-note">${model && modification ? "Модификация определена, но каталог деталей временно недоступен." : "VIN принят. Определены только отдельные данные автомобиля — модель и модификация ещё не подтверждены. Укажите модель, двигатель и нужную деталь для дальнейшего подбора."}</p>
       <div class="vehicle-search-actions">
-        <button type="button" data-route="garage">Сохранить автомобиль</button>
+        <button type="button" data-focus-catalog-search>Уточнить автомобиль или деталь</button>
       </div>
     </div>`;
 }

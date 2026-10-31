@@ -29,3 +29,5 @@ test('VIN is recognized separately and not sent as article',()=>{
   assert.match(file,/api\/catalog\/vin-browser\?vin/);
   assert.match(file,/timeoutMs:32000/);
 });
+
+test("guest VIN context survives to the next parts query",()=>{ assert.match(file,/if\(transientVinVehicle\) return transientVinVehicle;\s*if\(!sessionUser\) return null;/); });
