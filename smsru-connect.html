@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="ru"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>ZapFormat — подключение SMS.RU</title>
+<meta name="robots" content="noindex,nofollow">
+<style>
+*{box-sizing:border-box}body{margin:0;background:#111827;color:#e5e7eb;min-height:100vh;font:16px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Arial,sans-serif;display:grid;place-items:center;padding:24px}
+main{background:#1f2937;border:1px solid #374151;border-radius:18px;padding:28px;max-width:520px;width:100%}h1{font-size:24px;margin:0 0 12px}p{color:#d1d5db}label{display:block;font-weight:600;margin:20px 0 8px}
+input{background:#111827;border:1px solid #6b7280;border-radius:8px;padding:14px;width:100%;font:inherit;color:white}
+button{margin-top:14px;background:#f59e0b;border:0;border-radius:9px;padding:13px 20px;color:#111827;font-weight:700;font:inherit;cursor:pointer;width:100%}
+button:disabled{opacity:.5;cursor:wait}small{font-size:13px;color:#9ca3af;display:block;margin-top:14px}#status{margin-top:16px;min-height:24px;white-space:pre-line}a{color:#fbbf24} 
+</style></head><body><main>
+<h1>Подключение SMS.RU</h1>
+<p>Только для владельца ZapFormat. Регистрация покупателей будет подтверждаться звонком за 40 копеек по тарифу SMS.RU.</p>
+<p>Скопируйте <strong>api_id</strong> из раздела «Главная» на уже открытой вкладке <a href="https://sms.ru/?panel=my" target="_blank" rel="noopener noreferrer">SMS.RU</a> и вставьте сюда.</p>
+<form id="setup">
+<label for="api">API-ключ SMS.RU</label>
+<input id="api" type="password" autocomplete="off" spellcheck="false" placeholder="Вставьте api_id" required minlength="16" maxlength="128">
+<button id="submit" type="submit">Подключить звонки</button>
+</form>
+<div id="status" role="status" aria-live="polite"></div>
+<small>Ключ передаётся напрямую вашему серверу по HTTPS. В сайт и GitHub он не записывается. Не отправляйте ключ в переписку.</small>
+</main>
+<script>
+"use strict";
+(()=>{const ENDPOINT="https://api.168.113.211.246.sslip.io";const KEY="zapformat-admin-access-token";
+const form=document.getElementById("setup"),field=document.getElementById("api"),button=document.getElementById("submit"),status=document.getElementById("status");
+if(!localStorage.getItem(KEY)){status.textContent="Сначала войдите в уже настроенную панель владельца в соседней вкладке.";button.disabled=true;}
+form.addEventListener("submit",async event=>{
+ event.preventDefault();if(button.disabled)return;
+ const token=localStorage.getItem(KEY)||"";const apiId=field.value.trim();if(!token||!/^[A-Za-z0-9_-]{16,128}$/.test(apiId)){status.textContent="Проверьте API-ключ и вход в кабинет владельца.";return;}
+ button.disabled=true;status.textContent="Проверяю ключ SMS.RU и сохраняю на сервере…";
+ try{
+ const response=await fetch(ENDPOINT+"/api/admin/integrations/smsru/setup",{method:"POST",credentials:"include",
+ headers:{"Content-Type":"application/json","Authorization":"Bearer "+token},body:JSON.stringify({api_id:apiId})});
+ const data=await response.json().catch(()=>({}));field.value="";
+ if(response.ok&&data.ok){status.textContent="Готово. Подтверждение по звонку подключено."+(Number.isFinite(data.balance_rub)?" Баланс: "+data.balance_rub+" ₽.":"");form.hidden=true;}
+ else{status.textContent=({forbidden:"Войти нужно как владелец.",unauthorized:"Войдите в панель владельца заново.",smsru_key_not_verified:"SMS.RU не принял ключ.",smsru_already_configured:"Подключение уже выполнено.",smsru_setup_unavailable:"Не удалось сохранить ключ на сервере. Попробуйте ещё раз."}[data.error]||"Подключение не завершено (HTTP "+response.status+").");button.disabled=false;}
+ }catch(_){field.value="";status.textContent="Ошибка связи с сервером. Попробуйте ещё раз.";button.disabled=false;}
+});
+})();
+</script></body></html>
