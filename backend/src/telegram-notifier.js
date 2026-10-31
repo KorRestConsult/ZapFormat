@@ -272,6 +272,7 @@ async function telegramDocument(buffer, filename, caption = "") {
   const token = botToken();
   const chatId = ownerChatId();
   if (!token || !chatId) return { sent: false, reason: "telegram_not_connected" };
+  const safeCaption = String(caption || "").slice(0, 1000);
   const path = "/bot" + token + "/sendDocument";
   let networkError = null;
   let status = 0;
@@ -279,7 +280,7 @@ async function telegramDocument(buffer, filename, caption = "") {
   try {
     const form = new FormData();
     form.append("chat_id", chatId);
-    if (caption) form.append("caption", String(caption).slice(0, 1000));
+    if (safeCaption) form.append("caption", safeCaption);
     form.append("document", new Blob([buffer], { type: "application/pdf" }), filename);
     const response = await fetch(TELEGRAM_API + path, { method: "POST", body: form, signal: AbortSignal.timeout(15000) });
     status = response.status;
@@ -289,7 +290,7 @@ async function telegramDocument(buffer, filename, caption = "") {
   if (networkError) {
     for (const ip of TELEGRAM_FALLBACK_IPS) {
       try {
-        const response = await directTelegramMultipart(ip, path, { chat_id: chatId, caption }, {
+        const response = await directTelegramMultipart(ip, path, { chat_id: chatId, caption: safeCaption }, {
           field: "document", filename, contentType: "application/pdf", buffer
         });
         status = response.status;
