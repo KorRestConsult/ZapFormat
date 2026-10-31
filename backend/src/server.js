@@ -3250,6 +3250,44 @@ app.post("/api/auth/login", authLimiter, async (req, res, next) => {
   }
 });
 
+// Password rotation is available to every authenticated account, including the owner.
+// Revoke all existing sessions after a successful change; no credential is written to logs.
+app.post("/api/account/password/change", requireUser, authLimiter, async (req, res, next) => {
+  try {
+    const currentPassword = String(req.body?.current_password || "");
+    const newPassword = String(req.body?.new_password || "");
+    const confirmation = String(req.body?.new_password_confirmation || "");
+    if (!currentPassword || !newPassword) {
+      return res.status(400).json({ error: "passwords_required" });
+    }
+    if (newPassword.length < 12 || newPassword.length > 128) {
+      return res.status(400).json({ error: "password_strength_required" });
+    }
+    if (newPassword !== confirmation) {
+      return res.status(400).json({ error: "passwords_do_not_match" });
+    }
+    if (!(await bcrypt.compare(currentPassword, req.user.password_hash))) {
+      return res.status(401).json({ error: "current_password_invalid" });
+    }
+    if (await bcrypt.compare(newPassword, req.user.password_hash)) {
+      return res.status(400).json({ error: "same_password" });
+    }
+    const hash = await bcrypt.hash(newPassword, 12);
+    const updated = await pool.query(
+      "UPDATE users SET password_hash = $2, updated_at = now() WHERE id = $1 AND password_hash = $3 RETURNING id",
+      [req.user.id, hash, req.user.password_hash]
+    );
+    if (!updated.rowCount) {
+      return res.status(409).json({ error: "password_changed_elsewhere" });
+    }
+    await pool.query("DELETE FROM user_sessions WHERE user_id = $1", [req.user.id]);
+    res.clearCookie(COOKIE_NAME, sessionCookieOptions());
+    return res.json({ ok: true, reauthenticate: true });
+  } catch (error) {
+    next(error);
+  }
+});
+
 app.post("/api/auth/logout", async (req, res, next) => {
   try {
     const token = sessionTokenFromRequest(req);
