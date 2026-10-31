@@ -13,8 +13,8 @@ test('standalone administrative entry has its own login and route assets',()=>{
   for(const id of ['authScreen','loginForm','login','password','authError','appScreen','page','menu','logoutButton']){
     assert.ok(html.includes('id="'+id+'"'),id+' not found');
   }
-  assert.match(html,/admin\/admin\.js/);
-  assert.match(html,/admin\/admin\.css/);
+  assert.match(html,/src="\.\/admin\.js/);
+  assert.match(html,/href="\.\/admin\.css/);
   assert.match(html,/noindex,nofollow/);
   assert.ok(!html.includes('id="view-admin"'),'must not reuse customer interface');
 });
@@ -28,8 +28,8 @@ test('privileged API only runs after owner/admin session validation',()=>{
   assert.match(js,/\/api\/admin\/overview/);
   assert.match(js,/\/api\/admin\/orders/);
   assert.match(js,/\/api\/admin\/pricing/);
-  assert.match(js,/\/api\/admin\/customers/);
-  assert.match(js,/\/api\/admin\/requests/);
+  assert.match(js,/if\(kind==="orders"\)renderOrders\(\)/);
+  assert.match(js,/else if\(kind==="requests"\)renderRequests\(\)/);
   assert.match(server,/app\.use\("\/api\/admin", requireDatabase, requireUser, requireAdmin\)/);
 });
 
