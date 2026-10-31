@@ -161,6 +161,7 @@ let resetChallengeId="";
 let resetIdentity="";
 let authCapabilities={phone_verification:null,password_recovery:null,session_days:null};
 let supplierAvailable=null;
+let guestQuoteAvailable=false;
 const authCooldownTimers=new Map();
 
 function backendConfigured(){ return Boolean(API_BASE); }
@@ -514,10 +515,10 @@ function renderCheckoutContact(){
   if(!summary || !fallback) return;
 
   if(!sessionUser){
-    summary.innerHTML='<div><small>ЗАЯВКА БЕЗ РЕГИСТРАЦИИ</small><b>Подберём и подтвердим детали</b><span>Вы оставляете телефон для связи. Закупка выполняется только после согласования.</span></div>';
-    fallback.hidden=false;
+    summary.innerHTML=guestQuoteAvailable?'<div><small>ЗАЯВКА БЕЗ РЕГИСТРАЦИИ</small><b>Подберём и подтвердим детали</b><span>Вы оставляете телефон для связи. Закупка выполняется только после согласования.</span></div>':"";
+    fallback.hidden=!guestQuoteAvailable;
     const consent=document.getElementById("guestQuoteConsent");
-    if(consent)consent.hidden=false;
+    if(consent)consent.hidden=!guestQuoteAvailable;
     return;
   }
   const consent=document.getElementById("guestQuoteConsent");
@@ -601,14 +602,14 @@ function updateCheckoutMode(){
       button.disabled=selectedCount===0 || supplierAvailable!==true;
       button.textContent=supplierAvailable!==true
         ? "Оформление временно недоступно"
-        : !sessionUser ? "Отправить заявку без регистрации" : finalLabel;
+        : !sessionUser ? (guestQuoteAvailable ? "Отправить заявку без регистрации" : "Войти для оформления") : finalLabel;
     }
   });
   checkoutEntryButtons().forEach(button=>{
     button.disabled=selectedCount===0 || supplierAvailable!==true;
     button.textContent=supplierAvailable!==true
       ? "Каталог поставщика подключается"
-      : !sessionUser ? "Оставить заявку · "+selectedCount : entryLabel;
+      : !sessionUser ? (guestQuoteAvailable ? "Оставить заявку · "+selectedCount : "Войти для оформления") : entryLabel;
   });
 
   const summary=document.getElementById("checkoutReviewSummary");
@@ -618,7 +619,7 @@ function updateCheckoutMode(){
   const note=document.querySelector(".checkout-recheck-note");
   if(note){
     note.textContent=supplierAvailable===true
-      ? (!sessionUser ? "Заявка отправится менеджеру на подтверждение, без оплаты и закупки." : "Перед подтверждением ещё раз проверим цену и наличие. Оплата — только наличными при получении.")
+      ? (!sessionUser && guestQuoteAvailable ? "Заявка отправится менеджеру на подтверждение, без оплаты и закупки." : "Перед подтверждением ещё раз проверим цену и наличие. Оплата — только наличными при получении.")
       : "Оформление временно недоступно: ждём подключения каталога поставщика. Заказ не будет отправлен.";
   }
   const paymentNote=document.getElementById("checkoutPaymentNote");
@@ -3666,6 +3667,12 @@ function deleteSelected(){
 
 async function checkoutCart(){
   // Guests send an enquiry only. A confirmed, signed-in customer may create an order.
+  if(!sessionUser && !guestQuoteAvailable){
+    pendingAccountRoute="cart";
+    navigate("auth");
+    setAuthStatus("Для оформления заказа войдите в аккаунт. Корзина сохранится.");
+    return;
+  }
   if(!sessionUser && !document.getElementById("guestQuoteAgree")?.checked){
     showToast("Подтвердите согласие на связь по заявке.","warn");
     return;
@@ -3881,7 +3888,11 @@ document.addEventListener("click",async e=>{
     if(action==="clear") clearCart();
     else if(action==="delete-selected") deleteSelected();
     else if(action==="start-checkout"){
-      if(supplierAvailable!==true){
+      if(!sessionUser && !guestQuoteAvailable){
+        pendingAccountRoute="cart";
+        navigate("auth");
+        setAuthStatus("Для оформления заказа войдите в аккаунт. Корзина сохранится.");
+      }else if(supplierAvailable!==true){
         showToast("Оформление доступно после подключения поставщика.","warn");
       }else{
         setCheckoutReviewOpen(true,{scroll:true});
@@ -5413,6 +5424,15 @@ try{
 }catch{}
 
 
+async function detectGuestQuoteCapability(){
+  if(!backendConfigured())return;
+  try {
+    const response=await apiRequest("/api/public/quote-requests/capabilities");
+    guestQuoteAvailable=response.enabled===true && response.mode==="enquiry_only" && response.supplier_order===false;
+  } catch (_error) { guestQuoteAvailable=false; }
+  updateCheckoutMode();
+}
+detectGuestQuoteCapability().catch(()=>{});
 document.addEventListener("change",async e=>{
   const notification=e.target.closest?.("[data-notification]");
   if(!notification) return;
