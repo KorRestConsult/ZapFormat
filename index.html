@@ -7,7 +7,7 @@
   <script>try{if(localStorage.getItem("zapformat-access-token"))document.documentElement.classList.add("zf-preauth")}catch(_){}</script>
   <title>ZapFormat — автозапчасти</title>
   <meta name="description" content="ZapFormat — поиск автозапчастей по артикулу и названию. Личный гараж, корзина и история заказов." />
-  <link rel="stylesheet" href="./styles.css?v=20261031-home-clean1" />
+  <link rel="stylesheet" href="./styles.css?v=20261031-home-clean2" />
 </head>
 <body class="guest-mode auth-route">
   <div class="app">
@@ -44,17 +44,7 @@
                 <textarea id="searchInput" rows="1" autocomplete="off" enterkeyhint="search" placeholder="Например, 0986AF1111 или тормозные колодки"></textarea>
                 <button type="submit"><span>Найти</span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="m5 12 14 0M13 6l6 6-6 6"/></svg></button>
               </form>
-              <div class="storefront-status" id="storefrontStatus" role="status" aria-live="polite">
-                <span class="storefront-status-dot" aria-hidden="true"></span>
-                <span id="storefrontStatusText">Проверяем подключение к каталогу…</span>
-              </div>
-              <div class="minimal-note">Цена, наличие и срок поставки подтверждаются перед заказом.</div>
             </div>
-          </div>
-          <div class="storefront-steps" aria-label="Возможности ZapFormat">
-            <div><b>01 / НАЙТИ</b><strong>Поиск и аналоги</strong><span>По артикулу или названию детали. Без случайного подбора.</span></div>
-            <div><b>02 / СОХРАНИТЬ</b><strong>Гараж и корзина</strong><span>Ваши автомобили, выбранные детали и комментарии.</span></div>
-            <div><b>03 / КОНТРОЛИРОВАТЬ</b><strong>Заказы и статусы</strong><span>История заказов, изменения позиций и события.</span></div>
           </div>
         </div>
       </section>
@@ -374,8 +364,7 @@
             </div>
 
             <nav class="account-nav" aria-label="Личный кабинет">
-              <button type="button" class="active" data-account-tab="overview">Обзор</button>
-              <button type="button" data-account-tab="orders">Заказы</button>
+              <button type="button" class="active" data-account-tab="orders">Заказы</button>
               <button type="button" data-account-tab="returns">Возвраты</button>
               <button type="button" data-account-tab="garage">Гараж</button>
               <button type="button" data-account-tab="profile">Профиль</button>
@@ -388,51 +377,8 @@
           </aside>
 
           <div class="account-content">
-            <section class="account-pane active" id="account-overview">
-              <div class="account-head">
-                <div>
-                  <span class="eyebrow">МОЙ ZAPFORMAT</span>
-                  <h2>Всё по вашим заказам.</h2>
-                  <p>Заказы, автомобиль и получение — без лишних разделов.</p>
-                </div>
-                <button type="button" class="account-primary" data-route="home">Найти запчасть</button>
-              </div>
 
-              <div class="account-stats" id="accountLiveStats">
-                <article><span>Активные заказы</span><b>—</b><small>—</small></article>
-                <article><span>Готово к получению</span><b>—</b><small>—</small></article>
-                <article><span>Автомобили</span><b>—</b><small>—</small></article>
-                <article><span>Всего заказов</span><b>—</b><small>за всё время</small></article>
-              </div>
-
-              <div class="account-setup" id="accountSetupCard">
-                <div class="account-block-head"><div><span class="eyebrow">НАСТРОЙКА КАБИНЕТА</span><h3>Всё необходимое для заказа</h3></div><span class="account-setup-count" id="accountSetupCount">—</span></div>
-                <div class="account-setup-grid" id="accountSetupChecklist" aria-live="polite"><p>Загружаем данные кабинета…</p></div>
-              </div>
-
-              <div class="account-block">
-                <div class="account-block-head">
-                  <div><span class="eyebrow">ПОСЛЕДНИЕ ЗАКАЗЫ</span><h3>Статус заказов</h3></div>
-                  <button type="button" data-account-tab="orders">Все →</button>
-                </div>
-                <div class="account-order-list" id="accountRecentRequests">
-                  <div class="account-empty"><p>Заказы появятся после оформления.</p></div>
-                </div>
-              </div>
-
-              <div class="account-grid-2">
-                <div class="account-block">
-                  <div class="account-block-head"><div><span class="eyebrow">ГАРАЖ</span><h3>Мои автомобили</h3></div><button type="button" data-account-tab="garage">Открыть →</button></div>
-                  <div id="accountGaragePreview" class="account-muted">Добавьте автомобиль в гараж.</div>
-                </div>
-                <div class="account-block">
-                  <div class="account-block-head"><div><span class="eyebrow">ПОЛУЧЕНИЕ</span><h3 id="accountDeliveryCity">Получение</h3></div><button type="button" data-account-tab="delivery">Настроить →</button></div>
-                  <p class="account-muted" id="accountDeliveryPreview">Укажите основную точку или адрес получения.</p>
-                </div>
-              </div>
-            </section>
-
-            <section class="account-pane" id="account-orders">
+            <section class="account-pane active" id="account-orders">
               <div class="account-head"><div><span class="eyebrow">ЗАКАЗЫ</span><h2>Мои заказы</h2><p>Статус, состав и история каждого заказа.</p></div><button type="button" class="account-primary" id="accountOrdersRefresh">Обновить статусы</button></div><p class="account-status-update" id="accountOrdersRefreshStatus" role="status" aria-live="polite">Данные обновляются автоматически при открытии раздела.</p>
               <div class="account-toolbar">
                 <input id="orderSearch" placeholder="Номер заказа или артикул">
@@ -641,7 +587,7 @@
 </div>
 
   <script src="./config.js?v=20261027-design1"></script>
-  <script src="./app.js?v=20261031-call-recovery9"></script>
+  <script src="./app.js?v=20261031-account-clean1"></script>
   <script src="./admin-desk.js?v=20261030-pricing1"></script>
 </body>
 </html>
