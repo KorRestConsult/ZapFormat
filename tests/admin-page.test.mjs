@@ -20,7 +20,9 @@ test('standalone administrative entry has its own login and route assets',()=>{
 });
 
 test('privileged API only runs after owner/admin session validation',()=>{
-  assert.match(js,/\["owner","admin"\]\.includes/);
+  assert.match(js,/\["owner","admin","courier","customer"\]\.includes/);
+  assert.match(js,/role==="courier"/);
+  assert.match(js,/role==="customer"/);
   assert.match(js,/request\("\/api\/auth\/me"\)/);
   assert.match(js,/if\(!authorized\(data\.user\)\)/);
   assert.match(js,/if\(!state\.user\)return/);
