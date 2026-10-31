@@ -3872,7 +3872,7 @@ async function checkoutCart(){
     }
   }
 
-  if(sessionUser && !accountPreferences?.delivery?.address){
+  if(sessionUser && !ownerTestMode() && !accountPreferences?.delivery?.address){
     pendingCheckoutAfterDelivery=true;
     showToast("Сначала укажите получение заказа.","warn");
     navigate("profile");
