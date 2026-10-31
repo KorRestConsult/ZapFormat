@@ -83,3 +83,17 @@ test("owner courier demo is read-only and has no supplier writes",()=>{
   assert.match(ui,/button\.disabled=true/);
   assert.doesNotMatch(ui.slice(ui.indexOf("async function renderCourierPreview"),ui.indexOf("async function renderApplicant")),/submitSupplierOrder|partgrade\.com/);
 });
+
+test("courier-facing login fits mobile screens without removing real registration forms",()=>{
+  assert.match(html,/<h2 id=\"authTitle\">Вход<\/h2>/);
+  assert.match(html,/Служебный кабинет/);
+  assert.match(css,/@media \(max-width: 780px\)/);
+  assert.match(css,/#authScreen \.auth-brand \{/);
+  assert.match(css,/#authScreen \.auth-card input \{/);
+  assert.match(css,/font-size: 16px; \/\* prevents Safari input focus zoom/);
+  assert.match(css,/#authScreen \.form-error:empty/);
+  assert.match(css,/@media \(max-width: 780px\) and \(max-height: 670px\)/);
+  for(const id of ["loginForm","courierRegisterToggle","courierRegisterForm","courierVerifyForm","courierVerifySubmit"]){
+    assert.match(html,new RegExp("id=\""+id+"\""));
+  }
+});

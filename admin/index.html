@@ -6,17 +6,17 @@
 <meta name="robots" content="noindex,nofollow">
 <meta name="theme-color" content="#101a2c">
 <title>ZapFormat — Служебный кабинет</title>
-<link rel="stylesheet" href="./admin.css?v=20261031-email-mailer1">
+<link rel="stylesheet" href="./admin.css?v=20261031-compact-login1">
 <script defer src="./staff.js?v=20261031-courier-preview1"></script>
 <script defer src="./admin.js?v=20261031-email-mailer2"></script>
 </head>
 <body>
 <div class="auth-shell" id="authScreen">
-  <div class="auth-brand"><div class="brand-icon">Z<span>F</span></div><h1>ZapFormat</h1><p>Управление магазином</p></div>
+  <div class="auth-brand"><div class="brand-icon">Z<span>F</span></div><h1>ZapFormat</h1><p>Служебный кабинет</p></div>
   <section class="auth-card" aria-labelledby="authTitle">
     <div class="eyebrow">ЗАКРЫТАЯ ПАНЕЛЬ</div>
-    <h2 id="authTitle">Вход в служебный кабинет</h2>
-    <p class="muted">Владелец управляет магазином, сотрудники видят только разрешённые задачи.</p>
+    <h2 id="authTitle">Вход</h2>
+    <p class="muted">Для владельца и сотрудников ZapFormat</p>
     <form id="loginForm">
       <label for="login">Телефон или электронная почта</label>
       <input id="login" name="login" autocomplete="username" required placeholder="+7 900 000-00-00" maxlength="120">
@@ -39,7 +39,7 @@
       <button class="primary full" id="courierVerifySubmit" type="submit">Отправить заявку</button>
     </form>
     <p class="form-error" id="authError" role="alert" aria-live="polite"></p>
-    <div class="auth-foot">Курьер регистрируется с подтверждением телефона. Доступ открывается после одобрения владельца.</div>
+    <div class="auth-foot">Курьер получает доступ после подтверждения телефона и одобрения владельца.</div>
   </section>
   <a class="store-link" href="../">← Перейти в магазин</a>
 </div>
