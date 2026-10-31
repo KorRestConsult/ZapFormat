@@ -172,7 +172,7 @@ test('supplier pack minimum is visible and validated in customer cart', () => {
 
 
 test('Public mobile first paint cannot be blank while authorization is pending', () => {
-  assert.match(html, /<body class="guest-mode">/, 'public page starts visibly rather than hiding main pending API');
+  assert.match(html, /<body class="guest-mode auth-route">/, 'public page starts visibly rather than hiding main pending API');
   assert.doesNotMatch(html, /<body[^>]*session-pending/, 'never hide the whole store behind session restoration');
   assert.match(html, /<section class="view active" id="view-auth">/, 'login should remain readable even if JavaScript or authentication fails');
   assert.match(app, /document\.body\.classList\.remove\("session-pending"\)/, 'successful auth can still finalize loading state');
@@ -219,4 +219,11 @@ test('mobile auth does not autozoom the verification stage and has stable viewpo
   assert.match(app, /function restoreIosViewportScale\(\)/);
   const register = app.slice(app.indexOf('document.getElementById("registerForm")?.addEventListener'),app.indexOf('document.getElementById("forgotForm")?.addEventListener'));
   assert.doesNotMatch(register, /startAuthCooldown\("register",result\.resend_in\|\|60\);\s*form\.querySelector\('\[name="verification_code"\]'\)\?\.focus\(\);/);
+});
+
+test('returning customer does not see a flash of login before session restore',()=>{
+  assert.match(html,/document\.documentElement\.classList\.add\("zf-preauth"\)/);
+  assert.match(app,/document\.documentElement\.classList\.remove\("zf-preauth"\)/);
+  assert.match(css,/html\.zf-preauth #view-home\{display:block!important\}/);
+  assert.match(app,/apiRequest\("\/api\/auth\/me",\{timeoutMs:8000\}\)/);
 });
