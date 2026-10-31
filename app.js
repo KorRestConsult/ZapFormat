@@ -5300,7 +5300,15 @@ async function recoverAcceptedRegistration(){
     return true;
   }catch(error){
     if(recoverButton)recoverButton.hidden=false;
-    setAuthStatus("Пока не удалось проверить ответ сервера. Звонок мог быть отправлен. Нажмите «Проверить уже отправленный звонок» позже — новый звонок не заказывается.","error");
+    if(error?.code==="verification_not_found"){
+      setAuthStatus("Активного подтверждения для этого номера нет. Звонок не подтверждён сервером. Можно продолжить поиск без регистрации и оставить заявку на подбор.","error");
+    }else if(error?.code==="request_timeout"||error?.code==="network_unavailable"){
+      setAuthStatus("Нет ответа от сервера. Проверка не заказывает новый звонок. Попробуйте ещё раз позднее или продолжите поиск без регистрации.","error");
+    }else if(error?.code==="otp_too_soon"){
+      setAuthStatus("Слишком частые проверки. Подождите минуту. Новый звонок не заказывается.","error");
+    }else{
+      setAuthStatus(authErrorText(error),"error");
+    }
     return false;
   }finally{
     if(recoverButton)recoverButton.disabled=false;

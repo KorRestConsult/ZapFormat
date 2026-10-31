@@ -94,3 +94,13 @@ test("generic brake discs prompt for car immediately without catalog calls",()=>
   assert.match(file,/if\(instantQuestion\)\{[\s\S]{0,410}renderSmartPartSearch/);
   assert.match(file,/data-open-manual-lead/);
 });
+
+test("registration recovery distinguishes missing challenge from network timeout without sending new calls",()=>{
+  const start=file.indexOf("async function recoverAcceptedRegistration()");
+  const end=file.indexOf("document.getElementById(\"registerRecoverButton\")?.addEventListener",start);
+  const handler=file.slice(start,end);
+  assert.match(handler,/error\?\.code===\"verification_not_found\"/);
+  assert.match(handler,/error\?\.code===\"request_timeout\"/);
+  assert.match(handler,/новый звонок/i);
+  assert.doesNotMatch(handler,/\/api\/auth\/register\/start/);
+});
