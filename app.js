@@ -786,7 +786,7 @@ function applySessionUser(){
   document.body.classList.toggle("guest-mode",!sessionUser);
   const headerStatus=document.getElementById("sessionEntryButton");
   if(headerStatus){
-    headerStatus.textContent=sessionUser?"Кабинет · "+String(sessionUser.name||"Клиент").slice(0,20):"Гость · Войти";
+    headerStatus.textContent=sessionUser?String(sessionUser.name||"Клиент").slice(0,20):"Гость · Войти";
     headerStatus.dataset.route=sessionUser?"profile":"auth";
     headerStatus.setAttribute("aria-label",sessionUser?"Открыть личный кабинет":"Войти или зарегистрироваться");
   }
