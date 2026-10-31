@@ -2654,7 +2654,7 @@ function renderSmartPartSearch(data,query){
         <h3>Нужно одно уточнение</h3>
         <p>${escapeHtml(data.question||intent.clarification_question||"Уточните деталь.")}</p>
         ${label?'<p class="vehicle-search-note">Автомобиль: <b>'+escapeHtml(label)+'</b></p>':""}
-        <div class="vehicle-search-actions"><button type="button" data-answer-smart-search>Ответить</button></div>
+        <div class="vehicle-search-actions"><button type="button" data-answer-smart-search>Указать автомобиль</button><button type="button" data-open-manual-lead>Заявка на подбор</button></div>
       </div>`;
     return;
   }
@@ -2790,9 +2790,35 @@ function renderSmartPartSearch(data,query){
     </div>`;
 }
 
+function quickVehicleClarification(query){
+  const q=String(query||"").trim().toLowerCase().replace(/ё/g,"е");
+  const generic=/^(?:тормозн[а-я]*\s+диск[а-я]*|диск[а-я]*\s+тормозн[а-я]*|тормозн[а-я]*\s+колодк[а-я]*|колодк[а-я]*\s+тормозн[а-я]*|колодк[а-я]*|шаров[а-я]*(?:\s+опор[а-я]*)?|маслян[а-я]*\s+фильтр[а-я]*|воздушн[а-я]*\s+фильтр[а-я]*|салонн[а-я]*\s+фильтр[а-я]*)$/i;
+  return generic.test(q)
+    ? "Для какого автомобиля нужна деталь? Укажите VIN либо марку, модель и год выпуска."
+    : null;
+}
+
 async function runSmartPartSearch(query,vehicle){
   if(smartSearchBusy) return false;
   lastSmartSearchQuery=String(query||"").trim();
+
+  // Known generic part names cannot be fitted without a vehicle. Avoid API
+  // dependency and present an actionable question immediately.
+  const instantQuestion=!vehicle && !pendingSmartSearchBaseQuery
+    ? quickVehicleClarification(lastSmartSearchQuery)
+    : null;
+  if(instantQuestion){
+    pendingSmartSearchBaseQuery=lastSmartSearchQuery;
+    pendingSmartSearchAnswers=[];
+    pendingSmartSearchQuestion=instantQuestion;
+    setSearchHead(lastSmartSearchQuery,"Уточните автомобиль для проверки совместимости.",lastSmartSearchQuery);
+    renderSmartPartSearch({
+      ok:true,mode:"clarification",interpreter:"fallback",vehicle:null,
+      intent:{part_name:lastSmartSearchQuery,category:"other_part"},
+      question:instantQuestion
+    },lastSmartSearchQuery);
+    return true;
+  }
 
   // The public AI-search fallback works with or without a saved garage vehicle.
   smartSearchBusy=true;
@@ -4156,6 +4182,17 @@ document.addEventListener("click",async e=>{
 
   const route=e.target.closest("[data-route]"); if(route){ if(route.tagName==="A") e.preventDefault(); navigate(route.dataset.route); return; }
   const query=e.target.closest("[data-query]"); if(query){ search(query.dataset.query,{newRequest:true}); return; }
+  if(e.target.closest("[data-open-manual-lead]")){
+    const form=document.getElementById("manualLeadForm");
+    if(form){
+      form.hidden=false;
+      const part=document.getElementById("manualLeadPart");
+      if(part && !part.value) part.value=pendingSmartSearchBaseQuery||lastSmartSearchQuery;
+      form.scrollIntoView({behavior:"smooth",block:"start"});
+      part?.focus({preventScroll:true});
+    }
+    return;
+  }
   if(e.target.closest("[data-answer-smart-search]")){
     const input=document.getElementById("searchInput2");
     if(input){

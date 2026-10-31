@@ -23,7 +23,7 @@ const { isAdminRole } = require("./admin-access");
 const { installStaffRoutes } = require("./staff-routes");
 const { installEmailRegistration } = require("./email-registration");
 const { verifyGitHubActionsToken } = require("./github-oidc");
-const { interpretSearch, researchPartCandidates, normalizeVehicle } = require("./ai-search");
+const { interpretSearch, fallbackIntent, researchPartCandidates, normalizeVehicle } = require("./ai-search");
 const { publicBootstrapJwk, installEncryptedOpenAIKey, installTimewebAIToken, installSmsRuToken, installFapiToken, installTelegramConfig, installGmailSMTP } = require("./secret-bootstrap");
 const { configured: telegramConfigured, connected: telegramConnected, pairingCode: telegramPairingCode, getMe: telegramGetMe, getMeForToken: telegramGetMeForToken, discoverPairedChat, sendOwnerMessage, notifyOwnerOrderCreated } = require("./telegram-notifier");
 const {
@@ -3284,6 +3284,16 @@ app.post("/api/catalog/ai-search-public", aiSearchLimiter, async (req, res, next
     const suppliedVehicle = req.body?.vehicle && typeof req.body.vehicle === "object"
       ? normalizeVehicle(req.body.vehicle)
       : null;
+
+    // Generic part names need a vehicle before any catalog/AI lookup.
+    if (!suppliedVehicle && !/ · уточнени/i.test(query) &&
+        /^(?:тормозн[а-я]*\s+диск[а-я]*|диск[а-я]*\s+тормозн[а-я]*|тормозн[а-я]*\s+колодк[а-я]*|колодк[а-я]*\s+тормозн[а-я]*|колодк[а-я]*|шаров[а-я]*(?:\s+опор[а-я]*)?|маслян[а-я]*\s+фильтр[а-я]*|воздушн[а-я]*\s+фильтр[а-я]*|салонн[а-я]*\s+фильтр[а-я]*)$/i.test(query.toLowerCase().replace(/ё/g,"е"))) {
+      return res.json({
+        ok:true,mode:"clarification",interpreter:"fallback",vehicle:null,
+        intent:fallbackIntent(query,null),
+        question:"Для какого автомобиля нужна деталь? Укажите VIN либо марку, модель и год выпуска."
+      });
+    }
 
     const interpreted = await interpretSearch(query, suppliedVehicle);
     const intent = interpreted.intent;

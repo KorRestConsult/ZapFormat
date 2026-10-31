@@ -82,3 +82,15 @@ test("email registration entry stays hidden until email delivery is configured",
   assert.match(file,/hydrateEmailRegistrationCapability/);
   assert.match(file,/status\?\.available!==true/);
 });
+
+test("generic brake discs prompt for car immediately without catalog calls",()=>{
+  vm.runInContext(extract("quickVehicleClarification"),ctx);
+  const quick=q=>vm.runInContext("quickVehicleClarification("+JSON.stringify(q)+")",ctx);
+  for(const q of ["Тормозные диски","Тормозной диск","Шаровые","Тормозные колодки","Масляный фильтр"]){
+    assert.match(quick(q),/VIN/);
+  }
+  assert.equal(quick("BMW X3 2015"),null);
+  assert.equal(quick("Тормозные диски BMW 2015"),null);
+  assert.match(file,/if\(instantQuestion\)\{[\s\S]{0,410}renderSmartPartSearch/);
+  assert.match(file,/data-open-manual-lead/);
+});
