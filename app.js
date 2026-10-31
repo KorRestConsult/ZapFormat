@@ -1936,7 +1936,7 @@ function showRoute(route){
     hydrateAdminDashboard().catch(()=>{});
     if(typeof window.hydrateAdminDesk==="function") window.hydrateAdminDesk();
   }
-  if(route==="profile") showAccountTab("overview");
+  if(route==="profile") showAccountTab("orders");
   if(route==="orders") showAccountTab("orders");
   if(route==="garage") showAccountTab("garage");
   if(route==="cart"){
@@ -4783,9 +4783,9 @@ async function refreshAdditionalAccountPane(tab){
 }
 
 function showAccountTab(tab){
-  const allowed=new Set(["overview","orders","returns","reports","garage","profile","delivery","notifications","order-detail"]);
+  const allowed=new Set(["orders","returns","reports","garage","profile","delivery","notifications","order-detail"]);
   if(tab!=="order-detail") currentOpenOrderId=null;
-  if(!allowed.has(tab)) tab="overview";
+  if(!allowed.has(tab)) tab="orders";
   const profileView=document.getElementById("view-profile");
   if(profileView){
     profileView.classList.toggle("account-focus-view",["orders","garage","order-detail"].includes(tab));
@@ -4804,7 +4804,7 @@ function showAccountTab(tab){
   if(sessionUser && tab==="orders"){
     accountDataHydrated=false;
     hydrateAccountData();
-  }else if(sessionUser && (tab==="overview" || tab==="garage") && !accountDataHydrated){
+  }else if(sessionUser && tab==="garage" && !accountDataHydrated){
     hydrateAccountData();
   }
   if(sessionUser && tab==="notifications"){
@@ -5554,7 +5554,7 @@ try{
   localStorage.removeItem("zapformat-notifications");
 
   const savedTab=localStorage.getItem("zapformat-account-tab");
-  if(savedTab==="order-detail"){
+  if(savedTab==="order-detail" || savedTab==="overview"){
     showAccountTab("orders");
   }else if(savedTab){
     showAccountTab(savedTab);
