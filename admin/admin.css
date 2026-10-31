@@ -24,3 +24,5 @@
 @media(max-width:780px){.order-detail{padding:10px}.order-detail-row td{padding:6px!important}}
 
 .order-actions{display:flex;gap:10px;flex-wrap:wrap;margin:14px 0}.order-actions .secondary{font-size:12px}
+
+.button-link{display:inline-flex;align-items:center;justify-content:center;text-decoration:none}.callout.success{background:#eef9f1;color:#2f6b3c;border-color:#d8eedc}
