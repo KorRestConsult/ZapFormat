@@ -28,8 +28,9 @@ test('privileged API only runs after owner/admin session validation',()=>{
   assert.match(js,/\/api\/admin\/overview/);
   assert.match(js,/\/api\/admin\/orders/);
   assert.match(js,/\/api\/admin\/pricing/);
-  assert.match(js,/if\(kind==="orders"\)renderOrders\(\)/);
+  assert.match(js,/if\(kind==="orders"\)\{renderOrders\(\);await openLinkedOrder\(\);\}/);
   assert.match(js,/else if\(kind==="requests"\)renderRequests\(\)/);
+  assert.match(js,/openLinkedOrder/);
   assert.match(server,/app\.use\("\/api\/admin", requireDatabase, requireUser, requireAdmin\)/);
 });
 
