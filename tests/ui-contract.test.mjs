@@ -177,3 +177,28 @@ test('Public mobile first paint cannot be blank while authorization is pending',
   assert.match(html, /<section class="view active" id="view-auth">/, 'login should remain readable even if JavaScript or authentication fails');
   assert.match(app, /document\.body\.classList\.remove\("session-pending"\)/, 'successful auth can still finalize loading state');
 });
+
+
+test('Guest and signed-in state are explicit, first load does not bounce from auth to search',()=>{
+  assert.ok(html.includes('id="sessionEntryButton"'));
+  assert.match(html, /<section class="view active" id="view-auth">/);
+  assert.match(app, /sessionStorage\.getItem\("zapformat-guest-choice"\)/);
+  assert.match(app, /showRoute\(choice==="browse"\?"home":"auth"\)/);
+  assert.match(app, /headerStatus\.textContent=sessionUser\?/);
+  assert.match(css, /#sessionEntryButton\{display:inline-flex!important/);
+});
+
+test('Phone confirmation survives refresh without persisting password and hidden required fields cannot block it',()=>{
+  assert.match(app, /function restorePendingRegistration\(\)/);
+  assert.match(app, /sessionStorage\.setItem\("zapformat-register-challenge"/);
+  assert.match(app, /sessionStorage\.removeItem\("zapformat-register-challenge"\)/);
+  assert.match(app, /control\.disabled=node\.hidden/);
+  assert.match(html, /Если оператор заблокировал звонок как спам/);
+  assert.doesNotMatch(app.slice(app.indexOf('function restorePendingRegistration()'),app.indexOf('function resetRegistrationFlow()')),/sessionStorage\.setItem\("[^"]*",\s*JSON\.stringify\(registrationDraft\)/);
+});
+
+test('Mobile forms avoid Safari keyboard autozoom and do not overlap bottom navigation',()=>{
+  assert.match(css, /font-size:17px!important/);
+  assert.match(css, /body:has\(input:focus\) \.mobile-nav/);
+  assert.match(css, /body\.auth-route \.mobile-nav/);
+});
