@@ -4,6 +4,8 @@ const crypto = require("node:crypto");
 const { Readable } = require("node:stream");
 const fs = require("node:fs/promises");
 const path = require("node:path");
+const dns = require("node:dns/promises");
+const https = require("node:https");
 const express = require("express");
 const helmet = require("helmet");
 const cors = require("cors");
@@ -1169,16 +1171,51 @@ function requireAdmin(req, res, next) {
 }
 
 app.get("/api/telegram/network-health", async (_req, res) => {
+  const result = { ok: false, reachable: false, dns: [], ipv4_https: null, fetch_error: null };
+  try {
+    result.dns = await dns.lookup("api.telegram.org", { all: true });
+  } catch (error) {
+    result.dns_error = error?.code || error?.name || "dns_failed";
+  }
+  try {
+    result.ipv4_https = await new Promise((resolve) => {
+      const request = https.get({
+        hostname: "api.telegram.org",
+        path: "/",
+        family: 4,
+        timeout: 8000,
+        headers: { "User-Agent": "ZapFormat/1.0" }
+      }, (response) => {
+        response.resume();
+        resolve({ reachable: true, status: response.statusCode || null });
+      });
+      request.on("timeout", () => {
+        request.destroy();
+        resolve({ reachable: false, error: "timeout" });
+      });
+      request.on("error", (error) => resolve({
+        reachable: false,
+        error: error?.code || error?.name || "https_failed"
+      }));
+    });
+  } catch {}
   try {
     const response = await fetch("https://api.telegram.org", {
       method: "GET",
       redirect: "manual",
       signal: AbortSignal.timeout(8000)
     });
-    res.json({ ok: true, reachable: true, status: response.status });
-  } catch {
-    res.status(502).json({ ok: false, reachable: false });
+    result.ok = true;
+    result.reachable = true;
+    result.status = response.status;
+  } catch (error) {
+    result.fetch_error = error?.cause?.code || error?.code || error?.name || "fetch_failed";
   }
+  if (result.ipv4_https?.reachable) {
+    result.ok = true;
+    result.reachable = true;
+  }
+  res.status(result.reachable ? 200 : 502).json(result);
 });
 
 app.use("/api/admin", requireDatabase, requireUser, requireAdmin);
