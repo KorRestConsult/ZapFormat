@@ -1219,6 +1219,16 @@ app.get("/api/telegram/network-health", async (_req, res) => {
 });
 
 app.use("/api/admin", requireDatabase, requireUser, requireAdmin);
+app.get("/api/admin/network-diagnostic", async (_req, res) => {
+  try {
+    const raw = await fs.readFile("/var/lib/zapformat/network-diagnostic.json", "utf8");
+    res.json(JSON.parse(raw));
+  } catch (error) {
+    if (error?.code === "ENOENT") return res.status(404).json({ error: "network_diagnostic_missing" });
+    res.status(500).json({ error: "network_diagnostic_unavailable" });
+  }
+});
+
 
 
 function telegramPairingLink(username) {
