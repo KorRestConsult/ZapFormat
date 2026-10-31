@@ -59,4 +59,15 @@ test('layout is responsive',()=>{
   assert.match(css,/@media\(max-width:780px\)/);
   assert.match(css,/@media\(max-width:420px\)/);
   assert.match(css,/overflow-x:auto/);
+  assert.match(css,/order-detail/);
+});
+
+test('owner order details are only served through protected admin API',()=>{
+  assert.match(server,/app\\.get\\(\"\\/api\\/admin\\/orders\\/:id\"/);
+  assert.match(server,/purchase_price/);
+  assert.match(server,/missing_cost_items/);
+  assert.match(server,/delivery_address/);
+  assert.match(server,/line_gross_profit/);
+  assert.match(js,/aria-expanded/);
+  assert.match(js,/escape\\(order\\.comment\\)/);
 });
