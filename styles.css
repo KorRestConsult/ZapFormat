@@ -6845,3 +6845,6 @@ html.zf-preauth #sessionEntryButton::after{content:"Проверяем вход�
 .auth-tabs{grid-template-columns:repeat(3,minmax(0,1fr))}
 .auth-tabs button{min-width:0;font-size:12px;white-space:nowrap;padding:10px 4px}
 @media(max-width:410px){.auth-tabs button{font-size:11px;padding:10px 3px}}
+
+/* Do not offer email signup until a transactional mail provider is configured. */
+[data-auth-tab="email"][hidden]{display:none!important}

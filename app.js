@@ -4324,6 +4324,17 @@ document.addEventListener("visibilitychange",()=>{
 window.addEventListener("popstate",restoreFromUrl);
 document.getElementById("backButton")?.addEventListener("click",()=>safeBack("home"));
 hydrateAuthCapabilities().catch(()=>null);
+async function hydrateEmailRegistrationCapability(){
+  const tab=document.querySelector('[data-auth-tab="email"]');
+  if(!tab)return;
+  tab.hidden=true;
+  try{
+    const status=await apiRequest("/api/auth/email-registration/status",{timeoutMs:6000});
+    tab.hidden=status?.available!==true;
+  }catch{tab.hidden=true;}
+}
+hydrateEmailRegistrationCapability().catch(()=>null);
+
 refreshStorefrontStatus().catch(()=>null);
 setInterval(()=>refreshStorefrontStatus().catch(()=>null),120000);
 hydrateSession()

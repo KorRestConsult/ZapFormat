@@ -2170,7 +2170,7 @@ async function submitQuoteRequest(req, res, next) {
       (item) => item.needs_confirmation === false && Number.isFinite(Number(item.quoted_price))
     );
 
-    if (pool && requestUser && allConfirmed) {
+    if (pool && requestUser && allConfirmed && (Boolean(requestUser.phone_verified_at) || ownerTestMode)) {
       const client = await pool.connect();
       try {
         await client.query("BEGIN");

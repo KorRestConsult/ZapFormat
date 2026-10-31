@@ -75,3 +75,10 @@ test("public manual enquiry form uses its own protected, non-purchase workflow",
 test("new search does not carry a stale VIN into a different car",()=>{
   assert.match(file,/if\(options.newRequest\)\{[^\n]*transientVinVehicle=null;/);
 });
+
+test("email registration entry stays hidden until email delivery is configured",()=>{
+  const html=readFileSync(resolve("index.html"),"utf8");
+  assert.match(html,/data-auth-tab="email" hidden/);
+  assert.match(file,/hydrateEmailRegistrationCapability/);
+  assert.match(file,/status\?\.available!==true/);
+});

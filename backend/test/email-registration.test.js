@@ -42,3 +42,8 @@ test("OTP digest never equals the code; wrong email codes are rejected",()=>{
  const hash=otpHash("secret",id,"123456");
  assert.notEqual(hash,"123456");
 });
+
+test("email-only accounts cannot trigger direct supplier checkout; owner test remains allowed",()=>{
+  const src=require("node:fs").readFileSync(require("node:path").resolve(__dirname,"../src/server.js"),"utf8");
+  assert.match(src,/allConfirmed \&\& \(Boolean\(requestUser\.phone_verified_at\) \|\| ownerTestMode\)/);
+});

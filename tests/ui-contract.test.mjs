@@ -83,7 +83,7 @@ test('Public enquiry is rate-limited and cannot create a supplier order',()=>{
   assert.ok(start>0&&end>start);
   const handler=source.slice(start,end);
   assert.ok(handler.includes('guest ? null :'));
-  assert.ok(handler.includes('if (pool && requestUser && allConfirmed)'));
+  assert.ok(handler.includes('if (pool && requestUser && allConfirmed && (Boolean(requestUser.phone_verified_at) || ownerTestMode))'));
   assert.ok(handler.includes('privacy_consent_required'));
   assert.ok(handler.includes('guestQuoteLimiter, requireDatabase'));
   assert.ok(handler.includes('VALUES ($1,$2,$3,$4,\'new\',$6,$5)'));
