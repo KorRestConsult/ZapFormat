@@ -97,7 +97,6 @@ function registerAdminOrders(app, pool, { addUserNotification }) {
           `UPDATE order_items
              SET received_quantity=$2,
                  physically_received_at=CASE WHEN $2=quantity THEN now() ELSE NULL END,
-                 received_at=CASE WHEN $2=quantity THEN now() ELSE NULL END,
                  updated_at=now()
             WHERE id=$1`, [item.id, quantity]
         );
