@@ -285,6 +285,7 @@ async function telegramDocument(buffer, filename, caption = "") {
   let networkError = null;
   let status = 0;
   let data = {};
+  let failureDetail = null;
   try {
     const form = new FormData();
     form.append("chat_id", chatId);
@@ -293,7 +294,10 @@ async function telegramDocument(buffer, filename, caption = "") {
     const response = await fetch(TELEGRAM_API + path, { method: "POST", body: form, signal: AbortSignal.timeout(15000) });
     status = response.status;
     data = await response.json().catch(() => ({}));
-  } catch (cause) { networkError = cause; }
+  } catch (cause) {
+    networkError = cause;
+    failureDetail = { stage: "standard", code: cause?.code || cause?.name || "fetch_failed" };
+  }
 
   if (networkError) {
     for (const ip of TELEGRAM_FALLBACK_IPS) {
@@ -304,13 +308,18 @@ async function telegramDocument(buffer, filename, caption = "") {
         status = response.status;
         data = response.data;
         networkError = null;
+        failureDetail = null;
         break;
-      } catch (cause) { networkError = cause; }
+      } catch (cause) {
+        networkError = cause;
+        failureDetail = { stage: "direct", code: cause?.code || cause?.name || "direct_failed" };
+      }
     }
   }
   if (networkError || status < 200 || status >= 300 || data?.ok !== true) {
     const error = new Error(networkError ? "telegram_unavailable" : "telegram_api_error");
     error.code = networkError ? "telegram_unavailable" : "telegram_api_error";
+    error.detail = failureDetail || { stage: "api", status, telegram_error_code: data?.error_code || null };
     throw error;
   }
   return { sent: true, message_id: data.result?.message_id || null };
