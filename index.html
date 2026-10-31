@@ -6,7 +6,7 @@
   <meta name="theme-color" content="#17324a" />
   <title>ZapFormat — автозапчасти</title>
   <meta name="description" content="ZapFormat — поиск автозапчастей по артикулу и названию. Личный гараж, корзина и история заказов." />
-  <link rel="stylesheet" href="./styles.css?v=20261031-stable-mobile3" />
+  <link rel="stylesheet" href="./styles.css?v=20261031-auth-fixed4" />
 </head>
 <body class="guest-mode">
   <div class="app">
@@ -15,6 +15,7 @@
         <a class="logo" href="#home" data-route="home">
           <span class="logo-main">ZAP</span><span class="logo-ai">FORMAT</span>
         </a>
+        <button type="button" id="sessionEntryButton" class="session-entry" data-route="auth" aria-label="Войти или зарегистрироваться">Гость · Войти</button>
 <nav class="desktop-nav" aria-label="Разделы магазина">
           <button type="button" data-route="home">Поиск</button>
           <button type="button" data-route="garage">Гараж</button>
@@ -195,7 +196,7 @@
                 </label>
                 <label>
                   <span>Телефон</span>
-                  <input name="identity" type="tel" inputmode="tel" autocomplete="tel" placeholder="+7 900 000-00-00" required>
+                  <input name="identity" type="tel" inputmode="tel" autocomplete="tel" enterkeyhint="next" placeholder="+7 900 000-00-00" required>
                 </label>
                 <label>
                   <span>Пароль</span>
@@ -215,7 +216,9 @@
               </div>
 
               <div class="auth-stage" data-register-stage="verify" hidden>
-                <div class="auth-stage-note" id="registerVerificationNote">Для подтверждения номера <b id="registerMaskedPhone">вашего телефона</b> дождитесь звонка и введите последние четыре цифры номера звонящего.</div>
+                <div class="auth-stage-note" id="registerVerificationNote">Ожидайте звонка на <b id="registerMaskedPhone">ваш номер</b>. Введите последние четыре цифры номера звонившего.
+                  <span class="auth-blocked-help">Если оператор заблокировал звонок как спам, проверьте SMS о заблокированном вызове: в нём может быть номер звонящего. Введите последние четыре цифры этого номера.</span>
+                </div>
                 <label>
                   <span class="verification-code-label">Код подтверждения</span>
                   <input name="verification_code" class="auth-code-input" inputmode="numeric" autocomplete="one-time-code" maxlength="6" placeholder="000000">
@@ -660,7 +663,7 @@
 </div>
 
   <script src="./config.js?v=20261027-design1"></script>
-  <script src="./app.js?v=20261031-call-timeout3"></script>
+  <script src="./app.js?v=20261031-auth-fixed4"></script>
   <script src="./admin-desk.js?v=20261030-pricing1"></script>
 </body>
 </html>
