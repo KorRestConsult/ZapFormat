@@ -1735,6 +1735,9 @@ async function submitQuoteRequest(req, res, next) {
   }
 }
 app.post("/api/quote-requests", quoteLimiter, requireUser, submitQuoteRequest);
+app.get("/api/public/quote-requests/capabilities", (_req, res) => {
+  res.json({enabled:Boolean(pool),mode:"enquiry_only",supplier_order:false});
+});
 app.post("/api/public/quote-requests", guestQuoteLimiter, requireDatabase, submitQuoteRequest);
 
 app.get("/api/integration/status", async (_req, res, next) => {
