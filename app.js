@@ -1087,10 +1087,9 @@ function renderLiveAccount(overview,orders,requests,garage){
 
   const table=document.getElementById("accountOrdersTable");
   if(table){
-    const head='<div class="account-table-head">'+
+    const head='<div class="account-table-head orders-primary-head">'+
       '<span>Дата заказа</span><span>№ заказа</span><span>Бренд</span><span>Код детали</span><span>Описание</span>'+
       '<span>Срок</span><span>Кол-во</span><span>Цена</span><span>Сумма</span><span>Статус</span>'+
-      '<span>Отгрузка</span><span>Ваш комментарий</span><span>Ответ менеджера</span><span>Возврат</span><span>Запрос на удаление</span>'+
       '</div>';
 
     const detailRows=entries.flatMap(row=>{
@@ -1119,23 +1118,27 @@ function renderLiveAccount(overview,orders,requests,garage){
       const description=item?.description||(!isOrder?row.search_text:"")||"—";
       const searchText=[row.search_text,item?.brand,item?.article,item?.description].filter(Boolean).join(" ");
 
-      return `<div class="account-table-row orders-detail-row" ${detailAttr} role="button" tabindex="0" aria-label="Открыть заказ ${escapeHtml(row.number)}" data-order-status="${escapeHtml(String(row.status||""))}" data-order-search="${escapeHtml(searchText)}">
-        <span class="orders-col-date">${formatDateRu(row.created_at)}</span>
-        <b class="orders-col-number">#${escapeHtml(row.number)}</b>
-        <span class="orders-col-brand">${escapeHtml(item?.brand||"—")}</span>
-        <span class="orders-col-article">${escapeHtml(item?.article||"—")}</span>
-        <span class="orders-col-description">${escapeHtml(description)}</span>
-        <span class="orders-col-term">${escapeHtml(deadline)}</span>
-        <span class="orders-col-qty">${quantity||"—"}</span>
-        <span class="orders-col-price">${item?rub(unitPrice):"—"}</span>
-        <span class="orders-col-sum">${lineTotal?rub(lineTotal):"—"}</span>
-        <strong class="status orders-col-status ${requestStatusClass(itemStatus)}">${escapeHtml(requestStatusLabel(itemStatus))}</strong>
-        <span class="orders-col-shipment">${escapeHtml(shipment)}</span>
-        <span class="orders-col-comment">${escapeHtml(item?.comment||"—")}</span>
-        <span class="orders-col-manager">${escapeHtml(item?.manager_reply||"—")}</span>
-        <span class="orders-col-return">${escapeHtml(returnText)}</span>
-        <span class="orders-col-delete">—</span>
-      </div>`;
+      return `<article class="orders-item-record" ${detailAttr} role="button" tabindex="0" aria-label="Открыть заказ ${escapeHtml(row.number)}" data-order-status="${escapeHtml(String(row.status||""))}" data-order-search="${escapeHtml(searchText)}">
+        <div class="account-table-row orders-primary-row">
+          <span class="orders-col-date"><small>Дата</small>${formatDateRu(row.created_at)}</span>
+          <b class="orders-col-number"><small>Заказ</small>#${escapeHtml(row.number)}</b>
+          <span class="orders-col-brand"><small>Бренд</small>${escapeHtml(item?.brand||"—")}</span>
+          <span class="orders-col-article"><small>Код</small>${escapeHtml(item?.article||"—")}</span>
+          <span class="orders-col-description"><small>Описание</small>${escapeHtml(description)}</span>
+          <span class="orders-col-term"><small>Срок</small>${escapeHtml(deadline)}</span>
+          <span class="orders-col-qty"><small>Кол-во</small>${quantity||"—"}</span>
+          <span class="orders-col-price"><small>Цена</small>${item?rub(unitPrice):"—"}</span>
+          <span class="orders-col-sum"><small>Сумма</small>${lineTotal?rub(lineTotal):"—"}</span>
+          <strong class="status orders-col-status ${requestStatusClass(itemStatus)}"><small>Статус</small>${escapeHtml(requestStatusLabel(itemStatus))}</strong>
+        </div>
+        <div class="orders-service-row">
+          <div><small>Отгрузка</small><b>${escapeHtml(shipment)}</b></div>
+          <div><small>Ваш комментарий</small><span>${escapeHtml(item?.comment||"—")}</span></div>
+          <div><small>Ответ менеджера</small><span>${escapeHtml(item?.manager_reply||"—")}</span></div>
+          <div><small>Возврат</small><span>${escapeHtml(returnText)}</span></div>
+          <div><small>Запрос на удаление</small><span>—</span></div>
+        </div>
+      </article>`;
     }).join("");
 
     table.innerHTML=head+(rows||'<div class="account-empty"><p>Реальных заказов пока нет.</p></div>');
