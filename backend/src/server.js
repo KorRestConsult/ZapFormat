@@ -1922,7 +1922,7 @@ app.get("/api/admin/requests", async (req, res, next) => {
     const result = await pool.query(`
       SELECT q.id, q.status, q.name, q.phone, q.created_at,
              count(i.id)::int AS items_count,
-             coalesce(string_agg(concat_ws(' ', i.brand, i.article), ', ' ORDER BY i.created_at), '') AS articles
+             coalesce(string_agg(CASE WHEN i.article = '' THEN coalesce(i.description, 'Подбор вручную') ELSE concat_ws(' ', i.brand, i.article) END, ', ' ORDER BY i.created_at), '') AS articles
         FROM quote_requests q
         LEFT JOIN quote_request_items i ON i.request_id = q.id
        WHERE ($1::text IS NULL OR q.status = $1)
@@ -2404,6 +2404,55 @@ app.get("/api/public/quote-requests/capabilities", (_req, res) => {
   res.json({enabled:Boolean(pool),mode:"enquiry_only",supplier_order:false});
 });
 app.post("/api/public/quote-requests", guestQuoteLimiter, requireDatabase, submitQuoteRequest);
+
+// Free-text manual part enquiry: no verified article, price, cart or supplier order.
+// The empty article is a deliberate non-orderable sentinel, never an OEM number.
+app.post("/api/public/manual-part-request", guestQuoteLimiter, requireDatabase, async (req, res, next) => {
+  if (String(req.body?.website || "").trim()) return res.status(202).json({ ok:true, status:"received" });
+  if (req.body?.privacy_consent !== true) return res.status(400).json({ error:"privacy_consent_required" });
+  const name = String(req.body?.name || "").trim().replace(/\s+/g," ").slice(0,100);
+  const phone = normalizePhone(req.body?.phone);
+  const part = String(req.body?.part || "").trim().replace(/\s+/g," ").slice(0,220);
+  const vin = String(req.body?.vin || "").trim().toUpperCase();
+  const note = String(req.body?.comment || "").trim().replace(/\s+/g," ").slice(0,400);
+  if (name.length < 2) return res.status(400).json({ error:"name_required" });
+  if (!validSmsPhone(phone)) return res.status(400).json({ error:"invalid_phone" });
+  if (part.length < 3) return res.status(400).json({ error:"part_name_required" });
+  if (vin && !validVin(vin)) return res.status(400).json({ error:"invalid_vin" });
+
+  const id = "Q-" + new Date().toISOString().slice(0,10).replace(/-/g,"") + "-" +
+    crypto.randomBytes(3).toString("hex").toUpperCase();
+  const comment = [vin ? "VIN: " + vin : null, note || null].filter(Boolean).join("; ");
+  const db = await pool.connect();
+  try {
+    await db.query("BEGIN");
+    await db.query(
+      "INSERT INTO quote_requests (id,user_id,name,phone,status,source) VALUES($1,NULL,$2,$3,'new','zapformat-manual-web')",
+      [id,name,phone]
+    );
+    await db.query(
+      "INSERT INTO quote_request_items (request_id,article,description,quantity,comment,needs_confirmation) VALUES($1,'',$2,1,$3,true)",
+      [id,part,comment || null]
+    );
+    await db.query("COMMIT");
+  } catch (error) {
+    await db.query("ROLLBACK").catch(()=>{});
+    return next(error);
+  } finally {
+    db.release();
+  }
+  void sendOwnerMessage(
+    "ЗАПФОРМАТ · НОВАЯ ЗАЯВКА НА ПОДБОР\n" +
+    "№ " + id + "\n" +
+    "Клиент: " + name + " · " + phone + "\n" +
+    "Деталь: " + part +
+    (vin ? "\nVIN: " + vin : "") +
+    (note ? "\nКомментарий: " + note : "") +
+    "\nБез регистрации. Закупка в PartGrade не выполнялась."
+  ).catch(error=>console.warn("[ManualLeadNotify]",error?.code || "send_failed"));
+  return res.status(201).json({ok:true,kind:"manual_part_request",request_id:id,status:"received"});
+});
+
 
 app.get("/api/integration/status", async (_req, res, next) => {
   try {

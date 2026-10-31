@@ -6824,3 +6824,19 @@ html.zf-preauth #sessionEntryButton::after{content:"Проверяем вход�
 
 /* Owner-only storefront test mode. Activated only with ?test=1 and an owner session. */
 .owner-test-banner{position:sticky;top:0;z-index:1200;display:flex;align-items:center;justify-content:center;gap:12px;min-height:38px;padding:7px 16px;background:#ff8200;color:#111820;border-bottom:1px solid rgba(17,24,32,.18);box-shadow:0 6px 18px rgba(17,24,32,.12);font-size:13px;letter-spacing:.01em}.owner-test-banner b{font-size:12px;letter-spacing:.12em}.owner-test-banner span{font-weight:650}.owner-test-mode #checkoutOrderButton,.owner-test-mode [data-cart-action="start-checkout"]{box-shadow:0 0 0 2px rgba(255,130,0,.16)}@media(max-width:680px){.owner-test-banner{align-items:flex-start;justify-content:flex-start;gap:8px;padding:8px 12px;font-size:11px}.owner-test-banner b{white-space:nowrap;font-size:10px}}
+
+/* Free-text, non-purchase lead funnel for incomplete VIN/part catalogs. */
+.manual-lead{margin:15px 0 20px;padding:0;max-width:920px}
+.manual-lead-toggle{width:100%;padding:14px 16px;border:1px solid #cdd7de;background:#f6f9fb;color:#17354c;border-radius:10px;font-size:14px;font-weight:700;text-align:left;cursor:pointer}
+.manual-lead-form{margin-top:10px;padding:17px;border:1px solid #dce5eb;background:#fff;border-radius:12px;display:grid;gap:12px}
+.manual-lead-form[hidden]{display:none}
+.manual-lead-form h3{margin:0;font-size:19px;color:#15334b}
+.manual-lead-form p{margin:0;font-size:13px;line-height:1.5;color:#60717e}
+.manual-lead-form label{display:grid;gap:6px;font-size:13px;font-weight:650;color:#344b5d}
+.manual-lead-form input:not([type="checkbox"]),.manual-lead-form textarea{width:100%;min-width:0;font-size:16px;line-height:1.4;padding:11px 12px;border:1px solid #cbd8e2;border-radius:8px;background:#fff;color:#1b3447}
+.manual-lead-form .manual-lead-consent{display:flex;align-items:flex-start;gap:9px;font-weight:500;font-size:12px;line-height:1.5}
+.manual-lead-consent input{margin-top:3px;flex-shrink:0}
+.manual-lead-form .guest-honeypot{position:absolute!important;left:-10000px!important;width:1px!important;height:1px!important;opacity:0!important;pointer-events:none!important}
+.manual-lead-submit{padding:13px 16px;border:0;border-radius:8px;background:#f28c00;color:#141d27;font-weight:750;font-size:15px;cursor:pointer}
+.manual-lead-submit:disabled{opacity:.55;cursor:wait}
+.manual-lead-status{font-size:13px;line-height:1.5;color:#334e63;margin:10px 0 0}

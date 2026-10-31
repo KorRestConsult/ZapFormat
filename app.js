@@ -3107,6 +3107,19 @@ async function search(query,options={}){
   }
 
   showRoute("search");
+  // A customer can request manual fitment when a paid catalog cannot identify the car.
+  const leadPanel=document.getElementById("manualLead");
+  const leadForm=document.getElementById("manualLeadForm");
+  if(leadPanel)leadPanel.hidden=false;
+  if(leadForm?.hidden){
+    const part=document.getElementById("manualLeadPart");
+    const vinInput=document.getElementById("manualLeadVin");
+    const wantedPart=pendingSmartSearchBaseQuery || (looksLikeVin(raw) ? "" : raw);
+    if(part)part.value=wantedPart.slice(0,220);
+    if(vinInput)vinInput.value=looksLikeVin(raw)?normalizeVin(raw):(transientVinVehicle?.vin||"");
+    const status=document.getElementById("manualLeadStatus");
+    if(status)status.textContent="";
+  }
   setCatalogControlsVisible(false);
   setSearchHead(raw,"Ищем предложения…",raw);
   renderSearchState("Поиск","Получаем список производителей.");
@@ -4209,6 +4222,51 @@ document.addEventListener("click",async e=>{
 
 document.getElementById("searchForm").addEventListener("submit",e=>{e.preventDefault();search(document.getElementById("searchInput").value,{newRequest:true})});
 document.getElementById("searchForm2").addEventListener("submit",e=>{e.preventDefault();search(document.getElementById("searchInput2").value)});
+document.getElementById("manualLeadToggle")?.addEventListener("click",()=>{
+  const form=document.getElementById("manualLeadForm");
+  if(!form)return;
+  form.hidden=!form.hidden;
+  if(!form.hidden)document.getElementById("manualLeadPart")?.focus();
+});
+document.getElementById("manualLeadForm")?.addEventListener("submit",async e=>{
+  e.preventDefault();
+  const form=e.currentTarget;
+  if(!form.reportValidity())return;
+  const button=document.getElementById("manualLeadSend");
+  const status=document.getElementById("manualLeadStatus");
+  button.disabled=true;
+  status.textContent="Передаём заявку в ZapFormat…";
+  const get=id=>document.getElementById(id)?.value||"";
+  try{
+    const result=await apiRequest("/api/public/manual-part-request",{
+      method:"POST",timeoutMs:16000,
+      body:JSON.stringify({
+        name:get("manualLeadName"),phone:get("manualLeadPhone"),
+        part:get("manualLeadPart"),vin:get("manualLeadVin"),
+        comment:get("manualLeadComment"),privacy_consent:document.getElementById("manualLeadConsent")?.checked===true,
+        website:get("manualLeadWebsite")
+      })
+    });
+    if(!result?.request_id)throw Error("request_unconfirmed");
+    form.hidden=true;form.reset();
+    status.textContent="Заявка "+result.request_id+" принята. Мы свяжемся для уточнения детали, цены и срока. Покупка не выполнялась.";
+  }catch(error){
+    if(["request_timeout","network_unavailable"].includes(error?.code)){
+      status.textContent="Ответ сервера не подтверждён. Заявка могла сохраниться. Не отправляйте повторно — проверьте связь позже.";
+    }else{
+      button.disabled=false;
+      const message={
+        invalid_phone:"Проверьте номер телефона: нужен российский номер +7.",
+        invalid_vin:"Проверьте VIN: 17 символов без I, O и Q.",
+        privacy_consent_required:"Необходимо согласие на обработку контактов.",
+        part_name_required:"Опишите, какая деталь нужна.",
+        name_required:"Укажите имя."
+      };
+      status.textContent=message[error?.code]||"Заявку пока не удалось отправить. Проверьте данные.";
+    }
+  }
+});
+
 
 renderCart();
 renderCatalog();

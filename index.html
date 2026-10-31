@@ -7,7 +7,7 @@
   <script>try{if(localStorage.getItem("zapformat-access-token"))document.documentElement.classList.add("zf-preauth")}catch(_){}</script>
   <title>ZapFormat — автозапчасти</title>
   <meta name="description" content="ZapFormat — поиск автозапчастей по артикулу и названию. Личный гараж, корзина и история заказов." />
-  <link rel="stylesheet" href="./styles.css?v=20261031-testmode2" />
+  <link rel="stylesheet" href="./styles.css?v=20261031-manual-lead1" />
 </head>
 <body class="guest-mode auth-route">
   <div class="app">
@@ -91,6 +91,23 @@
           <button type="button" data-filter="fast">До 2 дней</button>
           <button type="button" data-filter="stock">В наличии</button>
         </div>
+
+        <section id="manualLead" class="manual-lead" hidden>
+          <button id="manualLeadToggle" type="button" class="manual-lead-toggle">Не нашли деталь? Оставить заявку на подбор без регистрации</button>
+          <form id="manualLeadForm" class="manual-lead-form" hidden>
+            <h3>Подберём запчасть вручную</h3>
+            <p>Оставьте контакт и описание. Мы уточним артикул, цену и срок до покупки у поставщика.</p>
+            <label>Какая деталь нужна?<input id="manualLeadPart" name="part" maxlength="220" minlength="3" required placeholder="Например, шаровые опоры"></label>
+            <label>VIN автомобиля (необязательно)<input id="manualLeadVin" name="vin" maxlength="17" autocomplete="off" autocapitalize="characters" placeholder="17 символов"></label>
+            <label>Имя<input id="manualLeadName" name="name" autocomplete="name" maxlength="100" required></label>
+            <label>Телефон<input id="manualLeadPhone" name="phone" type="tel" autocomplete="tel" maxlength="22" required placeholder="+7 900 000-00-00"></label>
+            <label>Комментарий (необязательно)<textarea id="manualLeadComment" name="comment" rows="2" maxlength="400"></textarea></label>
+            <label class="manual-lead-consent"><input type="checkbox" id="manualLeadConsent" required> Согласен на обработку имени и телефона для ответа на заявку</label>
+            <input type="text" id="manualLeadWebsite" class="guest-honeypot" name="website" tabindex="-1" autocomplete="off" aria-hidden="true">
+            <button type="submit" id="manualLeadSend" class="manual-lead-submit">Отправить заявку</button>
+          </form>
+          <p id="manualLeadStatus" class="manual-lead-status" role="status" aria-live="polite"></p>
+        </section>
 
         <section class="catalog-section">
           <div class="section-inline-title">
@@ -578,7 +595,7 @@
 </div>
 
   <script src="./config.js?v=20261027-design1"></script>
-  <script src="./app.js?v=20261031-realclient-fix6"></script>
+  <script src="./app.js?v=20261031-realclient-fix7"></script>
   <script src="./admin-desk.js?v=20261030-pricing1"></script>
 </body>
 </html>

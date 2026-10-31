@@ -50,3 +50,24 @@ test("answers to smart-search questions are never treated as part numbers",()=>{
   assert.match(file,/const article=pendingSmartSearchBaseQuery \? null : extractArticleCandidate\(raw\)/);
   assert.match(file,/search\(document.getElementById\(\"searchInput\"\).value,\{newRequest:true\}\)/);
 });
+
+test("public manual enquiry form uses its own protected, non-purchase workflow",()=>{
+  const html=readFileSync(resolve("index.html"),"utf8");
+  const api=readFileSync(resolve("backend/src/server.js"),"utf8");
+  for(const id of ["manualLead","manualLeadForm","manualLeadPart","manualLeadVin","manualLeadName","manualLeadPhone","manualLeadConsent","manualLeadSend","manualLeadStatus"]){
+    assert.match(html,new RegExp('id="'+id+'"'));
+  }
+  assert.match(file,/api\/public\/manual-part-request/);
+  assert.match(file,/privacy_consent:document\.getElementById\("manualLeadConsent"\)/);
+  const start=api.indexOf('app.post("/api/public/manual-part-request"');
+  const end=api.indexOf('app.get("/api/integration/status"',start);
+  assert.ok(start>=0&&end>start);
+  const route=api.slice(start,end);
+  assert.match(route,/guestQuoteLimiter, requireDatabase/);
+  assert.match(route,/privacy_consent_required/);
+  assert.match(route,/validSmsPhone\(phone\)/);
+  assert.match(route,/INSERT INTO quote_requests/);
+  assert.match(route,/INSERT INTO quote_request_items/);
+  assert.match(route,/VALUES\(\$1,'',\$2,1,\$3,true\)/);
+  assert.doesNotMatch(route,/submitSupplierOrder|PARTGRADE_AUTO_ORDER|revalidateOfferToken/);
+});
