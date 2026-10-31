@@ -1211,10 +1211,9 @@ function sessionTokenFromRequest(req) {
   return req.cookies?.[COOKIE_NAME] || null;
 }
 
-async function currentUser(req) {
-  const token = sessionTokenFromRequest(req);
-  if (!token) return null;
-
+async function userFromSessionToken(token) {
+  const value = String(token || "").trim();
+  if (!value) return null;
   const result = await pool.query(
     `SELECT u.*
        FROM user_sessions s
@@ -1223,10 +1222,13 @@ async function currentUser(req) {
         AND s.expires_at > now()
         AND u.status = 'active'
       LIMIT 1`,
-    [tokenHash(token)]
+    [tokenHash(value)]
   );
-
   return result.rows[0] || null;
+}
+
+async function currentUser(req) {
+  return userFromSessionToken(sessionTokenFromRequest(req));
 }
 
 async function requireUser(req, res, next) {
@@ -2069,9 +2071,14 @@ async function submitQuoteRequest(req, res, next) {
 
     const requestUser = guest ? null : (pool ? await currentUser(req) : null);
     const testModeRequested = req.body?.test_mode === true;
-    const ownerTestMode = testModeRequested && requestUser?.role === "owner";
-    if (testModeRequested && !ownerTestMode) {
-      return res.status(403).json({ error: "test_mode_owner_only" });
+    let ownerTestMode = false;
+    if (testModeRequested) {
+      const ownerToken = String(req.get("x-zapformat-owner-test-token") || "").trim();
+      const ownerUser = ownerToken ? await userFromSessionToken(ownerToken) : null;
+      ownerTestMode = ownerUser?.role === "owner";
+      if (!ownerTestMode) {
+        return res.status(403).json({ error: "test_mode_owner_only" });
+      }
     }
 
     if (pool && requestUser) {
