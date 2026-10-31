@@ -7,6 +7,7 @@ const PRIVATE_KEY_FILE = "/var/lib/zapformat/openai-bootstrap-private.pem";
 const AI_ENV_FILE = "/var/lib/zapformat/zapformat-ai.env";
 const SMS_ENV_FILE = "/var/lib/zapformat/zapformat-sms.env";
 const FAPI_ENV_FILE = "/var/lib/zapformat/zapformat-fapi.env";
+const TELEGRAM_ENV_FILE = "/var/lib/zapformat/zapformat-telegram.env";
 
 async function ensureBootstrapPrivateKey() {
   try {
@@ -187,13 +188,51 @@ async function installFapiToken(payload) {
   return { configured: true, provider: "fapi.iisis.ru" };
 }
 
+
+async function installTelegramConfig(payload) {
+  const token = payload?.bot_token === undefined
+    ? String(process.env.ZAPFORMAT_TELEGRAM_BOT_TOKEN || "").trim()
+    : String(payload?.bot_token || "").trim();
+  const chatId = payload?.owner_chat_id === undefined
+    ? String(process.env.ZAPFORMAT_TELEGRAM_OWNER_CHAT_ID || "").trim()
+    : String(payload?.owner_chat_id || "").trim();
+  const pairing = payload?.pairing_code === undefined
+    ? String(process.env.ZAPFORMAT_TELEGRAM_PAIRING_CODE || "").trim()
+    : String(payload?.pairing_code || "").trim();
+
+  if (token && !/^\d{5,15}:[A-Za-z0-9_-]{20,}$/.test(token)) {
+    throw new Error("telegram_bot_token_invalid");
+  }
+  if (chatId && !/^-?\d{5,20}$/.test(chatId)) {
+    throw new Error("telegram_chat_id_invalid");
+  }
+  if (pairing && !/^[A-Za-z0-9_-]{8,64}$/.test(pairing)) {
+    throw new Error("telegram_pairing_code_invalid");
+  }
+
+  process.env.ZAPFORMAT_TELEGRAM_BOT_TOKEN = token;
+  process.env.ZAPFORMAT_TELEGRAM_OWNER_CHAT_ID = chatId;
+  process.env.ZAPFORMAT_TELEGRAM_PAIRING_CODE = pairing;
+
+  const envBody =
+    envLine("ZAPFORMAT_TELEGRAM_BOT_TOKEN", token) +
+    envLine("ZAPFORMAT_TELEGRAM_OWNER_CHAT_ID", chatId) +
+    envLine("ZAPFORMAT_TELEGRAM_PAIRING_CODE", pairing);
+
+  await fs.writeFile(TELEGRAM_ENV_FILE, envBody, { mode: 0o600 });
+  await fs.chmod(TELEGRAM_ENV_FILE, 0o600).catch(() => {});
+  return { configured: Boolean(token), connected: Boolean(token && chatId) };
+}
+
 module.exports = {
   publicBootstrapJwk,
   installEncryptedOpenAIKey,
   installTimewebAIToken,
   installSmsRuToken,
   installFapiToken,
+  installTelegramConfig,
   AI_ENV_FILE,
   SMS_ENV_FILE,
-  FAPI_ENV_FILE
+  FAPI_ENV_FILE,
+  TELEGRAM_ENV_FILE
 };
