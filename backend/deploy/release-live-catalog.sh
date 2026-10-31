@@ -87,20 +87,12 @@ install -m 750 "${APP_DIR}/backend/deploy/autodeploy-runner.sh" /usr/local/sbin/
 install -d -o zapformat -g zapformat -m 700 /var/lib/zapformat/partgrade-private
 install -d -o zapformat -g zapformat -m 700 /var/lib/zapformat/fapi-cache
 
-mark_stage "telegram_route_override"
+mark_stage "telegram_route_cleanup"
 python3 - <<'PY'
 from pathlib import Path
 hosts = Path("/etc/hosts")
 text = hosts.read_text(encoding="utf-8")
-backup = Path("/var/lib/zapformat/etc-hosts.before-telegram")
-if not backup.exists():
-    backup.write_text(text, encoding="utf-8")
-    backup.chmod(0o600)
-lines = [
-    line for line in text.splitlines()
-    if "zapformat-telegram-route" not in line
-]
-lines.append("149.154.167.220 api.telegram.org # zapformat-telegram-route")
+lines = [line for line in text.splitlines() if "zapformat-telegram-route" not in line]
 hosts.write_text("\n".join(lines).rstrip() + "\n", encoding="utf-8")
 PY
 
