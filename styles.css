@@ -5610,3 +5610,39 @@ body{width:100%;max-width:100%;margin:0;overflow-x:clip}
   }
   main{padding-bottom:calc(84px + env(safe-area-inset-bottom))!important}
 }
+
+/* Stable storefront entry and iOS keyboard behaviour, 31 October 2026. */
+.session-entry{display:none;white-space:nowrap;align-items:center;justify-content:center;max-width:48vw;min-height:37px;padding:8px 12px;border:1px solid #d6e2e9;border-radius:10px;background:#f6f9fb;color:#18354b;font:700 12px/1.2 -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;overflow:hidden;text-overflow:ellipsis}
+.auth-blocked-help{display:block;margin-top:9px;font-size:12px;line-height:1.5;color:#546d7f}
+@media(max-width:900px){
+  #sessionEntryButton{display:inline-flex!important;flex:0 1 auto;min-width:0}
+  .topbar-inner,body.guest-mode .topbar-inner{display:flex!important;align-items:center!important;justify-content:space-between!important;gap:8px!important}
+  body.auth-route .mobile-nav,
+  body:has(#view-auth.active) .mobile-nav,
+  body:has(input:focus) .mobile-nav,
+  body:has(textarea:focus) .mobile-nav,
+  body:has(select:focus) .mobile-nav{display:none!important}
+  body.auth-route main{padding-bottom:calc(22px + env(safe-area-inset-bottom))!important}
+}
+@media(max-width:680px){
+  html,body{scroll-behavior:auto!important;overscroll-behavior-x:none}
+  #sessionEntryButton{font-size:12px;max-width:51vw;min-height:36px}
+  #view-auth{min-height:0!important;max-width:100%!important}
+  #view-auth .auth-shell{max-width:100%!important;min-height:0!important;padding:10px 0 22px!important}
+  #view-auth .auth-card{max-width:100%;overflow:visible}
+  #view-auth .auth-tabs{max-width:100%}
+  #view-auth .auth-form input:not([type=checkbox]),
+  #view-auth .auth-form select,
+  #view-auth .auth-form textarea,
+  .minimal-search input,.minimal-search textarea,
+  .catalog-search input,
+  .account-shell input,.account-shell select,.account-shell textarea{
+    font-size:17px!important;line-height:1.4!important;
+    -webkit-text-size-adjust:100%;
+  }
+  #view-auth .auth-form label{display:block;min-width:0;max-width:100%}
+  #view-auth .auth-form .auth-password-field{max-width:100%}
+  #view-auth .auth-form .auth-password-field input{padding-right:95px!important}
+  #view-auth .auth-form .auth-password-toggle{max-width:90px!important;right:7px}
+  #view-auth .auth-form .auth-code-input{letter-spacing:.12em}
+}
