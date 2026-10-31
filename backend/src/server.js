@@ -3117,6 +3117,43 @@ app.post("/api/auth/register/start", authLimiter, async (req, res, next) => {
   }
 });
 
+// Recover an accepted registration when the browser lost its HTTP 202 response.
+// This endpoint NEVER sends another SMS/call and does not create an account.
+app.post("/api/auth/register/recover", requireDatabase, authLimiter, async (req,res,next)=>{
+  try{
+    const phone=normalizePhone(req.body?.phone);
+    const password=String(req.body?.password||"");
+    if(!validSmsPhone(phone) || password.length<8 || password.length>1024){
+      return res.status(400).json({error:"invalid_recovery_request"});
+    }
+    const records=await pool.query(
+      `SELECT id,phone,password_hash,expires_at,created_at
+         FROM auth_challenges
+        WHERE purpose='register' AND phone=$1
+          AND consumed_at IS NULL AND expires_at>now()
+        ORDER BY created_at DESC LIMIT 3`,
+      [phone]
+    );
+    let matched=null;
+    for(const row of records.rows){
+      if(row.password_hash && await bcrypt.compare(password,row.password_hash)){
+        matched=row;break;
+      }
+    }
+    res.set("Cache-Control","no-store");
+    if(!matched)return res.status(404).json({error:"verification_not_found"});
+    return res.status(200).json({
+      ok:true,
+      challenge_id:matched.id,
+      masked_phone:maskPhone(phone),
+      expires_in:Math.max(1,Math.ceil((new Date(matched.expires_at).getTime()-Date.now())/1000)),
+      resend_in:OTP_RESEND_SECONDS,
+      verification_method:verificationMethod(),
+      recovered:true
+    });
+  }catch(error){next(error);}
+});
+
 app.post("/api/auth/register/verify", authLimiter, async (req, res, next) => {
   const client = await pool.connect();
   try {
