@@ -6439,3 +6439,225 @@ html.zf-preauth #sessionEntryButton::after{content:"Проверяем вход�
     width:100%!important;
   }
 }
+
+
+/* Customer UX audit — PartGrade-inspired density and ZapFormat accents */
+#view-search .catalog-query-head{
+  padding:18px 22px!important;
+  margin-bottom:9px!important;
+  border-radius:15px!important;
+}
+#view-search .catalog-query-head h2{
+  font-size:clamp(25px,2.8vw,37px)!important;
+  margin-bottom:3px!important;
+}
+#view-search .catalog-query-head p{
+  font-size:12px!important;
+  line-height:1.35!important;
+}
+#view-search .catalog-count{
+  padding:9px 13px!important;
+  min-width:92px!important;
+  border-radius:11px!important;
+}
+#view-search .catalog-count b{font-size:25px!important}
+#view-search .catalog-count span{font-size:9px!important}
+#view-search .catalog-search{
+  min-height:46px!important;
+  border-radius:11px!important;
+  box-shadow:none!important;
+}
+#view-search .catalog-search input{
+  padding:10px 14px!important;
+  font-size:14px!important;
+}
+#view-search .catalog-search button{
+  background:var(--flipper-orange)!important;
+  color:#171717!important;
+  padding:10px 21px!important;
+  font-weight:900!important;
+}
+#view-search .catalog-vehicle-context{
+  margin-top:8px!important;
+  padding:8px 12px!important;
+  border-radius:9px!important;
+}
+#view-search .catalog-disclaimer{
+  margin:7px 1px 9px!important;
+  padding:0!important;
+  border:0!important;
+  background:transparent!important;
+  color:#7a858b!important;
+  font-size:10px!important;
+}
+#view-search .catalog-actions{margin-top:7px!important}
+#view-search .sort-row,
+#view-search .compact-filters{gap:5px!important}
+#view-search .sort-row button,
+#view-search .compact-filters button{
+  padding:7px 11px!important;
+  font-size:11px!important;
+}
+#view-search .section-inline-title{margin-top:14px!important}
+#view-search button[data-add-cart],
+#view-search .cart-icon-btn{
+  background:var(--flipper-orange)!important;
+  border-color:#e97600!important;
+  color:#171717!important;
+  font-weight:900!important;
+}
+
+/* Customer primary actions use the orange brand accent. */
+#view-profile .account-primary,
+#view-profile .garage-primary,
+#view-profile .garage-mileage-edit button,
+#view-cart .checkout-order-button,
+#view-cart .cart-empty-state .account-primary{
+  background:var(--flipper-orange)!important;
+  border-color:#e97600!important;
+  color:#171717!important;
+  font-weight:900!important;
+}
+#view-profile .account-primary:hover,
+#view-profile .garage-primary:hover,
+#view-profile .garage-mileage-edit button:hover,
+#view-cart .checkout-order-button:hover,
+#view-cart .cart-empty-state .account-primary:hover{
+  background:#f47c00!important;
+}
+#view-profile .garage-vehicle-strip>button.active{
+  border-color:var(--flipper-orange)!important;
+  box-shadow:inset 0 0 0 1px var(--flipper-orange)!important;
+}
+#view-profile .garage-tabs button.active{
+  color:#20292e!important;
+  box-shadow:inset 0 -3px 0 var(--flipper-orange)!important;
+}
+#view-profile .garage-owner-head{
+  padding:20px 22px!important;
+}
+#view-profile .garage-owner-head h2{
+  margin-bottom:0!important;
+}
+#view-profile .garage-mileage-card{
+  padding:16px 18px!important;
+}
+
+/* Returns: compact functional state instead of an oversized presentation panel. */
+#account-returns .account-head{
+  padding:20px 22px!important;
+  margin-bottom:10px!important;
+}
+#account-returns #accountReturnsList{
+  padding:0!important;
+  border:0!important;
+  background:transparent!important;
+  box-shadow:none!important;
+}
+#account-returns .account-empty{
+  min-height:190px!important;
+  padding:30px 22px!important;
+  border:1px solid #d9dee1!important;
+  border-radius:14px!important;
+  box-shadow:0 6px 18px rgba(25,38,47,.035)!important;
+}
+#account-returns .account-empty .empty-icon{font-size:25px!important}
+#account-returns .account-empty h3{margin:8px 0 4px!important}
+#account-returns .account-empty p{margin:0 auto!important}
+
+/* Cart: same table language as customer orders, without supplier warehouse. */
+#view-cart .cart-livebar[hidden]{display:none!important}
+#view-cart .order-table-wrap{
+  border:1px solid #d5dade!important;
+  border-radius:14px!important;
+  overflow:hidden!important;
+  box-shadow:0 8px 22px rgba(25,38,47,.045)!important;
+}
+#view-cart .order-table-head,
+#view-cart .order-cart-row{
+  min-width:0!important;
+  width:100%!important;
+  grid-template-columns:
+    34px 54px 84px 118px minmax(210px,1fr)
+    72px 96px 76px 96px 104px 135px 36px!important;
+}
+#view-cart .order-table-head{
+  background:#eef1f2!important;
+  border-top:3px solid var(--flipper-orange)!important;
+  color:#343b40!important;
+  font-size:11px!important;
+}
+#view-cart .order-table-head span,
+#view-cart .order-cart-row>div{
+  padding:10px 7px!important;
+  border-right:1px solid #d7dcdf!important;
+}
+#view-cart .order-cart-row{
+  font-size:11px!important;
+}
+#view-cart .order-cart-row:hover{
+  background:#fffaf5!important;
+}
+#view-cart .cart-check{accent-color:var(--flipper-orange)!important}
+#view-cart .cart-article{
+  color:#2f363a!important;
+  text-decoration:none!important;
+  font-weight:800!important;
+}
+#view-cart .cart-import{
+  margin-top:12px!important;
+  border:1px solid #d8dde0!important;
+  border-radius:11px!important;
+  background:#fff!important;
+  box-shadow:none!important;
+}
+#view-cart .cart-import summary{
+  padding:11px 14px!important;
+  color:#4c565c!important;
+  font-size:12px!important;
+  font-weight:800!important;
+}
+#view-cart .cart-empty-state{
+  min-height:210px!important;
+  padding:34px 20px!important;
+}
+#view-cart .cart-empty-state h3{margin:0 0 5px!important}
+#view-cart .cart-empty-state p{margin:0 0 15px!important}
+#view-cart .cart-total-row{
+  border-top:3px solid var(--flipper-orange)!important;
+}
+
+/* Home: keep the strong hero, reduce unused vertical space. */
+#view-home .minimal-hero{
+  min-height:0!important;
+  padding-top:30px!important;
+  padding-bottom:30px!important;
+}
+#view-home .hero-search-panel{
+  padding-top:28px!important;
+  padding-bottom:28px!important;
+}
+
+/* Footer stays useful but quieter than the storefront. */
+.site-footer{
+  margin-top:28px!important;
+}
+.site-footer-inner{
+  padding-top:20px!important;
+  padding-bottom:20px!important;
+}
+.site-footer-brand p{
+  font-size:11px!important;
+  margin-top:5px!important;
+}
+
+@media(max-width:1100px){
+  #view-cart .order-table-wrap{overflow:visible!important;border:0!important;box-shadow:none!important}
+}
+@media(max-width:760px){
+  #view-search .catalog-query-head{padding:15px!important}
+  #view-search .catalog-query-head h2{font-size:25px!important}
+  #view-search .catalog-count{padding:7px 10px!important}
+  #view-profile .garage-owner-head{padding:15px!important}
+  #account-returns .account-empty{min-height:150px!important;padding:24px 16px!important}
+}
