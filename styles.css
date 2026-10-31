@@ -5702,3 +5702,23 @@ html.zf-preauth #sessionEntryButton::after{content:"Проверяем вход�
 .auth-recovery-check{display:block;width:100%;margin-top:7px;padding:12px;border:1px solid #bfd1dd;border-radius:9px;background:#edf5f9;color:#173b55;cursor:pointer;font-size:14px;font-weight:700;line-height:1.4;text-align:center}
 .auth-recovery-check[hidden]{display:none!important}
 .auth-recovery-check:disabled{opacity:.6;cursor:wait}
+
+
+/* Storefront cleanup — 31 October 2026 */
+#view-home .minimal-hero{
+  grid-template-columns:minmax(0,1fr)!important;
+  min-height:0!important;
+  padding:clamp(22px,4vw,42px)!important;
+}
+#view-home .hero-search-panel{
+  width:min(100%,760px)!important;
+  justify-self:center!important;
+  align-self:center!important;
+}
+@media(max-width:900px){
+  #view-home .minimal-hero{padding:24px!important}
+}
+@media(max-width:680px){
+  #view-home .minimal-hero{padding:14px!important;border-radius:18px!important}
+  #view-home .hero-search-panel{padding:17px 14px!important}
+}
