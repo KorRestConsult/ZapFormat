@@ -87,9 +87,48 @@
   }
   function badge(value){const key=String(value||"");return '<span class="badge badge-'+(Object.hasOwn(statusLabels,key)?key:"unknown")+'">'+escape(statusLabels[key]||value||"—")+'</span>';}
   function orderRows(items){
-    return items.map(i=>'<tr><td><strong>№ '+escape(i.order_number||i.id||"—")+'</strong><small>'+dateRu(i.created_at)+'</small></td><td>'+escape(i.recipient_name||"Получатель не указан")+'<small>'+escape(i.recipient_phone||"")+'</small></td><td class="nowrap">'+formatRub(i.total_amount)+'</td><td>'+formatInt(i.items_count)+'</td><td>'+badge(i.status)+'</td></tr>');
+    return items.map(i=>'<tr><td><button type="button" class="order-toggle" aria-expanded="false" data-order-id="'+escape(i.id)+'">№ '+escape(i.order_number||i.id||"—")+' <span aria-hidden="true">⌄</span></button><small>'+dateRu(i.created_at)+'</small></td><td>'+escape(i.recipient_name||"Получатель не указан")+'<small>'+escape(i.recipient_phone||"")+'</small></td><td class="nowrap">'+formatRub(i.total_amount)+'</td><td>'+formatInt(i.items_count)+'</td><td>'+badge(i.status)+'</td></tr>');
   }
-  function requestRows(items){
+  async function toggleOrderDetails(button){
+    const row=button.closest("tr");
+    if(!row || !state.user)return;
+    const existing=row.nextElementSibling;
+    if(existing?.classList.contains("order-detail-row")){
+      existing.remove();button.setAttribute("aria-expanded","false");return;
+    }
+    // Close other expanded orders to keep the list compact.
+    for(const detail of $("page").querySelectorAll(".order-detail-row"))detail.remove();
+    for(const expanded of $("page").querySelectorAll('[data-order-id][aria-expanded="true"]'))expanded.setAttribute("aria-expanded","false");
+    const id=button.dataset.orderId;
+    const host=document.createElement("tr");host.className="order-detail-row";
+    host.innerHTML='<td colspan="5"><div class="loading">Загружаем состав заказа…</div></td>';
+    row.after(host);button.setAttribute("aria-expanded","true");
+    const seq=state.seq;
+    try{
+      const data=await request("/api/admin/orders/"+encodeURIComponent(id));
+      if(seq!==state.seq || !state.user || !host.isConnected)return;
+      const order=data.order||{}, cost=data.costing||{}, items=Array.isArray(data.items)?data.items:[];
+      const phone=String(order.recipient_phone||"");
+      const href=phone.replace(/[^\d+]/g,"");
+      const contact=href?'<a href="tel:'+escape(href)+'">'+escape(phone)+'</a>':"Телефон не указан";
+      const address=[order.delivery_city,order.delivery_address].filter(Boolean).map(escape).join(", ");
+      const totalPurchase=cost.complete?formatRub(cost.known_purchase):"Не все закупки известны";
+      const gross=cost.complete?formatRub(cost.known_gross_profit):"Не рассчитана полностью";
+      host.innerHTML='<td colspan="5"><div class="order-detail">'+
+        '<div class="order-detail-head"><div><h3>Заказ № '+escape(order.order_number||"")+'</h3><p>'+escape(order.recipient_name||"Получатель не указан")+' · '+contact+'</p><p>Доставка: '+(address||"Адрес не указан")+'</p></div><div>'+badge(order.status)+'</div></div>'+
+        table(["Запчасть / артикул","Кол-во","Закупка","Продажа","Состояние"],items.map(i=>
+          '<tr><td><strong>'+escape([i.brand,i.article].filter(Boolean).join(" "))+'</strong><small>'+escape(i.description||"")+'</small></td><td>'+formatInt(i.quantity)+'</td><td>'+ (i.line_purchase===null?"—":formatRub(i.line_purchase))+'</td><td>'+formatRub(i.line_sale)+'</td><td>'+badge(i.status)+'<small>'+(i.expected_at?"Ожидается: "+dateRu(i.expected_at):"")+(i.received_at?" · Получено: "+dateRu(i.received_at):"")+'</small></td></tr>'
+        ),"Позиции заказа отсутствуют.")+
+        '<div class="order-totals"><span>Итого продажа: <strong>'+formatRub(order.total_amount)+'</strong></span><span>Закупка: <strong>'+totalPurchase+'</strong></span><span>Валовая разница: <strong>'+gross+'</strong></span></div>'+
+        '<p class="muted">Учтено закупок по '+formatInt(cost.costed_items)+' из '+formatInt(items.length)+' позиций. Расходы на доставку, возвраты и налоги в валовую разницу не входят.</p>'+
+        (order.comment?'<p>Комментарий клиента: '+escape(order.comment)+'</p>':"")+'</div></td>';
+    }catch(error){
+      if(!host.isConnected)return;
+      host.innerHTML='<td colspan="5"><div class="empty">Не удалось получить детали заказа. Изменения не выполнялись.</div></td>';
+      if(error.status===401 || error.status===403)handleError(error,"Нет доступа к заказу.");
+    }
+  }
+    function requestRows(items){
     return items.map(i=>'<tr><td><strong>№ '+escape(i.id)+'</strong><small>'+dateRu(i.created_at)+'</small></td><td>'+escape(i.name||"—")+'<small>'+escape(i.phone||"")+'</small></td><td>'+escape(i.articles||"—")+'</td><td>'+formatInt(i.items_count)+'</td><td>'+badge(i.status)+'</td></tr>');
   }
   function customerRows(items){
@@ -299,5 +338,6 @@
   $("logoutButton").addEventListener("click",logout);
   $("refreshButton").addEventListener("click",()=>openPage(state.page));
   $("menu").addEventListener("click",e=>{const b=e.target.closest("[data-page]");if(b)openPage(b.dataset.page);});
+  $("page").addEventListener("click",e=>{const b=e.target.closest("[data-order-id]");if(b)toggleOrderDetails(b);});
   restoreSession();
 })();
