@@ -12,6 +12,10 @@ ALTER TABLE order_items
   ADD CONSTRAINT order_items_received_quantity_valid
   CHECK (received_quantity >= 0 AND received_quantity <= quantity);
 
+ALTER TABLE orders
+  ADD COLUMN IF NOT EXISTS packed_at timestamptz,
+  ADD COLUMN IF NOT EXISTS packed_by uuid REFERENCES users(id);
+
 CREATE TABLE IF NOT EXISTS order_item_intake_history (
   id bigserial PRIMARY KEY,
   order_item_id uuid NOT NULL REFERENCES order_items(id) ON DELETE CASCADE,
