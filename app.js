@@ -514,10 +514,14 @@ function renderCheckoutContact(){
   if(!summary || !fallback) return;
 
   if(!sessionUser){
-    summary.innerHTML="";
+    summary.innerHTML='<div><small>ЗАЯВКА БЕЗ РЕГИСТРАЦИИ</small><b>Подберём и подтвердим детали</b><span>Вы оставляете телефон для связи. Закупка выполняется только после согласования.</span></div>';
     fallback.hidden=false;
+    const consent=document.getElementById("guestQuoteConsent");
+    if(consent)consent.hidden=false;
     return;
   }
+  const consent=document.getElementById("guestQuoteConsent");
+  if(consent)consent.hidden=true;
 
   const delivery=accountPreferences?.delivery||null;
   const fullName=[sessionUser.name,sessionUser.surname].filter(Boolean).join(" ") || String(delivery?.recipient_name||"").trim();
@@ -596,15 +600,15 @@ function updateCheckoutMode(){
     if(!button.dataset.busy){
       button.disabled=selectedCount===0 || supplierAvailable!==true;
       button.textContent=supplierAvailable!==true
-        ? "Заказы временно недоступны"
-        : !sessionUser ? "Войти для оформления" : finalLabel;
+        ? "Оформление временно недоступно"
+        : !sessionUser ? "Отправить заявку без регистрации" : finalLabel;
     }
   });
   checkoutEntryButtons().forEach(button=>{
     button.disabled=selectedCount===0 || supplierAvailable!==true;
     button.textContent=supplierAvailable!==true
       ? "Каталог поставщика подключается"
-      : !sessionUser ? "Войти для оформления" : entryLabel;
+      : !sessionUser ? "Оставить заявку · "+selectedCount : entryLabel;
   });
 
   const summary=document.getElementById("checkoutReviewSummary");
@@ -614,7 +618,7 @@ function updateCheckoutMode(){
   const note=document.querySelector(".checkout-recheck-note");
   if(note){
     note.textContent=supplierAvailable===true
-      ? "Перед подтверждением ещё раз проверим цену и наличие. Оплата — только наличными при получении."
+      ? (!sessionUser ? "Заявка отправится менеджеру на подтверждение, без оплаты и закупки." : "Перед подтверждением ещё раз проверим цену и наличие. Оплата — только наличными при получении.")
       : "Оформление временно недоступно: ждём подключения каталога поставщика. Заказ не будет отправлен.";
   }
   renderCheckoutContact();
@@ -3653,11 +3657,9 @@ function deleteSelected(){
 
 
 async function checkoutCart(){
-  // An account is mandatory for order history and supplier actions.
-  if(!sessionUser){
-    pendingAccountRoute="cart";
-    navigate("auth");
-    setAuthStatus("Войдите, чтобы оформить заказ. Ваша корзина сохранится на этом устройстве.");
+  // Guests send an enquiry only. A confirmed, signed-in customer may create an order.
+  if(!sessionUser && !document.getElementById("guestQuoteAgree")?.checked){
+    showToast("Подтвердите согласие на связь по заявке.","warn");
     return;
   }
   if(supplierAvailable!==true){
@@ -3734,11 +3736,12 @@ async function checkoutCart(){
 
     buttons.forEach(button=>{ button.textContent="Отправляем…"; });
 
-    const result=await apiRequest("/api/quote-requests",{
+    const result=await apiRequest(sessionUser ? "/api/quote-requests" : "/api/public/quote-requests",{
       method:"POST",
       body:JSON.stringify({
         name,
         phone,
+        ...(sessionUser ? {} : {privacy_consent:true,website:document.getElementById("guestQuoteWebsite")?.value||""}),
         items:selected.map(x=>({
           client_id:x.id,
           brand:x.brand,
@@ -3771,7 +3774,8 @@ async function checkoutCart(){
         await openLiveOrderDetail(result.order_id || result.order_number,{created:true});
       }
     }else{
-      showToast("Заказ принят на уточнение.");
+      showToast(sessionUser ? "Заказ принят на уточнение." : "Заявка "+String(result.request_id||"")+" принята. Мы свяжемся для подтверждения.");
+      if(!sessionUser && result.request_id)localStorage.setItem("zapformat-last-guest-request",String(result.request_id));
       if(sessionUser){
         accountDataHydrated=false;
         await hydrateAccountData();
@@ -3864,11 +3868,7 @@ document.addEventListener("click",async e=>{
     if(action==="clear") clearCart();
     else if(action==="delete-selected") deleteSelected();
     else if(action==="start-checkout"){
-      if(!sessionUser){
-        pendingAccountRoute="cart";
-        navigate("auth");
-        setAuthStatus("Войдите, чтобы оформить заказ. Корзина останется на устройстве.");
-      }else if(supplierAvailable!==true){
+      if(supplierAvailable!==true){
         showToast("Оформление доступно после подключения поставщика.","warn");
       }else{
         setCheckoutReviewOpen(true,{scroll:true});
