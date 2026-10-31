@@ -456,7 +456,7 @@
       box.innerHTML='<div class="panel-head"><h2>Почта для регистрации покупателей</h2></div>'+
         '<p class="muted">Подключите Gmail, с которого покупатели будут получать шестизначные коды. Нужен только <b>пароль приложения Google</b>, не основной пароль учётной записи. Проверка не отправляет писем.</p>'+
         '<form id="gmailSetupForm" class="security-form" autocomplete="off">'+
-        '<label>Почта отправителя<input id="gmailSender" type="email" autocomplete="off" value="korobicinlive@gmail.com" required></label>'+
+        '<label>Почта отправителя<input id="gmailSender" type="email" autocomplete="off" placeholder="name@gmail.com" required></label>'+
         '<label>Пароль приложения Google (16 символов)<input id="gmailAppPassword" type="password" autocomplete="off" spellcheck="false" placeholder="Пароль приложения, не обычный пароль" required></label>'+
         '<button class="primary" type="submit" id="gmailConnectButton">Проверить и подключить почту</button></form>'+
         '<p class="muted">Пароль приложения создаётся в <a href="https://myaccount.google.com/apppasswords" target="_blank" rel="noopener noreferrer">настройках Google</a> после включения двухэтапной проверки.</p>'+

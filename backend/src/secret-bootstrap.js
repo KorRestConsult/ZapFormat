@@ -178,8 +178,8 @@ async function installSmsRuToken(payload) {
 
 async function installGmailSMTP(payload) {
   const user = String(payload?.email || "").trim().toLowerCase();
-  const password = String(payload?.app_password || "").replace(/\\s/g, "");
-  if (!/^[a-z0-9.+_-]+@gmail\\.com$/.test(user) || password.length !== 16 ||
+  const password = String(payload?.app_password || "").replace(/\s/g, "");
+  if (!/^[a-z0-9.+_-]+@gmail\.com$/.test(user) || password.length !== 16 ||
       !/^[a-zA-Z0-9]{16}$/.test(password)) {
     throw Object.assign(new Error("gmail_credentials_invalid"), { code: "gmail_credentials_invalid" });
   }
