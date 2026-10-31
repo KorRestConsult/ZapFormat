@@ -811,10 +811,19 @@ function applySessionUser(){
     const title=userBox.querySelector("b");
     const sub=userBox.querySelector("span");
     const initials=((sessionUser.name||"").slice(0,1)+(sessionUser.surname||"").slice(0,1)).toUpperCase()||"ZF";
-    if(avatar) avatar.textContent=initials;
+    if(avatar){
+      avatar.dataset.initials=initials;
+      avatar.textContent=initials;
+    }
     if(title) title.textContent=[sessionUser.name,sessionUser.surname].filter(Boolean).join(" ");
     if(sub) sub.textContent=sessionUser.phone||sessionUser.email||"ZapFormat";
   }
+
+  const profileName=document.getElementById("profileDisplayName");
+  const profileContact=document.getElementById("profileDisplayContact");
+  if(profileName) profileName.textContent=sessionUser ? ([sessionUser.name,sessionUser.surname].filter(Boolean).join(" ")||"Клиент ZapFormat") : "Клиент ZapFormat";
+  if(profileContact) profileContact.textContent=sessionUser?.phone||sessionUser?.email||"Контактные данные";
+  applyProfileAvatar();
 
   const logout=document.getElementById("logoutButton");
   if(logout) logout.hidden=!sessionUser;
@@ -844,8 +853,35 @@ function applySessionUser(){
   renderCheckoutContact();
   updateCheckoutMode();
   updateVehicleContextUi();
-  startNotificationRefresh();
   renderAccountSetupChecklist();
+}
+
+function profileAvatarStorageKey(){
+  return "zapformat-profile-avatar-"+String(sessionUser?.id||"guest");
+}
+
+function applyProfileAvatar(){
+  const initials=((sessionUser?.name||"").slice(0,1)+(sessionUser?.surname||"").slice(0,1)).toUpperCase()||"ZF";
+  let image="";
+  try{ image=localStorage.getItem(profileAvatarStorageKey())||""; }catch{}
+  for(const avatar of [document.querySelector(".account-avatar"),document.getElementById("profilePhotoPreview")].filter(Boolean)){
+    avatar.textContent=image?"":initials;
+    avatar.style.backgroundImage=image?'url("'+image.replace(/"/g,"%22")+'")':"";
+    avatar.classList.toggle("has-photo",Boolean(image));
+  }
+}
+
+function updateProfileVehiclePreview(){
+  const mount=document.getElementById("profileVehiclePreview");
+  if(!mount) return;
+  const vehicle=currentSearchVehicle();
+  if(!vehicle){
+    mount.innerHTML="<small>Мой автомобиль</small><b>Автомобиль не выбран</b><span>Добавьте его в гараж</span>";
+    return;
+  }
+  const label=vehicleLabel(vehicle)||[vehicle.brand,vehicle.model].filter(Boolean).join(" ")||"Мой автомобиль";
+  const meta=[vehicle.generation,vehicle.year,vehicle.engine].filter(Boolean).join(" · ");
+  mount.innerHTML="<small>Мой автомобиль</small><b>"+escapeHtml(label)+"</b><span>"+escapeHtml(meta||"Из гаража")+"</span>";
 }
 
 function formatDateRu(value){
@@ -2066,6 +2102,7 @@ async function attachVinToCurrentVehicle(vin){
 
 function updateVehicleContextUi(){
   const vehicle=currentSearchVehicle();
+  updateProfileVehiclePreview();
   const header=document.getElementById("headerVehicleButton");
   const home=document.getElementById("homeVehicleContext");
   const homeSetup=document.getElementById("homeVehicleSetup");
@@ -3794,7 +3831,8 @@ async function checkoutCart(){
     pendingCheckoutAfterDelivery=true;
     showToast("Сначала укажите получение заказа.","warn");
     navigate("profile");
-    showAccountTab("delivery");
+    showAccountTab("profile");
+    requestAnimationFrame(()=>document.getElementById("profileDeliverySection")?.scrollIntoView({behavior:"smooth",block:"start"}));
     return;
   }
 
@@ -4067,7 +4105,8 @@ document.addEventListener("click",async e=>{
   const checkoutDelivery=e.target.closest("[data-checkout-delivery]");
   if(checkoutDelivery){
     navigate("profile");
-    showAccountTab("delivery");
+    showAccountTab("profile");
+    requestAnimationFrame(()=>document.getElementById("profileDeliverySection")?.scrollIntoView({behavior:"smooth",block:"start"}));
     return;
   }
 
@@ -4783,7 +4822,7 @@ async function refreshAdditionalAccountPane(tab){
 }
 
 function showAccountTab(tab){
-  const allowed=new Set(["orders","returns","reports","garage","profile","delivery","notifications","order-detail"]);
+  const allowed=new Set(["orders","returns","garage","profile","order-detail"]);
   if(tab!=="order-detail") currentOpenOrderId=null;
   if(!allowed.has(tab)) tab="orders";
   const profileView=document.getElementById("view-profile");
@@ -4807,11 +4846,12 @@ function showAccountTab(tab){
   }else if(sessionUser && tab==="garage" && !accountDataHydrated){
     hydrateAccountData();
   }
-  if(sessionUser && tab==="notifications"){
-    refreshNotificationFeed();
+  if(sessionUser && tab==="returns"){
+    refreshAdditionalAccountPane("returns").catch(error=>console.warn("Account panel refresh failed",error));
   }
-  if(sessionUser && (tab==="returns" || tab==="reports")){
-    refreshAdditionalAccountPane(tab).catch(error=>console.warn("Account panel refresh failed",error));
+  if(sessionUser && tab==="profile"){
+    if(!accountDataHydrated) hydrateAccountData();
+    refreshAdditionalAccountPane("reports").catch(error=>console.warn("Account profile stats refresh failed",error));
   }
   const profileViewActive=document.getElementById("view-profile")?.classList.contains("active");
   if(profileViewActive){
@@ -5468,6 +5508,44 @@ document.getElementById("markNotificationsRead")?.addEventListener("click",async
   }
 });
 
+
+document.getElementById("profileAvatarChange")?.addEventListener("click",()=>{
+  document.getElementById("profileAvatarInput")?.click();
+});
+
+document.getElementById("profileAvatarInput")?.addEventListener("change",e=>{
+  const file=e.currentTarget.files?.[0];
+  if(!file) return;
+  if(!/^image\/(jpeg|png|webp)$/i.test(file.type)){
+    showToast("Выберите JPG, PNG или WebP.","warn");
+    e.currentTarget.value="";
+    return;
+  }
+  if(file.size>2*1024*1024){
+    showToast("Фото должно быть не больше 2 МБ.","warn");
+    e.currentTarget.value="";
+    return;
+  }
+  const reader=new FileReader();
+  reader.onload=()=>{
+    try{
+      localStorage.setItem(profileAvatarStorageKey(),String(reader.result||""));
+      applyProfileAvatar();
+      showToast("Фото профиля обновлено на этом устройстве.");
+    }catch{
+      showToast("Не удалось сохранить фото.","warn");
+    }
+  };
+  reader.readAsDataURL(file);
+});
+
+document.querySelector(".account-user")?.addEventListener("keydown",e=>{
+  if(e.key==="Enter"||e.key===" "){
+    e.preventDefault();
+    showAccountTab("profile");
+  }
+});
+
 document.getElementById("profileForm")?.addEventListener("submit",async e=>{
   e.preventDefault();
   const form=e.currentTarget;
@@ -5556,6 +5634,8 @@ try{
   const savedTab=localStorage.getItem("zapformat-account-tab");
   if(savedTab==="order-detail" || savedTab==="overview"){
     showAccountTab("orders");
+  }else if(["delivery","notifications","reports"].includes(savedTab)){
+    showAccountTab("profile");
   }else if(savedTab){
     showAccountTab(savedTab);
   }
