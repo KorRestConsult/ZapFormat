@@ -153,3 +153,47 @@
   #authScreen .auth-card label { margin-top: 8px; }
   #authScreen .auth-foot { margin-top: 8px; padding-top: 8px; }
 }
+
+
+/* Mobile service login: place the wordmark and descriptor in the SAME
+   vertical group. Previously three siblings fought for one flex row. */
+#authScreen .auth-brand-copy {
+  display:flex;
+  flex-direction:column;
+  justify-content:center;
+  min-width:0;
+}
+@media (max-width:780px){
+  #authScreen.auth-shell {
+    padding-inline:16px;
+    gap:12px;
+  }
+  #authScreen .auth-brand {
+    display:flex;
+    flex-direction:row;
+    align-items:center;
+    width:min(100%,440px);
+    gap:11px;
+    text-align:left;
+    justify-content:center;
+  }
+  #authScreen .auth-brand h1 {
+    font-size:clamp(23px,6.5vw,28px);
+    line-height:1.08;
+    margin:0;
+    letter-spacing:-.035em;
+  }
+  #authScreen .auth-brand p {
+    font-size:12px;
+    line-height:1.3;
+    margin:3px 0 0;
+    white-space:normal;
+  }
+  #authScreen .auth-card {padding:19px 20px 17px;}
+  #authScreen .store-link{margin-top:2px;}
+}
+@media (max-width:360px){
+  #authScreen .auth-brand h1 {font-size:23px;}
+  #authScreen .auth-brand p {font-size:11px;}
+  #authScreen .auth-card {padding:16px;}
+}

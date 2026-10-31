@@ -242,3 +242,12 @@ test('Lost SMS.RU call response is recovered without another paid provider reque
   assert.match(html,/id="registerRecoverButton"/);
   assert.match(css,/\.auth-recovery-check\[hidden\]\{display:none!important\}/);
 });
+
+test("customer login removes redundant guest header and unused status spacer",()=>{
+  assert.match(css,/body\.auth-route #sessionEntryButton \{display:none!important;\}/);
+  assert.match(css,/body\.auth-route #view-auth #authStatus:empty/);
+  assert.match(css,/body\.auth-route #view-auth \.auth-guest-browse-button/);
+  assert.match(html,/id=\"loginForm\"/);
+  assert.match(html,/id=\"registerForm\"/);
+  assert.match(html,/id=\"emailRegisterForm\"/);
+});

@@ -6848,3 +6848,80 @@ html.zf-preauth #sessionEntryButton::after{content:"Проверяем вход�
 
 /* Do not offer email signup until a transactional mail provider is configured. */
 [data-auth-tab="email"][hidden]{display:none!important}
+
+
+/* Compact customer login: fix the white space between action buttons and
+   keep labels and touch inputs comfortably readable on small iPhones. */
+@media (max-width:680px){
+  body.auth-route #view-auth .auth-shell {
+    padding:8px 0 12px!important;
+  }
+  body.auth-route #view-auth .auth-card {
+    border-radius:15px!important;
+    padding:16px!important;
+    box-shadow:0 7px 20px rgba(24,48,66,.04);
+  }
+  body.auth-route #view-auth .auth-tabs {
+    margin-bottom:12px;
+    gap:4px;
+    padding:4px;
+  }
+  body.auth-route #view-auth .auth-tabs button {
+    min-height:42px;
+    padding:8px 5px;
+    font-size:14px!important;
+    line-height:1.2;
+  }
+  body.auth-route #view-auth .auth-form {
+    gap:10px;
+  }
+  body.auth-route #view-auth .auth-form label span {
+    margin-bottom:5px;
+    font-size:13px;
+    line-height:1.3;
+  }
+  body.auth-route #view-auth .auth-form input:not([type=checkbox]),
+  body.auth-route #view-auth .auth-form select {
+    min-height:48px;
+    height:48px;
+    padding:10px 12px;
+    border-radius:10px;
+    font-size:16px!important;
+    line-height:1.3!important;
+  }
+  body.auth-route #sessionEntryButton {display:none!important;}
+  body.auth-route #view-auth .auth-link:disabled {display:none!important;}
+  body.auth-route #view-auth .auth-inline-actions {
+    margin-top:0;
+    gap:8px;
+    font-size:12px;
+    line-height:1.3;
+  }
+  body.auth-route #view-auth .auth-submit {
+    min-height:48px;
+    margin-top:1px;
+    font-size:15px;
+    border-radius:11px;
+  }
+  body.auth-route #view-auth #authStatus:empty {
+    display:none!important;
+    min-height:0;
+    margin:0;
+    padding:0;
+  }
+  body.auth-route #view-auth .auth-guest-browse-button {
+    min-height:44px;
+    margin-top:12px;
+    padding:9px 10px;
+    border-radius:11px;
+    font-size:13px;
+    line-height:1.3;
+  }
+  /* Guest exploration remains accessible without a giant secondary panel. */
+  body.auth-route main {padding-top:12px!important;}
+}
+@media(max-width:365px){
+  body.auth-route #view-auth .auth-card {padding:13px!important;}
+  body.auth-route #view-auth .auth-tabs button {font-size:12px!important;}
+  body.auth-route #view-auth .auth-guest-browse-button {font-size:12px;}
+}

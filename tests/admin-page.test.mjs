@@ -97,3 +97,10 @@ test("courier-facing login fits mobile screens without removing real registratio
     assert.match(html,new RegExp("id=\""+id+"\""));
   }
 });
+
+test("service login wordmark is a single stacked block on narrow mobile screens",()=>{
+  assert.match(html,/class=\"auth-brand-copy\"><h1>ZapFormat<\/h1><p>Служебный кабинет<\/p>/);
+  assert.match(css,/#authScreen \.auth-brand-copy \{/);
+  assert.match(css,/#authScreen \.auth-brand p \{/);
+  assert.match(css,/@media \(max-width:360px\)/);
+});
