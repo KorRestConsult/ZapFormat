@@ -595,6 +595,11 @@
             <label><span>Телефон</span><input id="quotePhone" type="tel" autocomplete="tel" placeholder="+7 900 000-00-00"></label>
           </div>
 
+          <div class="guest-quote-consent" id="guestQuoteConsent" hidden>
+            <label><input id="guestQuoteAgree" type="checkbox"> Согласен передать имя и телефон ZapFormat для связи по заявке.</label>
+            <small>Это запрос на уточнение, а не оплаченный заказ. Цена, наличие и срок будут подтверждены перед закупкой. Звонок поступит от менеджера.</small>
+            <input id="guestQuoteWebsite" class="guest-honeypot" type="text" tabindex="-1" autocomplete="off" aria-hidden="true" placeholder="Не заполнять">
+          </div>
           <div class="checkout-delivery-summary" id="checkoutDeliverySummary" hidden></div>
 
           <div class="checkout-payment-note cash-only" id="checkoutPaymentNote">
@@ -648,7 +653,7 @@
 </div>
 
   <script src="./config.js?v=20261027-design1"></script>
-  <script src="./app.js?v=20261030-customer1"></script>
+  <script src="./app.js?v=20261031-guest1"></script>
   <script src="./admin-desk.js?v=20261030-pricing1"></script>
 </body>
 </html>
