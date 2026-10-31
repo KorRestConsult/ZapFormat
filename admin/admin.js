@@ -16,7 +16,8 @@
     pricing:["Ценовая политика","Настройка наценок по себестоимости","НАЦЕНКИ"],
     customers:["Клиенты","Покупатели, автосервисы и история обращений","КЛИЕНТЫ"],
     logistics:["Склад и доставка","Контроль статусов поставок и готовности","ЛОГИСТИКА"],
-    analytics:["Аналитика","Финансовые показатели и качество данных","АНАЛИТИКА"]
+    analytics:["Аналитика","Финансовые показатели и качество данных","АНАЛИТИКА"],
+    security:["Безопасность","Смена пароля и защита учётной записи","БЕЗОПАСНОСТЬ"]
   };
   const state = {token:"",user:null,page:"overview",seq:0,overview:null,orders:[],requests:[],customers:[],filterOrders:"",filterRequests:"",searchCustomers:"",offsets:{orders:0,requests:0,customers:0},more:{orders:false,requests:false,customers:false},pricing:null,savedPricing:null,pricingAt:null,busy:false};
   function alertMessage(message,type="info"){
@@ -224,6 +225,40 @@
     if(error.status===401||error.status===403){loggedOut("Сеанс завершён либо нет прав владельца.");return;}
     alertMessage(fallback||"Данные временно недоступны.","error");
   }
+  function renderSecurity(){
+    $("page").innerHTML=panel("Пароль владельца", `<p class="muted">Для смены пароля укажите действующий пароль и придумайте новый длиной от 12 до 128 символов. После успешной смены все прежние сеансы будут отключены, потребуется войти снова.</p>
+      <form id="passwordChangeForm" class="security-form" autocomplete="off">
+        <label>Действующий пароль<input type="password" name="current_password" autocomplete="current-password" required></label>
+        <label>Новый пароль<input type="password" name="new_password" autocomplete="new-password" minlength="12" maxlength="128" required></label>
+        <label>Повторите новый пароль<input type="password" name="new_password_confirmation" autocomplete="new-password" minlength="12" maxlength="128" required></label>
+        <button class="primary" type="submit" id="passwordChangeButton">Сменить пароль</button>
+      </form>
+      <p class="muted">Пароль не передаётся через чат и не хранится в исходном коде. При включении двухфакторной проверки она будет действовать дополнительно к паролю.</p>`);
+    $("passwordChangeForm").addEventListener("submit", async event => {
+      event.preventDefault();
+      if(state.busy)return;
+      const form=event.currentTarget;
+      const values=Object.fromEntries(new FormData(form));
+      if(values.new_password!==values.new_password_confirmation) {
+        alertMessage("Новые пароли не совпадают.","error");return;
+      }
+      if(values.new_password.length<12) {
+        alertMessage("Новый пароль должен содержать минимум 12 символов.","error");return;
+      }
+      state.busy=true;$("passwordChangeButton").disabled=true;
+      try {
+        const result=await request("/api/account/password/change",{method:"POST",body:values});
+        if(result.ok && result.reauthenticate) {
+          loggedOut("Пароль изменён. Войдите с новым паролем.");
+        } else throw new Error("not_confirmed");
+      } catch(error) {
+        handleError(error,error.status===404?"Сервер ещё не обновлён. Смена пароля станет доступна после развёртывания новой версии.":error.status===401?"Действующий пароль указан неверно.":"Не удалось изменить пароль. Данные не сохранены.");
+      } finally {
+        state.busy=false;
+        if($("passwordChangeButton")) $("passwordChangeButton").disabled=false;
+      }
+    });
+  }
   async function openPage(page){
     if(!state.user||!captions[page])return;
     const seq=++state.seq;state.page=page;
@@ -233,6 +268,7 @@
     alertMessage("");$("page").innerHTML='<div class="loading"><span class="spinner"></span>Загружаем данные из ZapFormat…</div>';
     try{
       if(["orders","requests","customers"].includes(page)){await loadList(page);return;}
+      if(page==="security"){renderSecurity();return;}
       if(page==="pricing"){
         const data=await request("/api/admin/pricing");
         if(seq!==state.seq||!state.user)return;
