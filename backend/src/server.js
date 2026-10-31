@@ -1652,7 +1652,11 @@ app.post("/api/admin/test-orders", async (req, res, next) => {
         test: true
       });
     } catch (error) {
-      telegram = { sent: false, reason: error?.code || "telegram_send_failed" };
+      telegram = {
+        sent: false,
+        reason: error?.code || "telegram_send_failed",
+        detail: error?.detail || null
+      };
     }
     res.status(201).json({
       ok: true,
