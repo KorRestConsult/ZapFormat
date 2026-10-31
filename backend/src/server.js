@@ -1634,10 +1634,18 @@ app.post("/api/admin/test-orders", async (req, res, next) => {
 
     let telegram = { sent: false, reason: "telegram_not_connected" };
     try {
+      const invoicePdf = await createOrderInvoicePdf({
+        order: { ...order, payment_label: "Наличными при получении" },
+        items: testItems,
+        supplierOrders: [],
+        test: true
+      }).catch(() => null);
       telegram = await notifyOwnerOrderCreated({
         order,
         items: testItems,
         supplier: { state: "test_only", submitted: false, orders: [] },
+        invoice_pdf: invoicePdf,
+        invoice_filename: "ZapFormat-ZF-" + String(order.order_number) + "-TEST.pdf",
         test: true
       });
     } catch (error) {
@@ -2221,23 +2229,47 @@ async function submitQuoteRequest(req, res, next) {
           }
         }
 
+        const invoiceOrder = {
+          ...order,
+          recipient_name: name || delivery?.recipient_name || requestUser.name || null,
+          recipient_phone: phone || delivery?.recipient_phone || requestUser.phone || null,
+          delivery_city: delivery?.city || null,
+          delivery_address: delivery?.address || null,
+          payment_label: "Наличными при получении"
+        };
+        const invoiceItems = items.map((item, index) => ({
+          brand: item.brand,
+          article: item.article,
+          description: item.description,
+          quantity: item.quantity,
+          unit_price: item.quoted_price,
+          delivery_days: Number.isFinite(Number(validation[index]?.delivery_hours))
+            ? Math.max(0, Math.ceil(Number(validation[index].delivery_hours) / 24))
+            : null
+        }));
+
+        let invoicePdf = null;
+        try {
+          invoicePdf = await createOrderInvoicePdf({
+            order: invoiceOrder,
+            items: invoiceItems,
+            supplierOrders: supplierNotification.orders,
+            test: false
+          });
+        } catch (error) {
+          console.warn("[InvoicePDF]", error?.message || "invoice_generation_failed");
+        }
+
+        await enqueuePrintJob(order.id).catch((error) => {
+          console.warn("[PrintQueue]", error?.message || "print_queue_failed");
+        });
+
         void notifyOwnerOrderCreated({
-          order: {
-            ...order,
-            recipient_name: name || delivery?.recipient_name || requestUser.name || null,
-            recipient_phone: phone || delivery?.recipient_phone || requestUser.phone || null
-          },
-          items: items.map((item, index) => ({
-            brand: item.brand,
-            article: item.article,
-            description: item.description,
-            quantity: item.quantity,
-            unit_price: item.quoted_price,
-            delivery_days: Number.isFinite(Number(validation[index]?.delivery_hours))
-              ? Math.max(0, Math.ceil(Number(validation[index].delivery_hours) / 24))
-              : null
-          })),
+          order: invoiceOrder,
+          items: invoiceItems,
           supplier: supplierNotification,
+          invoice_pdf: invoicePdf,
+          invoice_filename: "ZapFormat-ZF-" + String(order.order_number) + ".pdf",
           test: false
         }).catch((error) => console.warn("[TelegramNotify]", error?.code || "send_failed"));
 
