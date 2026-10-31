@@ -6413,3 +6413,29 @@ html.zf-preauth #sessionEntryButton::after{content:"Проверяем вход�
     border-radius:13px!important;
   }
 }
+
+
+/* Orders table legacy-width override */
+#account-orders .orders-detail-table .orders-primary-head{
+  min-width:0!important;
+  width:100%!important;
+  grid-template-columns:
+    86px 88px 82px 108px minmax(180px,1fr)
+    72px 58px 82px 92px 112px!important;
+}
+@media(max-width:1080px){
+  #account-orders .orders-detail-table .orders-primary-head{
+    min-width:0!important;
+    width:100%!important;
+    grid-template-columns:
+      78px 82px 74px 96px minmax(155px,1fr)
+      66px 52px 76px 84px 102px!important;
+  }
+}
+@media(max-width:760px){
+  #account-orders .orders-detail-table .orders-primary-head{
+    display:none!important;
+    min-width:0!important;
+    width:100%!important;
+  }
+}
