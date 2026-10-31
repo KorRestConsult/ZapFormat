@@ -131,7 +131,13 @@ const API_BASE = (() => {
   return location.hostname.endsWith("github.io") ? "" : location.origin;
 })();
 const AUTH_TOKEN_KEY="zapformat-access-token";
-const TEST_MODE_REQUESTED=new URLSearchParams(location.search).get("test")==="1";
+const TEST_MODE_REQUESTED=(()=>{
+  const requested=new URLSearchParams(location.search).get("test")==="1";
+  try{
+    if(requested) sessionStorage.setItem("zapformat-owner-test-mode","1");
+    return requested || sessionStorage.getItem("zapformat-owner-test-mode")==="1";
+  }catch{return requested;}
+})();
 const SEARCH_RESUME_KEY="zapformat-search-resume";
 let authToken="";
 try{ authToken=String(localStorage.getItem(AUTH_TOKEN_KEY)||"").trim(); }catch{}
