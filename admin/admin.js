@@ -272,6 +272,34 @@
       box.className="panel";
       box.innerHTML='<div class="panel-head"><h2>Регистрация покупателей</h2></div><p class="muted">Проверка SMS.RU без отправки звонков, SMS и без доступа к кодам клиентов.</p><button type="button" class="secondary" id="checkRegistration">Проверить подтверждение телефонов</button><div id="registrationHealth" class="muted" aria-live="polite"></div>';
       $("page").prepend(box);
+      // Prelaunch owner-only one-shot UI: visible only with the maintenance query.
+      if(new URLSearchParams(location.search).has("prelaunch_reset") && state.customers.length===1){
+        const testCustomer=state.customers[0];
+        const resetBox=document.createElement("section");
+        resetBox.className="panel";
+        resetBox.innerHTML='<div class="panel-head"><h2>Очистка тестовой регистрации</h2></div>'+
+          '<p class="muted">Удаляется единственный тестовый клиент и его новые заказы. Владелец и интеграции сохраняются. Отправленные поставщику заказы блокируют операцию.</p>'+
+          '<button type="button" class="secondary" id="prelaunchResetCustomer">Очистить тестовый аккаунт и заказы</button>'+
+          '<div id="prelaunchResetResult" class="muted" aria-live="polite"></div>';
+        $("page").prepend(resetBox);
+        resetBox.querySelector("#prelaunchResetCustomer").addEventListener("click",async function(){
+          const status=resetBox.querySelector("#prelaunchResetResult");
+          this.disabled=true;status.textContent="Проверяем и удаляем тестовые данные…";
+          try{
+            const result=await request("/api/admin/maintenance/reset-test-customer",{
+              method:"POST",body:{phone:testCustomer.phone,confirmation:"RESET_PRELAUNCH_CUSTOMER"}
+            });
+            if(!result.ok || result.customer_deleted!==true)throw new Error("reset_not_confirmed");
+            status.textContent="Тестовый аккаунт удалён. Заказов очищено: "+formatInt(result.orders_deleted)+".";
+            await loadList("customers");
+            alertMessage(status.textContent,"success");
+          }catch(error){
+            status.textContent="Сброс не выполнен: "+String(error?.message||"unknown_error");
+            this.disabled=false;
+          }
+        });
+      }
+
       box.querySelector("#checkRegistration").addEventListener("click",async event=>{
         const button=event.currentTarget;
         const output=box.querySelector("#registrationHealth");
