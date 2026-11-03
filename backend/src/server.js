@@ -6129,7 +6129,7 @@ app.get("/api/deploy/status", async (_req, res) => {
     let domainTlsStatus = "unknown";
     try {
       const value = (await fs.readFile("/var/lib/zapformat/domain-tls-status.txt", "utf8")).trim();
-      if (["checking","ready","staging_failed","certbot_missing","certificate_failed","nginx_failed","smoke_failed"].includes(value)) domainTlsStatus = value;
+      if (["checking","ready","staging_failed","certbot_missing","certificate_failed","nginx_failed","smoke_failed"].includes(value) || /^smoke_(api|admin)_[0-9]{1,3}$/.test(value)) domainTlsStatus = value;
     } catch (_error) { /* Domain TLS has not yet been provisioned. */ }
     return res.json({ ...JSON.parse(raw), domain_tls_status: domainTlsStatus });
   } catch (error) {

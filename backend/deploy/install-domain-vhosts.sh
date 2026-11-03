@@ -62,18 +62,33 @@ if ! nginx -t || ! systemctl reload nginx; then
   exit 0
 fi
 
-if ! curl --fail --silent --show-error --max-time 12 \
-       --resolve api.zapformat.ru:443:127.0.0.1 \
-       https://api.zapformat.ru/api/health >/dev/null ||
-   ! curl --fail --silent --show-error --max-time 12 \
-       --resolve admin.zapformat.ru:443:127.0.0.1 \
-       https://admin.zapformat.ru/ >/dev/null; then
+# Explicitly bypass any configured HTTPS proxy: local checks must hit local Nginx.
+probe_domain() {
+  local host="$1" url="$2" rc=0
+  curl --noproxy '*' --fail --silent --show-error --connect-timeout 5 --max-time 12 \
+    --resolve "${host}:443:127.0.0.1" "$url" >/dev/null || rc=$?
+  return "$rc"
+}
+rollback_domain() {
   cp -a "$BACKUP" "$TARGET"
   nginx -t || true
   systemctl reload nginx || true
   rm -f "$BACKUP"
-  set_status smoke_failed
-  echo "Domain TLS smoke test failed; original Nginx configuration restored."
+}
+api_rc=0
+admin_rc=0
+probe_domain api.zapformat.ru https://api.zapformat.ru/api/health || api_rc=$?
+if [[ "$api_rc" -ne 0 ]]; then
+  rollback_domain
+  set_status "smoke_api_${api_rc}"
+  echo "Domain TLS smoke test failed for API (curl code ${api_rc}); restored previous config."
+  exit 0
+fi
+probe_domain admin.zapformat.ru https://admin.zapformat.ru/ || admin_rc=$?
+if [[ "$admin_rc" -ne 0 ]]; then
+  rollback_domain
+  set_status "smoke_admin_${admin_rc}"
+  echo "Domain TLS smoke test failed for admin (curl code ${admin_rc}); restored previous config."
   exit 0
 fi
 rm -f "$BACKUP"
