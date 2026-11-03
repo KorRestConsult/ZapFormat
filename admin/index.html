@@ -6,9 +6,9 @@
 <meta name="robots" content="noindex,nofollow">
 <meta name="theme-color" content="#101a2c">
 <title>ZapFormat — Служебный кабинет</title>
-<link rel="stylesheet" href="./admin.css?v=20261103-order-flow1">
+<link rel="stylesheet" href="./admin.css?v=20261103-reconnect1">
 <script defer src="./staff.js?v=20261031-courier-preview1"></script>
-<script defer src="./admin.js?v=20261103-order-flow1"></script>
+<script defer src="./admin.js?v=20261103-reconnect1"></script>
 </head>
 <body>
 <div class="auth-shell" id="authScreen">
@@ -24,6 +24,8 @@
       <input id="password" name="password" type="password" autocomplete="current-password" required placeholder="Пароль">
       <button type="submit" class="primary full" id="loginButton">Войти в кабинет <span aria-hidden="true">→</span></button>
     </form>
+    <button type="button" class="secondary full" id="reconnectButton" hidden>Повторить подключение <span aria-hidden="true">↻</span></button>
+    <button type="button" class="auth-change-account" id="changeAccountButton" hidden>Войти в другой аккаунт</button>
     <button type="button" class="secondary full" id="courierRegisterToggle">Подать заявку курьера</button>
     <form id="courierRegisterForm" hidden>
       <label for="courierName">Имя</label><input id="courierName" maxlength="120" autocomplete="given-name" required>

@@ -233,3 +233,8 @@
 @media(max-width:780px){
   .order-checkpoints{grid-template-columns:repeat(2,minmax(0,1fr))}
 }
+
+/* Retain login when the API temporarily loses HTTPS connectivity. */
+#authScreen #reconnectButton{margin-top:14px}
+#authScreen .auth-change-account{display:block;width:100%;margin:9px auto 0;text-align:center;border:0;background:transparent;padding:6px;color:#3566a3;font-weight:600;font-size:13px}
+#authScreen .auth-change-account[hidden]{display:none!important}

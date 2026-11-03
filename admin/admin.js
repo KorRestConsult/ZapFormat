@@ -45,12 +45,30 @@
   }
   function setToken(value){state.token=String(value||"");try{if(value)localStorage.setItem(KEY,state.token);else localStorage.removeItem(KEY);}catch{}}
   function authorized(user){return !!user && ["owner","admin","courier","customer"].includes(String(user.role));}
+  let restoring=false, retryTimer=null;
+  function clearRetry(){if(retryTimer!==null){clearTimeout(retryTimer);retryTimer=null;}}
+  function showConnectionIssue(){
+    state.user=null;
+    $("appScreen").hidden=true;$("authScreen").hidden=false;
+    $("authTitle").textContent="Восстанавливаем соединение";
+    $("loginForm").hidden=true;$("courierRegisterToggle").hidden=true;
+    $("reconnectButton").hidden=false;$("changeAccountButton").hidden=false;
+    $("authError").textContent="Сервер пока не отвечает. Ваш вход сохранён на этом устройстве. Пароль вводить снова не нужно.";
+  }
   function loggedOut(reason=""){
     state.seq++;state.user=null;state.overview=null;state.savedPricing=null;state.pricing=null;
+    clearRetry();
     setToken("");$("appScreen").hidden=true;$("authScreen").hidden=false;
+    $("authTitle").textContent="Вход";
+    $("loginForm").hidden=false;$("courierRegisterToggle").hidden=false;
+    $("reconnectButton").hidden=true;$("changeAccountButton").hidden=true;
     $("password").value="";$("authError").textContent=reason;
   }
   function loggedIn(user){
+    clearRetry();
+    $("authTitle").textContent="Вход";
+    $("loginForm").hidden=false;$("courierRegisterToggle").hidden=false;
+    $("reconnectButton").hidden=true;$("changeAccountButton").hidden=true;
     state.user=user;$("authScreen").hidden=true;$("appScreen").hidden=false;
     $("userName").textContent=[user.name,user.surname].filter(Boolean).join(" ")||"Владелец";
     const linkedOrder=String(new URLSearchParams(location.search).get("order")||"").trim();
@@ -61,11 +79,27 @@
     openPage(role==="courier"?"deliveries":role==="customer"?"apply":linkedOrder?"orders":"overview");
   }
   async function restoreSession(){
+    if(restoring)return;
     let token="";try{token=String(localStorage.getItem(KEY)||"");}catch{}
     if(!token){loggedOut();return;}
-    state.token=token;
-    try {const data=await request("/api/auth/me");if(!authorized(data.user))throw Error("forbidden");loggedIn(data.user);}
-    catch {loggedOut("Сеанс закончился. Войдите как владелец.");}
+    restoring=true;clearRetry();state.token=token;
+    try{
+      const data=await request("/api/auth/me");
+      if(!authorized(data.user)){loggedOut("Недостаточно прав. Войдите с другим аккаунтом.");return;}
+      loggedIn(data.user);
+    }catch(error){
+      // Network/TLS/5xx is NOT an expired session.
+      if(error?.status===401||error?.status===403)loggedOut("Сеанс завершён. Войдите снова.");
+      else showConnectionIssue();
+    }finally{
+      restoring=false;
+      if(state.token&&!state.user){
+        retryTimer=setTimeout(()=>{
+          retryTimer=null;
+          if(!document.hidden)restoreSession();
+        },25000);
+      }
+    }
   }
   async function signIn(event){
     event.preventDefault();const button=$("loginButton");if(button.disabled)return;
@@ -585,6 +619,12 @@
     $("page").querySelectorAll("[data-open]").forEach(b=>b.addEventListener("click",()=>openPage(b.dataset.open)));
   }
   $("loginForm").addEventListener("submit",signIn);
+  $("reconnectButton").addEventListener("click",()=>restoreSession());
+  $("changeAccountButton").addEventListener("click",()=>logout());
+  window.addEventListener("online",()=>{if(state.token&&!state.user)restoreSession();});
+  document.addEventListener("visibilitychange",()=>{
+    if(!document.hidden&&state.token&&!state.user)restoreSession();
+  });
   $("logoutButton").addEventListener("click",logout);
   $("refreshButton").addEventListener("click",()=>openPage(state.page));
   $("menu").addEventListener("click",e=>{const b=e.target.closest("[data-page]");if(b)openPage(b.dataset.page);});
