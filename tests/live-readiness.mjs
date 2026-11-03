@@ -32,9 +32,13 @@ await probe('supplier-connection', api + '/api/supplier/health', (status, data) 
   ready: status === 200 && data?.ok === true && data?.configured === true,
   note: data?.ok === true ? 'supplier verified' : 'supplier not verified'
 }));
-await probe('customer-signup', api + '/api/auth/capabilities', (status, data) => ({
-  ready: status === 200 && data?.phone_verification === true && data?.password_recovery === true,
-  note: data?.phone_verification === true && data?.password_recovery === true ? 'signup and recovery enabled' : 'signup and/or password recovery disabled'
+await probe('customer-email-signup', api + '/api/auth/email-registration/status', (status, data) => ({
+  ready: status === 200 && data?.available === true && data?.method === 'email_code',
+  note: data?.available === true ? 'verified email sender enabled' : 'email sender not verified or not configured'
+}));
+await probe('legacy-phone-signup-disabled', api + '/api/auth/capabilities', (status, data) => ({
+  ready: status === 200 && data?.phone_verification === false,
+  note: data?.phone_verification === false ? 'phone signup disabled as intended' : 'legacy phone signup unexpectedly enabled'
 }));
 
 console.log('ZapFormat production readiness (read-only):');
