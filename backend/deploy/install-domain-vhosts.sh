@@ -79,6 +79,13 @@ api_rc=0
 admin_rc=0
 probe_domain api.zapformat.ru https://api.zapformat.ru/api/health || api_rc=$?
 if [[ "$api_rc" -ne 0 ]]; then
+  if [[ "$api_rc" -eq 60 ]]; then
+    if ! openssl x509 -in "$CHAIN" -noout -checkhost api.zapformat.ru >/dev/null 2>&1; then
+      api_rc=61 # Certificate file does not match the requested API host.
+    else
+      api_rc=62 # Certificate file matches; Nginx presents another certificate.
+    fi
+  fi
   rollback_domain
   set_status "smoke_api_${api_rc}"
   echo "Domain TLS smoke test failed for API (curl code ${api_rc}); restored previous config."
@@ -86,6 +93,13 @@ if [[ "$api_rc" -ne 0 ]]; then
 fi
 probe_domain admin.zapformat.ru https://admin.zapformat.ru/ || admin_rc=$?
 if [[ "$admin_rc" -ne 0 ]]; then
+  if [[ "$admin_rc" -eq 60 ]]; then
+    if ! openssl x509 -in "$CHAIN" -noout -checkhost admin.zapformat.ru >/dev/null 2>&1; then
+      admin_rc=61
+    else
+      admin_rc=62
+    fi
+  fi
   rollback_domain
   set_status "smoke_admin_${admin_rc}"
   echo "Domain TLS smoke test failed for admin (curl code ${admin_rc}); restored previous config."
