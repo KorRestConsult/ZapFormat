@@ -2,6 +2,9 @@
 (() => {
   const API = "https://api.168.113.211.246.sslip.io";
   const KEY = "zapformat-admin-access-token";
+  if(location.hostname==="admin.zapformat.ru"){
+    document.querySelectorAll('a[href="../"]').forEach(link=>link.href="https://zapformat.ru/");
+  }
   const PAGE_SIZE = 30;
   const $ = id => document.getElementById(id);
   const formatRub = n => Number.isFinite(Number(n)) ? new Intl.NumberFormat("ru-RU",{maximumFractionDigits:2}).format(Number(n)) + " ₽" : "—";

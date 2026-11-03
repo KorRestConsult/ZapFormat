@@ -439,6 +439,9 @@ echo "Public site:"
 curl -fsS "https://api.168.113.211.246.sslip.io/api/health"
 echo
 
+mark_stage "domain_vhosts"
+bash "$APP_DIR/backend/deploy/install-domain-vhosts.sh"
+
 mark_stage "done"
 trap - EXIT
 echo
