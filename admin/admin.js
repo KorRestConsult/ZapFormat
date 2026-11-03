@@ -521,43 +521,60 @@
     if(state.user?.role==="owner"){
       const box=document.createElement("section");
       box.className="panel";
-      box.innerHTML='<div class="panel-head"><h2>Почта для регистрации покупателей</h2></div>'+
-        '<p class="muted">Подключите Gmail, с которого покупатели будут получать шестизначные коды. Нужен только <b>пароль приложения Google</b>, не основной пароль учётной записи. Проверка не отправляет писем.</p>'+
-        '<form id="gmailSetupForm" class="security-form" autocomplete="off">'+
-        '<label>Почта отправителя<input id="gmailSender" type="email" autocomplete="off" placeholder="name@gmail.com" required></label>'+
-        '<label>Пароль приложения Google (16 символов)<input id="gmailAppPassword" type="password" autocomplete="off" spellcheck="false" placeholder="Пароль приложения, не обычный пароль" required></label>'+
-        '<button class="primary" type="submit" id="gmailConnectButton">Проверить и подключить почту</button></form>'+
-        '<p class="muted">Пароль приложения создаётся в <a href="https://myaccount.google.com/apppasswords" target="_blank" rel="noopener noreferrer">настройках Google</a> после включения двухэтапной проверки.</p>'+
-        '<p class="muted" id="gmailSetupStatus" aria-live="polite">Проверяем статус отправки…</p>';
+      box.innerHTML='<div class="panel-head"><h2>Автоматическая почта ZapFormat</h2></div>'+
+        '<p class="muted">Коды регистрации и восстановления отправляются от <b>auth@zapformat.ru</b>. Отдельный почтовый ящик и личный Gmail не нужны.</p>'+
+        '<p class="muted">1. <a href="https://resend.com/domains" target="_blank" rel="noopener noreferrer">Откройте Resend → Domains</a>, добавьте zapformat.ru и подтвердите DNS-записи в SpaceWeb.</p>'+
+        '<p class="muted">2. <a href="https://resend.com/api-keys" target="_blank" rel="noopener noreferrer">Создайте ключ Resend</a> с правом <b>Sending access</b> для zapformat.ru. Ключ вводится только здесь, не в сообщениях.</p>'+
+        '<form id="resendSetupForm" class="security-form" autocomplete="off">'+
+        '<label>Ключ Resend<input id="resendApiKey" type="password" autocomplete="new-password" spellcheck="false" placeholder="re_…" required></label>'+
+        '<button class="primary" type="submit" id="resendConnectButton">Подключить отправку писем</button></form>'+
+        '<button class="secondary" type="button" id="resendCheckButton">Повторно проверить DNS и отправителя</button>'+
+        '<p class="muted" id="resendSetupStatus" role="status" aria-live="polite">Проверяем состояние почтовой службы…</p>'+
+        '<p class="muted">Проверка выполняется через симулятор Resend, без отправки реальных писем клиентам. Регистрация откроется только после успешной проверки.</p>';
       $("page").append(box);
-      const status=box.querySelector("#gmailSetupStatus");
-      request("/api/admin/email/status").then(data=>{
+      const status=box.querySelector("#resendSetupStatus");
+      const showResendStatus=data=>{
         if(!status.isConnected)return;
-        status.textContent=data.configured
-          ?"Отправка подключена: "+String(data.email||"")
-          :"Отправка писем ещё не подключена. Регистрация через почту пока скрыта от покупателей.";
-      }).catch(()=>{if(status.isConnected)status.textContent="Не удалось проверить отправителя.";});
-      box.querySelector("#gmailSetupForm").addEventListener("submit",async event=>{
+        status.textContent=data.ready
+          ?"Отправка подключена и проверена: auth@zapformat.ru. Email-регистрация доступна."
+          :data.configured
+            ?"Ключ сохранён. Подтвердите домен в Resend и нажмите «Повторно проверить»."
+            :"Отправитель пока не подключён. Покупателям нельзя отправлять коды.";
+      };
+      request("/api/admin/email/status").then(showResendStatus)
+        .catch(()=>{if(status.isConnected)status.textContent="Не удалось проверить состояние отправки.";});
+      box.querySelector("#resendSetupForm").addEventListener("submit",async event=>{
         event.preventDefault();
-        const button=box.querySelector("#gmailConnectButton");
+        const button=box.querySelector("#resendConnectButton");
         if(button.disabled)return;
         button.disabled=true;
-        status.textContent="Проверяем подключение к Gmail без отправки письма…";
+        status.textContent="Проверяем ключ и домен ZapFormat в Resend…";
         try{
-          const result=await request("/api/admin/email/config",{
-            method:"POST",
-            body:{
-              email:box.querySelector("#gmailSender").value.trim(),
-              app_password:box.querySelector("#gmailAppPassword").value
-            }
+          const result=await request("/api/admin/email/resend/config",{
+            method:"POST",body:{api_key:box.querySelector("#resendApiKey").value.trim()}
           });
-          box.querySelector("#gmailAppPassword").value="";
-          status.textContent="Почта подключена: "+String(result.email||"")+". Регистрация через email доступна.";
+          showResendStatus(result);
         }catch(error){
-          box.querySelector("#gmailAppPassword").value="";
-          status.textContent=error.message==="gmail_credentials_invalid"
-            ?"Проверьте Gmail и шестнадцатизначный пароль приложения."
-            :"Gmail не подтвердил подключение. Проверьте пароль приложения и двухэтапную проверку.";
+          status.textContent=error.message==="resend_key_invalid"
+            ?"Ключ недействителен. Создайте новый ключ с разрешением на отправку для zapformat.ru."
+            :"Resend сейчас недоступен. Ключ не заменён, попробуйте позднее.";
+        }finally{
+          box.querySelector("#resendApiKey").value="";
+          button.disabled=false;
+        }
+      });
+      box.querySelector("#resendCheckButton").addEventListener("click",async event=>{
+        const button=event.currentTarget;
+        if(button.disabled)return;
+        button.disabled=true;
+        status.textContent="Проверяем подтверждение домена через Resend…";
+        try{
+          const result=await request("/api/admin/email/resend/check",{method:"POST",body:{}});
+          showResendStatus(result);
+        }catch(error){
+          status.textContent=error.message==="resend_not_configured"
+            ?"Сначала подключите ключ Resend."
+            :"Проверка пока не прошла. Убедитесь, что DNS-записи подтверждены у Resend.";
         }finally{button.disabled=false;}
       });
     }

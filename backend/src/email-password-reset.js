@@ -7,7 +7,7 @@ const {config,validEmail,maskEmail,sendEmail}=require("./email-registration");
 function installEmailPasswordReset({app,pool,limiter,issueSession,publicUser,otpSecret,sessionDays,sendMail=sendEmail,env=process.env}){
   app.post("/api/auth/email-password-reset/start",limiter,async(req,res,next)=>{
     const email=String(req.body?.email||"").trim().toLowerCase();
-    if(!config(env).enabled)return res.status(503).json({error:"email_not_configured"});
+    if(!config(env).ready)return res.status(503).json({error:"email_not_configured"});
     if(!validEmail(email))return res.status(400).json({error:"invalid_email_registration"});
     if(!otpSecret())return res.status(503).json({error:"verification_unavailable"});
     res.set("Cache-Control","no-store");

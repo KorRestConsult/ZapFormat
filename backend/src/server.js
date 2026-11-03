@@ -23,9 +23,10 @@ const { isAdminRole } = require("./admin-access");
 const { installStaffRoutes } = require("./staff-routes");
 const { installEmailRegistration } = require("./email-registration");
 const { installEmailPasswordReset } = require("./email-password-reset");
+const { probeResendDelivery } = require("./resend-mail");
 const { verifyGitHubActionsToken } = require("./github-oidc");
 const { interpretSearch, fallbackIntent, researchPartCandidates, normalizeVehicle } = require("./ai-search");
-const { publicBootstrapJwk, installEncryptedOpenAIKey, installTimewebAIToken, installSmsRuToken, installFapiToken, installTelegramConfig, installGmailSMTP } = require("./secret-bootstrap");
+const { publicBootstrapJwk, installEncryptedOpenAIKey, installTimewebAIToken, installSmsRuToken, installFapiToken, installTelegramConfig, installGmailSMTP, saveResendConfig } = require("./secret-bootstrap");
 const { configured: telegramConfigured, connected: telegramConnected, pairingCode: telegramPairingCode, getMe: telegramGetMe, getMeForToken: telegramGetMeForToken, discoverPairedChat, sendOwnerMessage, notifyOwnerOrderCreated } = require("./telegram-notifier");
 const {
   SmsDeliveryError,
@@ -1510,18 +1511,48 @@ function telegramPairingLink(username) {
 
 app.get("/api/admin/email/status", (req,res) => {
   if(req.user?.role!=="owner") return res.status(403).json({error:"owner_only"});
-  const email=String(process.env.SMTP_USER||"").trim();
-  res.json({configured:Boolean(email && process.env.SMTP_PASSWORD && process.env.EMAIL_FROM),
-    provider:"gmail",email:email || null});
+  const {config}=require("./email-registration");
+  const mail=config(process.env);
+  res.set("Cache-Control","no-store");
+  res.json({
+    configured:mail.enabled,ready:mail.ready,
+    provider:mail.resend?"resend":mail.smtp?"smtp":"none",
+    from:mail.from||null
+  });
 });
-app.post("/api/admin/email/config", async (req,res) => {
-  if(req.user?.role!=="owner") return res.status(403).json({error:"owner_only"});
-  try {
-    const result=await installGmailSMTP(req.body);
-    return res.json({ok:true,...result});
+
+app.post("/api/admin/email/resend/config", async(req,res) => {
+  if(req.user?.role!=="owner")return res.status(403).json({error:"owner_only"});
+  const apiKey=String(req.body?.api_key||"").trim();
+  if(!/^re_[A-Za-z0-9_-]{16,160}$/.test(apiKey))
+    return res.status(400).json({error:"resend_key_invalid"});
+  try{
+    const result=await probeResendDelivery(apiKey);
+    if(result.error==="invalid_key")return res.status(400).json({error:"resend_key_invalid"});
+    if(result.error==="provider_unavailable")return res.status(502).json({error:"resend_provider_unavailable"});
+    const saved=await saveResendConfig(apiKey,result.ready);
+    res.set("Cache-Control","no-store");
+    return res.json(saved);
   }catch(error){
-    return res.status(error?.code==="gmail_credentials_invalid"?400:502)
-      .json({error:error?.code==="gmail_credentials_invalid"?"gmail_credentials_invalid":"gmail_connection_failed"});
+    console.error("[ResendSetup]",error?.code||"connection_failure");
+    return res.status(502).json({error:"resend_provider_unavailable"});
+  }
+});
+
+app.post("/api/admin/email/resend/check", async(req,res) => {
+  if(req.user?.role!=="owner")return res.status(403).json({error:"owner_only"});
+  const apiKey=String(process.env.RESEND_API_KEY||"");
+  if(!apiKey)return res.status(409).json({error:"resend_not_configured"});
+  try{
+    const result=await probeResendDelivery(apiKey);
+    if(result.error==="invalid_key")return res.status(400).json({error:"resend_key_invalid"});
+    if(result.error==="provider_unavailable")return res.status(502).json({error:"resend_provider_unavailable"});
+    const saved=await saveResendConfig(apiKey,result.ready);
+    res.set("Cache-Control","no-store");
+    return res.json(saved);
+  }catch(error){
+    console.error("[ResendCheck]",error?.code||"connection_failure");
+    return res.status(502).json({error:"resend_provider_unavailable"});
   }
 });
 
@@ -2195,7 +2226,7 @@ async function submitQuoteRequest(req, res, next) {
       (item) => item.needs_confirmation === false && Number.isFinite(Number(item.quoted_price))
     );
 
-    if (pool && requestUser && allConfirmed && (Boolean(requestUser.phone_verified_at) || ownerTestMode)) {
+    if (pool && requestUser && allConfirmed && (Boolean(requestUser.phone_verified_at) || Boolean(requestUser.email_verified_at) || ownerTestMode)) {
       const client = await pool.connect();
       try {
         await client.query("BEGIN");
@@ -2214,7 +2245,7 @@ async function submitQuoteRequest(req, res, next) {
           [requestUser.id]
         );
         const delivery = deliveryResult.rows[0] || null;
-        if (!delivery?.id && !ownerTestMode) {
+        if (!ownerTestMode && (!delivery?.id || !validSmsPhone(delivery?.recipient_phone))) {
           await client.query("ROLLBACK");
           return res.status(409).json({ error: "delivery_required" });
         }

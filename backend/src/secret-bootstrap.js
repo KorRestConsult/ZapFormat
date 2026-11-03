@@ -176,6 +176,21 @@ async function installSmsRuToken(payload) {
   return { configured: true, provider: "sms.ru", test, method };
 }
 
+async function saveResendConfig(apiKey,ready) {
+  const from="auth@zapformat.ru";
+  const envBody=envLine("RESEND_API_KEY",apiKey)+
+    envLine("EMAIL_FROM",from)+
+    envLine("RESEND_READY",ready?"true":"false");
+  await fs.writeFile(MAIL_ENV_FILE,envBody,{mode:0o600});
+  await fs.chmod(MAIL_ENV_FILE,0o600).catch(()=>{});
+  process.env.RESEND_API_KEY=apiKey;
+  process.env.EMAIL_FROM=from;
+  process.env.RESEND_READY=ready?"true":"false";
+  delete process.env.SMTP_HOST;delete process.env.SMTP_USER;
+  delete process.env.SMTP_PASSWORD;delete process.env.SMTP_FROM;
+  return {configured:true,ready,provider:"resend",from};
+}
+
 async function installGmailSMTP(payload) {
   const user = String(payload?.email || "").trim().toLowerCase();
   const password = String(payload?.app_password || "").replace(/\s/g, "");
@@ -261,6 +276,7 @@ module.exports = {
   installTimewebAIToken,
   installSmsRuToken,
   installGmailSMTP,
+  saveResendConfig,
   installFapiToken,
   installTelegramConfig,
   AI_ENV_FILE,

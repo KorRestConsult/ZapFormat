@@ -43,19 +43,18 @@ test("OTP digest never equals the code; wrong email codes are rejected",()=>{
  assert.notEqual(hash,"123456");
 });
 
-test("email-only accounts cannot trigger direct supplier checkout; owner test remains allowed",()=>{
+test("verified email accounts can create orders with contact phone while owner test remains allowed",()=>{
   const src=require("node:fs").readFileSync(require("node:path").resolve(__dirname,"../src/server.js"),"utf8");
-  assert.match(src,/allConfirmed \&\& \(Boolean\(requestUser\.phone_verified_at\) \|\| ownerTestMode\)/);
+  assert.match(src,/allConfirmed \&\& \(Boolean\(requestUser\.phone_verified_at\) \|\| Boolean\(requestUser\.email_verified_at\) \|\| ownerTestMode\)/);
+  assert.match(src,/!ownerTestMode \&\& \(!delivery\?\.id \|\| !validSmsPhone\(delivery\?\.recipient_phone\)\)/);
 });
 
-test("owner Gmail setup requires application credentials, never accepts raw account passwords",async()=>{
- const {installGmailSMTP}=require("../src/secret-bootstrap");
- await assert.rejects(installGmailSMTP({email:"unknown@example.com",app_password:"1234567812345678"}),/gmail_credentials_invalid/);
- await assert.rejects(installGmailSMTP({email:"sender@gmail.com",app_password:"regularpassword"}),/gmail_credentials_invalid/);
+test("owner mail configuration is restricted to Resend setup",async()=>{
  const fs=require("node:fs");const path=require("node:path");
  const source=fs.readFileSync(path.resolve(__dirname,"../src/server.js"),"utf8");
  const app=fs.readFileSync(path.resolve(__dirname,"../../admin/admin.js"),"utf8");
- assert.match(source,/app.post\("\/api\/admin\/email\/config"/);
+ assert.match(source,/app.post\("\/api\/admin\/email\/resend\/config"/);
  assert.match(source,/if\(req.user\?\.role!=="owner"\)/);
- assert.match(app,/gmailSetupForm/);
+ assert.match(app,/resendSetupForm/);
+ assert.doesNotMatch(app,/gmailSetupForm/);
 });

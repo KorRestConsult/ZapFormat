@@ -7,7 +7,7 @@ function config(env=process.env) {
   const from=String(env.EMAIL_FROM || env.SMTP_FROM || env.RESEND_FROM || "").trim();
   const resend=Boolean(String(env.RESEND_API_KEY||"").trim());
   const smtp=Boolean(env.SMTP_HOST && env.SMTP_USER && env.SMTP_PASSWORD);
-  return { enabled:Boolean(from && (resend||smtp)), from, resend, smtp };
+  return { enabled:Boolean(from && (resend||smtp)), ready:Boolean(from && ((resend && env.RESEND_READY==="true") || (!resend && smtp))), from, resend, smtp };
 }
 function validEmail(value) {
   return typeof value==="string" && value.length<=254 &&
@@ -20,7 +20,7 @@ function maskEmail(email){
 }
 async function sendEmail({to,code,purpose="register",env=process.env,fetchImpl=fetch,createTransport}) {
   const c=config(env);
-  if(!c.enabled) throw Object.assign(new Error("Email is not configured"),{code:"email_not_configured"});
+  if(!c.ready) throw Object.assign(new Error("Email is not configured"),{code:"email_not_configured"});
   const recovery=purpose==="reset";
   const subject=recovery?"ZapFormat — восстановление пароля":"ZapFormat — подтверждение email";
   const text=(recovery?"Код восстановления пароля: ":"Код регистрации ZapFormat: ")+code+"\nКод действует 10 минут. Никому его не сообщайте.";
@@ -28,7 +28,7 @@ async function sendEmail({to,code,purpose="register",env=process.env,fetchImpl=f
     const response=await fetchImpl("https://api.resend.com/emails",{
       method:"POST",
       headers:{"Authorization":"Bearer "+env.RESEND_API_KEY,"Content-Type":"application/json"},
-      body:JSON.stringify({from:c.from,to:[to],subject,text}),
+      body:JSON.stringify({from:"ZapFormat <"+c.from+">",to:[to],subject,text}),
       signal:AbortSignal.timeout(12000)
     });
     if(!response.ok) throw Object.assign(new Error("Mail provider rejected the email"),{code:"email_delivery_failed"});
@@ -48,7 +48,7 @@ function installEmailRegistration({app,pool,limiter,issueSession,publicUser,otpS
   sendMail=sendEmail,env=process.env}){
   app.get("/api/auth/email-registration/status",(_req,res)=>{
     res.set("Cache-Control","no-store");
-    res.json({available:config(env).enabled,method:"email_code"});
+    res.json({available:config(env).ready,method:"email_code"});
   });
   app.post("/api/auth/email-registration/start",limiter,async(req,res,next)=>{
     const name=String(req.body?.name||"").trim().slice(0,120);
@@ -57,7 +57,7 @@ function installEmailRegistration({app,pool,limiter,issueSession,publicUser,otpS
     const confirm=String(req.body?.password_confirmation||"");
     const customerType=String(req.body?.customer_type||"individual");
     const serviceName=customerType==="service"?String(req.body?.service_name||"").trim():null;
-    if(!config(env).enabled) return res.status(503).json({error:"email_not_configured"});
+    if(!config(env).ready) return res.status(503).json({error:"email_not_configured"});
     if(!name || !validEmail(email)) return res.status(400).json({error:"invalid_email_registration"});
     if(!["individual","service"].includes(customerType))return res.status(400).json({error:"invalid_customer_type"});
     if(customerType==="service" && (!serviceName||serviceName.length>160))return res.status(400).json({error:"service_name_required"});
