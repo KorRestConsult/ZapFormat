@@ -37,3 +37,9 @@ test("owner customer list identifies workshops, and mail signup does not feign r
   assert.match(js,/submit\.disabled=!ready/);
   assert.match(js,/отправитель ещё подключается/);
 });
+
+test("customer phone signup is off by default without touching legacy account authentication",()=>{
+  assert.match(server,/PHONE_CUSTOMER_SIGNUP_ENABLED !== \"true\"/);
+  assert.match(server,/registration_email_only/);
+  assert.match(server,/app.post\(\"\/api\/auth\/login\"/);
+});

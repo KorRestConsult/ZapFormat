@@ -3825,7 +3825,7 @@ installEmailPasswordReset({ app, pool, limiter:authLimiter, issueSession, public
 
 app.get("/api/auth/capabilities", (_req, res) => {
   res.json({
-    phone_verification: Boolean(String(process.env.SMSRU_API_ID || "").trim()),
+    phone_verification: Boolean(String(process.env.SMSRU_API_ID || "").trim()) && process.env.PHONE_CUSTOMER_SIGNUP_ENABLED === "true",
     password_recovery: Boolean(String(process.env.SMSRU_API_ID || "").trim()),
     session_days: SESSION_DAYS,
     verification_method: verificationMethod()
@@ -3833,6 +3833,7 @@ app.get("/api/auth/capabilities", (_req, res) => {
 });
 
 app.post("/api/auth/register/start", authLimiter, async (req, res, next) => {
+  if (process.env.PHONE_CUSTOMER_SIGNUP_ENABLED !== "true") return res.status(410).json({error:"registration_email_only"});
   try {
     const name = String(req.body?.name || "").trim().slice(0, 120);
     const surname = String(req.body?.surname || "").trim().slice(0, 120) || null;
