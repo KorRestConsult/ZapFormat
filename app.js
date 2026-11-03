@@ -584,7 +584,7 @@ function renderCheckoutContact(){
   if(!summary || !fallback) return;
 
   if(!sessionUser){
-    summary.innerHTML=guestQuoteAvailable?'<div><small>ЗАЯВКА БЕЗ РЕГИСТРАЦИИ</small><b>Подберём и подтвердим детали</b><span>Вы оставляете телефон для связи. Закупка выполняется только после согласования.</span></div>':"";
+    summary.innerHTML=guestQuoteAvailable?'<div><small>ЗАЯВКА БЕЗ РЕГИСТРАЦИИ</small><b>Подберём и подтвердим детали</b><span>Это заявка на подбор, не оформленный заказ. Цена и срок ещё не подтверждены.</span></div>':"";
     fallback.hidden=!guestQuoteAvailable;
     const consent=document.getElementById("guestQuoteConsent");
     if(consent)consent.hidden=!guestQuoteAvailable;
@@ -677,7 +677,7 @@ function updateCheckoutMode(){
   checkoutEntryButtons().forEach(button=>{
     button.disabled=selectedCount===0 || supplierAvailable!==true;
     button.textContent=supplierAvailable!==true
-      ? "Каталог поставщика подключается"
+      ? "Каталог временно недоступен"
       : !sessionUser ? (guestQuoteAvailable ? "Оставить заявку · "+selectedCount : "Войти для оформления") : entryLabel;
   });
 
@@ -688,8 +688,8 @@ function updateCheckoutMode(){
   const note=document.querySelector(".checkout-recheck-note");
   if(note){
     note.textContent=supplierAvailable===true
-      ? (ownerTestMode() ? "TEST: цену и наличие проверим у PartGrade, но заказ поставщику не создадим." : (!sessionUser && guestQuoteAvailable ? "Заявка отправится менеджеру на подтверждение, без оплаты и закупки." : "Перед подтверждением ещё раз проверим цену и наличие. Оплата — только наличными при получении."))
-      : "Оформление временно недоступно: ждём подключения каталога поставщика. Заказ не будет отправлен.";
+      ? (ownerTestMode() ? "TEST: цену и наличие проверим у PartGrade, но заказ поставщику не создадим." : (!sessionUser && guestQuoteAvailable ? "Это заявка на подбор, а не заказ. Оплата не требуется." : "Перед подтверждением ещё раз проверим цену и наличие. Оплата — только наличными при получении."))
+      : "Оформление временно недоступно: цена и наличие не подтверждены. Заказ не создаётся.";
   }
   const paymentNote=document.getElementById("checkoutPaymentNote");
   if(paymentNote){
@@ -747,17 +747,17 @@ async function refreshStorefrontStatus(){
     if(!health?.ok || !health?.db) throw new Error("backend_unavailable");
     supplierAvailable=false;
     if(!health.supplier_configured){
-      message="Каталог поставщика пока подключается. Поиск цен, наличие и оформление заказов временно недоступны.";
+      message="Каталог временно недоступен. Проверка цен, наличие и оформление заказов временно недоступны.";
     }else{
       try{
         // A configured password does not prove that the supplier permitted our new IP.
         const supplier=await apiRequest("/api/supplier/health");
         supplierAvailable=supplier?.ok===true && supplier?.configured===true;
         message=supplierAvailable
-          ? "Подключение к поставщику работает. Цены и остатки перепроверяются перед заказом."
-          : "Поставщик ещё не подтвердил подключение. Оформление временно недоступно.";
+          ? "Цены и наличие проверяются перед оформлением заказа."
+          : "Не удалось подтвердить наличие и цены. Оформление временно недоступно.";
       }catch{
-        message="Сервер работает, но поставщик пока не разрешил API-доступ. Цены и оформление недоступны.";
+        message="Сервис проверки цен и наличия временно недоступен.";
       }
     }
   }catch{
@@ -775,7 +775,7 @@ async function refreshStorefrontStatus(){
     const cartTime=document.getElementById("cartRefreshTime");
     const cartRefresh=document.getElementById("refreshCartButton");
     if(supplierAvailable!==true){
-      if(cartStatus) cartStatus.textContent="Поставщик не подключён — цены не подтверждены";
+      if(cartStatus) cartStatus.textContent="Цены и наличие пока не подтверждены";
       if(cartTime) cartTime.textContent="Сохранённые цены не подтверждены";
       if(cartRefresh) cartRefresh.disabled=true;
       renderCartPage();
@@ -946,7 +946,7 @@ function supplyStatusLabel(status){
   const raw=String(status||"").trim();
   if(!raw) return "";
   const value=raw.toLowerCase().replace(/[\s_-]+/g,"");
-  if(/reject|refus|declin|отказ|нетвналич/.test(value)) return "Поставщик отказал";
+  if(/reject|refus|declin|отказ|нетвналич/.test(value)) return "Позиция недоступна";
   if(/cancel|canceled|cancelled|отмен/.test(value)) return "Отменено";
   if(/complete|completed|delivered|issued|выдан|заверш/.test(value)) return "Завершено";
   if(/ready|готов/.test(value)) return "Готово к отправке";
@@ -993,7 +993,7 @@ function orderTrackingMeta(order,items=[]){
     return {tone:"done",title:"Заказ завершён",text:"История движения сохранена в заказе.",lastUpdated};
   }
   if(refusedItem){
-    return {tone:"alert",title:"Есть позиция, требующая внимания",text:"Поставщик отказал по части заказа. Для этой детали нужен повторный подбор; остальные позиции продолжают обрабатываться.",lastUpdated};
+    return {tone:"alert",title:"Есть позиция, требующая внимания",text:"Часть позиций недоступна. Эти детали требуют уточнения; остальные позиции обрабатываются.",lastUpdated};
   }
   if(status==="ready"){
     return {tone:"ready",title:"Готов к получению",text:"Позиции готовы. Оплата — наличными при получении.",lastUpdated};
@@ -2036,7 +2036,7 @@ function showRoute(route){
     if(supplierAvailable!==true){
       const status=document.getElementById("cartRefreshStatus");
       const time=document.getElementById("cartRefreshTime");
-      if(status) status.textContent="Поставщик не подключён — цены и остатки не подтверждены";
+      if(status) status.textContent="Цены и наличие пока не подтверждены";
       if(time) time.textContent="Сохранённые позиции можно просмотреть. Оформление временно недоступно.";
     }else if(cart.length){
       refreshCartOffers({silent:true}).catch(()=>null);
@@ -2749,13 +2749,13 @@ function renderSmartPartSearch(data,query){
     root.innerHTML=`
       <div class="vehicle-search-state smart-selection-state">
         <span class="eyebrow">${researched
-          ? "ИИ ПОДОБРАЛ · АРТИКУЛ ЕСТЬ У ПОСТАВЩИКА"
+          ? "НАЙДЕН АРТИКУЛ · ПРОВЕРЕН В КАТАЛОГЕ"
           : (data?.fitment_status==="catalog_fitment_confirmed"?"СОВМЕСТИМОСТЬ ПОДТВЕРЖДЕНА":"ПОДБОР ПО АВТОМОБИЛЮ")}</span>
         <h3>${escapeHtml(intent.part_name||query)}</h3>
         <p>${researched
           ? (data?.research_mode==="web"
-              ? "ИИ проверил применяемость по открытым источникам, затем сверил артикул с живым каталогом поставщика."
-              : "ИИ подобрал кандидата по данным автомобиля и затем сверил существование артикула с живым каталогом поставщика.")
+              ? "Применяемость проверена по открытым источникам, существование артикула — по каталогу ZapFormat."
+              : "Найденный артикул дополнительно проверен по каталогу ZapFormat.")
           : ((label?"Для <b>"+escapeHtml(label)+"</b>. ":"")+"Найдены позиции из каталога "+escapeHtml(catalogModification)+".")}</p>
         <p class="vehicle-search-note">${researched
           ? "Если вариантов несколько — выберите нужный. Перед окончательным заказом совместимость можно дополнительно сверить по VIN."
@@ -3567,7 +3567,7 @@ async function refreshCartOffers(options={}){
 
   // Saved offers are not verified while the supplier API is unavailable.
   if(supplierAvailable!==true){
-    if(status) status.textContent="Поставщик не подключён — цены не подтверждены";
+    if(status) status.textContent="Цены и наличие пока не подтверждены";
     if(time) time.textContent="Проверка цен и остатков временно недоступна";
     if(notice && cart.length){
       notice.hidden=false;
@@ -3678,7 +3678,7 @@ async function refreshCartOffers(options={}){
 
     if(status) status.textContent=blocked
       ? "Проверка завершена — есть недоступные позиции"
-      : "Цены и наличие проверены у поставщика";
+      : "Цены и наличие подтверждены";
     if(time) time.textContent=new Date().toLocaleTimeString("ru-RU",{hour:"2-digit",minute:"2-digit"});
     if(notice){
       if(blocked){
@@ -3693,7 +3693,7 @@ async function refreshCartOffers(options={}){
       }
     }
 
-    if(!silent && !blocked && !changed) showToast("Цены и наличие проверены у поставщика.");
+    if(!silent && !blocked && !changed) showToast("Цены и наличие подтверждены.");
     return {ok:true,changed,blocked,checkoutChanged,checkoutBlocked};
   }catch(error){
     console.error("Cart revalidation failed",error);
@@ -3786,7 +3786,7 @@ function renderCartPage(){
         <div class="article-cell"><span class="cart-article">${escapeHtml(x.article||"")}</span></div>
         <div class="description-cell cart-description">
           <span>${escapeHtml(x.name)}</span>
-          ${minimum>1?'<small class="cart-vehicle-context">Минимум поставщика: '+minimum+' шт.</small>':""}
+          ${minimum>1?'<small class="cart-vehicle-context">Минимальное количество: '+minimum+' шт.</small>':""}
           ${x.vehicleContext?.label ? '<small class="cart-vehicle-context">'+escapeHtml(x.vehicleContext.label)+(x.vehicleContext.vin?" · "+escapeHtml(shortVin(x.vehicleContext.vin)):"")+'</small>' : ""}
         </div>
         <div class="term-cell">${x.stale?"обновить":deliveryLabel(x.days)}</div>
@@ -3857,7 +3857,7 @@ async function checkoutCart(){
     return;
   }
   if(supplierAvailable!==true){
-    showToast("Каталог поставщика недоступен. Заказ не отправлен.","warn");
+    showToast("Не удалось подтвердить цены и наличие. Заказ не оформлен.","warn");
     return;
   }
   let selected=selectedCartItems();
@@ -3976,7 +3976,7 @@ async function checkoutCart(){
         await openLiveOrderDetail(result.order_id || result.order_number,{created:true});
       }
     }else{
-      showToast(sessionUser ? "Заказ принят на уточнение." : "Заявка "+String(result.request_id||"")+" принята. Мы свяжемся для подтверждения.");
+      showToast(sessionUser ? "Заказ принят на уточнение." : "Заявка "+String(result.request_id||"")+" получена. Это ещё не заказ.");
       if(!sessionUser && result.request_id)localStorage.setItem("zapformat-last-guest-request",String(result.request_id));
       if(sessionUser){
         accountDataHydrated=false;
@@ -4075,7 +4075,7 @@ document.addEventListener("click",async e=>{
         navigate("auth");
         setAuthStatus("Для оформления заказа войдите в аккаунт. Корзина сохранится.");
       }else if(supplierAvailable!==true){
-        showToast("Оформление доступно после подключения поставщика.","warn");
+        showToast("Оформление временно недоступно. Повторите позже.","warn");
       }else{
         setCheckoutReviewOpen(true,{scroll:true});
       }

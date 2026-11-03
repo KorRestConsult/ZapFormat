@@ -97,7 +97,7 @@ test('Cart refresh cannot claim current prices while supplier is disconnected', 
   const check = handler.indexOf('if(supplierAvailable!==true)');
   const query = handler.indexOf('/api/catalog/revalidate');
   assert.ok(check >= 0 && query > check, 'offline guard must precede supplier refresh');
-  assert.match(handler, /цены не подтверждены/);
+  assert.match(handler, /Цены и наличие пока не подтверждены/);
 });
 
 test('Touch breakpoints and a non-scrolling mobile navigation exist', () => {
@@ -169,7 +169,7 @@ test('pricing controls are role-gated, explicitly saved and have four bands', ()
 
 test('supplier pack minimum is visible and validated in customer cart', () => {
   assert.match(app, /packing:Math.max\(1,Number\(o.packing\|\|1\)\)/);
-  assert.match(app, /Минимум поставщика/);
+  assert.match(app, /Минимальное количество/);
   assert.match(app, /checked.status==="minimum_quantity"/);
 });
 
@@ -250,4 +250,12 @@ test("customer login removes redundant guest header and unused status spacer",()
   assert.match(html,/id=\"loginForm\"/);
   assert.match(html,/id=\"registerForm\"/);
   assert.match(html,/id=\"emailRegisterForm\"/);
+});
+
+test("storefront uses ZapFormat terminology instead of supplier procurement details",()=>{
+  assert.match(app,/НАЙДЕН АРТИКУЛ · ПРОВЕРЕН В КАТАЛОГЕ/);
+  assert.match(app,/Каталог временно недоступен/);
+  assert.match(app,/Это заявка на подбор, не оформленный заказ/);
+  assert.doesNotMatch(app,/Поставщик отказал по части заказа/);
+  assert.match(html,/Это заявка на подбор, не заказ/);
 });

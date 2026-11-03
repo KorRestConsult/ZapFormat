@@ -104,3 +104,15 @@ test("service login wordmark is a single stacked block on narrow mobile screens"
   assert.match(css,/#authScreen \.auth-brand p \{/);
   assert.match(css,/@media \(max-width:360px\)/);
 });
+
+test("owner order view shows separately tracked purchasing, courier and unconfirmed cash stages",()=>{
+  assert.match(server,/ca\.status AS courier_delivery_status/);
+  assert.match(server,/cu\.name AS courier_name/);
+  assert.match(js,/const routeStages=\[/);
+  for(const stage of ["Заказ","Закупка","Склад","Курьер","Оплата"]){
+    assert.ok(js.includes("[\""+stage+"\""),stage);
+  }
+  assert.match(js,/Физическая приёмка пока не фиксируется/);
+  assert.match(js,/Получение наличных в системе не фиксируется/);
+  assert.match(css,/\.order-checkpoints/);
+});

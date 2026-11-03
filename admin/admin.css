@@ -197,3 +197,39 @@
   #authScreen .auth-brand p {font-size:11px;}
   #authScreen .auth-card {padding:16px;}
 }
+
+
+/* Order lifecycle is operational evidence, not inferred from a courier button. */
+.order-checkpoints {
+  display:grid;
+  grid-template-columns:repeat(auto-fit,minmax(155px,1fr));
+  gap:9px;
+  margin:0 0 17px;
+}
+.order-checkpoint {
+  border:1px solid #dfe7f0;
+  border-radius:10px;
+  padding:11px;
+  background:#f8fafc;
+  display:flex;
+  flex-direction:column;
+  gap:5px;
+  min-width:0;
+}
+.order-checkpoint span {
+  font-size:11px;
+  line-height:1.25;
+  color:#61728a;
+  font-weight:650;
+  text-transform:uppercase;
+  letter-spacing:.04em;
+}
+.order-checkpoint strong {
+  font-size:12px;
+  line-height:1.35;
+  color:#193348;
+  overflow-wrap:anywhere;
+}
+@media(max-width:780px){
+  .order-checkpoints{grid-template-columns:repeat(2,minmax(0,1fr))}
+}

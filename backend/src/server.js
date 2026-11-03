@@ -1892,9 +1892,13 @@ app.get("/api/admin/orders/:id", async (req, res, next) => {
               o.comment, o.created_at, o.updated_at, o.supplier_state,
               o.recipient_name, o.recipient_phone, o.is_test,
               a.city AS delivery_city, a.address AS delivery_address,
-              a.label AS delivery_label
+              a.label AS delivery_label,
+              ca.status AS courier_delivery_status,
+              cu.name AS courier_name, cu.surname AS courier_surname
          FROM orders o
          LEFT JOIN user_addresses a ON a.id = o.delivery_address_id
+         LEFT JOIN courier_assignments ca ON ca.order_id = o.id
+         LEFT JOIN users cu ON cu.id = ca.courier_id
         WHERE o.id = $1 LIMIT 1`,
       [id]
     );

@@ -148,8 +148,39 @@
       const address=[order.delivery_city,order.delivery_address].filter(Boolean).map(escape).join(", ");
       const totalPurchase=cost.complete?formatRub(cost.known_purchase):"Не все закупки известны";
       const gross=cost.complete?formatRub(cost.known_gross_profit):"Не рассчитана полностью";
+      const procurementLabels={
+        ready_to_submit:"Ожидает запуска закупки",
+        submitted:"Закупка размещена",
+        not_submitted:"Не размещена",
+        submit_failed:"Ошибка закупки — требует внимания",
+        configuration_required:"Нужны настройки закупки",
+        manual_required:"Требуется проверка",
+        test_only:"Тестовый заказ — без закупки"
+      };
+      const deliveryLabels={
+        assigned:"Назначена",accepted:"Курьер принял",
+        picked_up:"Курьер забрал товар",
+        delivered:"Курьер отметил вручение",
+        problem:"Проблема при доставке",
+        cancelled:"Назначение отменено"
+      };
+      const recipientStatus=order.courier_delivery_status
+        ? deliveryLabels[order.courier_delivery_status]||"Статус не определён"
+        : "Курьер не назначен";
+      const courierName=[order.courier_name,order.courier_surname].filter(Boolean).join(" ");
+      const routeStages=[
+        ["Заказ",statusLabels[order.status]||order.status||"Неизвестен"],
+        ["Закупка",procurementLabels[order.supplier_state]||"Состояние не подтверждено"],
+        ["Склад","Физическая приёмка пока не фиксируется"],
+        ["Курьер",recipientStatus+(courierName?" · "+courierName:"")],
+        ["Оплата","Получение наличных в системе не фиксируется"]
+      ];
+      const routeHtml='<div class="order-checkpoints">'+routeStages.map(([label,value])=>
+        '<div class="order-checkpoint"><span>'+escape(label)+'</span><strong>'+escape(value)+'</strong></div>'
+      ).join("")+'</div>';
       host.innerHTML='<td colspan="5"><div class="order-detail">'+
         '<div class="order-detail-head"><div><h3>Заказ № '+escape(order.order_number||"")+'</h3><p>'+escape(order.recipient_name||"Получатель не указан")+' · '+contact+'</p><p>Доставка: '+(address||"Адрес не указан")+'</p></div><div>'+badge(order.status)+'</div></div>'+
+        routeHtml+
         table(["Запчасть / артикул","Кол-во","Закупка","Продажа","Состояние"],items.map(i=>
           '<tr><td><strong>'+escape([i.brand,i.article].filter(Boolean).join(" "))+'</strong><small>'+escape(i.description||"")+'</small></td><td>'+formatInt(i.quantity)+'</td><td>'+ (i.line_purchase===null?"—":formatRub(i.line_purchase))+'</td><td>'+formatRub(i.line_sale)+'</td><td>'+badge(i.status)+'<small>'+(i.expected_at?"Ожидается: "+dateRu(i.expected_at):"")+(i.received_at?" · Получено: "+dateRu(i.received_at):"")+'</small></td></tr>'
         ),"Позиции заказа отсутствуют.")+
