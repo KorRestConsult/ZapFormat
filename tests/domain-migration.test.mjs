@@ -32,7 +32,7 @@ test('owner panel on dedicated hostname uses the verified API',()=>{
   const source=readFileSync('admin/admin.js','utf8');
   const html=readFileSync('admin/index.html','utf8');
   assert.match(source,/const API = "https:\/\/api\.zapformat\.ru"/);
-  assert.match(html,/admin\.js\?v=20261103-prelaunch-clean1/);
+  assert.match(html,/admin\.js\?v=20261103-domain-live1/);
 });
 test('local development retains its current origin',()=>{
   assert.equal(apiFor('localhost'),'https://localhost');
