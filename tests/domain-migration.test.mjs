@@ -11,9 +11,9 @@ function apiFor(hostname) {
   vm.runInNewContext(config,context);
   return context.window.ZAPFORMAT_CONFIG.apiBase;
 }
-test('custom storefronts keep the existing live API until new API SSL is ready',()=>{
+test('custom storefronts use verified production API over HTTPS',()=>{
   for(const host of ['zapformat.ru','www.zapformat.ru','korrestconsult.github.io']){
-    assert.equal(apiFor(host),'https://api.168.113.211.246.sslip.io',host);
+    assert.equal(apiFor(host),'https://api.zapformat.ru',host);
   }
 });
 test('backend CORS accepts exact new domain origins without breaking the old',()=>{
@@ -22,8 +22,18 @@ test('backend CORS accepts exact new domain origins without breaking the old',()
   assert.match(server,/https:\/\/admin\.zapformat\.ru/);
   assert.match(server,/FRONTEND_ORIGINS\.includes\(origin\)/);
 });
-test('old GitHub Pages links still work until DNS and certificates are live',()=>{
+test('legacy GitHub Pages URLs and canonical domain share the same trusted API',()=>{
   const html=readFileSync('index.html','utf8');
   assert.match(html,/config\.js\?v=20261103-domain-prep1/);
-  assert.equal(apiFor('korrestconsult.github.io'),'https://api.168.113.211.246.sslip.io');
+  assert.equal(apiFor('korrestconsult.github.io'),'https://api.zapformat.ru');
+});
+
+test('owner panel on dedicated hostname uses the verified API',()=>{
+  const source=readFileSync('admin/admin.js','utf8');
+  const html=readFileSync('admin/index.html','utf8');
+  assert.match(source,/const API = "https:\/\/api\.zapformat\.ru"/);
+  assert.match(html,/admin\.js\?v=20261103-domain-live1/);
+});
+test('local development retains its current origin',()=>{
+  assert.equal(apiFor('localhost'),'https://localhost');
 });

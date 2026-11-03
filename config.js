@@ -1,8 +1,8 @@
 window.ZAPFORMAT_CONFIG = {
-  // Preserve the live API for both GitHub Pages and the new shop domains.
-  // Switch to api.zapformat.ru only after DNS and HTTPS are verified.
+  // The public storefront uses the production ZapFormat API over verified HTTPS.
+  // Local development keeps its current origin.
   apiBase: location.hostname.endsWith("github.io") ||
     ["zapformat.ru","www.zapformat.ru"].includes(location.hostname)
-    ? "https://api.168.113.211.246.sslip.io"
+    ? "https://api.zapformat.ru"
     : location.origin
 };

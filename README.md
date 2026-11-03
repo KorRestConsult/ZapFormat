@@ -4,8 +4,10 @@
 
 ## Адреса
 
-- Витрина: https://korrestconsult.github.io/ZapFormat/
-- Backend API: https://api.168.113.211.246.sslip.io
+- Витрина: https://zapformat.ru/
+- Служебная панель: https://admin.zapformat.ru/
+- Backend API: https://api.zapformat.ru
+- Резервный адрес API: https://api.168.113.211.246.sslip.io
 - Репозиторий: KorRestConsult/ZapFormat (ветка `main`)
 
 ## Покупательский интерфейс
