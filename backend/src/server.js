@@ -1470,11 +1470,11 @@ app.post("/api/admin/maintenance/reset-test-customer", async (req, res, next) =>
     }
     const customer = users.rows[0];
     const orders = await db.query(
-      \`SELECT o.id, o.order_number, o.status, o.supplier_state, o.supplier_submitted_at,
+      `SELECT o.id, o.order_number, o.status, o.supplier_state, o.supplier_submitted_at,
               EXISTS (SELECT 1 FROM supplier_orders so WHERE so.order_id=o.id) AS supplier_linked
          FROM orders o
         WHERE o.user_id=$1
-        FOR UPDATE OF o\`,
+        FOR UPDATE OF o`,
       [customer.id]
     );
     if (orders.rows.some((o) =>
@@ -1491,8 +1491,8 @@ app.post("/api/admin/maintenance/reset-test-customer", async (req, res, next) =>
     await db.query("DELETE FROM courier_assignments WHERE courier_id=$1 OR assigned_by=$1 OR order_id=ANY($2::uuid[])", [customer.id, ids]);
     await db.query("DELETE FROM staff_applications WHERE user_id=$1 OR reviewed_by=$1", [customer.id]);
     const returns = await db.query(
-      \`DELETE FROM returns WHERE user_id=$1 OR order_item_id IN
-         (SELECT id FROM order_items WHERE order_id=ANY($2::uuid[]))\`,
+      `DELETE FROM returns WHERE user_id=$1 OR order_item_id IN
+         (SELECT id FROM order_items WHERE order_id=ANY($2::uuid[]))`,
       [customer.id, ids]
     );
     const requests = await db.query(
