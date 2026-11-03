@@ -279,6 +279,7 @@ async function createAuthChallenge({
   surname = null,
   passwordHash = null,
   customerType = "individual",
+  serviceName = null,
   ip = "-1"
 }) {
   const secret = otpSecret();
@@ -316,9 +317,9 @@ async function createAuthChallenge({
 
   await pool.query(
     `INSERT INTO auth_challenges
-      (id, purpose, phone, user_id, name, surname, password_hash, code_hash, expires_at, customer_type)
-     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)`,
-    [id, purpose, phone, userId, name, surname, passwordHash, codeHash, expiresAt, customerType]
+      (id, purpose, phone, user_id, name, surname, password_hash, code_hash, expires_at, customer_type, service_name)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)`,
+    [id, purpose, phone, userId, name, surname, passwordHash, codeHash, expiresAt, customerType, serviceName]
   );
 
   try {
@@ -1174,6 +1175,7 @@ function publicUser(row) {
     email: row.email,
     phone: row.phone,
     customer_type: row.customer_type||"individual",
+    service_name: row.service_name||null,
     created_at: row.created_at
   };
 }
@@ -2009,12 +2011,12 @@ app.get("/api/admin/customers", async (req, res, next) => {
     const limit = Math.max(1, Math.min(50, Math.trunc(Number(req.query?.limit || 30)) || 30));
     const offset = Math.max(0, Math.min(5000, Math.trunc(Number(req.query?.offset || 0)) || 0));
     const result = await pool.query(`
-      SELECT u.id, u.name, u.surname, u.email, u.phone, u.status, u.created_at,
+      SELECT u.id, u.name, u.surname, u.email, u.phone, u.customer_type, u.service_name, u.status, u.created_at,
              (SELECT count(*)::int FROM orders o WHERE o.user_id = u.id) AS orders_count,
              (SELECT count(*)::int FROM quote_requests q WHERE q.user_id = u.id) AS requests_count
         FROM users u
        WHERE u.role = 'customer' AND u.status <> 'deleted'
-         AND ($1::text = '' OR position(lower($1) in lower(concat_ws(' ', u.name, u.surname, u.email, u.phone))) > 0)
+         AND ($1::text = '' OR position(lower($1) in lower(concat_ws(' ', u.name, u.surname, u.email, u.phone, u.service_name))) > 0)
        ORDER BY u.created_at DESC, u.id DESC
        LIMIT $2 OFFSET $3
     `, [search, limit, offset]);
@@ -3834,6 +3836,8 @@ app.post("/api/auth/register/start", authLimiter, async (req, res, next) => {
     const surname = String(req.body?.surname || "").trim().slice(0, 120) || null;
     const customerType = String(req.body?.customer_type || "individual").trim();
     if (!["individual","service"].includes(customerType)) return res.status(400).json({error:"invalid_customer_type"});
+    const serviceName = customerType==="service" ? String(req.body?.service_name||"").trim() : null;
+    if(customerType==="service" && (!serviceName || serviceName.length>160))return res.status(400).json({error:"service_name_required"});
     const phone = normalizePhone(req.body?.phone);
     const password = String(req.body?.password || "");
     const passwordConfirmation = String(req.body?.password_confirmation || "");
@@ -3867,6 +3871,7 @@ app.post("/api/auth/register/start", authLimiter, async (req, res, next) => {
       surname,
       passwordHash,
       customerType,
+      serviceName,
       ip: req.ip
     });
 
@@ -3965,10 +3970,10 @@ app.post("/api/auth/register/verify", authLimiter, async (req, res, next) => {
 
     const inserted = await client.query(
       `INSERT INTO users
-        (name, surname, email, phone, password_hash, phone_verified_at, customer_type)
-       VALUES ($1,$2,NULL,$3,$4,now(),$5)
+        (name, surname, email, phone, password_hash, phone_verified_at, customer_type, service_name)
+       VALUES ($1,$2,NULL,$3,$4,now(),$5,$6)
        RETURNING *`,
-      [challenge.name, challenge.surname, challenge.phone, challenge.password_hash, challenge.customer_type||"individual"]
+      [challenge.name, challenge.surname, challenge.phone, challenge.password_hash, challenge.customer_type||"individual", challenge.service_name||null]
     );
     const user = inserted.rows[0];
 

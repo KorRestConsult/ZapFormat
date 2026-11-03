@@ -6925,3 +6925,16 @@ html.zf-preauth #sessionEntryButton::after{content:"Проверяем вход�
   body.auth-route #view-auth .auth-tabs button {font-size:12px!important;}
   body.auth-route #view-auth .auth-guest-browse-button {font-size:12px;}
 }
+
+/* Customer type is an explicit, mobile-friendly choice in both registration methods. */
+#view-auth .auth-tabs{grid-template-columns:repeat(3,minmax(0,1fr))}
+#view-auth .auth-buyer-type{border:0;padding:0;margin:0;min-width:0}
+#view-auth .auth-buyer-type legend{font-size:12px;font-weight:700;color:#647889;margin-bottom:9px}
+#view-auth .auth-buyer-options{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+#view-auth .auth-buyer-options label{display:flex;align-items:center;gap:9px;min-width:0;margin:0;padding:11px 10px;border:1px solid #cfdbe3;border-radius:9px;background:#f8fafc;cursor:pointer}
+#view-auth .auth-buyer-options label:has(input:checked){border-color:#d47b29;background:#fff7ef}
+#view-auth .auth-buyer-options input[type="radio"]{appearance:auto!important;display:block!important;box-sizing:border-box!important;width:17px!important;min-width:17px!important;max-width:17px!important;height:17px!important;min-height:17px!important;margin:0!important;padding:0!important;flex:0 0 17px}
+#view-auth .auth-buyer-options label span{margin:0;font-size:13px;font-weight:700;color:#21374a;line-height:1.3}
+#view-auth .auth-form [data-service-only][hidden],#view-auth .auth-provider-warning[hidden]{display:none!important}
+#view-auth .auth-provider-warning{margin:0;padding:10px 12px;background:#fff8e9;border:1px solid #ebd5aa;border-radius:8px;color:#7b561b;font-size:13px;line-height:1.45}
+@media(max-width:390px){#view-auth .auth-buyer-options{gap:6px}#view-auth .auth-buyer-options label{padding:10px 7px}#view-auth .auth-buyer-options label span{font-size:12px}}

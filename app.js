@@ -373,6 +373,8 @@ function authErrorText(error){
     invalid_phone:"Введите номер телефона в формате +7 900 000-00-00.",
     user_already_exists:"Аккаунт с таким телефоном уже существует. Войдите или восстановите пароль.",
     name_and_identity_required:"Укажите имя и номер телефона.",
+    service_name_required:"Укажите название автосервиса.",
+    invalid_customer_type:"Выберите тип покупателя.",
     identity_required:"Укажите телефон или email.",
     login_and_password_required:"Введите телефон/email и пароль.",
     verification_code_required:"Введите код подтверждения.",
@@ -4363,12 +4365,23 @@ document.getElementById("backButton")?.addEventListener("click",()=>safeBack("ho
 hydrateAuthCapabilities().catch(()=>null);
 async function hydrateEmailRegistrationCapability(){
   const tab=document.querySelector('[data-auth-tab="email"]');
+  const notice=document.getElementById("emailProviderNotice");
+  const submit=document.getElementById("emailRegisterStart");
   if(!tab)return;
-  tab.hidden=true;
+  tab.hidden=false;
+  if(submit)submit.disabled=true;
   try{
     const status=await apiRequest("/api/auth/email-registration/status",{timeoutMs:6000});
-    tab.hidden=status?.available!==true;
-  }catch{tab.hidden=true;}
+    const ready=status?.available===true;
+    if(submit)submit.disabled=!ready;
+    if(notice){
+      notice.hidden=ready;
+      notice.textContent=ready?"":"Отправка писем пока не подключена. Можно выбрать регистрацию по телефону.";
+    }
+  }catch{
+    if(submit)submit.disabled=true;
+    if(notice){notice.hidden=false;notice.textContent="Не удалось проверить почтовую службу. Регистрация по email временно недоступна.";}
+  }
 }
 hydrateEmailRegistrationCapability().catch(()=>null);
 
@@ -5162,6 +5175,26 @@ let emailRegistrationChallengeId="";
 document.getElementById("emailRegisterEdit")?.addEventListener("click",()=>{
   emailRegistrationChallengeId="";setAuthStage("email","details");setAuthStatus("");
 });
+function updateRegistrationCustomerType(form){
+  if(!form)return;
+  const customerType=form.querySelector('input[name="customer_type"]:checked')?.value||"individual";
+  const service=customerType==="service";
+  const label=form.querySelector("[data-customer-name-label]");
+  if(label)label.textContent=service?"Контактное лицо":"Имя";
+  form.querySelectorAll("[data-service-only]").forEach(node=>{
+    node.hidden=!service;
+    node.querySelectorAll("input").forEach(input=>{
+      input.disabled=!service;
+      input.required=service;
+    });
+  });
+}
+document.querySelectorAll("#registerForm,#emailRegisterForm").forEach(updateRegistrationCustomerType);
+document.addEventListener("change",event=>{
+  if(event.target.matches('input[name="customer_type"]')){
+    updateRegistrationCustomerType(event.target.closest("form"));
+  }
+});
 document.getElementById("emailRegisterForm")?.addEventListener("submit",async e=>{
   e.preventDefault();
   const form=e.currentTarget,starting=!emailRegistrationChallengeId;
@@ -5207,6 +5240,7 @@ document.getElementById("emailRegisterForm")?.addEventListener("submit",async e=
       email_not_configured:"Отправка писем ещё не настроена. Используйте регистрацию по телефону.",
       email_delivery_failed:"Почтовый сервис не принял письмо. Повторите позже.",
       invalid_email_registration:"Проверьте имя и email.",
+      service_name_required:"Укажите название автосервиса.",
       user_already_exists:"Этот email уже зарегистрирован. Войдите с паролем.",
       otp_too_soon:"Подождите минуту перед повторной отправкой.",
       verification_code_invalid:"Неверный код из письма.",
@@ -5347,6 +5381,7 @@ document.getElementById("registerForm")?.addEventListener("submit",async e=>{
       name:String(data.name||"").trim(),
       surname:"",
       customer_type:data.customer_type==="service"?"service":"individual",
+      service_name:data.customer_type==="service"?String(data.service_name||"").trim():null,
       phone:identity,
       password:data.password,
       password_confirmation:data.password_confirmation

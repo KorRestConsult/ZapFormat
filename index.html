@@ -7,7 +7,7 @@
   <script>try{if(localStorage.getItem("zapformat-access-token"))document.documentElement.classList.add("zf-preauth")}catch(_){}</script>
   <title>ZapFormat — автозапчасти</title>
   <meta name="description" content="ZapFormat — поиск автозапчастей по артикулу и названию. Личный гараж, корзина и история заказов." />
-  <link rel="stylesheet" href="./styles.css?v=20261031-login-polish2" />
+  <link rel="stylesheet" href="./styles.css?v=20261103-register-types1" />
 </head>
 <body class="guest-mode auth-route">
   <div class="app">
@@ -139,7 +139,7 @@
             <div class="auth-tabs" role="tablist" aria-label="Авторизация">
               <button class="active" type="button" data-auth-tab="login">Войти</button>
               <button type="button" data-auth-tab="register">Регистрация</button>
-              <button type="button" data-auth-tab="email" hidden>Через почту</button>
+              <button type="button" data-auth-tab="email">По email</button>
             </div>
             <div class="auth-capability-notice" id="authCapabilityNotice" hidden></div>
 
@@ -165,16 +165,17 @@
             <form class="auth-form" id="registerForm" data-auth-pane="register">
               <div class="auth-stage" data-register-stage="details">
                 <label>
-                  <span>Имя</span>
-                  <input name="name" autocomplete="given-name" required>
+                  <span data-customer-name-label>Имя</span>
+                  <input name="name" autocomplete="given-name" maxlength="120" required>
                 </label>
-                <label>
-                  <span>Тип покупателя</span>
-                  <select name="customer_type" id="registerCustomerType" required>
-                    <option value="individual">Физическое лицо</option>
-                    <option value="service">Автосервис</option>
-                  </select>
-                </label>
+                <fieldset class="auth-buyer-type">
+                  <legend>Кто покупает запчасти?</legend>
+                  <div class="auth-buyer-options">
+                    <label><input type="radio" name="customer_type" value="individual" checked><span>Частное лицо</span></label>
+                    <label><input type="radio" name="customer_type" value="service"><span>Автосервис</span></label>
+                  </div>
+                </fieldset>
+                <label data-service-only hidden><span>Название автосервиса</span><input name="service_name" maxlength="160" placeholder="Например, Автосервис Север"></label>
                 <label>
                   <span>Телефон</span>
                   <input name="identity" type="tel" inputmode="tel" autocomplete="tel" enterkeyhint="next" placeholder="+7 900 000-00-00" required>
@@ -216,9 +217,17 @@
 
             <form class="auth-form" id="emailRegisterForm" data-auth-pane="email">
               <div class="auth-stage" data-email-stage="details">
-                <p class="auth-hint">Регистрация по почте без подтверждения номера телефона.</p>
-                <label><span>Имя</span><input name="name" autocomplete="given-name" maxlength="120" required></label>
-                <label><span>Тип покупателя</span><select name="customer_type"><option value="individual">Физическое лицо</option><option value="service">Автосервис</option></select></label>
+                <p class="auth-hint">Подтвердите email кодом из письма. Для доставки потребуется контактный номер.</p>
+                <p id="emailProviderNotice" class="auth-provider-warning" role="status">Проверяем доступность отправки писем…</p>
+                <label><span data-customer-name-label>Имя</span><input name="name" autocomplete="given-name" maxlength="120" required></label>
+                <fieldset class="auth-buyer-type">
+                  <legend>Кто покупает запчасти?</legend>
+                  <div class="auth-buyer-options">
+                    <label><input type="radio" name="customer_type" value="individual" checked><span>Частное лицо</span></label>
+                    <label><input type="radio" name="customer_type" value="service"><span>Автосервис</span></label>
+                  </div>
+                </fieldset>
+                <label data-service-only hidden><span>Название автосервиса</span><input name="service_name" maxlength="160" placeholder="Например, Автосервис Север"></label>
                 <label><span>Email</span><input name="email" type="email" autocomplete="email" inputmode="email" maxlength="254" placeholder="name@example.com" required></label>
                 <label><span>Пароль</span><input name="password" type="password" minlength="8" maxlength="128" autocomplete="new-password" required></label>
                 <label><span>Повторите пароль</span><input name="password_confirmation" type="password" minlength="8" maxlength="128" autocomplete="new-password" required></label>
@@ -614,7 +623,7 @@
 </div>
 
   <script src="./config.js?v=20261103-domain-prep1"></script>
-  <script src="./app.js?v=20261103-customer-checkout1"></script>
+  <script src="./app.js?v=20261103-register-types1"></script>
   <script src="./admin-desk.js?v=20261030-pricing1"></script>
 </body>
 </html>

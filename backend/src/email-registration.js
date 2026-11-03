@@ -55,9 +55,11 @@ function installEmailRegistration({app,pool,limiter,issueSession,publicUser,otpS
     const password=String(req.body?.password||"");
     const confirm=String(req.body?.password_confirmation||"");
     const customerType=String(req.body?.customer_type||"individual");
+    const serviceName=customerType==="service"?String(req.body?.service_name||"").trim():null;
     if(!config(env).enabled) return res.status(503).json({error:"email_not_configured"});
     if(!name || !validEmail(email)) return res.status(400).json({error:"invalid_email_registration"});
     if(!["individual","service"].includes(customerType))return res.status(400).json({error:"invalid_customer_type"});
+    if(customerType==="service" && (!serviceName||serviceName.length>160))return res.status(400).json({error:"service_name_required"});
     if(password.length<8 || password.length>128)return res.status(400).json({error:"password_too_short"});
     if(password!==confirm)return res.status(400).json({error:"passwords_do_not_match"});
     if(!otpSecret())return res.status(503).json({error:"verification_unavailable"});
@@ -72,8 +74,8 @@ function installEmailRegistration({app,pool,limiter,issueSession,publicUser,otpS
       const passwordHash=await bcrypt.hash(password,12);
       const hashed=otpHash(otpSecret(),id,code);
       await pool.query(
-        "INSERT INTO email_registration_challenges(id,email,name,password_hash,code_hash,customer_type,expires_at) VALUES($1,$2,$3,$4,$5,$6,now()+interval '10 minutes')",
-        [id,email,name,passwordHash,hashed,customerType]);
+        "INSERT INTO email_registration_challenges(id,email,name,password_hash,code_hash,customer_type,service_name,expires_at) VALUES($1,$2,$3,$4,$5,$6,$7,now()+interval '10 minutes')",
+        [id,email,name,passwordHash,hashed,customerType,serviceName]);
       try {await sendMail({to:email,code,env});}
       catch(e){
         await pool.query("DELETE FROM email_registration_challenges WHERE id=$1",[id]).catch(()=>{});
@@ -112,8 +114,8 @@ function installEmailRegistration({app,pool,limiter,issueSession,publicUser,otpS
         return res.status(409).json({error:"user_already_exists"});
       }
       const created=await db.query(
-        "INSERT INTO users(name,email,phone,password_hash,email_verified_at,customer_type) VALUES($1,$2,NULL,$3,now(),$4) RETURNING *",
-        [challenge.name,challenge.email,challenge.password_hash,challenge.customer_type]);
+        "INSERT INTO users(name,email,phone,password_hash,email_verified_at,customer_type,service_name) VALUES($1,$2,NULL,$3,now(),$4,$5) RETURNING *",
+        [challenge.name,challenge.email,challenge.password_hash,challenge.customer_type,challenge.service_name||null]);
       const user=created.rows[0];
       await db.query("INSERT INTO carts(user_id) VALUES($1) ON CONFLICT(user_id) DO NOTHING",[user.id]);
       await db.query("INSERT INTO user_notification_settings(user_id) VALUES($1) ON CONFLICT(user_id) DO NOTHING",[user.id]);

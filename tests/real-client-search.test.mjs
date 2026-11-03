@@ -76,11 +76,11 @@ test("new search does not carry a stale VIN into a different car",()=>{
   assert.match(file,/if\(options.newRequest\)\{[^\n]*transientVinVehicle=null;/);
 });
 
-test("email registration entry stays hidden until email delivery is configured",()=>{
+test("email registration explains provider availability and disables sending until configured",()=>{
   const html=readFileSync(resolve("index.html"),"utf8");
-  assert.match(html,/data-auth-tab="email" hidden/);
+  assert.match(html,/data-auth-tab="email"/);
   assert.match(file,/hydrateEmailRegistrationCapability/);
-  assert.match(file,/status\?\.available!==true/);
+  assert.match(file,/if\(submit\)submit.disabled=!ready/);
 });
 
 test("generic brake discs prompt for car immediately without catalog calls",()=>{

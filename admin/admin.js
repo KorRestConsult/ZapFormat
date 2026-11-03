@@ -235,7 +235,7 @@
     return items.map(i=>'<tr><td><strong>№ '+escape(i.id)+'</strong><small>'+dateRu(i.created_at)+'</small></td><td>'+escape(i.name||"—")+'<small>'+escape(i.phone||"")+'</small></td><td>'+escape(i.articles||"—")+'</td><td>'+formatInt(i.items_count)+'</td><td>'+badge(i.status)+'</td></tr>');
   }
   function customerRows(items){
-    return items.map(i=>'<tr><td><strong>'+escape([i.name,i.surname].filter(Boolean).join(" ")||"Не указано")+'</strong><small>С '+dateRu(i.created_at)+'</small></td><td>'+escape(i.phone||"—")+'<small>'+escape(i.email||"")+'</small></td><td>'+formatInt(i.orders_count)+'</td><td>'+formatInt(i.requests_count)+'</td></tr>');
+    return items.map(i=>'<tr><td><strong>'+escape(i.customer_type==="service"?(i.service_name||"Автосервис"):([i.name,i.surname].filter(Boolean).join(" ")||"Не указано"))+'</strong><small>'+escape(i.customer_type==="service"?"Автосервис · "+i.name:"Частное лицо")+' · С '+dateRu(i.created_at)+'</small></td><td>'+escape(i.phone||"—")+'<small>'+escape(i.email||"")+'</small></td><td>'+formatInt(i.orders_count)+'</td><td>'+formatInt(i.requests_count)+'</td></tr>');
   }
   function card(label,value,detail=""){return '<article class="metric"><div class="metric-label">'+escape(label)+'</div><div class="metric-value">'+value+'</div><div class="metric-detail">'+escape(detail)+'</div></article>';}
   function panel(title,body,extra=""){return '<section class="panel"><div class="panel-head"><h2>'+escape(title)+'</h2>'+extra+'</div>'+body+'</section>';}
