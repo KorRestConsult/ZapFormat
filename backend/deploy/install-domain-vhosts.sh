@@ -77,7 +77,12 @@ rollback_domain() {
 }
 api_rc=0
 admin_rc=0
-probe_domain api.zapformat.ru https://api.zapformat.ru/api/health || api_rc=$?
+for retry in 1 2 3 4 5; do
+  api_rc=0
+  probe_domain api.zapformat.ru https://api.zapformat.ru/api/health || api_rc=$?
+  if [[ "$api_rc" -eq 0 ]]; then break; fi
+  sleep 2
+done
 if [[ "$api_rc" -ne 0 ]]; then
   if [[ "$api_rc" -eq 60 ]]; then
     if ! openssl x509 -in "$CHAIN" -noout -checkhost api.zapformat.ru >/dev/null 2>&1; then
@@ -91,7 +96,12 @@ if [[ "$api_rc" -ne 0 ]]; then
   echo "Domain TLS smoke test failed for API (curl code ${api_rc}); restored previous config."
   exit 0
 fi
-probe_domain admin.zapformat.ru https://admin.zapformat.ru/ || admin_rc=$?
+for retry in 1 2 3 4 5; do
+  admin_rc=0
+  probe_domain admin.zapformat.ru https://admin.zapformat.ru/ || admin_rc=$?
+  if [[ "$admin_rc" -eq 0 ]]; then break; fi
+  sleep 2
+done
 if [[ "$admin_rc" -ne 0 ]]; then
   if [[ "$admin_rc" -eq 60 ]]; then
     if ! openssl x509 -in "$CHAIN" -noout -checkhost admin.zapformat.ru >/dev/null 2>&1; then

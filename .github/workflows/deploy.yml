@@ -43,7 +43,7 @@ jobs:
         shell: bash
         run: |
           set -Eeuo pipefail
-          STATUS_JSON="$(curl --fail --silent --show-error --max-time 15 https://api.168.113.211.246.sslip.io/api/deploy/status)"
+          STATUS_JSON="$(curl --fail --silent --show-error --retry 3 --retry-all-errors --retry-delay 3 --connect-timeout 6 --max-time 15 https://api.168.113.211.246.sslip.io/api/deploy/status)"
           DEPLOY_STATUS="$(python3 -c 'import json,sys; print(json.load(sys.stdin).get("status", ""))' <<<"${STATUS_JSON}")"
           if [[ "${DEPLOY_STATUS}" == "not_configured" ]]; then
             echo "::error::AdminVPS deploy agent is not installed. Website publication is unaffected; backend changes remain in GitHub."
@@ -59,7 +59,7 @@ jobs:
         shell: bash
         run: |
           set -Eeuo pipefail
-          JSON="$(curl -fsS --max-time 15 https://api.168.113.211.246.sslip.io/api/deploy/status)"
+          JSON="$(curl -fsS --retry 3 --retry-all-errors --retry-delay 3 --connect-timeout 6 --max-time 15 https://api.168.113.211.246.sslip.io/api/deploy/status)"
           python3 -c 'import json,sys; s=json.load(sys.stdin).get("status",""); print("Deploy runner status:",s); sys.exit(1 if s in {"not_configured",""} else 0)' <<<"${JSON}"
           echo "Production deploy runner present"
 
