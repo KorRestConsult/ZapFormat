@@ -6126,7 +6126,12 @@ app.post("/api/internal/deploy", async (req, res) => {
 app.get("/api/deploy/status", async (_req, res) => {
   try {
     const raw = await fs.readFile("/var/lib/zapformat/deploy-state.json", "utf8");
-    return res.json(JSON.parse(raw));
+    let domainTlsStatus = "unknown";
+    try {
+      const value = (await fs.readFile("/var/lib/zapformat/domain-tls-status.txt", "utf8")).trim();
+      if (["checking","ready","staging_failed","certbot_missing","certificate_failed","nginx_failed","smoke_failed"].includes(value)) domainTlsStatus = value;
+    } catch (_error) { /* Domain TLS has not yet been provisioned. */ }
+    return res.json({ ...JSON.parse(raw), domain_tls_status: domainTlsStatus });
   } catch (error) {
     if (error?.code === "ENOENT") return res.json({ status: "not_configured" });
     return res.status(500).json({ error: "deploy_status_unavailable" });
