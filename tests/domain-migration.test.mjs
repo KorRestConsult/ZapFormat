@@ -24,7 +24,7 @@ test('backend CORS accepts exact new domain origins without breaking the old',()
 });
 test('legacy GitHub Pages URLs and canonical domain share the same trusted API',()=>{
   const html=readFileSync('index.html','utf8');
-  assert.match(html,/config\.js\?v=20261103-domain-prep1/);
+  assert.match(html,/config\.js\?v=20261103-domain-live1/);
   assert.equal(apiFor('korrestconsult.github.io'),'https://api.zapformat.ru');
 });
 
