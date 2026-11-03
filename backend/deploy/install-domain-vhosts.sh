@@ -23,13 +23,8 @@ if [[ -f "$CHAIN" && -f "$KEY" ]] && grep -q '^# ZAPFORMAT_LIVE_V1' "$TARGET"; t
   exit 0
 fi
 
-for name in api.zapformat.ru admin.zapformat.ru; do
-  dns="$(getent ahostsv4 "$name" || true)"
-  if ! grep -Fq '168.113.211.246' <<<"$dns"; then
-    echo "Domain TLS deferred: $name not yet pointing at the VPS."
-    exit 0
-  fi
-done
+# Public DNS has been independently verified. Let the certificate authority
+# perform authoritative validation instead of trusting the VPS local DNS cache.
 
 if [[ ! -f "$CHAIN" || ! -f "$KEY" ]]; then
   if ! command -v certbot >/dev/null 2>&1; then
