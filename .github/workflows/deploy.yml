@@ -28,6 +28,7 @@ jobs:
         shell: bash
         run: |
           set -Eeuo pipefail
+          bash -n backend/deploy/install-domain-vhosts.sh
           node --check app.js
           node --check backend/src/server.js
           node --check backend/src/partgrade.js
