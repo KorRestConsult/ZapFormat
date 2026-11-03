@@ -66,7 +66,8 @@ const SESSION_DAYS = Math.max(1, Number(process.env.SESSION_DAYS || 30));
 const FRONTEND_ORIGINS = String(process.env.FRONTEND_ORIGINS || "")
   .split(",")
   .map((x) => x.trim())
-  .filter(Boolean);
+  .filter(Boolean)
+  .concat(["https://zapformat.ru","https://www.zapformat.ru","https://admin.zapformat.ru"]);
 
 const partGrade = createPartGradeClient();
 const fapi = createFapiClient();
