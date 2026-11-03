@@ -31,6 +31,18 @@ if [[ -f "$CHAIN" && -f "$KEY" ]] && grep -q '^# ZAPFORMAT_LIVE_V1' "$TARGET"; t
   exit 0
 fi
 
+# Pause automatic certificate and virtual host changes until dedicated TLS is verified.
+# Routine backend releases must not disrupt the existing sslip.io HTTPS endpoint.
+if [[ "${ZAPFORMAT_ENABLE_DOMAIN_TLS:-false}" != "true" ]]; then
+  if [[ -f "$TARGET" ]] && grep -q '^# ZAPFORMAT_LIVE_V1' "$TARGET"; then
+    set_status manual_recovery_required
+    echo "Custom TLS vhost still active; recovery is required from the private VPS console."
+  else
+    set_status tls_manual_only
+    echo "New custom-domain TLS auto-provisioning is paused."
+  fi
+  exit 0
+fi
 # Public DNS has been independently verified. Let the certificate authority
 # perform authoritative validation instead of trusting the VPS local DNS cache.
 
