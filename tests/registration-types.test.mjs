@@ -8,12 +8,12 @@ const email=readFileSync("backend/src/email-registration.js","utf8");
 const migration=readFileSync("backend/db/015_service_registration.sql","utf8");
 const owner=readFileSync("admin/admin.js","utf8");
 
-test("both registration methods distinguish private customers from workshops",()=>{
-  assert.equal((html.match(/name="customer_type" value="individual"/g)||[]).length,2);
-  assert.equal((html.match(/name="customer_type" value="service"/g)||[]).length,2);
-  assert.equal((html.match(/data-service-only hidden/g)||[]).length,2);
-  assert.match(html,/data-auth-tab="email"/);
-  assert.doesNotMatch(html,/data-auth-tab="email" hidden/);
+test("email registration distinguishes private customers from workshops",()=>{
+  assert.equal((html.match(/name="customer_type" value="individual"/g)||[]).length,1);
+  assert.equal((html.match(/name="customer_type" value="service"/g)||[]).length,1);
+  assert.equal((html.match(/data-service-only hidden/g)||[]).length,1);
+  assert.match(html,/data-auth-tab="register"/);
+  assert.doesNotMatch(html,/data-auth-tab="email"/);
   assert.match(js,/function updateRegistrationCustomerType/);
   assert.match(js,/input.required=service/);
   assert.match(js,/input.disabled=!service/);
@@ -35,5 +35,5 @@ test("owner customer list identifies workshops, and mail signup does not feign r
   assert.match(owner,/i\.customer_type==="service"/);
   assert.match(owner,/i\.service_name/);
   assert.match(js,/submit\.disabled=!ready/);
-  assert.match(js,/Отправка писем пока не подключена/);
+  assert.match(js,/отправитель ещё подключается/);
 });

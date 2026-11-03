@@ -191,12 +191,13 @@ test('Guest and signed-in state are explicit, first load does not bounce from au
   assert.match(css, /#sessionEntryButton\{display:inline-flex!important/);
 });
 
-test('Phone confirmation survives refresh without persisting password and hidden required fields cannot block it',()=>{
+test('Email confirmation never stores passwords in session storage, hidden steps do not block forms',()=>{
   assert.match(app, /function restorePendingRegistration\(\)/);
   assert.match(app, /sessionStorage\.setItem\("zapformat-register-challenge"/);
   assert.match(app, /sessionStorage\.removeItem\("zapformat-register-challenge"\)/);
   assert.match(app, /control\.disabled=node\.hidden/);
-  assert.match(html, /Если оператор заблокировал звонок как спам/);
+  assert.match(html, /id="emailRegisterCode"/);
+  assert.doesNotMatch(html, /Если оператор заблокировал звонок как спам/);
   assert.doesNotMatch(app.slice(app.indexOf('function restorePendingRegistration()'),app.indexOf('function resetRegistrationFlow()')),/sessionStorage\.setItem\("[^"]*",\s*JSON\.stringify\(registrationDraft\)/);
 });
 
@@ -211,9 +212,9 @@ test('registration remains tappable even when the capabilities endpoint is slow 
   assert.match(html, /<button type="button" data-auth-tab="register">Регистрация<\/button>/);
   assert.doesNotMatch(html, /data-auth-tab="register" disabled/);
   const apply = app.slice(app.indexOf('function applyAuthCapabilities()'),app.indexOf('async function hydrateAuthCapabilities()'));
-  assert.match(apply, /registerTab\.disabled=false/);
+  assert.doesNotMatch(apply, /registerTab\.disabled=false/);
   assert.match(app, /timeoutMs:8000/);
-  assert.match(app, /if\(tab==="register" && authCapabilities\.phone_verification===false\)\{\s*setAuthStatus/);
+  assert.match(app,/if\(submit\)submit.disabled=!ready/);
 });
 test('mobile auth does not autozoom the verification stage and has stable viewport rules',()=>{
   assert.match(html, /name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,viewport-fit=cover"/);
@@ -239,7 +240,7 @@ test('Lost SMS.RU call response is recovered without another paid provider reque
   assert.doesNotMatch(endpoint,/createAuthChallenge|sendVerificationCall|sendVerificationCode/);
   assert.match(app,/async function recoverAcceptedRegistration\(\)/);
   assert.match(app,/\["request_timeout","network_unavailable","otp_too_soon"\]/);
-  assert.match(html,/id="registerRecoverButton"/);
+  assert.doesNotMatch(html,/id="registerRecoverButton"/);
   assert.match(css,/\.auth-recovery-check\[hidden\]\{display:none!important\}/);
 });
 
@@ -248,7 +249,7 @@ test("customer login removes redundant guest header and unused status spacer",()
   assert.match(css,/body\.auth-route #view-auth #authStatus:empty/);
   assert.match(css,/body\.auth-route #view-auth \.auth-guest-browse-button/);
   assert.match(html,/id=\"loginForm\"/);
-  assert.match(html,/id=\"registerForm\"/);
+  assert.doesNotMatch(html,/id=\"registerForm\"/);
   assert.match(html,/id=\"emailRegisterForm\"/);
 });
 

@@ -22,6 +22,7 @@ const { customerPrice, getPricingPolicy, setPricingPolicy, validatePricingPolicy
 const { isAdminRole } = require("./admin-access");
 const { installStaffRoutes } = require("./staff-routes");
 const { installEmailRegistration } = require("./email-registration");
+const { installEmailPasswordReset } = require("./email-password-reset");
 const { verifyGitHubActionsToken } = require("./github-oidc");
 const { interpretSearch, fallbackIntent, researchPartCandidates, normalizeVehicle } = require("./ai-search");
 const { publicBootstrapJwk, installEncryptedOpenAIKey, installTimewebAIToken, installSmsRuToken, installFapiToken, installTelegramConfig, installGmailSMTP } = require("./secret-bootstrap");
@@ -3820,6 +3821,7 @@ app.post("/api/catalog/revalidate", async (req, res, next) => {
 });
 
 installEmailRegistration({ app, pool, limiter:authLimiter, issueSession, publicUser, otpSecret, sessionDays:SESSION_DAYS });
+installEmailPasswordReset({ app, pool, limiter:authLimiter, issueSession, publicUser, otpSecret, sessionDays:SESSION_DAYS });
 
 app.get("/api/auth/capabilities", (_req, res) => {
   res.json({

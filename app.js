@@ -367,7 +367,7 @@ function authErrorText(error){
   const code=error?.code||error?.message;
   const map={
     backend_not_configured:"Сервис временно недоступен. Попробуйте ещё раз позже.",
-    invalid_credentials:"Неверный телефон/email или пароль.",
+    invalid_credentials:"Неверный email или пароль.",
     password_too_short:"Пароль должен быть не короче 8 символов.",
     passwords_do_not_match:"Пароли не совпадают.",
     invalid_phone:"Введите номер телефона в формате +7 900 000-00-00.",
@@ -376,7 +376,7 @@ function authErrorText(error){
     service_name_required:"Укажите название автосервиса.",
     invalid_customer_type:"Выберите тип покупателя.",
     identity_required:"Укажите телефон или email.",
-    login_and_password_required:"Введите телефон/email и пароль.",
+    login_and_password_required:"Введите email и пароль.",
     verification_code_required:"Введите код подтверждения.",
     verification_code_invalid:"Неверный код подтверждения. Проверьте номер входящего звонка.",
     verification_expired:"Код истёк или использован. Запросите новый.",
@@ -400,37 +400,9 @@ function setAuthStatus(message,type=""){
 }
 
 function applyAuthCapabilities(){
-  const registerAvailable=authCapabilities.phone_verification!==false;
-  const recoveryAvailable=authCapabilities.password_recovery!==false;
-  const isCall=authCapabilities.verification_method==="call";
-  document.querySelectorAll(".verification-code-label").forEach(x=>x.textContent=isCall?"Последние 4 цифры номера звонящего":"Код из SMS");
-  document.querySelectorAll('[name="verification_code"]').forEach(x=>{x.maxLength=isCall?4:6;x.placeholder=isCall?"0000":"000000";});
-  const registrationNote=document.getElementById("registerVerificationHint");
-  if(registrationNote)registrationNote.textContent=isCall?"После заполнения формы вам поступит звонок. Введите последние 4 цифры входящего номера.":"Мы отправим код на указанный телефон.";
-  const registerTab=document.querySelector('[data-auth-tab="register"]');
-  const forgotButton=document.querySelector('[data-auth-tab="forgot"]');
+  // Phone-based verification remains available only for legacy account support.
   const notice=document.getElementById("authCapabilityNotice");
-
-  if(registerTab){
-    // The registration form must remain accessible during brief API outages.
-    registerTab.disabled=false;
-    registerTab.setAttribute("aria-disabled","false");
-    registerTab.title=registerAvailable?"":"Связь с сервером подтверждения нестабильна — форму можно заполнить и повторить запрос";
-  }
-  if(forgotButton){
-    forgotButton.disabled=!recoveryAvailable;
-    forgotButton.setAttribute("aria-disabled",recoveryAvailable?"false":"true");
-    forgotButton.title=recoveryAvailable?"":"Восстановление по телефону временно недоступно";
-  }
-  if(notice){
-    const unavailable=[];
-    if(!registerAvailable) unavailable.push("регистрация");
-    if(!recoveryAvailable) unavailable.push("восстановление пароля");
-    notice.hidden=!unavailable.length;
-    notice.textContent=unavailable.length
-      ? "Сейчас временно недоступны: "+unavailable.join(" и ")+". Вход в существующий аккаунт работает."
-      : "";
-  }
+  if(notice)notice.hidden=true;
 }
 
 async function hydrateAuthCapabilities(){
@@ -451,16 +423,21 @@ async function hydrateAuthCapabilities(){
 }
 
 function showAuthTab(tab){
-  if(tab==="register" && authCapabilities.phone_verification===false){
-    setAuthStatus("Сервер подтверждения временно недоступен. Форма открыта, запрос можно повторить позже.","error");
-  }else if(tab==="forgot" && authCapabilities.password_recovery===false){
-    tab="login";
-    setAuthStatus("Восстановление пароля по телефону временно недоступно. Попробуйте позже.","error");
-  }else{
-    setAuthStatus("");
-  }
-  document.querySelectorAll("[data-auth-tab]").forEach(x=>x.classList.toggle("active",x.dataset.authTab===tab));
+  if(tab==="email")tab="register";
+  setAuthStatus("");
+  document.querySelectorAll("[data-auth-tab]").forEach(x=>
+    x.classList.toggle("active",x.dataset.authTab===(tab==="forgot"?"login":tab))
+  );
   document.querySelectorAll("[data-auth-pane]").forEach(x=>x.classList.toggle("active",x.dataset.authPane===tab));
+  const content={
+    login:["Добро пожаловать","Войдите, чтобы продолжить покупки и управлять заказами."],
+    register:["Создать аккаунт","Сохраните свои автомобили, корзину и заказы."],
+    forgot:["Восстановление доступа","Верните доступ к своему аккаунту через email."]
+  }[tab]||["Личный кабинет",""];
+  const heading=document.getElementById("authFormTitle");
+  const subtitle=document.getElementById("authFormSubtitle");
+  if(heading)heading.textContent=content[0];
+  if(subtitle)subtitle.textContent=content[1];
 }
 
 function setAuthStage(kind,stage){
@@ -536,7 +513,7 @@ function resetPasswordFlow(){
   const form=document.getElementById("forgotForm");
   form?.reset();
   const button=document.getElementById("resetSubmitButton");
-  if(button) button.textContent="Получить код";
+  if(button) button.textContent="Получить код на email";
   setAuthStatus("");
 }
 
@@ -4364,23 +4341,23 @@ window.addEventListener("popstate",restoreFromUrl);
 document.getElementById("backButton")?.addEventListener("click",()=>safeBack("home"));
 hydrateAuthCapabilities().catch(()=>null);
 async function hydrateEmailRegistrationCapability(){
-  const tab=document.querySelector('[data-auth-tab="email"]');
   const notice=document.getElementById("emailProviderNotice");
   const submit=document.getElementById("emailRegisterStart");
-  if(!tab)return;
-  tab.hidden=false;
+  const forgot=document.querySelector('[data-auth-tab="forgot"]');
   if(submit)submit.disabled=true;
   try{
     const status=await apiRequest("/api/auth/email-registration/status",{timeoutMs:6000});
     const ready=status?.available===true;
     if(submit)submit.disabled=!ready;
+    if(forgot)forgot.disabled=!ready;
     if(notice){
       notice.hidden=ready;
-      notice.textContent=ready?"":"Отправка писем пока не подключена. Можно выбрать регистрацию по телефону.";
+      notice.textContent=ready?"":"Регистрация по email временно недоступна: отправитель ещё подключается.";
     }
   }catch{
     if(submit)submit.disabled=true;
-    if(notice){notice.hidden=false;notice.textContent="Не удалось проверить почтовую службу. Регистрация по email временно недоступна.";}
+    if(forgot)forgot.disabled=true;
+    if(notice){notice.hidden=false;notice.textContent="Почтовая служба временно недоступна. Попробуйте позже.";}
   }
 }
 hydrateEmailRegistrationCapability().catch(()=>null);
@@ -4389,7 +4366,7 @@ refreshStorefrontStatus().catch(()=>null);
 setInterval(()=>refreshStorefrontStatus().catch(()=>null),120000);
 hydrateSession()
   .catch(()=>null)
-  .finally(()=>{restoreFromUrl();restorePendingRegistration();});
+  .finally(()=>{restoreFromUrl();});
 
 document.addEventListener("change",e=>{
   const select=e.target.closest("[data-cart-select]");
@@ -5189,7 +5166,7 @@ function updateRegistrationCustomerType(form){
     });
   });
 }
-document.querySelectorAll("#registerForm,#emailRegisterForm").forEach(updateRegistrationCustomerType);
+document.querySelectorAll("#emailRegisterForm").forEach(updateRegistrationCustomerType);
 document.addEventListener("change",event=>{
   if(event.target.matches('input[name="customer_type"]')){
     updateRegistrationCustomerType(event.target.closest("form"));
@@ -5237,7 +5214,7 @@ document.getElementById("emailRegisterForm")?.addEventListener("submit",async e=
     }
   }catch(error){
     const messages={
-      email_not_configured:"Отправка писем ещё не настроена. Используйте регистрацию по телефону.",
+      email_not_configured:"Отправка писем сейчас не настроена. Попробуйте позже.",
       email_delivery_failed:"Почтовый сервис не принял письмо. Повторите позже.",
       invalid_email_registration:"Проверьте имя и email.",
       service_name_required:"Укажите название автосервиса.",
@@ -5434,7 +5411,7 @@ document.getElementById("registerForm")?.addEventListener("submit",async e=>{
     registrationChallengeId="";
     registrationDraft=null;
     try{sessionStorage.removeItem("zapformat-register-challenge");sessionStorage.removeItem("zapformat-guest-choice");}catch{}
-    setAuthStatus("Номер подтверждён. Аккаунт создан.","success");
+    setAuthStatus("Аккаунт создан.","success");
 
     const params=new URLSearchParams(location.search);
     const pendingSearch=pendingSearchAfterAuth ||
@@ -5458,89 +5435,57 @@ document.getElementById("forgotForm")?.addEventListener("submit",async e=>{
   e.preventDefault();
   const form=e.currentTarget;
   const button=document.getElementById("resetSubmitButton");
+  if(!button || button.disabled)return;
   const data=Object.fromEntries(new FormData(form).entries());
-
-  if(!resetChallengeId){
-    const identity=String(data.identity||"").trim();
-    if(!identity){
-      setAuthStatus("Укажите телефон или email.","error");
-      form.querySelector('[name="identity"]')?.focus();
-      return;
-    }
-
-    button.disabled=true;
-    setAuthStatus("Отправляем код восстановления…");
-    try{
-      const result=await apiRequest("/api/auth/password-reset/start",{
-        timeoutMs:20000,
-        method:"POST",
-        body:JSON.stringify({identity})
-      });
-      resetIdentity=identity;
-      resetChallengeId=result.challenge_id;
-      const masked=document.getElementById("resetMaskedPhone");
-      if(masked) masked.textContent=result.masked_phone||"привязанный номер";
-      const note=document.getElementById("resetVerificationNote");
-      if(note)note.firstChild.textContent=authCapabilities.verification_method==="call"?"Ожидайте звонка на ":"Код отправлен на ";
-      setAuthStage("reset","verify");
-      button.textContent="Сохранить новый пароль";
-      setAuthStatus(authCapabilities.verification_method==="call"?"Если номер привязан к аккаунту, ожидайте звонка. Введите последние четыре цифры номера.":"Если аккаунт найден, код отправлен по SMS.","success");
-      startAuthCooldown("reset",result.resend_in||60);
-      form.querySelector('[name="verification_code"]')?.focus();
-    }catch(error){
-      setAuthStatus(authErrorText(error),"error");
-    }finally{
-      button.disabled=false;
-    }
-    return;
-  }
-
-  const digitsNeeded=authCapabilities.verification_method==="call"?4:6;
-  const code=String(data.verification_code||"").replace(/\D/g,"").slice(0,digitsNeeded);
-  const password=String(data.password||"");
-  const confirmation=String(data.password_confirmation||"");
-  if(code.length!==digitsNeeded){
-    setAuthStatus(authCapabilities.verification_method==="call"?"Введите четыре цифры номера звонящего.":"Введите шестизначный код из SMS.","error");
-    return;
-  }
-  if(password.length<8){
-    setAuthStatus("Пароль должен быть не короче 8 символов.","error");
-    return;
-  }
-  if(password!==confirmation){
-    setAuthStatus("Пароли не совпадают.","error");
-    return;
-  }
-
   button.disabled=true;
-  setAuthStatus("Меняем пароль…");
   try{
-    const result=await apiRequest("/api/auth/password-reset/verify",{
-      method:"POST",
-      body:JSON.stringify({
-        challenge_id:resetChallengeId,
-        code,
-        password,
-        password_confirmation:confirmation
-      })
-    });
-    sessionUser=result.user;
-    if(result.access_token) saveAuthToken(result.access_token);
-    applySessionUser();
-    hydrateCartFromAccount().catch(error=>console.warn("ZapFormat cart hydration failed",error));
-    hydrateAccountData().catch(error=>console.warn("ZapFormat account hydration failed",error));
-    resetChallengeId="";
-    resetIdentity="";
-    setAuthStatus("Пароль изменён.","success");
-    navigate(pendingAccountRoute||"home");
+    if(!resetChallengeId){
+      const email=String(data.identity||"").trim().toLowerCase();
+      if(!email.includes("@")){setAuthStatus("Введите email.","error");return;}
+      setAuthStatus("Запрашиваем код восстановления…");
+      const result=await apiRequest("/api/auth/email-password-reset/start",{
+        method:"POST",timeoutMs:16000,body:JSON.stringify({email})
+      });
+      resetIdentity=email;
+      resetChallengeId=result.challenge_id;
+      const masked=document.getElementById("resetMaskedEmail");
+      if(masked)masked.textContent=result.masked_email||"вашу почту";
+      setAuthStage("reset","verify");
+      button.textContent="Сменить пароль";
+      setAuthStatus("Если такой аккаунт существует, код отправлен на email.","success");
+    }else{
+      const code=String(data.verification_code||"").trim();
+      const password=String(data.password||"");
+      if(!/^\d{6}$/.test(code)){setAuthStatus("Введите шестизначный код.","error");return;}
+      if(password.length<8){setAuthStatus("Пароль должен быть не короче 8 символов.","error");return;}
+      if(password!==String(data.password_confirmation||"")){setAuthStatus("Пароли не совпадают.","error");return;}
+      setAuthStatus("Проверяем код…");
+      const result=await apiRequest("/api/auth/email-password-reset/verify",{
+        method:"POST",timeoutMs:16000,body:JSON.stringify({
+          challenge_id:resetChallengeId,code,password,password_confirmation:data.password_confirmation
+        })
+      });
+      if(!result?.access_token || !result?.user)throw Error("verification_not_found");
+      sessionUser=result.user;
+      saveAuthToken(result.access_token);
+      applySessionUser();
+      resetChallengeId="";
+      resetIdentity="";
+      setAuthStatus("Пароль обновлён.","success");
+      navigate(pendingAccountRoute||"home");
+    }
   }catch(error){
-    setAuthStatus(authErrorText(error),"error");
-  }finally{
-    button.disabled=false;
-  }
+    const messages={
+      email_not_configured:"Отправка писем ещё не подключена.",
+      email_delivery_failed:"Письмо не отправлено. Повторите попытку позже.",
+      verification_code_invalid:"Неверный код из письма.",
+      verification_expired:"Срок действия кода истёк. Запросите новый.",
+      otp_too_soon:"Повторный запрос возможен через минуту.",
+      request_timeout:"Сервер не ответил. Проверьте почту перед повторной отправкой."
+    };
+    setAuthStatus(messages[error?.code]||authErrorText(error),"error");
+  }finally{button.disabled=false;}
 });
-
-
 
 document.getElementById("logoutButton")?.addEventListener("click",async()=>{
   try{

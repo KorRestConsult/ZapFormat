@@ -200,6 +200,7 @@ if [[ -n "${DATABASE_URL:-}" ]]; then
   psql -X -v ON_ERROR_STOP=1 "${DATABASE_URL}" -f db/013_staff_courier.sql >/dev/null
   psql -X -v ON_ERROR_STOP=1 "${DATABASE_URL}" -f db/014_email_registration.sql >/dev/null
   psql -X -v ON_ERROR_STOP=1 "${DATABASE_URL}" -f db/015_service_registration.sql >/dev/null
+  psql -X -v ON_ERROR_STOP=1 "${DATABASE_URL}" -f db/016_email_password_reset.sql >/dev/null
 fi
 
 mkdir -p /etc/systemd/system/zapformat-api.service.d

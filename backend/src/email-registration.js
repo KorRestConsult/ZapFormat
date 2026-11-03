@@ -18,11 +18,12 @@ function maskEmail(email){
   const [name,domain]=email.split("@");
   return name.slice(0,Math.min(2,name.length))+"***@"+domain;
 }
-async function sendEmail({to,code,env=process.env,fetchImpl=fetch,createTransport}) {
+async function sendEmail({to,code,purpose="register",env=process.env,fetchImpl=fetch,createTransport}) {
   const c=config(env);
   if(!c.enabled) throw Object.assign(new Error("Email is not configured"),{code:"email_not_configured"});
-  const subject="ZapFormat — код подтверждения email";
-  const text="Код регистрации ZapFormat: "+code+"\nКод действует 10 минут. Никому его не сообщайте.";
+  const recovery=purpose==="reset";
+  const subject=recovery?"ZapFormat — восстановление пароля":"ZapFormat — подтверждение email";
+  const text=(recovery?"Код восстановления пароля: ":"Код регистрации ZapFormat: ")+code+"\nКод действует 10 минут. Никому его не сообщайте.";
   if(c.resend){
     const response=await fetchImpl("https://api.resend.com/emails",{
       method:"POST",

@@ -76,9 +76,11 @@ test("new search does not carry a stale VIN into a different car",()=>{
   assert.match(file,/if\(options.newRequest\)\{[^\n]*transientVinVehicle=null;/);
 });
 
-test("email registration explains provider availability and disables sending until configured",()=>{
+test("only email registration is visible and sending is disabled without outbound mail",()=>{
   const html=readFileSync(resolve("index.html"),"utf8");
-  assert.match(html,/data-auth-tab="email"/);
+  assert.match(html,/data-auth-tab="register"/);
+  assert.doesNotMatch(html,/data-auth-tab="email"/);
+  assert.doesNotMatch(html,/id="registerForm"/);
   assert.match(file,/hydrateEmailRegistrationCapability/);
   assert.match(file,/if\(submit\)submit.disabled=!ready/);
 });
