@@ -1,0 +1,26 @@
+/* ZapFormat 2026 — operational console inherits storefront brand system. */
+:root{--ink:#172f48;--muted:#708198;--border:#e0e8f0;--bg:#f3f6fa;--primary:#172f48;--accent:#f48124;--nav:#142b43;--navsub:#b4c2d3;--surface:#fff}
+html,body{max-width:100%;overflow-x:clip}
+input,select,textarea{font-size:16px}
+input:focus,select:focus,textarea:focus{border-color:#f48124;box-shadow:0 0 0 3px #f4812429}
+button:focus-visible,a:focus-visible{outline-color:#f48124}
+.primary{background:#f48124;border-color:#e7751b;border-radius:12px;color:#fff;font-weight:800}
+.primary:hover{background:#e7751b}
+.link{color:#bb621e}
+.auth-shell{background:radial-gradient(ellipse at 12% 5%,#2b4965 0,transparent 40%),linear-gradient(145deg,#132439,#17354c)}
+.brand-icon span{color:#f48124}
+.auth-card,.metric,.panel{border-radius:20px;border-color:var(--border)}
+.auth-card{box-shadow:0 25px 65px #0a20394d}
+.sidebar{background:#142b43}
+.sidebar nav button{border-radius:12px;min-height:45px}
+.sidebar nav button.active{background:#264360;box-shadow:inset 4px 0 0 #f48124}
+.metric,.panel{box-shadow:0 10px 28px rgba(29,52,77,.045)}
+.tier{background:#f7f9fc;border-color:#e0e8f0;border-radius:15px}
+.tier>strong{color:#173c5d}
+.tier input{accent-color:#f48124}
+.preview{background:#f7fafc;border-color:#e1eaf2}
+.avatar{background:#fff0e4;color:#a75418}
+.badge-new,.badge-received{background:#eaf0f6;color:#27435e}
+.workspace{min-width:0}
+.table-scroll{-webkit-overflow-scrolling:touch}
+@media(max-width:680px){.auth-shell{padding:22px 15px}.auth-card{padding:24px}.workspace{max-width:100%}}
