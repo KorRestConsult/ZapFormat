@@ -53,3 +53,12 @@ Important:
 - procurement prices are stored server-side and must never be returned by public API responses;
 - production frontend and API should use HTTPS;
 - for reliable iPhone/Safari sessions, use the production ZAPFORMAT domain and an API host under the same site, or reverse proxy `/api` through the same public origin.
+
+## Separate owner and customer sign-in (2026-11-04)
+
+Storefront login explicitly uses `account_scope=customer` and selects `customer_type=individual|service`.
+The dedicated admin login explicitly uses `account_scope=admin`.
+A single verified email can belong to the existing owner and to both separate customer profiles,
+with distinct identities, sessions and orders. The owner credentials must never be migrated into
+or deleted as a customer record. Database migration `017_customer_account_scopes.sql` enforces
+role-and-profile-scoped email uniqueness. The frontend customer signup remains email-code verified.
