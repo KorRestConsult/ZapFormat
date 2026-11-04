@@ -7135,3 +7135,7 @@ html.zf-preauth #sessionEntryButton::after{content:"Проверяем вход�
 .vin-catalog-recovery button:last-child{background:#fff;color:#234153;border:1px solid #b6c9d5}
 .vin-catalog-recovery-note{font-size:12px;color:#698091;line-height:1.5;margin:14px 0 0}
 @media(max-width:680px){.vin-catalog-recovery{display:grid;grid-template-columns:minmax(0,1fr)}.vin-catalog-recovery button{width:100%;font-size:15px}}
+
+/* Unavailable FAPI data must not imply live interactive part categories. */
+.vin-catalog-blocked .vin-vehicle-hero{grid-template-columns:minmax(0,1fr)!important}
+.vin-catalog-blocked .vin-exploded{display:none!important}

@@ -2419,7 +2419,7 @@ function renderVinCatalogLocked(data){
   setCatalogControlsVisible(false);
   setVinCatalogCount(0,"доступных разделов");
   root.innerHTML=`
-    <div class="vin-catalog-browser">
+    <div class="vin-catalog-browser vin-catalog-blocked">
       ${known?vinCatalogHeroHtml():""}
       <section class="vin-catalog-panel vin-catalog-unavailable">
         <span class="eyebrow">БЕСПЛАТНЫЙ ПОДБОР ПО VIN</span>

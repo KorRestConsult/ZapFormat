@@ -294,8 +294,8 @@ test('iPhone Safari focus cannot zoom search or forcibly restore page position',
   assert.match(css, /font-size:17px!important;/);
   assert.doesNotMatch(app, /authFieldScrollAnchor|authFieldRestoreTimer|restoreIosViewportScale/);
   assert.doesNotMatch(app, /viewport\.content\s*=/);
-  assert.match(html, /styles\.css\?v=20261104-fapi-budget1/);
-  assert.match(html, /app\.js\?v=20261104-fapi-budget1/);
+  assert.match(html, /styles\.css\?v=20261104-fapi-budget2/);
+  assert.match(html, /app\.js\?v=20261104-fapi-budget2/);
   assert.match(html, /viewport-fit=cover/);
   assert.doesNotMatch(html, /user-scalable=no|maximum-scale=1/);
 });
@@ -311,7 +311,7 @@ test("Mobile VIN diagram and garage navigation cannot overlap or force keyboard 
   assert.doesNotMatch(jump,/vin-catalog-browser"\)\?\.scrollIntoView/);
   const routing=app.slice(app.indexOf("function showRoute(route)"),app.indexOf("function navigate(route, push=true)"));
   assert.doesNotMatch(routing,/hydrateAccountData\(\)\.catch/);
-  assert.match(html,/styles\.css\?v=20261104-fapi-budget1/);
+  assert.match(html,/styles\.css\?v=20261104-fapi-budget2/);
 });
 
 
@@ -327,4 +327,9 @@ test("VIN outage has free real assistance and no fake clickable categories",()=>
  const backend=readFileSync(resolve(root,"backend/src/server.js"),"utf8");
  assert.match(backend,/limit: 60/);
  assert.match(backend,/seenVinQueries/);
+});
+
+test("unavailable catalog hides its decorative hotspots rather than suggesting selectable parts",()=>{
+ assert.match(app,/vin-catalog-browser vin-catalog-blocked/);
+ assert.match(css,/\.vin-catalog-blocked \.vin-exploded\{display:none!important\}/);
 });
