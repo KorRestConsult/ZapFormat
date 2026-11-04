@@ -7139,3 +7139,8 @@ html.zf-preauth #sessionEntryButton::after{content:"Проверяем вход�
 /* Unavailable FAPI data must not imply live interactive part categories. */
 .vin-catalog-blocked .vin-vehicle-hero{grid-template-columns:minmax(0,1fr)!important}
 .vin-catalog-blocked .vin-exploded{display:none!important}
+
+/* Checkout must remain reachable on desktop as well as mobile. */
+@media(min-width:901px){
+  #view-cart .cart-checkout-top{display:block!important;width:min(100%,400px);margin:10px 0 16px auto;}
+}
