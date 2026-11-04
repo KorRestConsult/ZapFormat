@@ -2412,41 +2412,26 @@ function renderVinCatalogLocked(data){
   if(!root) return;
   vinCatalogState={
     vin:String(data?.decoded?.vin||data?.vin||""),
-    decoded:data?.decoded||{},
-    modification:data?.modification||{},
-    nodes:[],
-    activeNodeId:0,
-    savedVehicleId:data?.saved_vehicle_id||null,
-    locked:true
+    decoded:data?.decoded||{}, modification:data?.modification||{},
+    nodes:[],activeNodeId:0,savedVehicleId:data?.saved_vehicle_id||null,locked:true
   };
-  const sections=[
-    "Двигатель","Фильтры","Тормозная система","Подвеска",
-    "Рулевое управление","Коробка передач","Привод колеса","Система охлаждения",
-    "Электрооборудование","Система подачи топлива","Кузов","Кондиционер"
-  ];
+  const known=Boolean(data?.decoded?.brand_name||data?.decoded?.manufacturer);
   setCatalogControlsVisible(false);
-  setVinCatalogCount(sections.length,"разделов");
+  setVinCatalogCount(0,"доступных разделов");
   root.innerHTML=`
     <div class="vin-catalog-browser">
-      ${data?.decoded?.brand_name || data?.decoded?.manufacturer ? vinCatalogHeroHtml() : ""}
-      <section class="vin-catalog-panel">
-        <div class="vin-catalog-panel-head">
-          <div>
-            <span class="eyebrow">КАТАЛОГ АВТОМОБИЛЯ</span>
-            <h3>${data?.decoded?.brand_name || data?.decoded?.manufacturer ? "Автомобиль определён" : "VIN принят"}</h3>
-          </div>
+      ${known?vinCatalogHeroHtml():""}
+      <section class="vin-catalog-panel vin-catalog-unavailable">
+        <span class="eyebrow">БЕСПЛАТНЫЙ ПОДБОР ПО VIN</span>
+        <h3>${known?"Автомобиль определён":"Нужно уточнить автомобиль"}</h3>
+        <div class="vin-catalog-notice"><b>Автоматический каталог временно недоступен.</b>
+          <span>Не будем угадывать совместимость. Укажите, какая деталь нужна — поможем подобрать её по VIN.</span>
         </div>
-        <div class="vin-catalog-notice">
-          <b>Каталог деталей временно недоступен.</b>
-          <span>${data?.decoded?.brand_name || data?.decoded?.manufacturer ? "VIN распознан, но каталог деталей недоступен." : "Платный сервис VIN пока недоступен. Автомобиль и совместимость ещё не подтверждены."}</span>
+        <div class="vin-catalog-recovery">
+          <button type="button" data-open-manual-lead>Помогите подобрать запчасть</button>
+          <button type="button" data-focus-catalog-search>Знаю артикул или название</button>
         </div>
-        <div class="vin-category-grid vin-category-grid-locked">
-          ${sections.map(name=>`
-            <div class="vin-category-card vin-category-card-locked">
-              <span class="vin-category-icon">${vinCatalogIcon(name)}</span>
-              <span class="vin-category-copy"><b>${escapeHtml(name)}</b><small>Раздел автомобиля</small></span>
-            </div>`).join("")}
-        </div>
+        <p class="vin-catalog-recovery-note">Заявка отправится только после вашего подтверждения. Заказ поставщику не создаётся.</p>
       </section>
     </div>`;
 }
@@ -4179,8 +4164,11 @@ document.addEventListener("click",async e=>{
     if(form){
       form.hidden=false;
       const part=document.getElementById("manualLeadPart");
-      if(part && !part.value) part.value=pendingSmartSearchBaseQuery||lastSmartSearchQuery;
-      form.scrollIntoView({behavior:"smooth",block:"start"});
+      const vinField=document.getElementById("manualLeadVin");
+      if(vinField && vinCatalogState?.vin) vinField.value=vinCatalogState.vin;
+      const suggestion=pendingSmartSearchBaseQuery||lastSmartSearchQuery;
+      if(part && !part.value && !looksLikeVin(suggestion))part.value=suggestion;
+      form.scrollIntoView({behavior:"auto",block:"nearest"});
       part?.focus({preventScroll:true});
     }
     return;

@@ -216,9 +216,20 @@ const aiSearchLimiter = rateLimit({
 });
 
 // Public VIN lookups use a paid catalog. Cap anonymous requests per IP.
+const seenVinQueries = new Map();
 const publicVinLimiter = rateLimit({
   windowMs: 60 * 60 * 1000,
-  limit: 6,
+  limit: 60,
+  // Reopening the same car is not a new paid catalogue discovery.
+  skip: (req) => {
+    const vin = String(req.query?.vin || "").trim().toUpperCase();
+    if (!/^[A-HJ-NPR-Z0-9]{17}$/.test(vin)) return false;
+    const now = Date.now(), key = String(req.ip || "") + ":" + vin;
+    const last = seenVinQueries.get(key) || 0;
+    if (last && now - last < 60 * 60 * 1000) return true;
+    seenVinQueries.set(key, now);
+    return false;
+  },
   standardHeaders: "draft-8",
   legacyHeaders: false
 });

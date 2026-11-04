@@ -7123,3 +7123,15 @@ html.zf-preauth #sessionEntryButton::after{content:"Проверяем вход�
 @media (max-width:350px){
   .vin-hotspot-list{grid-template-columns:minmax(0,1fr)}
 }
+
+
+/* FAPI credit limits: honest, accessible recovery instead of dummy part categories. */
+.vin-catalog-unavailable{border-left:4px solid #d98230!important}
+.vin-catalog-unavailable h3{color:#17384f;margin:8px 0 14px}
+.vin-catalog-unavailable .vin-catalog-notice{background:#fff8ef;border-color:#efd7bc;line-height:1.5}
+.vin-catalog-recovery{display:flex;flex-wrap:wrap;gap:10px;margin-top:16px}
+.vin-catalog-recovery button{min-height:48px;border-radius:10px;padding:11px 15px;font-size:14px;font-weight:800;cursor:pointer;touch-action:manipulation}
+.vin-catalog-recovery button:first-child{background:#d98230;color:white;border:1px solid #bb6b24}
+.vin-catalog-recovery button:last-child{background:#fff;color:#234153;border:1px solid #b6c9d5}
+.vin-catalog-recovery-note{font-size:12px;color:#698091;line-height:1.5;margin:14px 0 0}
+@media(max-width:680px){.vin-catalog-recovery{display:grid;grid-template-columns:minmax(0,1fr)}.vin-catalog-recovery button{width:100%;font-size:15px}}

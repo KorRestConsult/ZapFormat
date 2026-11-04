@@ -18,6 +18,7 @@ function createFapiClient(options = {}) {
   const fetchImpl = options.fetchImpl || globalThis.fetch;
   const baseUrl = "https://fapi.iisis.ru/fapi/v2";
   const cache = new Map();
+  const pending = new Map();
   const cacheDir = String(
     options.cacheDir !== undefined
       ? options.cacheDir
@@ -122,18 +123,17 @@ function createFapiClient(options = {}) {
       return saved.value;
     }
 
-    const value = await get(endpoint, params);
-    const expiresAt = now + ttlMs;
-    const item = { value, expires_at: expiresAt };
-    cache.set(key, item);
-    await writePersistentCache(key, value, expiresAt);
-
-    if (cache.size > 500) {
-      for (const [cacheKey, cached] of cache) {
-        if (cached.expires_at <= now) cache.delete(cacheKey);
-      }
-    }
-    return value;
+    // Concurrent buyers of the same VIN/node share one upstream paid request.
+    if (pending.get(key)) return pending.get(key);
+    const task = (async () => {
+      const value = await get(endpoint, params);
+      const expiresAt = Date.now() + ttlMs;
+      cache.set(key, { value, expires_at: expiresAt });
+      await writePersistentCache(key, value, expiresAt);
+      return value;
+    })();
+    pending.set(key, task);
+    try { return await task; } finally { pending.set(key, null); }
   }
 
   async function image(manufacturerId, article, width = 320) {
