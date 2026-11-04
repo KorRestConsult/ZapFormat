@@ -275,3 +275,15 @@ test("iPhone email registration handles keyboard, password toggle and transient 
   assert.match(script,/if\(submit&&!submit\.dataset\.submitting\)submit\.disabled=false/);
   assert.match(style,/auth-provider-retry/);
 });
+
+test('Owner can act as a customer and safely create test-only orders without a second account', () => {
+  assert.match(app, /function ownerTestMode\(\)\{[\s\S]*?sessionUser\?\.role==="owner"\) return true;/);
+  assert.match(app, /function ownerTestToken\(\)\{[\s\S]*?sessionUser\?\.role==="owner"\) return authToken;/);
+  assert.ok(app.includes('sessionUser ? "/api/quote-requests" : "/api/public/quote-requests"'));
+  assert.ok(app.includes('...(ownerTestMode() ? {test_mode:true} : {})'));
+  assert.ok(app.includes('"X-ZapFormat-Owner-Test-Token":ownerTestToken()'));
+  const backend=readFileSync(resolve(root,'backend/src/server.js'),'utf8');
+  assert.match(backend, /ownerTestMode = ownerUser\?\.role === "owner"/);
+  assert.match(backend, /const autoSupplierSubmit = !ownerTestMode/);
+  assert.match(backend, /if \(!ownerTestMode\)\s*\{\s*await enqueuePrintJob/);
+});

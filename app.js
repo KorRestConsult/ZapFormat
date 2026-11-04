@@ -1802,11 +1802,17 @@ function isManagementUser(){
   return Boolean(sessionUser) && ["owner","admin"].includes(String(sessionUser.role||""));
 }
 function ownerTestMode(){
+  // The owner's storefront session doubles as a customer test account.
+  // Keep supplier checkout, printing, and fulfilment disabled for owner tests.
+  if(sessionUser?.role==="owner") return true;
   if(!TEST_MODE_REQUESTED) return false;
   try{return Boolean(localStorage.getItem("zapformat-admin-access-token"));}catch{return false;}
 }
 function ownerTestToken(){
   if(!ownerTestMode()) return "";
+  // Use the authenticated storefront owner's session rather than requiring
+  // a second admin-panel login just to test the customer experience.
+  if(sessionUser?.role==="owner") return authToken;
   try{return String(localStorage.getItem("zapformat-admin-access-token")||"").trim();}catch{return "";}
 }
 
