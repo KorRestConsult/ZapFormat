@@ -64,6 +64,7 @@ const isProduction = process.env.NODE_ENV === "production";
 const PORT = Number(process.env.PORT || 3000);
 const HOST = process.env.HOST || "127.0.0.1";
 const COOKIE_NAME = process.env.COOKIE_NAME || "zf_session";
+const CUSTOMER_COOKIE_NAME = COOKIE_NAME + "_customer";
 const SESSION_DAYS = Math.max(1, Number(process.env.SESSION_DAYS || 30));
 const FRONTEND_ORIGINS = String(process.env.FRONTEND_ORIGINS || "")
   .split(",")
@@ -1231,7 +1232,11 @@ async function issueSession(req, res, userId) {
     ]
   );
 
-  res.cookie(COOKIE_NAME, token, sessionCookieOptions());
+  // Separate customer and administrator cookies. Both roles can share an
+  // email and a browser without replacing the other account's session.
+  const roleResult=await pool.query("SELECT role FROM users WHERE id=$1",[userId]);
+  const cookieName=roleResult.rows[0]?.role==="customer" ? CUSTOMER_COOKIE_NAME : COOKIE_NAME;
+  res.cookie(cookieName, token, sessionCookieOptions());
   return token;
 }
 
@@ -1239,7 +1244,17 @@ function sessionTokenFromRequest(req) {
   const auth = String(req.get("authorization") || "");
   const bearer = auth.replace(/^Bearer\s+/i, "").trim();
   if (bearer) return bearer;
-  return req.cookies?.[COOKIE_NAME] || null;
+  const adminOrigin=String(req.get("origin")||"")==="https://admin.zapformat.ru";
+  const adminApi=/^\/api\/(admin|staff|courier)(\/|$)/.test(req.path||"");
+  return adminOrigin||adminApi
+    ? (req.cookies?.[COOKIE_NAME] || req.cookies?.[CUSTOMER_COOKIE_NAME] || null)
+    : (req.cookies?.[CUSTOMER_COOKIE_NAME] || req.cookies?.[COOKIE_NAME] || null);
+}
+
+function clearMatchingSessionCookies(req,res,token){
+  for(const name of [CUSTOMER_COOKIE_NAME,COOKIE_NAME]){
+    if(req.cookies?.[name]===token)res.clearCookie(name,sessionCookieOptions());
+  }
 }
 
 async function userFromSessionToken(token) {
@@ -4265,7 +4280,7 @@ app.post("/api/account/password/change", requireUser, authLimiter, async (req, r
       return res.status(409).json({ error: "password_changed_elsewhere" });
     }
     await pool.query("DELETE FROM user_sessions WHERE user_id = $1", [req.user.id]);
-    res.clearCookie(COOKIE_NAME, sessionCookieOptions());
+    clearMatchingSessionCookies(req,res,sessionTokenFromRequest(req));
     return res.json({ ok: true, reauthenticate: true });
   } catch (error) {
     next(error);
@@ -4278,7 +4293,7 @@ app.post("/api/auth/logout", async (req, res, next) => {
     if (token) {
       await pool.query("DELETE FROM user_sessions WHERE token_hash = $1", [tokenHash(token)]);
     }
-    res.clearCookie(COOKIE_NAME, sessionCookieOptions());
+    clearMatchingSessionCookies(req,res,token);
     res.status(204).end();
   } catch (error) {
     next(error);
@@ -4289,10 +4304,34 @@ app.get("/api/auth/me", async (req, res, next) => {
   try {
     const user = await currentUser(req);
     if (!user) return res.status(401).json({ error: "unauthorized" });
+    // Existing logins migrate to the dedicated cookie without needing a new password.
+    if(user.role==="customer"){
+      const token=sessionTokenFromRequest(req);
+      if(token)res.cookie(CUSTOMER_COOKIE_NAME,token,sessionCookieOptions());
+    }
+    res.set("Cache-Control","no-store");
     res.json({ user: publicUser(user) });
   } catch (error) {
     next(error);
   }
+});
+
+// Called without an Authorization header: only a valid customer cookie can
+// restore a bearer token. Never use the owner cookie as a customer credential.
+const customerSessionRestoreLimiter=rateLimit({
+  windowMs:15*60*1000,limit:120,standardHeaders:"draft-8",legacyHeaders:false
+});
+app.post("/api/auth/customer/restore",customerSessionRestoreLimiter,async(req,res,next)=>{
+  try{
+    const token=req.cookies?.[CUSTOMER_COOKIE_NAME] || req.cookies?.[COOKIE_NAME];
+    const user=token ? await userFromSessionToken(token) : null;
+    if(!user || user.role!=="customer")
+      return res.status(401).json({error:"unauthorized"});
+    const accessToken=await issueSession(req,res,user.id);
+    res.set("Cache-Control","no-store");
+    res.json({user:publicUser(user),access_token:accessToken,
+      expires_in:SESSION_DAYS*24*60*60});
+  }catch(error){next(error);}
 });
 
 app.patch("/api/account/profile", requireUser, async (req, res, next) => {

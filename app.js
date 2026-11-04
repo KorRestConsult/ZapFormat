@@ -180,7 +180,7 @@ async function apiRequest(path,options={}){
     throw error;
   }
   // Verification must never leave the form spinning indefinitely on mobile networks.
-  const {timeoutMs,...requestOptions}=options;
+  const {timeoutMs,omitAuthToken=false,...requestOptions}=options;
   const controller=timeoutMs?new AbortController():null;
   const timeout=controller?setTimeout(()=>controller.abort(),timeoutMs):null;
   try{
@@ -191,7 +191,7 @@ async function apiRequest(path,options={}){
       headers:{
         "Accept":"application/json",
         ...(options.body ? {"Content-Type":"application/json"} : {}),
-        ...(authToken ? {"Authorization":"Bearer "+authToken} : {}),
+        ...(authToken && !omitAuthToken ? {"Authorization":"Bearer "+authToken} : {}),
         ...(options.headers||{})
       }
     });
@@ -1736,22 +1736,53 @@ async function openLiveRequestDetail(id,options={}){
   }
 }
 
-async function hydrateSession(){
+let customerSessionRetryTimer=null;
+let customerSessionRetryCount=0;
+
+async function restoreCustomerSession(){
+  // HttpOnly cookie is independent of localStorage and of the owner login.
+  const data=await apiRequest("/api/auth/customer/restore",{
+    method:"POST",omitAuthToken:true,timeoutMs:8000
+  });
+  if(data?.user?.role!=="customer" || !data?.access_token)
+    throw Object.assign(new Error("customer_session_restore_invalid"),{code:"customer_session_restore_invalid"});
+  saveAuthToken(data.access_token);
+  return data;
+}
+
+function retryCustomerSession(){
+  if(customerSessionRetryTimer||customerSessionRetryCount>=3||!authToken||sessionUser)return;
+  customerSessionRetryCount++;
+  customerSessionRetryTimer=setTimeout(()=>{
+    customerSessionRetryTimer=null;
+    if(!authToken||sessionUser)return;
+    hydrateSession().then(user=>{if(user)restoreFromUrl();}).catch(()=>{});
+  },Math.min(customerSessionRetryCount*3500,10500));
+}
+
+async function hydrateSessionOnce(){
   if(!backendConfigured()){
     applySessionUser();
     return null;
   }
   try{
-    const data=await apiRequest("/api/auth/me",{timeoutMs:8000});
-    // An old privileged storefront token is not a customer login.
-    // The separate administrator token remains untouched.
-    if(data.user?.role!=="customer"){
-      sessionUser=null;
-      if(authToken)saveAuthToken("");
-      applySessionUser();
-      return null;
+    let data;
+    if(authToken){
+      try{
+        data=await apiRequest("/api/auth/me",{timeoutMs:8000});
+      }catch(error){
+        // An actual 401 may be a stale bearer while the customer cookie is
+        // still valid. Try the protected cookie before asking for a password.
+        if(error?.status!==401)throw error;
+        data=await restoreCustomerSession();
+      }
+    }else{
+      data=await restoreCustomerSession();
     }
+    if(data?.user?.role!=="customer")throw Object.assign(new Error("wrong_account_scope"),{status:401});
     sessionUser=data.user;
+    customerSessionRetryCount=0;
+    if(customerSessionRetryTimer){clearTimeout(customerSessionRetryTimer);customerSessionRetryTimer=null;}
     applySessionUser();
     if(document.getElementById("view-auth")?.classList.contains("active")){
       showRoute(pendingAccountRoute||"home");
@@ -1760,13 +1791,33 @@ async function hydrateSession(){
     hydrateAccountData().catch(error=>console.warn("ZapFormat account hydration failed",error));
     return sessionUser;
   }catch(error){
-    if(error.status!==401) console.warn("ZapFormat session check failed",error);
-    if(error.status===401 && authToken) saveAuthToken("");
+    if(error?.status===401){
+      // Only a confirmed authentication failure ends the stored session.
+      if(authToken)saveAuthToken("");
+    }else{
+      console.warn("ZapFormat session temporarily unavailable",error?.code||error?.message);
+      // Keep the token on network errors, timeouts or a server redeploy.
+      retryCustomerSession();
+    }
     sessionUser=null;
     applySessionUser();
     return null;
   }
 }
+// One network check per page, even when the iPhone fires focus/online events.
+let sessionHydrationPending=null;
+function hydrateSession(){
+  if(sessionHydrationPending)return sessionHydrationPending;
+  sessionHydrationPending=hydrateSessionOnce().finally(()=>{sessionHydrationPending=null;});
+  return sessionHydrationPending;
+}
+window.addEventListener("online",()=>{
+  if(!sessionUser && authToken)hydrateSession().then(user=>{if(user)restoreFromUrl();}).catch(()=>{});
+});
+document.addEventListener("visibilitychange",()=>{
+  if(document.visibilityState==="visible" && !sessionUser && authToken)
+    hydrateSession().then(user=>{if(user)restoreFromUrl();}).catch(()=>{});
+});
 
 let accountRefreshBusy=false;
 let currentOpenOrderId=null;
