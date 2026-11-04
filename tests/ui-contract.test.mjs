@@ -294,8 +294,8 @@ test('iPhone Safari focus cannot zoom search or forcibly restore page position',
   assert.match(css, /font-size:17px!important;/);
   assert.doesNotMatch(app, /authFieldScrollAnchor|authFieldRestoreTimer|restoreIosViewportScale/);
   assert.doesNotMatch(app, /viewport\.content\s*=/);
-  assert.match(html, /styles\.css\?v=20261104-safari-nozoom2/);
-  assert.match(html, /app\.js\?v=20261104-safari-nozoom2/);
+  assert.match(html, /styles\.css\?v=20261104-vin-garage-mobile3/);
+  assert.match(html, /app\.js\?v=20261104-vin-garage-mobile3/);
   assert.match(html, /viewport-fit=cover/);
   assert.doesNotMatch(html, /user-scalable=no|maximum-scale=1/);
 });
@@ -307,7 +307,7 @@ test("Mobile VIN diagram and garage navigation cannot overlap or force keyboard 
   assert.match(css,/\.garage-tabs button\.active\{background:#17394f!important/);
   assert.match(app,/garageState\.vehicle[\s\S]*?looksLikeVin\(v\.vin\|\|""\)/);
   assert.match(app,/function prefillGarageSearch\(query\)\{[\s\S]*?search\(value,\{newRequest:true\}\)/);
-  const jump=app.slice(app.indexOf("async function search(query,options={})"),app.indexOf("function smartSpecRows("));
+  const jump=app.slice(app.indexOf("async function search(query,options={})"),app.indexOf("function renderGarageOverview()"));
   assert.doesNotMatch(jump,/vin-catalog-browser"\)\?\.scrollIntoView/);
   const routing=app.slice(app.indexOf("function showRoute(route)"),app.indexOf("function navigate(route, push=true)"));
   assert.doesNotMatch(routing,/hydrateAccountData\(\)\.catch/);
