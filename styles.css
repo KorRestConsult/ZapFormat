@@ -7040,3 +7040,86 @@ html.zf-preauth #sessionEntryButton::after{content:"Проверяем вход�
   }
   html,body{scroll-behavior:auto!important}
 }
+
+
+/* 2026-11-04: mobile garage and VIN catalog are stable, not floating overlays. */
+.vin-hotspot-list{display:contents}
+.vin-catalog-browser,.vin-catalog-panel,.vin-vehicle-copy,.vin-exploded,.vin-vehicle-hero{
+  min-width:0;max-width:100%;box-sizing:border-box
+}
+.vin-vehicle-vin b{min-width:0;overflow-wrap:anywhere;word-break:break-word}
+@media (max-width:760px){
+  #view-search.vin-catalog-mode .catalog-query-head{
+    min-width:0;max-width:100%;flex-wrap:wrap;gap:8px
+  }
+  #view-search.vin-catalog-mode .catalog-query-head h2{
+    max-width:100%;overflow-wrap:anywhere;font-size:clamp(21px,6vw,28px)!important
+  }
+  .vin-vehicle-hero{
+    grid-template-columns:minmax(0,1fr)!important;padding:12px!important;gap:14px!important
+  }
+  .vin-vehicle-copy h2{overflow-wrap:anywhere}
+  .vin-vehicle-facts{gap:7px}
+  .vin-vehicle-facts span{padding:9px 10px;min-width:0}
+  .vin-exploded{
+    display:flex!important;flex-direction:column;gap:0;
+    padding:12px!important;min-height:0!important;height:auto!important;
+    overflow:hidden;transform:none!important
+  }
+  .vin-exploded-title{
+    position:relative!important;left:auto!important;top:auto!important;
+    width:100%;margin-bottom:5px
+  }
+  .vin-car-schematic{
+    position:relative!important;inset:auto!important;
+    width:100%;height:auto!important;aspect-ratio:820 / 390;
+    margin:0;max-width:100%;overflow:hidden
+  }
+  .vin-car-schematic svg{width:100%!important;height:100%!important;display:block}
+  .vin-hotspot-list{
+    display:grid!important;grid-template-columns:repeat(2,minmax(0,1fr));
+    gap:8px;width:100%;max-width:100%;margin-top:10px;position:relative;z-index:1
+  }
+  .vin-exploded .vin-hotspot,.vin-exploded .vin-hotspot-disabled{
+    position:static!important;top:auto!important;left:auto!important;right:auto!important;bottom:auto!important;
+    display:flex!important;min-width:0!important;width:100%;min-height:45px;
+    padding:8px!important;gap:7px!important;border-radius:10px!important;
+    text-align:left;transform:none!important;box-shadow:none!important;
+    background:#fff!important;border:1px solid #b8cad7!important;
+    color:#17354a!important;transition:none!important
+  }
+  .vin-exploded .vin-hotspot:not(.vin-hotspot-disabled){border-left:3px solid #df812d!important}
+  .vin-exploded .vin-hotspot b{font-size:12px!important;line-height:1.2;overflow-wrap:anywhere}
+  .vin-exploded .vin-hotspot span{flex:0 0 25px}
+  .vin-exploded .vin-hotspot:focus-visible{outline:2px solid #d97c25;outline-offset:2px}
+  .vin-category-card{
+    width:100%;grid-template-columns:44px minmax(0,1fr) 18px!important;
+    min-height:78px!important;gap:10px!important;padding:11px!important;
+    border:1px solid #c4d4df!important;background:#fff!important;
+    transition:none!important;transform:none!important
+  }
+  .vin-category-icon{width:43px!important;height:43px!important;background:#fff0df!important}
+  .vin-category-icon svg{stroke:#bc661d!important}
+  .vin-category-copy b{color:#19394e!important;font-size:14px!important;overflow-wrap:anywhere}
+  .vin-part-card{max-width:100%;overflow:hidden}
+  .vin-part-copy b,.vin-part-copy p{overflow-wrap:anywhere}
+  #view-profile #account-garage,.garage-tab-body,.garage-owner-grid{
+    width:100%;max-width:100%;min-width:0
+  }
+  .garage-owner-head{border-left:4px solid #d98230!important}
+  .garage-tabs{background:#e2eaf0!important;gap:5px;max-width:100%}
+  .garage-tabs button{color:#405b70!important;font-size:13px!important;min-height:43px;transition:none!important}
+  .garage-tabs button.active{background:#17394f!important;color:#fff!important;box-shadow:none!important}
+  .garage-car-hero{grid-template-columns:44px minmax(0,1fr)!important;gap:11px!important}
+  .garage-car-title{min-width:0}
+  .garage-car-title h2{font-size:21px!important;overflow-wrap:anywhere}
+  .garage-car-title p{overflow-wrap:anywhere;word-break:break-word}
+  .garage-car-actions{grid-column:1/-1!important;min-width:0}
+  .garage-car-actions .garage-primary{background:#d8802f!important;color:#fff!important}
+  .garage-owner-grid{grid-template-columns:minmax(0,1fr)!important}
+  .garage-mileage-card{min-width:0}
+  .garage-mileage-edit{grid-template-columns:minmax(0,1fr) auto!important}
+}
+@media (max-width:350px){
+  .vin-hotspot-list{grid-template-columns:minmax(0,1fr)}
+}

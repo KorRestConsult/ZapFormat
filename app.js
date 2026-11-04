@@ -2037,10 +2037,8 @@ function showRoute(route){
     }
   }
 
-  if(sessionUser && ["profile","orders","garage"].includes(route)){
-    hydrateAccountData().catch(()=>{});
-  }
-
+  // showAccountTab owns account hydration. Avoid racing duplicate requests
+  // and re-rendering the garage under an active touch.
   syncMobileNav(route);
   window.scrollTo({top:0,behavior:"auto"});
 }
@@ -2391,7 +2389,7 @@ function vinCatalogHeroHtml(){
             </g>
           </svg>
         </div>
-        ${hotspots.map(callout).join("")}
+        <div class="vin-hotspot-list">${hotspots.map(callout).join("")}</div>
       </div>
     </section>`;
 }
@@ -3235,7 +3233,7 @@ async function search(query,options={}){
       );
       if(result?.ready){
         renderVinCatalogBrowser(result);
-        requestAnimationFrame(()=>document.querySelector(".vin-catalog-browser")?.scrollIntoView({behavior:"smooth",block:"start"}));
+        // The results route already places the catalog in view. No animated scroll.
       }else if(result?.catalog_status==="credits_exhausted"){
         setSearchHead(
           vehicleTitle,
@@ -3243,7 +3241,7 @@ async function search(query,options={}){
           vin
         );
         renderVinCatalogLocked({...result,vin});
-        requestAnimationFrame(()=>document.querySelector(".vin-catalog-browser")?.scrollIntoView({behavior:"smooth",block:"start"}));
+        // The results route already places the catalog in view. No animated scroll.
       }else{
         vinCatalogState=null;
         renderVinDecodeResult(vin,decoded);
@@ -4590,7 +4588,7 @@ function renderGarageOverview(){
           </div>
           <div class="garage-car-actions">
             <button class="garage-outline" data-garage-edit-vehicle>Изменить</button>
-            <button class="garage-primary" data-garage-search="${escapeHtml([v.brand,v.model,v.engine].filter(Boolean).join(" "))}">Найти запчасть</button>
+            <button class="garage-primary" data-garage-search="${escapeHtml(looksLikeVin(v.vin||"") ? v.vin : [v.brand,v.model,v.engine].filter(Boolean).join(" "))}">${looksLikeVin(v.vin||"")?"Подобрать по VIN":"Найти запчасть"}</button>
           </div>
         </div>
 
@@ -4944,13 +4942,14 @@ async function saveGarageVehicleForm(form){
 }
 
 function prefillGarageSearch(query){
-  navigate("home");
-  const input=document.getElementById("searchInput");
-  if(input){
-    input.value=query;
-    input.dispatchEvent(new Event("input"));
-    input.focus();
-  }
+  const value=String(query||"").trim();
+  if(!value)return;
+  // Go straight to results; focusing search on iPhone triggers keyboard zoom
+  // and hides the garage the moment the user taps the action.
+  search(value,{newRequest:true}).catch(error=>{
+    console.warn("Garage search failed",error);
+    showToast("Не удалось открыть подбор. Повторите поиск.","warn");
+  });
 }
 
 async function refreshAdditionalAccountPane(tab){
@@ -4992,10 +4991,7 @@ function showAccountTab(tab){
   const navTab=tab==="order-detail" ? "orders" : tab;
   const activeAccountTabs=document.querySelectorAll('[data-account-tab="'+navTab+'"]');
   activeAccountTabs.forEach(x=>x.classList.add("active"));
-  const activeNav=[...activeAccountTabs].find(x=>x.closest(".account-nav"));
-  if(activeNav){
-    requestAnimationFrame(()=>activeNav.scrollIntoView({behavior:"auto",block:"nearest",inline:"center"}));
-  }
+  // Never scroll the entire page merely to highlight an account tab.
   if(tab==="garage") renderGarageApp();
   if(sessionUser && tab==="orders"){
     accountDataHydrated=false;
