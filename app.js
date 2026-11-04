@@ -2367,6 +2367,16 @@ function vehicleIllustrationHtml(vehicle={},parts=false){
   </svg>`;
 }
 
+function vehicleArtworkHtml(vehicle={},parts=false){
+  const brand=String(vehicle.brand_name||vehicle.manufacturer||vehicle.brand||"").trim();
+  const model=String(vehicle.model_name||vehicle.model||"")+" "+String(vehicle.generation||vehicle.modification_name||"");
+  if(/^\s*bmw\s*$/i.test(brand) && /\bx3\b/i.test(model)){
+    return '<figure class="zf-model-photo"><img src="./assets/bmw-x3-f25.jpg" alt="BMW X3 F25, фотография модели" loading="lazy" decoding="async">'+
+      '<figcaption>Фото: <a href="https://commons.wikimedia.org/wiki/File:2012_BMW_X3_(F25)_xDrive20d_wagon_(2016-01-26)_01.jpg" target="_blank" rel="noopener noreferrer">EurovisionNim / Wikimedia Commons</a> · <a href="https://creativecommons.org/licenses/by-sa/4.0/" target="_blank" rel="noopener noreferrer">CC BY-SA 4.0</a></figcaption></figure>';
+  }
+  return vehicleIllustrationHtml(vehicle,parts);
+}
+
 function vinCatalogHeroHtml(){
   const d=vinCatalogState?.decoded||{};
   const m=vinCatalogState?.modification||{};
@@ -2401,7 +2411,7 @@ function vinCatalogHeroHtml(){
     const inner='<span>'+vinCatalogIcon(item.name)+'</span><b>'+escapeHtml(item.label)+'</b>';
     return item.node
       ? '<button type="button" class="vin-hotspot '+item.cls+'" data-vin-node="'+item.node.id+'">'+inner+'</button>'
-      : '<span class="vin-hotspot vin-hotspot-disabled '+item.cls+'">'+inner+'</span>';
+      : '<button type="button" class="vin-hotspot vin-hotspot-fallback '+item.cls+'" data-vin-fallback="'+escapeHtml(item.label)+'" title="Открыть заявку на подбор">'+inner+'<small>По заявке</small></button>';
   };
 
   return `
@@ -2427,8 +2437,8 @@ function vinCatalogHeroHtml(){
       </div>
       <div class="vin-exploded">
         <div class="vin-exploded-title"><b>Обзор автомобиля</b><span>Условная схема кузова · выберите раздел ниже</span></div>
-        <div class="vin-car-schematic" aria-hidden="true">
-          ${vehicleIllustrationHtml(d,true)}
+        <div class="vin-car-schematic">
+          ${vehicleArtworkHtml(d,true)}
         </div>
         <div class="vin-hotspot-list">${hotspots.map(callout).join("")}</div>
       </div>
@@ -4083,6 +4093,25 @@ document.addEventListener("click",async e=>{
     return;
   }
 
+  // No fake catalogue nodes: when supplier has no node, offer a real request form.
+  const vinFallback=e.target.closest("[data-vin-fallback]");
+  if(vinFallback){
+    const section=document.getElementById("manualLead");
+    const form=document.getElementById("manualLeadForm");
+    if(section && form){
+      section.hidden=false;
+      form.hidden=false;
+      const part=document.getElementById("manualLeadPart");
+      const vin=document.getElementById("manualLeadVin");
+      if(part)part.value=vinFallback.dataset.vinFallback||"";
+      if(vin && vinCatalogState?.vin)vin.value=vinCatalogState.vin;
+      section.scrollIntoView({behavior:"auto",block:"start"});
+      part?.focus({preventScroll:true});
+      showToast("Категория недоступна в каталоге. Открыта заявка на подбор.","warn");
+    }else showToast("Форма подбора пока недоступна.","warn");
+    return;
+  }
+
   // VIN catalogue buttons are replaced on navigation; handle them by delegation.
   const nodeButton=e.target.closest("[data-vin-node]");
   if(nodeButton){
@@ -4634,13 +4663,13 @@ function renderGarageOverview(){
     <div class="garage-owner-grid">
       <section class="garage-owner-main">
         <div class="garage-car-hero">
-          <div class="garage-car-badge">${escapeHtml((v.brand||"ZF").slice(0,5))}</div>
+          <div class="garage-car-badge${String(v.brand||"").trim().toUpperCase()==="BMW"?" zf-bmw-badge":""}">${escapeHtml((v.brand||"ZF").slice(0,5))}</div>
           <div class="garage-car-title">
             <span class="eyebrow">ОСНОВНОЙ АВТОМОБИЛЬ</span>
             <h2>${escapeHtml(v.brand)} ${escapeHtml(v.model)}</h2>
             <p>${escapeHtml(v.year||"—")} · ${escapeHtml(v.engine||"Двигатель не указан")}${v.vin?" · VIN "+escapeHtml(v.vin):""}</p>
           </div>
-          <div class="garage-car-art" aria-hidden="true">${vehicleIllustrationHtml(v,false)}</div>
+          <div class="garage-car-art">${vehicleArtworkHtml(v,false)}</div>
           <div class="garage-car-actions">
             <button class="garage-outline" data-garage-edit-vehicle>Изменить</button>
             <button class="garage-primary" data-garage-search="${escapeHtml(looksLikeVin(v.vin||"") ? v.vin : [v.brand,v.model,v.engine].filter(Boolean).join(" "))}">${looksLikeVin(v.vin||"")?"Подобрать по VIN":"Найти запчасть"}</button>
