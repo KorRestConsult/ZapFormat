@@ -35,7 +35,8 @@ test("owner customer list identifies workshops, and mail signup does not feign r
   assert.match(owner,/i\.customer_type==="service"/);
   assert.match(owner,/i\.service_name/);
   assert.match(js,/submit\.disabled=!ready/);
-  assert.match(js,/отправитель ещё подключается/);
+  assert.match(js,/Сервер сообщил, что отправка кодов недоступна/);
+  assert.match(js,/Связь с сервером нестабильна/);
 });
 
 test("customer phone signup is off by default without touching legacy account authentication",()=>{
