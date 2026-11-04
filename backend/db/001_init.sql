@@ -19,8 +19,7 @@ CREATE TABLE IF NOT EXISTS users (
   CONSTRAINT users_identity_required CHECK (email IS NOT NULL OR phone IS NOT NULL)
 );
 
-CREATE UNIQUE INDEX IF NOT EXISTS users_email_unique
-  ON users (lower(email)) WHERE email IS NOT NULL;
+-- Email uniqueness by role and customer type is installed in migration 017.
 CREATE UNIQUE INDEX IF NOT EXISTS users_phone_unique
   ON users (phone) WHERE phone IS NOT NULL;
 

@@ -44,3 +44,23 @@ test("customer phone signup is off by default without touching legacy account au
   assert.match(server,/registration_email_only/);
   assert.match(server,/app.post\(\"\/api\/auth\/login\"/);
 });
+
+test("Owner email is reusable for two distinct customer profiles without admin access",()=>{
+  const scopes=readFileSync("backend/db/017_customer_account_scopes.sql","utf8");
+  const init=readFileSync("backend/db/001_init.sql","utf8");
+  const deploy=readFileSync("backend/deploy/release-live-catalog.sh","utf8");
+  const reset=readFileSync("backend/src/email-password-reset.js","utf8");
+  assert.match(scopes,/DROP INDEX IF EXISTS users_email_unique/);
+  assert.match(scopes,/lower\(email\), role, customer_type/);
+  assert.doesNotMatch(init,/CREATE UNIQUE INDEX IF NOT EXISTS users_email_unique/);
+  assert.match(deploy,/017_customer_account_scopes\.sql/);
+  assert.match(email,/role='customer' AND customer_type=\$2/);
+  assert.match(email,/challenge\.customer_type/);
+  assert.match(reset,/customer_type=\$2/);
+  assert.match(server,/\$3::text = 'customer' AND role = 'customer' AND customer_type = \$4/);
+  assert.match(server,/\$3::text = 'admin' AND role IN/);
+  assert.match(owner,/account_scope:"admin"/);
+  assert.match(js,/account_scope:"customer"/);
+  assert.match(html,/name="login_customer_type"/);
+  assert.match(html,/name="reset_customer_type"/);
+});

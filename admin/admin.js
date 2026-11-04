@@ -47,7 +47,7 @@
     } finally {clearTimeout(timer);}
   }
   function setToken(value){state.token=String(value||"");try{if(value)localStorage.setItem(KEY,state.token);else localStorage.removeItem(KEY);}catch{}}
-  function authorized(user){return !!user && ["owner","admin","courier","customer"].includes(String(user.role));}
+  function authorized(user){return !!user && ["owner","admin","courier"].includes(String(user.role));}
   let restoring=false, retryTimer=null;
   function clearRetry(){if(retryTimer!==null){clearTimeout(retryTimer);retryTimer=null;}}
   function showConnectionIssue(){
@@ -109,7 +109,7 @@
     button.disabled=true;$("authError").textContent="";
     try{
       const login=$("login").value.trim(), password=$("password").value;
-      const data=await request("/api/auth/login",{method:"POST",body:{login,password},token:""});
+      const data=await request("/api/auth/login",{method:"POST",body:{login,password,account_scope:"admin"},token:""});
       if(!authorized(data.user)){
         if(data.access_token) await request("/api/auth/logout",{method:"POST",token:data.access_token}).catch(()=>{});
         $("authError").textContent="Этой учётной записи не предоставлены права управления магазином.";

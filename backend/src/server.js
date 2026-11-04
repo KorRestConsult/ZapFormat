@@ -4187,13 +4187,23 @@ app.post("/api/auth/login", authLimiter, async (req, res, next) => {
       return res.status(400).json({ error: "login_and_password_required" });
     }
 
+    // Customer logins never fall through to an owner, even with the same email.
+    const scope=String(req.body?.account_scope||"customer").trim();
+    const customerType=String(req.body?.customer_type||"individual").trim();
+    if(!["customer","admin"].includes(scope) || !["individual","service"].includes(customerType))
+      return res.status(400).json({error:"invalid_account_scope"});
     const result = await pool.query(
       `SELECT * FROM users
        WHERE status = 'active'
          AND (($1::text IS NOT NULL AND lower(email) = $1)
            OR ($2::text IS NOT NULL AND phone = $2))
+         AND (
+           ($3::text = 'customer' AND role = 'customer' AND customer_type = $4)
+           OR ($3::text = 'admin' AND role IN ('owner','admin','courier'))
+         )
+       ORDER BY CASE role WHEN 'owner' THEN 0 WHEN 'admin' THEN 1 ELSE 2 END
        LIMIT 1`,
-      [email, phone]
+      [email, phone, scope, customerType]
     );
 
     const user = result.rows[0];

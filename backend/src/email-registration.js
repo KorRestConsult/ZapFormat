@@ -65,10 +65,10 @@ function installEmailRegistration({app,pool,limiter,issueSession,publicUser,otpS
     if(password!==confirm)return res.status(400).json({error:"passwords_do_not_match"});
     if(!otpSecret())return res.status(503).json({error:"verification_unavailable"});
     try{
-      const exists=await pool.query("SELECT 1 FROM users WHERE lower(email)=$1 LIMIT 1",[email]);
+      const exists=await pool.query("SELECT 1 FROM users WHERE lower(email)=$1 AND role='customer' AND customer_type=$2 LIMIT 1",[email,customerType]);
       if(exists.rowCount)return res.status(409).json({error:"user_already_exists"});
       const recent=await pool.query(
-        "SELECT 1 FROM email_registration_challenges WHERE email=$1 AND consumed_at IS NULL AND created_at>now()-interval '60 seconds' LIMIT 1",[email]);
+        "SELECT 1 FROM email_registration_challenges WHERE email=$1 AND customer_type=$2 AND consumed_at IS NULL AND created_at>now()-interval '60 seconds' LIMIT 1",[email,customerType]);
       if(recent.rowCount)return res.status(429).json({error:"otp_too_soon"});
       const id=crypto.randomUUID();
       const code=createOtpCode();
@@ -109,7 +109,7 @@ function installEmailRegistration({app,pool,limiter,issueSession,publicUser,otpS
         await db.query("COMMIT");
         return res.status(400).json({error:"verification_code_invalid"});
       }
-      const exists=await db.query("SELECT id FROM users WHERE lower(email)=$1 LIMIT 1",[challenge.email]);
+      const exists=await db.query("SELECT id FROM users WHERE lower(email)=$1 AND role='customer' AND customer_type=$2 LIMIT 1",[challenge.email,challenge.customer_type]);
       if(exists.rowCount){
         await db.query("ROLLBACK");
         return res.status(409).json({error:"user_already_exists"});

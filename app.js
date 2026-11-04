@@ -1743,6 +1743,14 @@ async function hydrateSession(){
   }
   try{
     const data=await apiRequest("/api/auth/me",{timeoutMs:8000});
+    // An old privileged storefront token is not a customer login.
+    // The separate administrator token remains untouched.
+    if(data.user?.role!=="customer"){
+      sessionUser=null;
+      if(authToken)saveAuthToken("");
+      applySessionUser();
+      return null;
+    }
     sessionUser=data.user;
     applySessionUser();
     if(document.getElementById("view-auth")?.classList.contains("active")){
@@ -5276,7 +5284,7 @@ document.getElementById("emailRegisterForm")?.addEventListener("submit",async e=
       email_delivery_failed:"Почтовый сервис не принял письмо. Повторите позже.",
       invalid_email_registration:"Проверьте имя и email.",
       service_name_required:"Укажите название автосервиса.",
-      user_already_exists:"Этот email уже зарегистрирован. Войдите с паролем.",
+      user_already_exists:"Такой профиль покупателя уже зарегистрирован. Выберите его тип при входе или восстановите пароль.",
       otp_too_soon:"Подождите минуту перед повторной отправкой.",
       verification_code_invalid:"Неверный код из письма.",
       verification_expired:"Код истёк. Запросите новый.",
@@ -5297,7 +5305,7 @@ document.getElementById("loginForm")?.addEventListener("submit",async e=>{
   try{
     const result=await apiRequest("/api/auth/login",{
       method:"POST",
-      body:JSON.stringify({login:data.login,password:data.password}),
+      body:JSON.stringify({login:data.login,password:data.password,account_scope:"customer",customer_type:data.login_customer_type||"individual"}),
       timeoutMs:10000
     });
     sessionUser=result.user;
@@ -5503,7 +5511,7 @@ document.getElementById("forgotForm")?.addEventListener("submit",async e=>{
       if(!email.includes("@")){setAuthStatus("Введите email.","error");return;}
       setAuthStatus("Запрашиваем код восстановления…");
       const result=await apiRequest("/api/auth/email-password-reset/start",{
-        method:"POST",timeoutMs:16000,body:JSON.stringify({email})
+        method:"POST",timeoutMs:16000,body:JSON.stringify({email,customer_type:data.reset_customer_type||"individual"})
       });
       resetIdentity=email;
       resetChallengeId=result.challenge_id;

@@ -159,6 +159,13 @@
                   <button class="auth-password-toggle" type="button" data-password-toggle="loginPassword" aria-label="Показать пароль">Показать</button>
                 </div>
               </label>
+              <fieldset class="auth-buyer-type auth-login-type">
+                <legend>Войти как</legend>
+                <div class="auth-buyer-options">
+                  <label><input type="radio" name="login_customer_type" value="individual" checked><span>Частное лицо</span></label>
+                  <label><input type="radio" name="login_customer_type" value="service"><span>Автосервис</span></label>
+                </div>
+              </fieldset>
               <div class="auth-inline-actions">
                 <small class="auth-hint auth-session-hint">Вход сохраняется на этом устройстве.</small>
                 <button class="auth-link" type="button" data-auth-tab="forgot">Забыли пароль?</button>
@@ -196,6 +203,13 @@
               <div class="auth-stage" data-reset-stage="identity">
                 <p class="auth-support-hint">Отправим на вашу почту код для восстановления доступа.</p>
                 <label><span>Email</span><input name="identity" type="email" inputmode="email" autocomplete="email" placeholder="name@example.com" maxlength="254" required></label>
+                <fieldset class="auth-buyer-type auth-login-type">
+                  <legend>Тип аккаунта</legend>
+                  <div class="auth-buyer-options">
+                    <label><input type="radio" name="reset_customer_type" value="individual" checked><span>Частное лицо</span></label>
+                    <label><input type="radio" name="reset_customer_type" value="service"><span>Автосервис</span></label>
+                  </div>
+                </fieldset>
               </div>
               <div class="auth-stage" data-reset-stage="verify" hidden>
                 <p class="auth-support-hint">Введите шестизначный код, отправленный на <strong id="resetMaskedEmail"></strong>.</p>
@@ -547,7 +561,7 @@
 </div>
 
   <script src="./config.js?v=20261103-domain-live1"></script>
-  <script src="./app.js?v=20261104-owner-client1"></script>
+  <script src="./app.js?v=20261104-account-scopes1"></script>
   <script src="./admin-desk.js?v=20261030-pricing1"></script>
 </body>
 </html>
