@@ -2280,6 +2280,42 @@ function setVinCatalogCount(value,label){
   if(countLabel) countLabel.textContent=String(label||"разделов");
 }
 
+// Illustrations intentionally follow the vehicle body type, never a hardcoded BMW.
+function vehicleBodyStyle(vehicle={}){
+  const text=[vehicle.brand_name,vehicle.manufacturer,vehicle.brand,vehicle.model_name,vehicle.model,vehicle.body_type,vehicle.bodyType].filter(Boolean).join(" ").toLowerCase();
+  if(/пикап|pickup|hilux|amarok|ranger/.test(text))return "pickup";
+  if(/фургон|van|sprinter|transit|ducato|boxer/.test(text))return "van";
+  if(/седан|sedan|camry|sonata|corolla|s-class/.test(text))return "sedan";
+  if(/хэтч|hatch|golf|polo|swift/.test(text))return "hatch";
+  if(/универсал|wagon|touring|avant/.test(text))return "wagon";
+  if(/suv|внедорож|кроссов|crossover|x[1-9]|rav4|sportage|tucson|q[2-9]|tiguan|duster/.test(text))return "suv";
+  return "car";
+}
+function vehicleIllustrationHtml(vehicle={},parts=false){
+  const kind=vehicleBodyStyle(vehicle);
+  const roof={
+    suv:"L275 129 Q291 114 318 114 H542 Q567 114 588 133 L651 201",
+    sedan:"L282 153 Q308 131 339 131 H505 Q542 131 577 167 L633 201",
+    hatch:"L270 138 Q287 122 314 122 H537 Q561 123 584 149 L635 201",
+    wagon:"L267 135 Q287 120 312 120 H558 Q580 121 598 143 L655 201",
+    van:"L224 126 Q242 111 263 111 H579 Q604 113 613 141 L661 201",
+    pickup:"L267 150 Q289 133 313 133 H468 L501 200 L666 201",
+    car:"L276 141 Q300 124 326 124 H540 Q560 125 582 151 L648 201"
+  }[kind];
+  const windowPath=kind==="pickup"?"M272 156 H451 L475 194 H229 Z":kind==="van"?"M234 133 H573 L608 194 H211 Z":"M281 144 H536 L622 195 H221 Z";
+  return `<svg class="zf-vehicle-illustration zf-body-${kind}" viewBox="0 0 820 360" aria-hidden="true" focusable="false">
+    <ellipse class="zf-car-shadow" cx="415" cy="305" rx="340" ry="18"/>
+    <path class="zf-car-shell" d="M110 204 L190 202 ${roof} L690 207 Q733 212 746 238 L738 279 H80 L77 247 Q80 217 110 204 Z"/>
+    <path class="zf-car-window" d="${windowPath}"/>
+    <path class="zf-car-detail" d="M400 144 L400 204 M187 222 H683 M545 210 L558 220 M108 248 H144"/>
+    <path class="zf-car-detail" d="M167 207 L178 191 M682 209 L698 220"/>
+    <circle class="zf-tyre" cx="218" cy="279" r="54"/><circle class="zf-tyre" cx="633" cy="279" r="54"/>
+    <circle class="zf-rim" cx="218" cy="279" r="35"/><circle class="zf-rim" cx="633" cy="279" r="35"/>
+    <circle class="zf-hub" cx="218" cy="279" r="12"/><circle class="zf-hub" cx="633" cy="279" r="12"/>
+    ${parts?'<g class="zf-vehicle-mechanical"><rect x="205" y="193" width="98" height="57" rx="12"/><path d="M221 191v-9h58v9M226 216h53M226 230h42"/><path d="M348 244l40-20h90l25 20-24 18h-95z"/><path d="M317 253H588"/><path d="M195 240l-8-17m20 15-9-17m405 17 12-17m-2 17 11-17"/><circle cx="218" cy="279" r="27"/><circle cx="633" cy="279" r="27"/></g>':""}
+  </svg>`;
+}
+
 function vinCatalogHeroHtml(){
   const d=vinCatalogState?.decoded||{};
   const m=vinCatalogState?.modification||{};
@@ -2323,12 +2359,14 @@ function vinCatalogHeroHtml(){
         <span class="eyebrow">VIN-КАТАЛОГ · ТОЧНЫЙ ПОДБОР</span>
         <h2>${escapeHtml(title)}</h2>
         <p class="vin-vehicle-mod">${escapeHtml(details.join(" · "))}</p>
+        <details class="vin-vehicle-specs">
+          <summary>Характеристики автомобиля</summary>
         <div class="vin-vehicle-facts">
           ${d.production_date?'<span><small>Производство</small><b>'+escapeHtml(String(d.production_date))+'</b></span>':""}
           ${d.engine_code?'<span><small>Двигатель</small><b>'+escapeHtml(String(d.engine_code))+'</b></span>':""}
           ${d.model_year?'<span><small>Модельный год</small><b>'+escapeHtml(String(d.model_year))+'</b></span>':""}
           ${d.body_color?'<span><small>Цвет</small><b>'+escapeHtml(String(d.body_color))+'</b></span>':""}
-        </div>
+        </div></details>
         <div class="vin-vehicle-vin"><small>VIN</small><b>${escapeHtml(String(d.vin||vinCatalogState?.vin||""))}</b></div>
         <div class="vin-vehicle-actions">
           ${vinCatalogState?.savedVehicleId
@@ -2337,57 +2375,9 @@ function vinCatalogHeroHtml(){
         </div>
       </div>
       <div class="vin-exploded">
-        <div class="vin-exploded-title"><b>Интерактивная схема</b><span>Выберите узел автомобиля</span></div>
+        <div class="vin-exploded-title"><b>Обзор автомобиля</b><span>Условная схема кузова · выберите раздел ниже</span></div>
         <div class="vin-car-schematic" aria-hidden="true">
-          <svg viewBox="0 0 820 390">
-            <defs>
-              <linearGradient id="zfBody" x1="0" x2="1">
-                <stop offset="0" stop-color="#f5f8fa"/>
-                <stop offset=".55" stop-color="#dce7ed"/>
-                <stop offset="1" stop-color="#eef3f6"/>
-              </linearGradient>
-              <linearGradient id="zfGlass" x1="0" x2="1">
-                <stop offset="0" stop-color="#d9edf6"/>
-                <stop offset="1" stop-color="#bcd9e7"/>
-              </linearGradient>
-            </defs>
-            <g class="car-ghost">
-              <path class="car-body" d="M86 237l24-68 106-27 92-74h205l86 78 110 30 42 62-11 53H89l-17-37z"/>
-              <path class="car-glass" d="M248 139l77-58h168l70 61z"/>
-              <path class="car-line" d="M111 238h598M284 146l-21 93M543 146l24 93M599 176l62 18"/>
-              <path class="car-line" d="M116 274h584"/>
-              <circle class="car-wheel" cx="213" cy="272" r="57"/><circle class="car-wheel-core" cx="213" cy="272" r="23"/>
-              <circle class="car-wheel" cx="608" cy="272" r="57"/><circle class="car-wheel-core" cx="608" cy="272" r="23"/>
-            </g>
-            <g class="exploded-components">
-              <g class="comp comp-engine">
-                <rect x="504" y="157" width="104" height="62" rx="13"/>
-                <path d="M520 174h69M520 188h57M530 157v-18h34v18"/>
-              </g>
-              <g class="comp comp-gearbox">
-                <path d="M422 222h82l21 18-22 23h-79l-22-20z"/>
-                <circle cx="487" cy="243" r="9"/>
-              </g>
-              <g class="comp comp-filter">
-                <path d="M627 130h49l-9 44h-31z"/><path d="M635 139h32"/>
-              </g>
-              <g class="comp comp-drive">
-                <path d="M277 270h257"/><circle cx="332" cy="270" r="7"/><circle cx="482" cy="270" r="7"/>
-              </g>
-              <g class="comp comp-front-brake">
-                <circle cx="608" cy="272" r="38"/><circle cx="608" cy="272" r="13"/>
-              </g>
-              <g class="comp comp-rear-brake">
-                <circle cx="213" cy="272" r="38"/><circle cx="213" cy="272" r="13"/>
-              </g>
-              <g class="comp comp-strut-front"><path d="M638 178l-18 66M628 195h25M621 215h25"/></g>
-              <g class="comp comp-strut-rear"><path d="M182 181l18 63M170 198h26M175 218h25"/></g>
-              <g class="comp comp-steering"><circle cx="322" cy="190" r="27"/><circle cx="322" cy="190" r="6"/><path d="M322 217v40"/></g>
-            </g>
-            <g class="exploded-guides">
-              <path d="M556 156l18-33M469 222l8-37M650 130l16-31M608 234l33-31M213 234l-30-31M322 163l-13-30"/>
-            </g>
-          </svg>
+          ${vehicleIllustrationHtml(d,true)}
         </div>
         <div class="vin-hotspot-list">${hotspots.map(callout).join("")}</div>
       </div>
@@ -2496,6 +2486,7 @@ async function loadVinNodeParts(node){
       "/api/catalog/vin-node?modification_id="+encodeURIComponent(state.modification.id)+
       "&node_id="+encodeURIComponent(node.id)
     );
+    if(vinCatalogState!==state || Number(state.activeNodeId||0)!==Number(node.id))return;
     const items=Array.isArray(data?.items)?data.items:[];
     setVinCatalogCount(items.length,"позиций");
     const browser=root.querySelector(".vin-catalog-panel");
@@ -4041,6 +4032,30 @@ document.addEventListener("click",async e=>{
     return;
   }
 
+  // VIN catalogue buttons are replaced on navigation; handle them by delegation.
+  const nodeButton=e.target.closest("[data-vin-node]");
+  if(nodeButton){
+    const id=Number(nodeButton.dataset.vinNode||0);
+    if(vinCatalogNode(id))renderVinCatalogBrowser(null,id);
+    else showToast("Раздел пока недоступен.","warn");
+    return;
+  }
+  if(e.target.closest("[data-vin-home]")){
+    if(vinCatalogState)renderVinCatalogBrowser(null,0);
+    return;
+  }
+  const breadcrumb=e.target.closest("[data-vin-breadcrumb]");
+  if(breadcrumb){
+    const id=Number(breadcrumb.dataset.vinBreadcrumb||0);
+    if(vinCatalogNode(id))renderVinCatalogBrowser(null,id);
+    return;
+  }
+  if(e.target.closest("[data-vin-catalog-back]")){
+    const current=vinCatalogNode(vinCatalogState?.activeNodeId);
+    if(vinCatalogState)renderVinCatalogBrowser(null,Number(current?.parent_id||0));
+    return;
+  }
+
   const cartAction=e.target.closest("[data-cart-action]");
   if(cartAction){
     const action=cartAction.dataset.cartAction;
@@ -4574,6 +4589,7 @@ function renderGarageOverview(){
             <h2>${escapeHtml(v.brand)} ${escapeHtml(v.model)}</h2>
             <p>${escapeHtml(v.year||"—")} · ${escapeHtml(v.engine||"Двигатель не указан")}${v.vin?" · VIN "+escapeHtml(v.vin):""}</p>
           </div>
+          <div class="garage-car-art" aria-hidden="true">${vehicleIllustrationHtml(v,false)}</div>
           <div class="garage-car-actions">
             <button class="garage-outline" data-garage-edit-vehicle>Изменить</button>
             <button class="garage-primary" data-garage-search="${escapeHtml(looksLikeVin(v.vin||"") ? v.vin : [v.brand,v.model,v.engine].filter(Boolean).join(" "))}">${looksLikeVin(v.vin||"")?"Подобрать по VIN":"Найти запчасть"}</button>
@@ -4581,9 +4597,10 @@ function renderGarageOverview(){
         </div>
 
         <div class="garage-mileage-card">
-          <div>
-            <small>Текущий пробег</small>
-            <strong>${new Intl.NumberFormat("ru-RU").format(v.mileage||0)} км</strong>
+          <div class="garage-mileage-summary">
+            <span class="garage-mileage-icon" aria-hidden="true"><svg viewBox="0 0 48 48" width="28" height="28" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"><path d="M8 34a19 19 0 1132 0"/><path d="M24 28l9-10"/><circle cx="24" cy="28" r="3"/></svg></span>
+            <div><small>Текущий пробег</small>
+            <strong>${new Intl.NumberFormat("ru-RU").format(v.mileage||0)} км</strong></div>
           </div>
           <div class="garage-mileage-edit">
             <input id="garageMileageInput" inputmode="numeric" value="${v.mileage||0}" aria-label="Пробег">
@@ -4613,7 +4630,7 @@ function renderGarageOverview(){
           <div class="garage-measure-mini">
             ${measures.length ? measures.map(x=>`
               <div><span>${escapeHtml(x.type)}</span><b>${escapeHtml(x.value)} ${escapeHtml(x.unit)}</b></div>
-            `).join("") : '<div class="garage-empty-mini">Замеров пока нет</div>'}
+            `).join("") : '<div class="garage-empty-mini">Пока нет данных — добавьте первые замеры.</div>'}
           </div>
         </section>
 

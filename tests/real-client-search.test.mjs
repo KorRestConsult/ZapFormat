@@ -82,7 +82,7 @@ test("only email registration is visible and sending is disabled without outboun
   assert.doesNotMatch(html,/data-auth-tab="email"/);
   assert.doesNotMatch(html,/id="registerForm"/);
   assert.match(file,/hydrateEmailRegistrationCapability/);
-  assert.match(file,/if\(submit\)submit.disabled=!ready/);
+  assert.match(file,/if\(submit&&!submit.dataset.submitting\)submit.disabled=!ready/);
 });
 
 test("generic brake discs prompt for car immediately without catalog calls",()=>{

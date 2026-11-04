@@ -294,8 +294,8 @@ test('iPhone Safari focus cannot zoom search or forcibly restore page position',
   assert.match(css, /font-size:17px!important;/);
   assert.doesNotMatch(app, /authFieldScrollAnchor|authFieldRestoreTimer|restoreIosViewportScale/);
   assert.doesNotMatch(app, /viewport\.content\s*=/);
-  assert.match(html, /styles\.css\?v=20261104-checkout-desktop5/);
-  assert.match(html, /app\.js\?v=20261104-checkout-desktop5/);
+  assert.match(html, /styles\.css\?v=20261104-unified-garage-vin6/);
+  assert.match(html, /app\.js\?v=20261104-unified-garage-vin6/);
   assert.match(html, /viewport-fit=cover/);
   assert.doesNotMatch(html, /user-scalable=no|maximum-scale=1/);
 });
@@ -311,7 +311,7 @@ test("Mobile VIN diagram and garage navigation cannot overlap or force keyboard 
   assert.doesNotMatch(jump,/vin-catalog-browser"\)\?\.scrollIntoView/);
   const routing=app.slice(app.indexOf("function showRoute(route)"),app.indexOf("function navigate(route, push=true)"));
   assert.doesNotMatch(routing,/hydrateAccountData\(\)\.catch/);
-  assert.match(html,/styles\.css\?v=20261104-checkout-desktop5/);
+  assert.match(html,/styles\.css\?v=20261104-unified-garage-vin6/);
 });
 
 
@@ -337,4 +337,22 @@ test("unavailable catalog hides its decorative hotspots rather than suggesting s
 test("Desktop cart must offer an accessible checkout action",()=>{
  assert.match(css,/#view-cart \.cart-checkout-top\{display:block!important/);
  assert.match(html,/data-cart-action="start-checkout"/);
+});
+
+test("VIN category navigation uses delegated live click actions and breadcrumb back",()=>{
+ assert.match(app,/const nodeButton=e\.target\.closest\("\[data-vin-node\]"\)/);
+ assert.match(app,/if\(vinCatalogNode\(id\)\)renderVinCatalogBrowser\(null,id\)/);
+ assert.match(app,/data-vin-catalog-back/);
+ assert.match(app,/if\(vinCatalogState\)renderVinCatalogBrowser\(null,Number\(current\?\.parent_id\|\|0\)\)/);
+ assert.match(app,/Number\(state.activeNodeId\|\|0\)!==Number\(node.id\)/);
+});
+test("Garage vehicle illustration is body-aware and does not hardcode X3 for all customers",()=>{
+ assert.match(app,/function vehicleBodyStyle\(vehicle=\{\}\)/);
+ assert.match(app,/function vehicleIllustrationHtml\(vehicle=\{\},parts=false\)/);
+ assert.match(app,/vehicleIllustrationHtml\(v,false\)/);
+ assert.match(app,/vehicleIllustrationHtml\(d,true\)/);
+ assert.match(css,/#account-garage \.garage-tabs button.active\{[\s\S]*?color:#fff!important/);
+ assert.match(css,/#view-search\.vin-catalog-mode \.vin-hotspot-list\{[\s\S]*?display:grid!important/);
+ assert.match(html,/styles\.css\?v=20261104-unified-garage-vin6/);
+ assert.match(html,/app\.js\?v=20261104-unified-garage-vin6/);
 });

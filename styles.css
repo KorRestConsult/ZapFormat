@@ -7144,3 +7144,243 @@ html.zf-preauth #sessionEntryButton::after{content:"Проверяем вход�
 @media(min-width:901px){
   #view-cart .cart-checkout-top{display:block!important;width:min(100%,400px);margin:10px 0 16px auto;}
 }
+
+/* ZapFormat 2026 unified mobile design: elegant garage, accessible contrast. */
+#account-garage{--zf-navy:#172f47;--zf-orange:#f48124;--zf-soft:#f3f6f9;color:var(--zf-navy)}
+#account-garage .garage-owner-head{
+  position:relative;overflow:hidden;border:1px solid #e0e8ef!important;
+  border-radius:20px!important;background:linear-gradient(115deg,#fff 60%,#eff4f8)!important;
+  box-shadow:0 10px 25px rgba(27,53,76,.055)!important;
+  padding:22px 24px!important;margin-bottom:14px!important
+}
+#account-garage .garage-owner-head:before{
+  content:"";position:absolute;left:0;top:20px;bottom:20px;width:5px;
+  border-radius:5px;background:var(--zf-orange)
+}
+#account-garage .garage-owner-head .eyebrow{color:#6b7e90!important;letter-spacing:.16em;font-weight:850}
+#account-garage .garage-owner-head h2{font-size:clamp(26px,4vw,37px)!important;color:var(--zf-navy)!important}
+#account-garage .garage-tabs{
+  display:grid;grid-template-columns:repeat(3,minmax(0,1fr));
+  background:#eaf0f5!important;padding:5px!important;border:1px solid #dfe8f0!important;
+  border-radius:16px!important;box-shadow:none!important;margin-bottom:14px!important;
+  overflow:visible!important
+}
+#account-garage .garage-tabs:has(button:nth-child(4)){grid-template-columns:repeat(4,minmax(0,1fr))}
+#account-garage .garage-tabs button{
+  padding:12px 6px!important;min-height:44px!important;border-radius:12px!important;
+  color:#516678!important;font-size:clamp(12px,2.9vw,15px)!important;
+  font-weight:800!important;transition:none!important
+}
+#account-garage .garage-tabs button.active{
+  color:#fff!important;background:#172f47!important;
+  box-shadow:inset 0 -4px 0 #f48124!important
+}
+#account-garage .garage-owner-grid{gap:14px!important}
+#account-garage .garage-car-hero{
+  position:relative;isolation:isolate;overflow:hidden;
+  display:grid!important;grid-template-columns:60px minmax(0,1fr) 170px!important;
+  border:1px solid #dce6ee!important;border-radius:21px!important;
+  padding:22px!important;margin-bottom:14px!important;gap:14px!important;
+  background:linear-gradient(122deg,#fff 55%,#eef5f9)!important;
+  box-shadow:0 10px 25px rgba(27,53,76,.055)!important
+}
+#account-garage .garage-car-badge{
+  display:grid!important;place-items:center!important;width:60px!important;height:60px!important;
+  flex:none;border-radius:16px!important;background:#173249!important;color:#fff!important;
+  font-size:clamp(12px,1.8vw,17px)!important;letter-spacing:.02em!important;
+  z-index:1
+}
+#account-garage .garage-car-title{position:relative;z-index:1;min-width:0!important}
+#account-garage .garage-car-title .eyebrow{font-weight:850!important;color:#6c7f8f!important;letter-spacing:.11em}
+#account-garage .garage-car-title h2{
+  color:#162f47!important;font-size:clamp(22px,3.3vw,29px)!important;
+  line-height:1.18!important;margin:8px 0!important
+}
+#account-garage .garage-car-title p{color:#687e91!important;font-size:13px!important;line-height:1.5!important;overflow-wrap:anywhere}
+#account-garage .garage-car-art{width:100%;align-self:center;opacity:.90;pointer-events:none}
+#account-garage .garage-car-actions{grid-column:1/-1!important;display:grid!important;grid-template-columns:1fr 1.25fr!important;gap:10px!important}
+#account-garage .garage-car-actions button{
+  min-width:0;width:100%;min-height:49px!important;border-radius:13px!important;
+  font-size:clamp(13px,2.7vw,16px)!important;line-height:1.2;font-weight:850!important;
+  cursor:pointer;touch-action:manipulation;transition:none!important
+}
+#account-garage .garage-car-actions .garage-outline{border:1px solid #c8d6e1!important;color:#1d3b52!important;background:#fff!important}
+#account-garage .garage-car-actions .garage-primary{border:1px solid #ef741c!important;background:#f48124!important;color:#fff!important;box-shadow:none!important}
+
+#account-garage .garage-mileage-card,#account-garage .garage-panel{
+  border:1px solid #dce6ee!important;border-radius:20px!important;
+  background:#fff!important;box-shadow:0 9px 24px rgba(27,53,76,.05)!important;
+  margin-bottom:14px!important;padding:19px!important
+}
+#account-garage .garage-mileage-card{display:grid!important;gap:15px!important}
+#account-garage .garage-mileage-summary{display:flex;align-items:center;gap:13px;min-width:0}
+#account-garage .garage-mileage-icon{
+  flex:0 0 49px;display:grid;place-items:center;width:49px;height:49px;
+  border-radius:14px;background:#fff2e7;color:#e97820
+}
+#account-garage .garage-mileage-summary small{font-size:13px!important;color:#708396!important}
+#account-garage .garage-mileage-summary strong{font-size:clamp(26px,4vw,34px)!important;color:#172f47!important;margin:4px 0 0!important}
+#account-garage .garage-mileage-edit{display:grid!important;grid-template-columns:minmax(0,1fr) auto!important;gap:10px!important;width:100%}
+#account-garage .garage-mileage-edit input{
+  width:100%!important;min-width:0!important;min-height:50px!important;border-radius:12px!important;
+  border:1px solid #cfdae4!important;background:#fff!important;
+  font-size:17px!important;text-align:left!important;color:#1b354c
+}
+#account-garage .garage-mileage-edit button{
+  min-height:50px!important;min-width:106px;border-radius:12px!important;
+  color:#fff!important;background:#f48124!important;
+  font-size:15px!important;font-weight:850!important
+}
+#account-garage .garage-panel-head h3{color:#182f46!important;font-size:clamp(21px,3vw,26px)!important}
+#account-garage .garage-panel .eyebrow{color:#738497!important;letter-spacing:.14em}
+#account-garage .garage-panel-head>button{color:#466179!important;font-size:14px!important;min-height:44px;cursor:pointer}
+#account-garage .garage-empty-mini{font-size:13px!important;color:#718496!important;line-height:1.55!important;padding:4px 0!important}
+#account-garage .garage-owner-side{min-width:0}
+#account-garage .garage-panel-head{align-items:center!important}
+@media(max-width:760px){
+  #account-garage .garage-owner-head{padding:20px 21px!important;border-left:1px solid #e0e8ef!important}
+  #account-garage .garage-owner-head h2{font-size:clamp(25px,6.8vw,33px)!important}
+  #account-garage .garage-car-hero{grid-template-columns:56px minmax(0,1fr)!important;padding:16px!important}
+  #account-garage .garage-car-badge{width:55px!important;height:55px!important}
+  #account-garage .garage-car-art{
+    position:absolute;right:-35px;top:0;width:min(56%,230px);
+    height:130px;opacity:.15;z-index:0;pointer-events:none
+  }
+  #account-garage .garage-car-title h2{font-size:clamp(21px,5.7vw,27px)!important}
+  #account-garage .garage-car-actions{grid-template-columns:1fr 1.35fr!important;gap:8px!important}
+  #account-garage .garage-owner-head .account-primary{display:none!important}
+  #account-garage .garage-panel,#account-garage .garage-mileage-card{padding:17px!important}
+}
+@media(max-width:360px){
+  #account-garage .garage-car-actions{grid-template-columns:1fr!important}
+  #account-garage .garage-mileage-edit{grid-template-columns:minmax(0,1fr)!important}
+}
+
+/* Brand-neutral vehicle artwork; silhouettes follow body style, not BMW X3. */
+.zf-vehicle-illustration{display:block;width:100%;height:auto;overflow:visible}
+.zf-car-shadow{fill:rgba(20,44,65,.09)}
+.zf-car-shell{fill:#f5f9fc;stroke:#829fb5;stroke-width:4;stroke-linejoin:round}
+.zf-car-window{fill:#d8e8f1;stroke:#99b5c7;stroke-width:3;stroke-linejoin:round}
+.zf-car-detail{fill:none;stroke:#99aec0;stroke-width:2.5;stroke-linejoin:round;stroke-linecap:round}
+.zf-tyre{fill:#253b4a;stroke:#122a3c;stroke-width:3}
+.zf-rim{fill:#e6edf2;stroke:#829bb0;stroke-width:4}
+.zf-hub{fill:#a3b9c8;stroke:#5a788f;stroke-width:2}
+.zf-vehicle-mechanical{stroke:#d37a21;stroke-width:4;fill:#f6b86c;stroke-linecap:round;stroke-linejoin:round}
+.zf-vehicle-mechanical path:nth-of-type(2),.zf-vehicle-mechanical path:nth-of-type(3){fill:none;stroke:#637e91;stroke-width:6}
+#view-search.vin-catalog-mode .vin-catalog-browser{gap:15px!important}
+#view-search.vin-catalog-mode .vin-vehicle-hero{
+  border:1px solid #dbe6ee!important;border-radius:21px!important;
+  box-shadow:0 12px 28px rgba(19,54,78,.065)!important;
+  background:linear-gradient(130deg,#fff 55%,#f0f5f9)!important
+}
+#view-search.vin-catalog-mode .vin-vehicle-copy h2{
+  color:#162e46!important;font-size:clamp(23px,4vw,34px)!important;line-height:1.15!important
+}
+#view-search.vin-catalog-mode .vin-vehicle-copy .eyebrow{
+  color:#748597!important;letter-spacing:.15em;font-weight:850!important
+}
+#view-search.vin-catalog-mode .vin-vehicle-mod{font-size:13px;color:#617a8f!important;line-height:1.55!important;overflow-wrap:anywhere}
+#view-search.vin-catalog-mode .vin-vehicle-vin{
+  background:#f7fafc;border-radius:12px!important;gap:12px;
+  min-width:0;overflow-wrap:anywhere
+}
+#view-search.vin-catalog-mode .vin-vehicle-vin b{font-size:12px!important;white-space:normal;overflow-wrap:anywhere}
+#view-search.vin-catalog-mode .vin-exploded{
+  border-radius:19px!important;border:1px solid #dce7ed!important;
+  background:linear-gradient(155deg,#f9fcff,#eff5f8)!important;
+  box-shadow:none!important
+}
+#view-search.vin-catalog-mode .vin-exploded:before{opacity:.5;pointer-events:none}
+#view-search.vin-catalog-mode .vin-exploded-title{color:#49647c}
+#view-search.vin-catalog-mode .vin-car-schematic{min-width:0}
+#view-search.vin-catalog-mode .vin-car-schematic svg{filter:none!important}
+#view-search.vin-catalog-mode .vin-hotspot-list{gap:10px!important}
+#view-search.vin-catalog-mode .vin-hotspot{
+  touch-action:manipulation;cursor:pointer;z-index:5;
+  border:1px solid #d0dce5!important;border-left:4px solid #ef852b!important;
+  box-shadow:0 3px 10px rgba(24,60,83,.045)!important;border-radius:12px!important;
+  color:#19374f!important;background:#fff!important;
+  transition:none!important;text-align:left
+}
+#view-search.vin-catalog-mode .vin-hotspot:active,
+#view-search.vin-catalog-mode .vin-category-card:active{background:#fff1e4!important}
+#view-search.vin-catalog-mode .vin-hotspot span{
+  background:#eef3f7!important;border-radius:10px!important;
+  width:30px!important;height:30px!important;flex:0 0 30px!important
+}
+#view-search.vin-catalog-mode .vin-hotspot b{font-weight:850!important;line-height:1.3!important}
+#view-search.vin-catalog-mode .vin-hotspot-disabled{opacity:.55;pointer-events:none}
+
+#view-search.vin-catalog-mode .vin-exploded{
+  display:flex!important;flex-direction:column!important;gap:7px!important;
+  padding:17px!important;min-height:0!important;height:auto!important;overflow:hidden!important
+}
+#view-search.vin-catalog-mode .vin-exploded-title{
+  position:static!important;inset:auto!important;display:flex!important;
+  gap:3px!important;width:100%;z-index:1!important
+}
+#view-search.vin-catalog-mode .vin-exploded-title b{font-size:13px!important;color:#23455d!important}
+#view-search.vin-catalog-mode .vin-exploded-title span{font-size:11px!important;color:#7d92a1!important}
+#view-search.vin-catalog-mode .vin-car-schematic{
+  position:relative!important;inset:auto!important;
+  width:100%!important;max-width:100%!important;height:auto!important;
+  aspect-ratio:820/360;display:grid;place-items:center;overflow:hidden!important
+}
+#view-search.vin-catalog-mode .vin-car-schematic svg{width:100%!important;height:100%!important}
+#view-search.vin-catalog-mode .vin-hotspot-list{
+  display:grid!important;grid-template-columns:repeat(2,minmax(0,1fr))!important;
+  gap:9px!important;position:relative!important;z-index:2;
+  width:100%!important;max-width:100%!important;margin-top:4px!important
+}
+#view-search.vin-catalog-mode .vin-hotspot,
+#view-search.vin-catalog-mode .vin-hotspot-disabled{
+  position:static!important;inset:auto!important;transform:none!important;
+  width:100%!important;min-width:0!important;min-height:49px!important;
+  display:flex!important;align-items:center!important;
+  padding:9px!important;gap:8px!important;border-radius:13px!important
+}
+#view-search.vin-catalog-mode .vin-hotspot b{font-size:clamp(12px,2.7vw,14px)!important;white-space:normal!important;overflow-wrap:anywhere}
+#view-search.vin-catalog-mode .vin-catalog-panel{
+  background:#fff!important;border:1px solid #dfe7ed!important;
+  border-radius:20px!important;box-shadow:0 9px 24px rgba(24,50,75,.045)!important;
+  padding:clamp(15px,3vw,22px)!important
+}
+#view-search.vin-catalog-mode .vin-catalog-panel-head h3{
+  font-size:clamp(22px,4vw,29px)!important;color:#172f47!important;
+  line-height:1.2!important
+}
+#view-search.vin-catalog-mode .vin-category-grid{
+  display:grid!important;grid-template-columns:repeat(2,minmax(0,1fr))!important;
+  gap:11px!important
+}
+#view-search.vin-catalog-mode .vin-category-card{
+  display:grid!important;grid-template-columns:48px minmax(0,1fr) 20px!important;
+  padding:13px!important;gap:12px!important;min-height:83px!important;
+  background:#fff!important;color:#172f47!important;
+  border:1px solid #d7e2ea!important;border-radius:15px!important;
+  box-shadow:0 3px 12px rgba(24,55,80,.04)!important;
+  text-align:left!important;touch-action:manipulation;transition:none!important
+}
+#view-search.vin-catalog-mode .vin-category-icon{
+  background:#fff1e5!important;color:#dc781f!important;
+  width:45px!important;height:45px!important;border-radius:12px!important
+}
+#view-search.vin-catalog-mode .vin-category-icon svg{stroke:#d77920!important;width:29px!important;height:29px!important}
+#view-search.vin-catalog-mode .vin-category-copy b{font-size:clamp(13px,3vw,16px)!important;font-weight:850!important;color:#172f47!important}
+#view-search.vin-catalog-mode .vin-category-copy small{font-size:12px!important;color:#7c8d9d!important}
+#view-search.vin-catalog-mode .vin-vehicle-specs{margin:13px 0}
+#view-search.vin-catalog-mode .vin-vehicle-specs summary{
+  cursor:pointer;list-style:none;color:#536f84;font-weight:850;
+  border:1px solid #dce6ee;padding:10px 13px;border-radius:10px;
+  background:#f8fafc;touch-action:manipulation
+}
+#view-search.vin-catalog-mode .vin-vehicle-specs summary:after{content:"⌄";float:right;color:#dd7b27}
+#view-search.vin-catalog-mode .vin-vehicle-specs[open] summary:after{content:"⌃"}
+#view-search.vin-catalog-mode .vin-vehicle-facts{margin-top:10px!important;gap:8px!important}
+@media(max-width:760px){
+  #view-search.vin-catalog-mode .vin-vehicle-hero{display:flex!important;flex-direction:column!important;padding:14px!important}
+  #view-search.vin-catalog-mode .vin-exploded{padding:11px!important}
+  #view-search.vin-catalog-mode .vin-category-grid{grid-template-columns:minmax(0,1fr)!important}
+  #view-search.vin-catalog-mode .vin-vehicle-facts b{white-space:normal!important;overflow-wrap:anywhere!important}
+}
+@media(max-width:355px){#view-search.vin-catalog-mode .vin-hotspot-list{grid-template-columns:minmax(0,1fr)!important}}
