@@ -222,7 +222,7 @@ test('mobile auth does not autozoom the verification stage and has stable viewpo
   assert.doesNotMatch(html,/maximum-scale=1/);
   assert.match(css, /html,body\{scroll-behavior:auto!important\}/);
   assert.match(css, /#view-auth \.auth-form input,\s*#view-auth \.auth-form select\{\s*font-size:18px!important/);
-  assert.match(app, /function restoreIosViewportScale\(\)/);
+  assert.doesNotMatch(app, /function restoreIosViewportScale\(\)/);
   const register = app.slice(app.indexOf('document.getElementById("registerForm")?.addEventListener'),app.indexOf('document.getElementById("forgotForm")?.addEventListener'));
   assert.doesNotMatch(register, /startAuthCooldown\("register",result\.resend_in\|\|60\);\s*form\.querySelector\('\[name="verification_code"\]'\)\?\.focus\(\);/);
 });
@@ -269,7 +269,7 @@ test("iPhone email registration handles keyboard, password toggle and transient 
   const style=readFileSync(resolve(root,"styles.css"),"utf8");
   assert.match(page,/id="registerEmailPasswordAgain" enterkeyhint="done"/);
   assert.doesNotMatch(page,/maximum-scale=1/);
-  assert.match(script,/authFieldScrollAnchor/);
+  assert.doesNotMatch(script,/authFieldScrollAnchor/);
   assert.doesNotMatch(script,/input\.focus\(\{preventScroll:true\}\)/);
   assert.match(script,/retry\.textContent="Повторить проверку"/);
   assert.match(script,/if\(submit&&!submit\.dataset\.submitting\)submit\.disabled=false/);
@@ -286,4 +286,16 @@ test('Owner can act as a customer and safely create test-only orders without a s
   assert.match(backend, /ownerTestMode = ownerUser\?\.role === "owner"/);
   assert.match(backend, /const autoSupplierSubmit = !ownerTestMode/);
   assert.match(backend, /if \(!ownerTestMode\)\s*\{\s*await enqueuePrintJob/);
+});
+
+test('iPhone Safari focus cannot zoom search or forcibly restore page position',()=>{
+  assert.match(css, /#view-home \.minimal-search textarea#searchInput,/);
+  assert.match(css, /#view-search \.catalog-search input#searchInput2,/);
+  assert.match(css, /font-size:17px!important;/);
+  assert.doesNotMatch(app, /authFieldScrollAnchor|authFieldRestoreTimer|restoreIosViewportScale/);
+  assert.doesNotMatch(app, /viewport\.content\s*=/);
+  assert.match(html, /styles\.css\?v=20261104-safari-nozoom2/);
+  assert.match(html, /app\.js\?v=20261104-safari-nozoom2/);
+  assert.match(html, /viewport-fit=cover/);
+  assert.doesNotMatch(html, /user-scalable=no|maximum-scale=1/);
 });

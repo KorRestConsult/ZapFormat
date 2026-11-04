@@ -7009,3 +7009,34 @@ html.zf-preauth #sessionEntryButton::after{content:"Проверяем вход�
 @media(prefers-reduced-motion:reduce){
   #view-auth .auth-form input:not([type=radio]){transition:none}
 }
+
+
+/* iOS Safari: no keyboard-triggered page zoom or focus-induced layout motion.
+   Editable fields must stay >=16px even when older mobile component rules
+   request 13px; do not modify the viewport meta or disable user pinch zoom. */
+@media (max-width:900px){
+  #view-home .minimal-search textarea#searchInput,
+  #view-search .catalog-search input#searchInput2,
+  #view-auth .auth-form input:not([type="radio"]):not([type="checkbox"]),
+  #view-profile .account-pane input:not([type="radio"]):not([type="checkbox"]),
+  #view-profile .account-pane textarea,
+  #view-cart input:not([type="radio"]):not([type="checkbox"]),
+  #view-cart textarea{
+    font-size:17px!important;
+    -webkit-text-size-adjust:100%;
+  }
+  #view-home .hero-search-panel,
+  #view-home .minimal-search,
+  #view-home .minimal-search textarea,
+  #view-auth .auth-shell,
+  #view-auth .auth-card,
+  #view-auth .auth-form,
+  #view-auth .auth-stage,
+  #view-auth .auth-form input:not([type="radio"]),
+  #view-auth .auth-tabs{
+    transform:none!important;
+    animation:none!important;
+    transition:none!important;
+  }
+  html,body{scroll-behavior:auto!important}
+}

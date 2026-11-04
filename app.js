@@ -5205,32 +5205,7 @@ document.addEventListener("change",event=>{
     updateRegistrationCustomerType(event.target.closest("form"));
   }
 });
-/* Mobile Safari: emphasize fields without layout scale or repeated focus.
-   Restore the previous scroll position once the keyboard is dismissed. */
-let authFieldScrollAnchor=null;
-let authFieldRestoreTimer=null;
-const authEditableSelector="#view-auth .auth-form.active input:not([type=radio]):not([type=checkbox])";
-document.addEventListener("focusin",event=>{
-  if(!event.target.matches?.(authEditableSelector))return;
-  if(authFieldRestoreTimer!==null)clearTimeout(authFieldRestoreTimer);
-  authFieldRestoreTimer=null;
-  if(authFieldScrollAnchor===null)authFieldScrollAnchor=window.scrollY;
-  document.documentElement.classList.add("auth-field-editing");
-});
-document.addEventListener("focusout",event=>{
-  if(!event.target.matches?.(authEditableSelector))return;
-  if(authFieldRestoreTimer!==null)clearTimeout(authFieldRestoreTimer);
-  authFieldRestoreTimer=setTimeout(()=>{
-    authFieldRestoreTimer=null;
-    if(document.activeElement?.matches?.(authEditableSelector))return;
-    document.documentElement.classList.remove("auth-field-editing");
-    const target=authFieldScrollAnchor;authFieldScrollAnchor=null;
-    if(target!==null&&window.matchMedia("(max-width:680px)").matches){
-      const reduced=window.matchMedia("(prefers-reduced-motion:reduce)").matches;
-      window.scrollTo({top:target,behavior:reduced?"auto":"smooth"});
-    }
-  },220);
-});
+/* Safari handles keyboard visibility natively; do not animate page scroll on field focus. */
 document.addEventListener("keydown",event=>{
   if(event.key!=="Enter")return;
   if(event.target.matches?.("#registerEmailPasswordAgain, #emailRegisterCode, #loginPassword")){
@@ -5930,18 +5905,3 @@ document.addEventListener("change",async e=>{
     await hydrateAccountData().catch(()=>{});
   }
 });
-
-/* Restore an iOS Safari keyboard/pinch zoom that stayed after the form closed.
-   Only reassert scale if the user is no longer editing a field. */
-function restoreIosViewportScale(){
-  if(!/iPhone|iPad|iPod/i.test(navigator.userAgent) || window.innerWidth>900)return;
-  if(document.activeElement?.matches?.("input,textarea,select"))return;
-  if((window.visualViewport?.scale||1)<=1.02)return;
-  const viewport=document.querySelector('meta[name="viewport"]');
-  if(!viewport)return;
-  const original=viewport.content;
-  viewport.content="width=device-width, initial-scale=1, minimum-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover";
-  requestAnimationFrame(()=>requestAnimationFrame(()=>{viewport.content=original;}));
-}
-window.addEventListener("pageshow",restoreIosViewportScale);
-document.addEventListener("focusout",()=>setTimeout(restoreIosViewportScale,300));
