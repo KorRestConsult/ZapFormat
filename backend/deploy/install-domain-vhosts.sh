@@ -26,8 +26,37 @@ if [[ ! -f "$TARGET" ]]; then
 fi
 
 if [[ -f "$CHAIN" && -f "$KEY" ]] && grep -q '^# ZAPFORMAT_LIVE_V1' "$TARGET"; then
+  # Publish safe TLS compatibility changes on an existing HTTPS vhost as part
+  # of the standard tested deploy, without reprovisioning certificates.
+  if ! cmp -s "$LIVE" "$TARGET"; then
+    BACKUP="$(mktemp /tmp/zapformat-domain-refresh.XXXXXX)"
+    cp -a "$TARGET" "$BACKUP"
+    install -m 644 "$LIVE" "$TARGET"
+    if ! nginx -t || ! systemctl reload nginx; then
+      cp -a "$BACKUP" "$TARGET"
+      nginx -t || true
+      systemctl reload nginx || true
+      rm -f "$BACKUP"
+      set_status nginx_refresh_failed
+      exit 1
+    fi
+    if ! curl --fail --silent --show-error --connect-timeout 3 --max-time 8 \
+        --tlsv1.2 --tls-max 1.2 --resolve "api.zapformat.ru:443:127.0.0.1" \
+        https://api.zapformat.ru/api/health >/dev/null || \
+       ! curl --fail --silent --show-error --connect-timeout 3 --max-time 8 \
+        --tlsv1.2 --tls-max 1.2 --resolve "admin.zapformat.ru:443:127.0.0.1" \
+        https://admin.zapformat.ru/ >/dev/null; then
+      cp -a "$BACKUP" "$TARGET"
+      nginx -t || true
+      systemctl reload nginx || true
+      rm -f "$BACKUP"
+      set_status domain_refresh_smoke_failed
+      exit 1
+    fi
+    rm -f "$BACKUP"
+  fi
   set_status ready
-  echo "API and admin domain TLS already provisioned."
+  echo "API and admin domain TLS verified."
   exit 0
 fi
 

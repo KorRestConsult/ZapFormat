@@ -382,7 +382,7 @@ function authErrorText(error){
     verification_expired:"Код истёк или использован. Запросите новый.",
     verification_unavailable:"Подтверждение по звонку временно недоступно.",
     sms_send_failed:"SMS.RU не подтвердил отправку звонка. Деньги могут не списаться. Попробуйте позже.",
-    request_timeout:"Сервер не ответил за 20 секунд. Проверьте интернет и повторите попытку позже.",
+    request_timeout:"Сервер не ответил вовремя. Проверьте соединение и повторите попытку позже.",
     network_unavailable:"Нет связи с сервером ZapFormat. Проверьте сеть или VPN.",
     otp_too_soon:"Недавний запрос уже есть. Подождите минуту перед повтором.",
     phone_verification_required:"Подтвердите номер телефона.",
@@ -5291,7 +5291,8 @@ document.getElementById("loginForm")?.addEventListener("submit",async e=>{
   try{
     const result=await apiRequest("/api/auth/login",{
       method:"POST",
-      body:JSON.stringify({login:data.login,password:data.password})
+      body:JSON.stringify({login:data.login,password:data.password}),
+      timeoutMs:10000
     });
     sessionUser=result.user;
     if(result.access_token) saveAuthToken(result.access_token);
