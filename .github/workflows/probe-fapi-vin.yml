@@ -157,7 +157,7 @@ jobs:
           PY
           ARTICLE="$(cat first-oem.txt)"
           echo "SUPPLIER BRANDS FOR OEM:"
-          curl -fsS "https://api.201.51.28.68.sslip.io/api/catalog/brands?number=${ARTICLE}" > brands.json
+          curl -fsS "https://api.zapformat.ru/api/catalog/brands?number=${ARTICLE}" > brands.json
           python3 - <<'PY'
           import json
           d=json.load(open("brands.json",encoding="utf-8"))
