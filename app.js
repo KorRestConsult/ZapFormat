@@ -438,6 +438,7 @@ function showAuthTab(tab){
   const subtitle=document.getElementById("authFormSubtitle");
   if(heading)heading.textContent=content[0];
   if(subtitle)subtitle.textContent=content[1];
+  if(tab==="register")hydrateEmailRegistrationCapability().catch(()=>null);
 }
 
 function setAuthStage(kind,stage){
@@ -4340,25 +4341,41 @@ document.addEventListener("visibilitychange",()=>{
 window.addEventListener("popstate",restoreFromUrl);
 document.getElementById("backButton")?.addEventListener("click",()=>safeBack("home"));
 hydrateAuthCapabilities().catch(()=>null);
+let emailCapabilityPending=null;
 async function hydrateEmailRegistrationCapability(){
-  const notice=document.getElementById("emailProviderNotice");
-  const submit=document.getElementById("emailRegisterStart");
-  const forgot=document.querySelector('[data-auth-tab="forgot"]');
-  if(submit)submit.disabled=true;
-  try{
-    const status=await apiRequest("/api/auth/email-registration/status",{timeoutMs:6000});
-    const ready=status?.available===true;
-    if(submit)submit.disabled=!ready;
-    if(forgot)forgot.disabled=!ready;
-    if(notice){
-      notice.hidden=ready;
-      notice.textContent=ready?"":"Регистрация по email временно недоступна: отправитель ещё подключается.";
+  if(emailCapabilityPending)return emailCapabilityPending;
+  emailCapabilityPending=(async()=>{
+    const notice=document.getElementById("emailProviderNotice");
+    const submit=document.getElementById("emailRegisterStart");
+    const forgot=document.querySelector('[data-auth-tab="forgot"]');
+    const warn=message=>{
+      if(!notice)return;
+      notice.hidden=false;notice.textContent=message+" ";
+      const retry=document.createElement("button");
+      retry.type="button";retry.className="auth-provider-retry";
+      retry.textContent="Повторить проверку";
+      retry.addEventListener("click",()=>hydrateEmailRegistrationCapability().catch(()=>null),{once:true});
+      notice.appendChild(retry);
+    };
+    try{
+      const result=await apiRequest("/api/auth/email-registration/status",{timeoutMs:4500});
+      const ready=result?.available===true;
+      if(submit&&!submit.dataset.submitting)submit.disabled=!ready;
+      if(forgot)forgot.disabled=!ready;
+      if(ready){
+        if(notice){notice.hidden=true;notice.textContent="";}
+      }else warn("Сервер сообщил, что отправка кодов недоступна.");
+      return ready;
+    }catch{
+      // An intermittent connection does not mean transactional mail is disabled.
+      if(submit&&!submit.dataset.submitting)submit.disabled=false;
+      if(forgot)forgot.disabled=false;
+      warn("Связь с сервером нестабильна. Можно попробовать отправить код.");
+      return null;
     }
-  }catch{
-    if(submit)submit.disabled=true;
-    if(forgot)forgot.disabled=true;
-    if(notice){notice.hidden=false;notice.textContent="Почтовая служба временно недоступна. Попробуйте позже.";}
-  }
+  })();
+  try{return await emailCapabilityPending;}
+  finally{emailCapabilityPending=null;}
 }
 hydrateEmailRegistrationCapability().catch(()=>null);
 
@@ -5001,13 +5018,15 @@ document.addEventListener("click",async e=>{
       input.type=show ? "text" : "password";
       passwordToggle.textContent=show ? "Скрыть" : "Показать";
       passwordToggle.setAttribute("aria-label",show ? "Скрыть пароль" : "Показать пароль");
-      input.focus({preventScroll:true});
+      passwordToggle.setAttribute("aria-pressed",String(show));
+      // Do not force keyboard focus when Safari changes password visibility.
     }
     return;
   }
 
   const authTab=e.target.closest("[data-auth-tab]");
   if(authTab){
+    if(document.activeElement?.matches("#view-auth .auth-form input"))document.activeElement.blur();
     const tab=authTab.dataset.authTab;
     if(tab==="register") resetRegistrationFlow();
     if(tab==="forgot") resetPasswordFlow();
@@ -5172,11 +5191,44 @@ document.addEventListener("change",event=>{
     updateRegistrationCustomerType(event.target.closest("form"));
   }
 });
+/* Mobile Safari: emphasize fields without layout scale or repeated focus.
+   Restore the previous scroll position once the keyboard is dismissed. */
+let authFieldScrollAnchor=null;
+let authFieldRestoreTimer=null;
+const authEditableSelector="#view-auth .auth-form.active input:not([type=radio]):not([type=checkbox])";
+document.addEventListener("focusin",event=>{
+  if(!event.target.matches?.(authEditableSelector))return;
+  if(authFieldRestoreTimer!==null)clearTimeout(authFieldRestoreTimer);
+  authFieldRestoreTimer=null;
+  if(authFieldScrollAnchor===null)authFieldScrollAnchor=window.scrollY;
+  document.documentElement.classList.add("auth-field-editing");
+});
+document.addEventListener("focusout",event=>{
+  if(!event.target.matches?.(authEditableSelector))return;
+  if(authFieldRestoreTimer!==null)clearTimeout(authFieldRestoreTimer);
+  authFieldRestoreTimer=setTimeout(()=>{
+    authFieldRestoreTimer=null;
+    if(document.activeElement?.matches?.(authEditableSelector))return;
+    document.documentElement.classList.remove("auth-field-editing");
+    const target=authFieldScrollAnchor;authFieldScrollAnchor=null;
+    if(target!==null&&window.matchMedia("(max-width:680px)").matches){
+      const reduced=window.matchMedia("(prefers-reduced-motion:reduce)").matches;
+      window.scrollTo({top:target,behavior:reduced?"auto":"smooth"});
+    }
+  },220);
+});
+document.addEventListener("keydown",event=>{
+  if(event.key!=="Enter")return;
+  if(event.target.matches?.("#registerEmailPasswordAgain, #emailRegisterCode, #loginPassword")){
+    event.preventDefault();event.target.blur();
+  }
+});
+
 document.getElementById("emailRegisterForm")?.addEventListener("submit",async e=>{
   e.preventDefault();
   const form=e.currentTarget,starting=!emailRegistrationChallengeId;
   const button=document.getElementById(starting?"emailRegisterStart":"emailRegisterVerify");
-  if(button.disabled)return;button.disabled=true;
+  if(button.disabled)return;button.disabled=true;button.dataset.submitting="true";
   try {
     if(starting){
       const values=Object.fromEntries(new FormData(form).entries());
@@ -5223,10 +5275,10 @@ document.getElementById("emailRegisterForm")?.addEventListener("submit",async e=
       verification_code_invalid:"Неверный код из письма.",
       verification_expired:"Код истёк. Запросите новый.",
       verification_code_required:"Введите шестизначный код.",
-      request_timeout:"Сервер не ответил. Проверьте почту перед повторной отправкой."
+      request_timeout:"Сервер не ответил. Код мог быть отправлен — проверьте почту перед повтором."
     };
     setAuthStatus(messages[error?.code]||authErrorText(error),"error");
-  }finally{button.disabled=false;}
+  }finally{button.disabled=false;delete button.dataset.submitting;}
 });
 
 document.getElementById("loginForm")?.addEventListener("submit",async e=>{

@@ -260,3 +260,16 @@ test("storefront uses ZapFormat terminology instead of supplier procurement deta
   assert.doesNotMatch(app,/Поставщик отказал по части заказа/);
   assert.match(html,/Это заявка на подбор, не заказ/);
 });
+
+test("iPhone email registration handles keyboard, password toggle and transient API failure",()=>{
+  const page=readFileSync(resolve(root,"index.html"),"utf8");
+  const script=readFileSync(resolve(root,"app.js"),"utf8");
+  const style=readFileSync(resolve(root,"styles.css"),"utf8");
+  assert.match(page,/id="registerEmailPasswordAgain" enterkeyhint="done"/);
+  assert.doesNotMatch(page,/maximum-scale=1/);
+  assert.match(script,/authFieldScrollAnchor/);
+  assert.doesNotMatch(script,/input\.focus\(\{preventScroll:true\}\)/);
+  assert.match(script,/retry\.textContent="Повторить проверку"/);
+  assert.match(script,/if\(submit&&!submit\.dataset\.submitting\)submit\.disabled=false/);
+  assert.match(style,/auth-provider-retry/);
+});

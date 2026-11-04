@@ -6974,3 +6974,38 @@ html.zf-preauth #sessionEntryButton::after{content:"Проверяем вход�
   #view-auth .auth-buyer-options label span{font-size:12px}
   #view-auth .auth-form input:not([type=radio]){font-size:16px!important}
 }
+
+/* 2026-11-04 iPhone authentication: stable, keyboard-safe focus appearance. */
+#view-auth .auth-form input:not([type=radio]){
+  transition:border-color .18s ease,box-shadow .18s ease,background-color .18s ease;
+}
+#view-auth .auth-form label:focus-within>span{color:#bf7029;transition:color .18s ease}
+#view-auth .auth-form label:focus-within>input:not([type=radio]),
+#view-auth .auth-form label:focus-within .auth-password-field input{
+  border-color:#d88331;box-shadow:0 0 0 3px rgba(216,131,49,.15),0 8px 18px rgba(15,39,58,.055)
+}
+#view-auth .auth-password-field{width:100%;min-width:0}
+#view-auth .auth-password-field input{padding-right:100px!important}
+#view-auth .auth-password-toggle{
+  right:7px;min-width:83px;min-height:42px;padding:8px;
+  font-size:13px;line-height:1.2;white-space:nowrap;
+  border-radius:8px;touch-action:manipulation;-webkit-tap-highlight-color:transparent
+}
+#view-auth .auth-password-toggle:focus-visible{outline:2px solid #d88331;outline-offset:1px}
+#view-auth .auth-provider-retry{
+  display:inline;background:transparent;border:0;padding:0 3px;
+  color:#173a50;font-size:inherit;font-weight:800;text-decoration:underline;
+  cursor:pointer;touch-action:manipulation
+}
+@media(max-width:680px){
+  body.auth-route #view-auth .auth-card{transform:none!important;will-change:auto!important}
+  #view-auth .auth-form input:not([type=radio]){
+    font-size:16px!important;-webkit-text-size-adjust:100%;scroll-margin-block:24px
+  }
+  html.auth-field-editing body.auth-route #view-auth .auth-shell{
+    min-height:0!important;transform:none!important
+  }
+}
+@media(prefers-reduced-motion:reduce){
+  #view-auth .auth-form input:not([type=radio]){transition:none}
+}
