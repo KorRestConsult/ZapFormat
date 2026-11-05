@@ -4722,7 +4722,7 @@ async function compressGaragePhoto(file){
     const scale=Math.max(canvas.width/image.naturalWidth,canvas.height/image.naturalHeight);
     const w=image.naturalWidth*scale,h=image.naturalHeight*scale;
     context.drawImage(image,(canvas.width-w)/2,(canvas.height-h)/2,w,h);
-    for(const quality of [0.8,0.65,0.48]){
+    for(const quality of [0.8,0.65,0.48,0.32,0.2]){
       const blob=await new Promise(resolve=>canvas.toBlob(resolve,"image/jpeg",quality));
       if(blob && blob.size<=230*1024){
         const dataUrl=await new Promise((resolve,reject)=>{
@@ -4733,6 +4733,16 @@ async function compressGaragePhoto(file){
         });
         return {blob,base64:dataUrl.slice(dataUrl.indexOf(",")+1)};
       }
+    }
+    canvas.width=640;canvas.height=400;
+    context.drawImage(image,0,0,640,400);
+    const blob=await new Promise(resolve=>canvas.toBlob(resolve,"image/jpeg",0.25));
+    if(blob && blob.size<=230*1024){
+      const dataUrl=await new Promise((resolve,reject)=>{
+        const reader=new FileReader();reader.onload=()=>resolve(String(reader.result||""));
+        reader.onerror=()=>reject(new Error("image_read_failed"));reader.readAsDataURL(blob);
+      });
+      return {blob,base64:dataUrl.slice(dataUrl.indexOf(",")+1)};
     }
     throw new Error("image_too_large");
   }finally{URL.revokeObjectURL(url);}
