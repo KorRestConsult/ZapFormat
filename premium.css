@@ -497,3 +497,20 @@ input,textarea,select{border-radius:12px}
   #account-garage .zf-garage-car-art{min-height:116px;max-height:156px}
   #account-garage .zf-garage-car-art svg{height:145px}
 }
+
+/* Safari focus auto-zoom guard. Keep native pinch zoom and keyboard accessibility. */
+@media (max-width:900px), (pointer:coarse) {
+  #view-auth .auth-form input:not([type="checkbox"]):not([type="radio"]),
+  #view-auth .auth-form select,
+  #view-auth .auth-form textarea {
+    font-size:17px!important;
+    line-height:1.4!important;
+    -webkit-text-size-adjust:100%!important;
+    box-sizing:border-box;
+    min-width:0;
+    max-width:100%;
+  }
+  #view-auth .auth-form input:focus {
+    font-size:17px!important;
+  }
+}
