@@ -4671,6 +4671,101 @@ function renderGarageOverview(){
   return renderGarageVehicleCard(v,0);
 }
 
+
+const garagePhotoCache=new Map();
+const garagePhotoPending=new Set();
+
+async function loadGaragePhoto(vehicleId){
+  const id=String(vehicleId||"");
+  if(!sessionUser || !id || garagePhotoCache.has(id) || garagePhotoPending.has(id))return;
+  const owner=String(sessionUser.id);
+  garagePhotoPending.add(id);
+  try{
+    const response=await fetch(API_BASE+"/api/garage/vehicles/"+encodeURIComponent(id)+"/photo",{
+      credentials:"include",
+      headers:authToken?{"Authorization":"Bearer "+authToken}:{},
+      cache:"no-store"
+    });
+    if(response.status===404){
+      if(String(sessionUser?.id||"")===owner){garagePhotoCache.set(id,null);renderGarageApp();}
+      return;
+    }
+    if(!response.ok)return;
+    const blob=await response.blob();
+    if(blob.type!=="image/jpeg" || blob.size>250000)return;
+    const url=URL.createObjectURL(blob);
+    if(String(sessionUser?.id||"")!==owner){URL.revokeObjectURL(url);return;}
+    const previous=garagePhotoCache.get(id);
+    if(previous)URL.revokeObjectURL(previous);
+    garagePhotoCache.set(id,url);
+    renderGarageApp();
+  }catch(error){
+    console.warn("Garage photo read failed",error?.message||"network_error");
+  }finally{garagePhotoPending.delete(id);}
+}
+
+async function compressGaragePhoto(file){
+  if(!file || !String(file.type||"").startsWith("image/") || file.size>15*1024*1024)
+    throw new Error("invalid_image");
+  const url=URL.createObjectURL(file);
+  try{
+    const image=new Image();
+    await new Promise((resolve,reject)=>{
+      image.onload=resolve;image.onerror=()=>reject(new Error("invalid_image"));
+      image.src=url;
+    });
+    if(!image.naturalWidth || !image.naturalHeight)throw new Error("invalid_image");
+    const canvas=document.createElement("canvas");
+    canvas.width=960;canvas.height=600;
+    const context=canvas.getContext("2d");
+    if(!context)throw new Error("image_processing_unavailable");
+    const scale=Math.max(canvas.width/image.naturalWidth,canvas.height/image.naturalHeight);
+    const w=image.naturalWidth*scale,h=image.naturalHeight*scale;
+    context.drawImage(image,(canvas.width-w)/2,(canvas.height-h)/2,w,h);
+    for(const quality of [0.8,0.65,0.48]){
+      const blob=await new Promise(resolve=>canvas.toBlob(resolve,"image/jpeg",quality));
+      if(blob && blob.size<=230*1024){
+        const dataUrl=await new Promise((resolve,reject)=>{
+          const reader=new FileReader();
+          reader.onload=()=>resolve(String(reader.result||""));
+          reader.onerror=()=>reject(new Error("image_read_failed"));
+          reader.readAsDataURL(blob);
+        });
+        return {blob,base64:dataUrl.slice(dataUrl.indexOf(",")+1)};
+      }
+    }
+    throw new Error("image_too_large");
+  }finally{URL.revokeObjectURL(url);}
+}
+
+function chooseGaragePhoto(vehicleId){
+  const id=String(vehicleId||"");
+  if(!sessionUser||!garageVehicles.some(x=>String(x.id)===id))return;
+  const input=document.createElement("input");
+  input.type="file";input.accept="image/*";input.hidden=true;
+  input.addEventListener("change",async()=>{
+    const file=input.files?.[0];
+    input.remove();
+    if(!file)return;
+    try{
+      const result=await compressGaragePhoto(file);
+      await apiRequest("/api/garage/vehicles/"+encodeURIComponent(id)+"/photo",{
+        method:"PUT",body:JSON.stringify({image_base64:result.base64}),timeoutMs:25000
+      });
+      const previous=garagePhotoCache.get(id);
+      if(previous)URL.revokeObjectURL(previous);
+      garagePhotoCache.set(id,URL.createObjectURL(result.blob));
+      renderGarageApp();
+      showToast("Фото автомобиля сохранено.");
+    }catch(error){
+      console.warn("Garage photo upload failed",error?.code||error?.message);
+      showToast("Не удалось сохранить фото. Выберите изображение до 15 МБ.","warn");
+    }
+  },{once:true});
+  document.body.appendChild(input);
+  input.click();
+}
+
 function renderGarageVehicleCard(v,index){
   const vinReady=looksLikeVin(v.vin||"");
   const vehicleName=[v.brand,v.model].filter(Boolean).join(" ").trim()||"Автомобиль";
@@ -4683,8 +4778,9 @@ function renderGarageVehicleCard(v,index){
           <h3>${escapeHtml(vehicleName)}</h3>
           <p>${escapeHtml(v.year||"Год не указан")} · ${escapeHtml(v.engine||"Двигатель не указан")}</p>
         </div>
+        <button type="button" class="zf-garage-edit-icon" data-garage-edit-car="${escapeHtml(v.id)}" aria-label="Изменить данные автомобиля" title="Изменить данные">···</button>
       </div>
-      <div class="zf-garage-car-art" aria-hidden="true">${vehicleArtworkHtml(v,false)}</div>
+      <div class="zf-garage-car-art"><div class="zf-garage-photo-frame">${garagePhotoCache.get(String(v.id))?'<img class="zf-garage-own-photo" src="'+escapeHtml(garagePhotoCache.get(String(v.id)))+'" alt="Фото автомобиля клиента" loading="lazy">':vehicleIllustrationHtml(v,false)}</div><button type="button" class="zf-garage-photo-control" data-garage-photo="${escapeHtml(v.id)}" aria-label="${garagePhotoCache.get(String(v.id))?"Заменить фото автомобиля":"Добавить фото автомобиля"}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M4 7h4l2-2h4l2 2h4v12H4z"/><circle cx="12" cy="13" r="3.5"/></svg><span>${garagePhotoCache.get(String(v.id))?"Изменить фото":"Добавить фото"}</span></button></div>
       <div class="zf-garage-car-bottom">
         <span class="zf-garage-vin">${vinReady?"VIN "+escapeHtml(v.vin):"VIN не указан"}</span>
         <button type="button" class="garage-primary" data-garage-vin-search="${escapeHtml(v.id)}">Подобрать по VIN</button>
@@ -4793,6 +4889,7 @@ function renderGarageApp(){
   const root=document.getElementById("garageApp");
   if(!root) return;
   const vehicles=garageVehicles.length?garageVehicles:(garageState.vehicle?.id?[garageState.vehicle]:[]);
+  if(sessionUser)vehicles.forEach(car=>{if(!garagePhotoCache.has(String(car.id)))void loadGaragePhoto(car.id);});
   if(!vehicles.length){
     root.innerHTML=`
       <section class="garage-empty-state garage-empty-first">
@@ -4847,10 +4944,11 @@ function closeGarageVehicleEditor(options={}){
   if(!options.keepPendingSearch) pendingSmartSearchAfterVehicle=null;
 }
 
-function openGarageVehicleEditor(mode="edit"){
+function openGarageVehicleEditor(mode="edit",vehicleId=null){
   closeGarageVehicleEditor();
   const isNew=mode==="new" || !garageState.vehicle?.id;
-  const v=isNew ? structuredClone(defaultGarageState.vehicle) : garageState.vehicle;
+  const v=isNew ? structuredClone(defaultGarageState.vehicle) : (garageVehicles.find(x=>String(x.id)===String(vehicleId||garageState.vehicle?.id))||garageState.vehicle);
+  const editingVehicleId=isNew?"":String(v?.id||"");
   const esc=value=>String(value??"").replace(/&/g,"&amp;").replace(/"/g,"&quot;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
   const root=document.createElement("div");
   root.id="garageVehicleEditor";
@@ -4861,7 +4959,7 @@ function openGarageVehicleEditor(mode="edit"){
         <div><span class="eyebrow">ГАРАЖ</span><h3 id="vehicleEditorTitle">${isNew?"Добавить автомобиль":"Изменить автомобиль"}</h3></div>
         <button type="button" class="vehicle-editor-close" data-close-vehicle-editor aria-label="Закрыть">×</button>
       </div>
-      <form id="garageVehicleForm" class="vehicle-editor-form" data-vehicle-mode="${isNew?"new":"edit"}">
+      <form id="garageVehicleForm" class="vehicle-editor-form" data-vehicle-mode="${isNew?"new":"edit"}" data-vehicle-id="${esc(editingVehicleId)}">
         <label><span>Марка</span><input name="brand" value="${esc(v.brand)}" placeholder="Ford" required></label>
         <label><span>Модель</span><input name="model" value="${esc(v.model)}" placeholder="Focus" required></label>
         <label><span>Год</span><input name="year" inputmode="numeric" value="${esc(v.year)}" placeholder="2010"></label>
@@ -4934,8 +5032,9 @@ async function saveGarageVehicleForm(form){
       });
       garageActiveVehicleId=result?.vehicle?.id||null;
     }else{
-      if(!garageState.vehicle?.id) throw new Error("vehicle_not_selected");
-      result=await apiRequest("/api/garage/vehicles/"+encodeURIComponent(garageState.vehicle.id),{
+      const editId=String(form.dataset.vehicleId||"");
+      if(!editId) throw new Error("vehicle_not_selected");
+      result=await apiRequest("/api/garage/vehicles/"+encodeURIComponent(editId),{
         method:"PATCH",
         body:JSON.stringify(payload)
       });
@@ -5138,6 +5237,18 @@ document.addEventListener("click",async e=>{
   const garagePrefill=e.target.closest("[data-garage-prefill]");
   if(garagePrefill){
     prefillGarageSearch(garagePrefill.dataset.garagePrefill);
+    return;
+  }
+
+  const garagePhotoSelect=e.target.closest("[data-garage-photo]");
+  if(garagePhotoSelect){
+    chooseGaragePhoto(garagePhotoSelect.dataset.garagePhoto);
+    return;
+  }
+
+  const garageEditCar=e.target.closest("[data-garage-edit-car]");
+  if(garageEditCar){
+    openGarageVehicleEditor("edit",garageEditCar.dataset.garageEditCar);
     return;
   }
 
