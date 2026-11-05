@@ -8,7 +8,7 @@
   <title>ZapFormat — автозапчасти</title>
   <meta name="description" content="ZapFormat — поиск автозапчастей по артикулу и названию. Личный гараж, корзина и история заказов." />
   <link rel="stylesheet" href="./styles.css?v=20261104-session-persistence7" />
-  <link rel="stylesheet" href="./premium.css?v=20261105-vin-delivery1" />
+  <link rel="stylesheet" href="./premium.css?v=20261105-home-minimal1" />
 </head>
 <body class="guest-mode auth-route">
   <div class="app">
@@ -40,9 +40,6 @@
               <div class="search-panel-heading">
                 <span class="search-eyebrow"><i aria-hidden="true"></i>ПОИСК И ДОСТАВКА ЗАПЧАСТЕЙ</span>
                 <h2>Найдём вашу запчасть</h2>
-                <div class="search-modes" aria-label="Способы поиска: VIN, артикул или название">
-                  <strong>VIN</strong><span>Артикул</span><span>Название</span>
-                </div>
               </div>
               <form class="minimal-search" id="searchForm" role="search">
                 <label for="searchInput" class="visually-hidden">VIN, артикул или название запчасти</label>
@@ -52,15 +49,7 @@
                 </div>
                 <button type="submit"><span>Найти запчасти</span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="m5 12 14 0M13 6l6 6-6 6"/></svg></button>
               </form>
-              <section class="search-journey" aria-label="Как получить запчасти">
-                <div class="search-journey-title">Как это работает</div>
-                <ol class="search-journey-steps">
-                  <li><b>1</b><span>Укажите VIN или деталь</span></li>
-                  <li><b>2</b><span>Уточним цену и срок</span></li>
-                  <li><b>3</b><span>Доставим по адресу</span></li>
-                </ol>
-                <p class="search-delivery-note"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><path d="M3 6h11v11H3zM14 10h4l3 4v3h-7M7 20a2 2 0 1 0 0-4 2 2 0 0 0 0 4Zm11 0a2 2 0 1 0 0-4 2 2 0 0 0 0 4Z"/></svg><span>По Рязани · время согласуем · оплата наличными при получении</span></p>
-              </section>
+              <p class="search-delivery-inline"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M3 6h11v11H3zM14 10h4l3 4v3h-7M7 20a2 2 0 1 0 0-4 2 2 0 0 0 0 4Zm11 0a2 2 0 1 0 0-4 2 2 0 0 0 0 4Z"/></svg><span>Доставка по Рязани · по согласованному времени</span></p>
             </div>
           </div>
         </div>
@@ -571,7 +560,7 @@
 </div>
 
   <script src="./config.js?v=20261103-domain-live1"></script>
-  <script src="./app.js?v=20261105-vin-delivery1"></script>
+  <script src="./app.js?v=20261105-home-minimal1"></script>
   <script src="./admin-desk.js?v=20261030-pricing1"></script>
 </body>
 </html>

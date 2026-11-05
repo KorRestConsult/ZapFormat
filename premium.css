@@ -430,66 +430,16 @@ input,textarea,select{border-radius:12px}
   #view-home .search-panel-heading .search-eyebrow{font-size:10px!important}
 }
 
-/* VIN-first customer journey; compact enough for one-screen mobile review. */
-#view-home .search-panel-heading h2{max-width:670px;line-height:1.09!important}
-#view-home .search-modes{
-  display:flex;flex-wrap:wrap;align-items:center;gap:9px;margin:20px 0 0;
+
+/* Minimal search landing: one unobtrusive delivery promise. */
+#view-home .search-delivery-inline{
+  display:flex;align-items:center;justify-content:center;gap:9px;
+  width:100%;margin:20px 0 0!important;
+  color:#668096!important;font:650 12px/1.45 -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif!important;
 }
-#view-home .search-modes>*{
-  display:inline-flex;align-items:center;min-height:34px;
-  border:1px solid #dae5ed;border-radius:10px;padding:5px 13px;
-  background:#f8fafc;color:#567088;
-  font:750 12px/1.2 -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
-}
-#view-home .search-modes strong{
-  min-height:39px;padding:5px 17px;border-color:#ffd2ad;
-  background:#fff1e6;color:#e36c16;font-size:18px;letter-spacing:.025em;
-}
-#view-home form#searchForm{margin-top:24px!important}
-#view-home .search-journey{
-  border-top:1px solid #e3ebf1;margin-top:29px;padding-top:21px;
-}
-#view-home .search-journey-title{
-  color:#6a8194;font:800 10px/1.3 -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
-  letter-spacing:.135em;text-transform:uppercase;
-}
-#view-home .search-journey-steps{
-  margin:16px 0 0;padding:0;list-style:none;
-  display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;
-}
-#view-home .search-journey-steps li{
-  display:flex;align-items:center;gap:10px;min-width:0;
-  color:#213e57;font:700 12px/1.35 -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
-}
-#view-home .search-journey-steps b{
-  width:29px;height:29px;flex:0 0 29px;display:flex;align-items:center;justify-content:center;
-  border:1px solid #f4caa8;border-radius:50%;color:#df731e;background:#fff5ec;
-  font-size:13px;font-weight:800;
-}
-#view-home .search-delivery-note{
-  display:flex;align-items:flex-start;gap:10px;
-  margin:21px 0 0!important;padding:12px 14px;
-  border:1px solid #dce9ef;border-radius:12px;background:#f4f8fa;
-  color:#587185!important;
-  font:600 12px/1.45 -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif!important;
-}
-#view-home .search-delivery-note svg{width:19px;height:19px;flex:0 0 19px;color:#ee7b22}
+#view-home .search-delivery-inline svg{width:18px;height:18px;flex:0 0 18px;color:#f58224}
 @media(max-width:680px){
- #view-home .search-panel-heading h2{font-size:clamp(31px,8.3vw,39px)!important;margin:14px 0 0!important}
- #view-home .search-modes{margin-top:17px;gap:7px}
- #view-home .search-modes>*{padding:5px 11px;min-height:33px;font-size:11px}
- #view-home .search-modes strong{font-size:17px;min-height:37px;padding:5px 14px}
- #view-home form#searchForm{margin-top:20px!important;gap:10px!important}
- #view-home .search-journey{margin-top:22px;padding-top:16px}
- #view-home .search-journey-steps{grid-template-columns:minmax(0,1fr);gap:8px;margin-top:12px}
- #view-home .search-journey-steps li{font-size:13px;gap:11px}
- #view-home .search-journey-steps b{width:25px;height:25px;flex-basis:25px;font-size:12px}
- #view-home .search-delivery-note{margin-top:15px!important;padding:10px 11px;font-size:11px!important}
+  #view-home form#searchForm{margin-top:23px!important}
+  #view-home .search-delivery-inline{margin-top:18px!important;font-size:11px!important;text-align:center}
 }
-@media(max-width:355px){
- #view-home .search-panel-heading h2{font-size:31px!important}
- #view-home .search-modes{gap:5px}
- #view-home .search-modes>*{padding:5px 9px}
- #view-home .search-modes strong{padding:5px 11px}
- #view-home #searchInput{min-height:88px!important}
-}
+@media(max-width:355px){#view-home #searchInput{min-height:88px!important}}
