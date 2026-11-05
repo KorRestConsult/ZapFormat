@@ -27,3 +27,13 @@ test("vehicle photo routes require authentication and have a separate write rate
     assert.equal(e.args[1],requireUser);
   }
 });
+
+test("production release installs private vehicle photo storage before API starts",()=>{
+  const fs=require("node:fs");
+  const migration=fs.readFileSync(require("node:path").join(__dirname,"../db/018_vehicle_photos.sql"),"utf8");
+  const release=fs.readFileSync(require("node:path").join(__dirname,"../deploy/release-live-catalog.sh"),"utf8");
+  assert.match(migration,/CREATE TABLE IF NOT EXISTS vehicle_photos/);
+  assert.match(migration,/vehicle_id uuid PRIMARY KEY REFERENCES vehicles\(id\)/);
+  assert.match(migration,/image_data bytea NOT NULL/);
+  assert.match(release,/database_migrations[\s\S]*?db\/018_vehicle_photos\.sql[\s\S]*?service_restart/);
+});
