@@ -2195,7 +2195,7 @@ function updateVehicleContextUi(){
     if(home) home.hidden=true;
     if(homeSetup) homeSetup.hidden=false;
     if(catalog) catalog.hidden=true;
-    if(searchInput) searchInput.placeholder="Артикул или название";
+    if(searchInput) searchInput.placeholder="VIN, артикул или название";
     if(searchInput2) searchInput2.placeholder="VIN, артикул или название детали";
     if(disclaimer) disclaimer.textContent="Совместимость — по автомобилю.";
     return;
@@ -2222,7 +2222,7 @@ function updateVehicleContextUi(){
     if(name) name.textContent=label;
     if(vin) vin.textContent=shortVin(vehicle.vin);
   }
-  if(searchInput) searchInput.placeholder="Артикул или название";
+  if(searchInput) searchInput.placeholder="VIN, артикул или название";
   if(searchInput2) searchInput2.placeholder="VIN, артикул или деталь для "+label;
   if(disclaimer){
     disclaimer.textContent=vehicle.vin ? (vehicle.catalogModificationId ? "Модификация подтверждена каталогом — проверяйте применяемость конкретной позиции." : "VIN указан, но совместимость деталей ещё не подтверждена.") : "VIN не указан — совместимость проверьте перед заказом.";
