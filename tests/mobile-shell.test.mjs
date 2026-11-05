@@ -33,3 +33,12 @@ test("home mobile layout keeps search and bottom navigation",()=>{
   assert.match(html,/class="mobile-nav"/);
   assert.match(css,/body:has\(#view-home\.active\) main/);
 });
+
+test("iPhone authentication fields remain above Safari focus auto-zoom threshold",()=>{
+  assert.ok(css.includes("Safari focus auto-zoom guard"));
+  assert.ok(css.includes('#view-auth .auth-form input:not([type="checkbox"]):not([type="radio"])'));
+  assert.ok(css.includes("#view-auth .auth-form input:focus {"));
+  assert.ok(css.includes("font-size:17px!important"));
+  assert.ok(html.includes('name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"'));
+  assert.ok(!/user-scalable=no|maximum-scale=1/.test(html));
+});
