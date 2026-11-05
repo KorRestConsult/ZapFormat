@@ -8,7 +8,7 @@
   <title>ZapFormat — автозапчасти</title>
   <meta name="description" content="ZapFormat — поиск автозапчастей по артикулу и названию. Личный гараж, корзина и история заказов." />
   <link rel="stylesheet" href="./styles.css?v=20261104-session-persistence7" />
-  <link rel="stylesheet" href="./premium.css?v=20261105-mobile-shell1" />
+  <link rel="stylesheet" href="./premium.css?v=20261105-search-redesign1" />
 </head>
 <body class="guest-mode auth-route">
   <div class="app">
@@ -38,13 +38,17 @@
           <div class="minimal-hero">
             <div class="hero-search-panel">
               <div class="search-panel-heading">
-                <span>ПОИСК ЗАПЧАСТЕЙ</span>
+                <span class="search-eyebrow"><i aria-hidden="true"></i>ПОИСК ЗАПЧАСТЕЙ</span>
                 <h2>Что ищем?</h2>
+                <p>Введите артикул или название детали.</p>
               </div>
               <form class="minimal-search" id="searchForm" role="search">
                 <label for="searchInput" class="visually-hidden">Артикул или название запчасти</label>
-                <textarea id="searchInput" rows="1" autocomplete="off" enterkeyhint="search" placeholder="Например, 0986AF1111 или тормозные колодки"></textarea>
-                <button type="submit"><span>Найти</span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="m5 12 14 0M13 6l6 6-6 6"/></svg></button>
+                <div class="search-input-shell">
+                  <svg class="search-input-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><circle cx="10.8" cy="10.8" r="6.3"/><path d="m15.5 15.5 5 5"/></svg>
+                  <textarea id="searchInput" rows="1" autocomplete="off" enterkeyhint="search" placeholder="Артикул или название"></textarea>
+                </div>
+                <button type="submit"><span>Найти запчасти</span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="m5 12 14 0M13 6l6 6-6 6"/></svg></button>
               </form>
             </div>
           </div>
@@ -556,7 +560,7 @@
 </div>
 
   <script src="./config.js?v=20261103-domain-live1"></script>
-  <script src="./app.js?v=20261105-mobile-shell1"></script>
+  <script src="./app.js?v=20261105-search-redesign1"></script>
   <script src="./admin-desk.js?v=20261030-pricing1"></script>
 </body>
 </html>
