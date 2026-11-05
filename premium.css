@@ -514,3 +514,55 @@ input,textarea,select{border-radius:12px}
     font-size:17px!important;
   }
 }
+
+
+/* CUSTOM GARAGE PHOTO: customer photos or our own body-type illustration. */
+#account-garage .zf-garage-card-title-row{position:relative;padding-right:31px}
+#account-garage .zf-garage-edit-icon{
+  position:absolute;right:0;top:0;width:35px;height:35px;display:grid;place-items:center;
+  border:1px solid #dae5ee;border-radius:11px;background:#fff;color:#536a80;
+  font-size:21px;line-height:1;letter-spacing:1px;cursor:pointer;
+}
+#account-garage .zf-garage-car-art{
+  position:relative;display:block!important;min-height:140px!important;
+  max-height:none!important;padding:0!important;margin:14px 0 0!important;
+}
+#account-garage .zf-garage-photo-frame{
+  display:flex;align-items:center;justify-content:center;
+  position:relative;width:100%;height:185px;overflow:hidden;
+  background:linear-gradient(155deg,#edf4f8,#e0eaf1 70%,#f6f9fb);
+  border-radius:16px;border:1px solid #dae6ee;
+}
+#account-garage .zf-garage-photo-frame::before{
+  content:"";position:absolute;inset:0;
+  background:radial-gradient(circle at 82% 20%,rgba(255,255,255,.85),transparent 42%);
+  pointer-events:none;
+}
+#account-garage .zf-garage-photo-frame .zf-garage-own-photo{
+  position:relative;z-index:1;width:100%;height:100%;object-fit:cover;
+  display:block;
+}
+#account-garage .zf-garage-photo-frame svg{
+  display:block;position:relative;z-index:1;
+  width:100%!important;height:165px!important;max-width:330px!important;
+  object-fit:contain;filter:drop-shadow(0 10px 12px rgba(26,48,73,.11));
+}
+#account-garage .zf-garage-photo-control{
+  position:absolute;z-index:3;right:10px;bottom:10px;
+  display:inline-flex;align-items:center;gap:7px;
+  border:1px solid rgba(204,218,232,.85);border-radius:11px;
+  background:rgba(255,255,255,.96);color:#17394f;
+  min-height:36px;padding:7px 11px;
+  font:750 12px/1.15 -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+  box-shadow:0 3px 14px rgba(20,37,53,.09);cursor:pointer;
+}
+#account-garage .zf-garage-photo-control svg{
+  width:17px!important;height:17px!important;flex:0 0 17px;
+}
+#account-garage .zf-garage-car-bottom{margin-top:0!important}
+@media(max-width:680px){
+  #account-garage .zf-garage-photo-frame{height:169px}
+  #account-garage .zf-garage-photo-frame svg{height:150px!important}
+  #account-garage .zf-garage-car-art{max-height:none!important}
+  #account-garage .zf-garage-photo-control{min-height:36px}
+}
