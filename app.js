@@ -4668,81 +4668,30 @@ function maintenanceRemaining(item){
 
 function renderGarageOverview(){
   const v=garageState.vehicle;
-  const next=garageState.maintenance
-    .filter(x=>x.nextKm)
-    .sort((a,b)=>a.nextKm-b.nextKm)[0];
-
-  const measures=garageState.measurements.slice(0,4);
-  const history=garageState.history.slice(0,2);
-
-  return `
-    <div class="garage-owner-grid">
-      <section class="garage-owner-main">
-        <div class="garage-car-hero">
-          <div class="garage-car-badge${String(v.brand||"").trim().toUpperCase()==="BMW"?" zf-bmw-badge":""}">${escapeHtml((v.brand||"ZF").slice(0,5))}</div>
-          <div class="garage-car-title">
-            <span class="eyebrow">ОСНОВНОЙ АВТОМОБИЛЬ</span>
-            <h2>${escapeHtml(v.brand)} ${escapeHtml(v.model)}</h2>
-            <p>${escapeHtml(v.year||"—")} · ${escapeHtml(v.engine||"Двигатель не указан")}${v.vin?" · VIN "+escapeHtml(v.vin):""}</p>
-          </div>
-          <div class="garage-car-art">${vehicleArtworkHtml(v,false)}</div>
-          <div class="garage-car-actions">
-            <button class="garage-outline" data-garage-edit-vehicle>Изменить</button>
-            <button class="garage-primary" data-garage-search="${escapeHtml(looksLikeVin(v.vin||"") ? v.vin : [v.brand,v.model,v.engine].filter(Boolean).join(" "))}">${looksLikeVin(v.vin||"")?"Подобрать по VIN":"Найти запчасть"}</button>
-          </div>
-        </div>
-
-        <div class="garage-mileage-card">
-          <div class="garage-mileage-summary">
-            <span class="garage-mileage-icon" aria-hidden="true"><svg viewBox="0 0 48 48" width="28" height="28" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"><path d="M8 34a19 19 0 1132 0"/><path d="M24 28l9-10"/><circle cx="24" cy="28" r="3"/></svg></span>
-            <div><small>Текущий пробег</small>
-            <strong>${new Intl.NumberFormat("ru-RU").format(v.mileage||0)} км</strong></div>
-          </div>
-          <div class="garage-mileage-edit">
-            <input id="garageMileageInput" inputmode="numeric" value="${v.mileage||0}" aria-label="Пробег">
-            <button data-garage-save-mileage>Сохранить</button>
-          </div>
-        </div>
-
-        ${garageState.maintenance?.length ? `
-        <section class="garage-panel">
-          <div class="garage-panel-head">
-            <div><span class="eyebrow">БЛИЖАЙШЕЕ ТО</span><h3>${next?.title||"План обслуживания"}</h3></div>
-            <button data-garage-tab="maintenance">Все работы →</button>
-          </div>
-          ${next ? `
-            <div class="garage-next-service">
-              <div><small>Следующий рубеж</small><b>${next.nextKm ? new Intl.NumberFormat("ru-RU").format(next.nextKm)+" км" : "по состоянию"}</b></div>
-              <div><small>Осталось</small><b>${maintenanceRemaining(next)}</b></div>
-              <button class="garage-primary" data-garage-prefill="${escapeHtml(next.query||([v.brand,v.model,next.title].filter(Boolean).join(" ")))}">Найти детали</button>
-            </div>
-          ` : ""}
-        </section>` : ""}
-      </section>
-
-      <aside class="garage-owner-side">
-        <section class="garage-panel">
-          <div class="garage-panel-head"><div><span class="eyebrow">ЗАМЕРЫ</span><h3>Состояние</h3></div><button data-garage-tab="measurements">Все →</button></div>
-          <div class="garage-measure-mini">
-            ${measures.length ? measures.map(x=>`
-              <div><span>${escapeHtml(x.type)}</span><b>${escapeHtml(x.value)} ${escapeHtml(x.unit)}</b></div>
-            `).join("") : '<div class="garage-empty-mini">Пока нет данных — добавьте первые замеры.</div>'}
-          </div>
-        </section>
-
-        <section class="garage-panel">
-          <div class="garage-panel-head"><div><span class="eyebrow">ИСТОРИЯ</span><h3>Последние работы</h3></div><button data-garage-tab="history">Вся история →</button></div>
-          <div class="garage-history-mini">
-            ${history.length ? history.map(x=>`
-              <article><small>${escapeHtml(x.date)} · ${new Intl.NumberFormat("ru-RU").format(x.mileage||0)} км</small><b>${escapeHtml(x.title)}</b><span>${escapeHtml(x.note||"")}</span></article>
-            `).join("") : '<div class="garage-empty-mini">История пока пуста</div>'}
-          </div>
-        </section>
-      </aside>
-    </div>
-  `;
+  return renderGarageVehicleCard(v,0);
 }
 
+function renderGarageVehicleCard(v,index){
+  const vinReady=looksLikeVin(v.vin||"");
+  const vehicleName=[v.brand,v.model].filter(Boolean).join(" ").trim()||"Автомобиль";
+  return `
+    <article class="zf-garage-car" aria-label="${escapeHtml(vehicleName)}">
+      <div class="zf-garage-card-title-row">
+        <div class="zf-garage-brand-badge">${escapeHtml((v.brand||"ZF").slice(0,5))}</div>
+        <div class="zf-garage-car-name">
+          <span class="eyebrow">АВТОМОБИЛЬ ${index+1}</span>
+          <h3>${escapeHtml(vehicleName)}</h3>
+          <p>${escapeHtml(v.year||"Год не указан")} · ${escapeHtml(v.engine||"Двигатель не указан")}</p>
+        </div>
+      </div>
+      <div class="zf-garage-car-art" aria-hidden="true">${vehicleArtworkHtml(v,false)}</div>
+      <div class="zf-garage-car-bottom">
+        <span class="zf-garage-vin">${vinReady?"VIN "+escapeHtml(v.vin):"VIN не указан"}</span>
+        <button type="button" class="garage-primary" data-garage-vin-search="${escapeHtml(v.id)}">Подобрать по VIN</button>
+      </div>
+    </article>
+  `;
+}
 function renderGarageMaintenance(){
   const v=garageState.vehicle;
   return `
@@ -4843,24 +4792,18 @@ function renderGarageHistory(){
 function renderGarageApp(){
   const root=document.getElementById("garageApp");
   if(!root) return;
-  if(!garageState.maintenance?.length && garageTab==="maintenance") garageTab="overview";
-
-  if(!garageState.vehicle?.id){
+  const vehicles=garageVehicles.length?garageVehicles:(garageState.vehicle?.id?[garageState.vehicle]:[]);
+  if(!vehicles.length){
     root.innerHTML=`
       <section class="garage-empty-state garage-empty-first">
-        <span class="eyebrow">МОЙ АВТОМОБИЛЬ</span>
+        <span class="eyebrow">МОЙ ГАРАЖ</span>
         <div class="garage-empty-icon">+</div>
         <h3>Добавьте автомобиль</h3>
-        <p>Марка и модель помогут хранить заказы и поиск в контексте вашей машины. VIN можно указать сейчас или позже.</p>
+        <p>Сохраните автомобиль, чтобы возвращаться к подбору запчастей по VIN.</p>
         <button class="garage-primary" data-garage-add-vehicle>Добавить автомобиль</button>
-      </section>
-    `;
+      </section>`;
     return;
   }
-
-  const v=garageState.vehicle;
-  const vehicles=garageVehicles.length ? garageVehicles : [v];
-
   root.innerHTML=`
     <div class="garage-owner-head">
       <div>
@@ -4869,35 +4812,11 @@ function renderGarageApp(){
       </div>
       <button class="account-primary" data-garage-add-vehicle>+ Добавить автомобиль</button>
     </div>
-
-    ${vehicles.length>1 ? `
-    <div class="garage-vehicle-strip">
-      ${vehicles.map(car=>`
-        <button class="${String(car.id)===String(v.id)?"active":""}" data-garage-vehicle="${escapeHtml(car.id)}">
-          <span class="car-mark">${escapeHtml((car.brand||"ZF").slice(0,5))}</span>
-          <span>
-            <b>${escapeHtml(car.brand)} ${escapeHtml(car.model)}</b>
-            <small>${escapeHtml(car.year||"—")} · ${escapeHtml(car.engine||"двигатель не указан")}${car.isDefault?" · основной":""}</small>
-          </span>
-        </button>
-      `).join("")}
-    </div>` : ""}
-    <nav class="garage-tabs" aria-label="Разделы автомобиля">
-      <button class="${garageTab==="overview"?"active":""}" data-garage-tab="overview">Обзор</button>
-      ${garageState.maintenance?.length ? '<button class="'+(garageTab==="maintenance"?"active":"")+'" data-garage-tab="maintenance">ТО</button>' : ""}
-      <button class="${garageTab==="measurements"?"active":""}" data-garage-tab="measurements">Замеры</button>
-      <button class="${garageTab==="history"?"active":""}" data-garage-tab="history">История</button>
-    </nav>
-
-    <div class="garage-tab-body">
-      ${garageTab==="overview" ? renderGarageOverview() :
-        garageTab==="maintenance" ? renderGarageMaintenance() :
-        garageTab==="measurements" ? renderGarageMeasurements() :
-        renderGarageHistory()}
+    <div class="zf-garage-vehicle-list">
+      ${vehicles.map((car,index)=>renderGarageVehicleCard(car,index)).join("")}
     </div>
   `;
 }
-
 async function saveGarageVin(){
   const input=document.getElementById("garageVinInput");
   const vin=String(input?.value||"").trim().toUpperCase().replace(/[^A-HJ-NPR-Z0-9]/g,"");
@@ -5222,6 +5141,19 @@ document.addEventListener("click",async e=>{
     return;
   }
 
+  const garageVinSearch=e.target.closest("[data-garage-vin-search]");
+  if(garageVinSearch){
+    const car=[...garageVehicles,garageState.vehicle].find(x=>String(x?.id||"")===String(garageVinSearch.dataset.garageVinSearch));
+    if(!car) return;
+    if(String(car.id)!==String(garageActiveVehicleId)) await selectGarageVehicle(car.id);
+    if(!looksLikeVin(car.vin||"")){
+      showToast("Сначала укажите VIN автомобиля.","warn");
+      openGarageVehicleEditor("edit");
+    }else{
+      prefillGarageSearch(car.vin);
+    }
+    return;
+  }
   const garageSearch=e.target.closest("[data-garage-search]");
   if(garageSearch){
     prefillGarageSearch(garageSearch.dataset.garageSearch);
