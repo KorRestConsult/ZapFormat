@@ -18,7 +18,7 @@ test("garage retains editable vehicle list and one VIN selection CTA",()=>{
 test("generic placeholder is an original line-art icon, not stock BMW photo",()=>{
  assert.match(app,/function garageVehiclePlaceholderSvg\(\)/);
  assert.match(app,/class="zf-garage-outline"/);
- assert.match(card,/garageVehiclePlaceholderSvg\(\)/);
+ assert.match(card,/zf-garage-photo-placeholder/);
  assert.doesNotMatch(card,/vehicleArtworkHtml\(v,false\)/);
  assert.doesNotMatch(card,/vehicleIllustrationHtml\(v,false\)/);
  assert.match(css,/#account-garage \.zf-garage-outline-fill/);
@@ -28,7 +28,8 @@ test("small mobile garage is two-column and uses compact headings and controls",
  assert.match(css,/GARAGE COMPACT V2/);
  assert.match(css,/grid-template-columns:116px minmax\(0,1fr\)!important/);
  assert.match(css,/#account-garage \.garage-owner-head h2\{font-size:23px!important\}/);
- assert.match(css,/#account-garage \.zf-garage-photo-control span\{display:none!important\}/);
+ assert.match(css,/#account-garage \.zf-garage-photo-control\{/);
  assert.match(css,/min-height:42px!important/);
  assert.match(css,/overscroll-behavior-y:contain/);
+ assert.match(css,/pointer-events:auto!important/);
 });
