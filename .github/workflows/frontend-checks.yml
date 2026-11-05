@@ -43,6 +43,8 @@ jobs:
           node --check app.js
           node --check config.js
           node --check admin/admin.js
+          node --check backend/src/server.js
+          node --check backend/src/garage-photo-routes.js
 
       - name: Validate interface, routes and checkout guards
-        run: node --test tests/ui-contract.test.mjs tests/admin-page.test.mjs tests/domain-migration.test.mjs tests/registration-types.test.mjs
+        run: node --test tests/ui-contract.test.mjs tests/admin-page.test.mjs tests/domain-migration.test.mjs tests/registration-types.test.mjs tests/garage-clean.test.mjs tests/garage-photo-ui.test.mjs backend/test/garage-photo-routes.test.js
