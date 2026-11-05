@@ -17,7 +17,8 @@
         <a class="logo" href="#home" data-route="home">
           <span class="logo-main">ZAP</span><span class="logo-ai">FORMAT</span>
         </a>
-        <button type="button" id="sessionEntryButton" class="session-entry" data-route="auth" aria-label="Войти или зарегистрироваться">Гость · Войти</button>
+        <button type="button" id="sessionEntryButton" class="session-entry" data-route="auth" aria-label="Войти или зарегистрироваться">Войти</button>
+        <button type="button" id="authHomeButton" class="auth-home-shortcut" data-route="home" aria-label="Перейти в каталог">В каталог</button>
         <nav class="desktop-nav" aria-label="Разделы магазина">
           <button type="button" id="adminNavButton" data-route="admin" hidden>Управление</button>
         </nav>
@@ -138,7 +139,7 @@
 
           <div class="auth-card">
             <div class="auth-card-intro">
-              <span class="auth-eyebrow">ZAPFORMAT · ЛИЧНЫЙ КАБИНЕТ</span>
+              <span class="auth-eyebrow">ЛИЧНЫЙ КАБИНЕТ</span>
               <h2 id="authFormTitle">Добро пожаловать</h2>
               <p id="authFormSubtitle">Войдите, чтобы продолжить покупки и управлять заказами.</p>
             </div>
@@ -176,7 +177,6 @@
 
             <form class="auth-form" id="emailRegisterForm" data-auth-pane="register">
               <div class="auth-stage" data-email-stage="details">
-                <p class="auth-support-hint">Один аккаунт для заказов, автомобиля и истории покупок.</p>
                 <p id="emailProviderNotice" class="auth-provider-warning" role="status">Проверяем почтовую службу…</p>
                 <label><span data-customer-name-label>Имя</span><input name="name" autocomplete="given-name" enterkeyhint="next" maxlength="120" required></label>
                 <fieldset class="auth-buyer-type">
@@ -545,12 +545,6 @@
       </section>
 
     </main>
-
-    <footer class="site-footer" aria-label="ZapFormat">
-      <div class="site-footer-inner">
-        <div class="site-footer-brand"><b>ZAP<span>FORMAT</span></b></div>
-      </div>
-    </footer>
 
     <nav class="mobile-nav" aria-label="Основная навигация">
       <button type="button" data-route="home" aria-label="Поиск"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="10.8" cy="10.8" r="6.5"/><path d="m16 16 4 4"/></svg><span>Поиск</span></button>
