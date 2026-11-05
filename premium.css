@@ -717,3 +717,54 @@ input,textarea,select{border-radius:12px}
   #account-garage .zf-garage-car-name h3{font-size:16px!important}
   #account-garage .zf-garage-car-bottom .garage-primary{font-size:11px!important}
 }
+
+/* iPhone garage photo: accessible full-tile picker; no decorative car drawing. */
+#account-garage .zf-garage-car-art{
+  pointer-events:auto!important;
+  cursor:pointer;
+}
+#account-garage .zf-garage-photo-frame{
+  pointer-events:none!important;
+  position:relative!important;
+}
+#account-garage .zf-garage-photo-placeholder{
+  position:relative;z-index:1;display:flex;flex-direction:column;
+  justify-content:center;align-items:center;gap:3px;
+  text-align:center;width:100%;height:100%;
+  padding:10px 8px;color:#49647a;
+}
+#account-garage .zf-garage-photo-placeholder svg{
+  width:28px!important;height:28px!important;max-width:none!important;
+  flex:0 0 28px;stroke:#7d95a9;filter:none!important;margin-bottom:4px;
+}
+#account-garage .zf-garage-photo-placeholder strong{
+  font:800 12px/1.25 -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+  color:#344f65;white-space:nowrap;
+}
+#account-garage .zf-garage-photo-placeholder small{
+  font:600 11px/1.2 -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+  color:#8194a5;white-space:nowrap;
+}
+#account-garage .zf-garage-photo-control{
+  position:absolute!important;inset:0!important;z-index:4!important;
+  width:100%!important;height:100%!important;
+  min-height:0!important;display:block!important;
+  padding:0!important;margin:0!important;
+  border:0!important;border-radius:12px!important;
+  background:transparent!important;box-shadow:none!important;
+  pointer-events:auto!important;cursor:pointer;
+  -webkit-tap-highlight-color:transparent;touch-action:manipulation;
+}
+#account-garage .zf-garage-photo-control:focus-visible{
+  outline:3px solid #f58224!important;outline-offset:2px;
+}
+#account-garage .zf-garage-photo-action{
+  display:none!important;
+}
+#account-garage .zf-garage-car-art:has(.zf-garage-own-photo) .zf-garage-photo-action{
+  display:inline-block!important;
+  position:absolute;right:6px;bottom:6px;
+  border-radius:8px;padding:6px 8px;
+  background:rgba(255,255,255,.94);color:#244158;
+  font:750 10px/1.1 -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+}
