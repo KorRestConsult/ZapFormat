@@ -106,3 +106,11 @@ test("registration recovery distinguishes missing challenge from network timeout
   assert.match(handler,/новый звонок/i);
   assert.doesNotMatch(handler,/\/api\/auth\/register\/start/);
 });
+
+test("large analog catalogs reveal grouped alternatives in bounded batches",()=>{
+ assert.match(file,/const ANALOG_GROUP_BATCH=6/);
+ assert.match(file,/analogGroups\.slice\(0,analogVisibleGroupLimit\)/);
+ assert.match(file,/data-show-analog-groups/);
+ assert.match(file,/analogVisibleGroupLimit\+=ANALOG_GROUP_BATCH/);
+ assert.match(file,/analogGroupPageKey!==currentKey/);
+});

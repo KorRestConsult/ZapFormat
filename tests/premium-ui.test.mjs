@@ -40,3 +40,7 @@ test("normal account state and order code are preserved",()=>{
  assert.match(html,/id="account-orders"/);
  assert.match(html,/id="garageApp"/);
 });
+
+test("mobile password toggle remains vertically centered despite button transform reset",()=>{
+ assert.match(css,/#view-auth \.auth-password-toggle\{[^}]*transform:translateY\(-50%\)!important/);
+});
