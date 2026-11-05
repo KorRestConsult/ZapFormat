@@ -5020,6 +5020,8 @@ app.get("/api/account/requests/:requestId", requireUser, async (req, res, next) 
   }
 });
 
+require("./garage-photo-routes").registerGaragePhotoRoutes({ app, pool, requireUser, rateLimit });
+
 app.get("/api/garage", requireUser, async (req, res, next) => {
   try {
     const vehicles = await pool.query(
