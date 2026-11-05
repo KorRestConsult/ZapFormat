@@ -4769,7 +4769,8 @@ function chooseGaragePhoto(vehicleId){
       showToast("Фото автомобиля сохранено.");
     }catch(error){
       console.warn("Garage photo upload failed",error?.code||error?.message);
-      showToast("Не удалось сохранить фото. Выберите изображение до 15 МБ.","warn");
+      const code=String(error?.code||error?.message||"неизвестная ошибка");
+      showToast("Не удалось сохранить фото: "+(code==="invalid_image"?"неподходящий формат или размер":code==="image_too_large"?"слишком сложное изображение":code==="401"?"требуется повторный вход":code==="404"?"автомобиль не найден":code==="413"?"сервер отклонил размер":code)+".","warn");
     }
   },{once:true});
   document.body.appendChild(input);
