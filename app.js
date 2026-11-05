@@ -4742,7 +4742,7 @@ function chooseGaragePhoto(vehicleId){
   const id=String(vehicleId||"");
   if(!sessionUser||!garageVehicles.some(x=>String(x.id)===id))return;
   const input=document.createElement("input");
-  input.type="file";input.accept="image/*";input.hidden=true;
+  input.type="file";input.accept="image/*";input.style.cssText="position:fixed;left:-9999px;top:0;width:1px;height:1px;opacity:0;pointer-events:none";
   input.addEventListener("change",async()=>{
     const file=input.files?.[0];
     input.remove();
@@ -4764,6 +4764,7 @@ function chooseGaragePhoto(vehicleId){
   },{once:true});
   document.body.appendChild(input);
   input.click();
+  input.addEventListener("cancel",()=>input.remove(),{once:true});
 }
 
 function garageVehiclePlaceholderSvg(){
@@ -4796,7 +4797,7 @@ function renderGarageVehicleCard(v,index){
         </div>
         <button type="button" class="zf-garage-edit-icon" data-garage-edit-car="${escapeHtml(v.id)}" aria-label="Изменить данные автомобиля" title="Изменить данные">···</button>
       </div>
-      <div class="zf-garage-car-art"><div class="zf-garage-photo-frame">${garagePhotoCache.get(String(v.id))?'<img class="zf-garage-own-photo" src="'+escapeHtml(garagePhotoCache.get(String(v.id)))+'" alt="Фото автомобиля клиента" loading="lazy">':garageVehiclePlaceholderSvg()}</div><button type="button" class="zf-garage-photo-control" data-garage-photo="${escapeHtml(v.id)}" aria-label="${garagePhotoCache.get(String(v.id))?"Заменить фото автомобиля":"Добавить фото автомобиля"}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M4 7h4l2-2h4l2 2h4v12H4z"/><circle cx="12" cy="13" r="3.5"/></svg><span>${garagePhotoCache.get(String(v.id))?"Изменить фото":"Добавить фото"}</span></button></div>
+      <div class="zf-garage-car-art"><div class="zf-garage-photo-frame">${garagePhotoCache.get(String(v.id))?'<img class="zf-garage-own-photo" src="'+escapeHtml(garagePhotoCache.get(String(v.id)))+'" alt="Фото автомобиля клиента" loading="lazy">':'<span class="zf-garage-photo-placeholder"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.65" aria-hidden="true"><rect x="3" y="6" width="18" height="15" rx="2.5"/><circle cx="8.5" cy="11" r="1.5"/><path d="m4 18 5-5 3.5 3.5 3-3L20 18"/></svg><strong>Добавьте фото</strong><small>своего авто</small></span>'}</div><button type="button" class="zf-garage-photo-control" data-garage-photo="${escapeHtml(v.id)}" aria-label="${garagePhotoCache.get(String(v.id))?"Заменить фото автомобиля":"Добавить фото автомобиля"}"><span class="zf-garage-photo-action">${garagePhotoCache.get(String(v.id))?"Изменить фото":"Выбрать фото"}</span></button></div>
       <div class="zf-garage-car-bottom">
         <span class="zf-garage-vin">${vinReady?"VIN "+escapeHtml(v.vin):"VIN не указан"}</span>
         <button type="button" class="garage-primary" data-garage-vin-search="${escapeHtml(v.id)}">Подобрать по VIN</button>
