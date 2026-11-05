@@ -5,6 +5,9 @@ let currentFilter = "all";
 let currentSort = "price";
 let quantities = {};
 let expandedGroups = new Set();
+const ANALOG_GROUP_BATCH=6;
+let analogVisibleGroupLimit=ANALOG_GROUP_BATCH;
+let analogGroupPageKey=null;
 let cart = loadCart();
 const defaultGarageState = {
   vehicle:{
@@ -3483,10 +3486,17 @@ function renderCatalog(){
   }
 
   if(analogRoot){
+    if(analogGroupPageKey!==currentKey){
+      analogGroupPageKey=currentKey;
+      analogVisibleGroupLimit=ANALOG_GROUP_BATCH;
+    }
     const analogGroups=groupOffersByPart(analog);
+    const shown=analogGroups.slice(0,analogVisibleGroupLimit);
+    const remaining=analogGroups.length-shown.length;
     analogRoot.innerHTML=analogGroups.length
-      ? analogGroups.map((items,index)=>groupCardHtml(items,"analog-"+currentKey+"-"+index)).join("")
-      : '<div class="product-group"><div class="product-group-head"><div class="product-title"><b>Нет аналогов</b></div></div></div>';
+      ? shown.map((items,index)=>groupCardHtml(items,"analog-"+currentKey+"-"+index)).join("")+
+        (remaining>0?`<button class="show-more show-more-analogs" type="button" data-show-analog-groups>Показать ещё аналоги <span>${remaining}</span></button>`:"")
+      : `<div class="product-group"><div class="product-group-head"><div class="product-title"><b>Нет аналогов</b></div></div></div>`;
   }
 
   const analogSection=document.getElementById("analogSection");
@@ -4315,6 +4325,12 @@ document.addEventListener("click",async e=>{
     sort.classList.add("active");
     const mode=sort.dataset.sort;
     currentSort=mode;
+    renderCatalog();
+    return;
+  }
+  const moreAnalogs=e.target.closest("[data-show-analog-groups]");
+  if(moreAnalogs){
+    analogVisibleGroupLimit+=ANALOG_GROUP_BATCH;
     renderCatalog();
     return;
   }
