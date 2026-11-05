@@ -295,7 +295,7 @@ test('iPhone Safari focus cannot zoom search or forcibly restore page position',
   assert.doesNotMatch(app, /authFieldScrollAnchor|authFieldRestoreTimer|restoreIosViewportScale/);
   assert.doesNotMatch(app, /viewport\.content\s*=/);
   assert.match(html, /styles\.css\?v=20261104-session-persistence7/);
-  assert.match(html, /app\.js\?v=20261105-garage-photo1/);
+  assert.match(html, /app\.js\?v=20261105-garage-compact1/);
   assert.match(html, /viewport-fit=cover/);
   assert.doesNotMatch(html, /user-scalable=no|maximum-scale=1/);
 });
@@ -349,10 +349,10 @@ test("VIN category navigation uses delegated live click actions and breadcrumb b
 test("Garage vehicle illustration is body-aware and does not hardcode X3 for all customers",()=>{
  assert.match(app,/function vehicleBodyStyle\(vehicle=\{\}\)/);
  assert.match(app,/function vehicleIllustrationHtml\(vehicle=\{\},parts=false\)/);
- assert.match(app,/vehicleIllustrationHtml\(v,false\)/);
+ assert.match(app,/garageVehiclePlaceholderSvg\(\)/);
  assert.match(app,/vehicleArtworkHtml\(d,true\)/);
  assert.match(css,/#account-garage \.garage-tabs button.active\{[\s\S]*?color:#fff!important/);
  assert.match(css,/#view-search\.vin-catalog-mode \.vin-hotspot-list\{[\s\S]*?display:grid!important/);
  assert.match(html,/styles\.css\?v=20261104-session-persistence7/);
- assert.match(html,/app\.js\?v=20261105-garage-photo1/);
+ assert.match(html,/app\.js\?v=20261105-garage-compact1/);
 });

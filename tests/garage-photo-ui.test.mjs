@@ -7,7 +7,7 @@ const card=app.slice(app.indexOf("function renderGarageVehicleCard("),app.indexO
 
 test("private customer photos replace stock model photos inside garage only",()=>{
  assert.match(card,/garagePhotoCache\.get\(String\(v\.id\)\)/);
- assert.match(card,/vehicleIllustrationHtml\(v,false\)/);
+ assert.match(card,/garageVehiclePlaceholderSvg\(\)/);
  assert.doesNotMatch(card,/vehicleArtworkHtml\(v,false\)/);
  assert.match(card,/data-garage-photo=/);
  assert.match(css,/zf-garage-photo-frame/);

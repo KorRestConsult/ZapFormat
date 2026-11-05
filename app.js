@@ -4766,13 +4766,29 @@ function chooseGaragePhoto(vehicleId){
   input.click();
 }
 
+function garageVehiclePlaceholderSvg(){
+  return `<svg class="zf-garage-outline" viewBox="0 0 320 180" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false">
+    <path class="zf-garage-road" d="M33 149H287" stroke-linecap="round"/>
+    <path class="zf-garage-outline-fill" d="M41 116C41 107 48 100 60 98L103 90L126 61C133 53 141 51 156 51H205C221 51 229 59 237 71L252 91L278 98C290 101 297 111 297 122V131H274C271 115 258 105 242 105C225 105 212 115 209 131H111C108 115 96 105 80 105C63 105 51 115 48 131H40L41 116Z"/>
+    <path class="zf-garage-glass" d="M129 62C134 57 143 56 154 56H173V89H107L129 62Z"/>
+    <path class="zf-garage-glass" d="M179 56H203C215 56 221 62 229 74L240 89H179V56Z"/>
+    <path class="zf-garage-detail" d="M178 95V119M115 97H149M191 97H220M47 114H55M267 100L280 104M278 117H294"/>
+    <path class="zf-garage-light" d="M263 96L280 101" stroke-linecap="round"/>
+    <circle class="zf-garage-tyre" cx="80" cy="132" r="21"/>
+    <circle class="zf-garage-tyre" cx="242" cy="132" r="21"/>
+    <circle class="zf-garage-wheel" cx="80" cy="132" r="12"/>
+    <circle class="zf-garage-wheel" cx="242" cy="132" r="12"/>
+    <circle class="zf-garage-hub" cx="80" cy="132" r="3"/>
+    <circle class="zf-garage-hub" cx="242" cy="132" r="3"/>
+  </svg>`;
+}
+
 function renderGarageVehicleCard(v,index){
   const vinReady=looksLikeVin(v.vin||"");
   const vehicleName=[v.brand,v.model].filter(Boolean).join(" ").trim()||"Автомобиль";
   return `
     <article class="zf-garage-car" aria-label="${escapeHtml(vehicleName)}">
       <div class="zf-garage-card-title-row">
-        <div class="zf-garage-brand-badge">${escapeHtml((v.brand||"ZF").slice(0,5))}</div>
         <div class="zf-garage-car-name">
           <span class="eyebrow">АВТОМОБИЛЬ ${index+1}</span>
           <h3>${escapeHtml(vehicleName)}</h3>
@@ -4780,7 +4796,7 @@ function renderGarageVehicleCard(v,index){
         </div>
         <button type="button" class="zf-garage-edit-icon" data-garage-edit-car="${escapeHtml(v.id)}" aria-label="Изменить данные автомобиля" title="Изменить данные">···</button>
       </div>
-      <div class="zf-garage-car-art"><div class="zf-garage-photo-frame">${garagePhotoCache.get(String(v.id))?'<img class="zf-garage-own-photo" src="'+escapeHtml(garagePhotoCache.get(String(v.id)))+'" alt="Фото автомобиля клиента" loading="lazy">':vehicleIllustrationHtml(v,false)}</div><button type="button" class="zf-garage-photo-control" data-garage-photo="${escapeHtml(v.id)}" aria-label="${garagePhotoCache.get(String(v.id))?"Заменить фото автомобиля":"Добавить фото автомобиля"}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M4 7h4l2-2h4l2 2h4v12H4z"/><circle cx="12" cy="13" r="3.5"/></svg><span>${garagePhotoCache.get(String(v.id))?"Изменить фото":"Добавить фото"}</span></button></div>
+      <div class="zf-garage-car-art"><div class="zf-garage-photo-frame">${garagePhotoCache.get(String(v.id))?'<img class="zf-garage-own-photo" src="'+escapeHtml(garagePhotoCache.get(String(v.id)))+'" alt="Фото автомобиля клиента" loading="lazy">':garageVehiclePlaceholderSvg()}</div><button type="button" class="zf-garage-photo-control" data-garage-photo="${escapeHtml(v.id)}" aria-label="${garagePhotoCache.get(String(v.id))?"Заменить фото автомобиля":"Добавить фото автомобиля"}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M4 7h4l2-2h4l2 2h4v12H4z"/><circle cx="12" cy="13" r="3.5"/></svg><span>${garagePhotoCache.get(String(v.id))?"Изменить фото":"Добавить фото"}</span></button></div>
       <div class="zf-garage-car-bottom">
         <span class="zf-garage-vin">${vinReady?"VIN "+escapeHtml(v.vin):"VIN не указан"}</span>
         <button type="button" class="garage-primary" data-garage-vin-search="${escapeHtml(v.id)}">Подобрать по VIN</button>
@@ -4907,7 +4923,7 @@ function renderGarageApp(){
         <span class="eyebrow">ГАРАЖ</span>
         <h2>Мои автомобили</h2>
       </div>
-      <button class="account-primary" data-garage-add-vehicle>+ Добавить автомобиль</button>
+      <button class="account-primary zf-garage-add" data-garage-add-vehicle aria-label="Добавить автомобиль"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg><span>Добавить</span></button>
     </div>
     <div class="zf-garage-vehicle-list">
       ${vehicles.map((car,index)=>renderGarageVehicleCard(car,index)).join("")}
