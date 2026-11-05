@@ -18,6 +18,8 @@ test("uploads strip metadata by redrawing JPEG and use authenticated garage API"
  assert.match(app,/async function compressGaragePhoto\(file\)/);
  assert.match(app,/context\.drawImage\(image,/);
  assert.match(app,/canvas\.toBlob\(resolve,"image\/jpeg",quality\)/);
+ assert.match(app,/canvas\.width=640;canvas\.height=400/);
+ assert.match(app,/image_too_large/);
  assert.match(app,/method:"PUT",body:JSON\.stringify\(\{image_base64:result\.base64\}\)/);
  assert.match(app,/headers:authToken\?\{"Authorization":"Bearer "\+authToken\}:\{\}/);
 });
