@@ -1485,7 +1485,7 @@ app.post("/api/print-agent/jobs/:jobId/fail", async (req, res, next) => {
 
 const customerTelegram = installCustomerTelegram({app,pool,requireUser,rateLimit,telegramCall});
 app.use("/api/admin", requireDatabase, requireUser, requireAdmin);
-installStaffRoutes({ app, pool, requireDatabase, requireUser });
+installStaffRoutes({ app, pool, requireDatabase, requireUser, addUserNotification });
 app.post("/api/admin/print-agent/pairing", async (req, res, next) => {
   if (req.user?.role !== "owner") return res.status(403).json({ error: "forbidden" });
   try {
