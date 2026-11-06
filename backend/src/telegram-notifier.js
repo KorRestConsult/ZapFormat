@@ -422,6 +422,7 @@ module.exports = {
   pairingCode,
   getMe,
   getMeForToken,
+  telegramCall,
   discoverPairedChat,
   sendOwnerMessage,
   telegramDocument,
