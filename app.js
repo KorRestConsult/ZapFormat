@@ -2423,6 +2423,7 @@ function vinCatalogHeroHtml(){
   const hasSavedCar=garageVehicles.some(car=>normalizeVin(car.vin||"")===normalizeVin(vinCatalogState?.vin||""));
   return `
     <section class="vin-quick-sections" aria-label="Быстрый выбор системы автомобиля">
+      <div class="vin-quick-title">Популярные разделы</div>
       <div class="vin-hotspot-list">${hotspots.map(callout).join("")}</div>
       ${!vinCatalogState?.savedVehicleId&&!hasSavedCar?'<button class="vin-save-compact" type="button" data-save-vin-vehicle>Сохранить автомобиль</button>':""}
     </section>`;
@@ -2543,14 +2544,17 @@ function renderVinCatalogBrowser(data,nodeId=0){
   if(current)updateVinResultPhoto();
   root.innerHTML=`
     <div class="vin-catalog-browser">
-      ${current?"":vinCatalogHeroHtml()}
-      <section class="vin-catalog-panel">
-        <label class="vin-search-label" for="vinCatalogNodeSearch">Найти деталь в каталоге</label>
+      <section class="vin-primary-find" aria-label="Поиск запчасти по разделам автомобиля">
+        <label class="vin-search-label" for="vinCatalogNodeSearch">Какую деталь ищем?</label>
         <div class="vin-catalog-search-wrap">
           <span aria-hidden="true">⌕</span>
           <input id="vinCatalogNodeSearch" type="search" autocomplete="off" placeholder="Например, рулевой наконечник" aria-controls="vinCatalogSearchResults">
         </div>
         <div id="vinCatalogSearchResults" class="vin-catalog-search-results" aria-live="polite" hidden></div>
+        ${current?"":'<div class="vin-or-pick">или выберите раздел вручную</div>'}
+      </section>
+      ${current?"":vinCatalogHeroHtml()}
+      <section class="vin-catalog-panel">
         <div class="vin-catalog-panel-head">
           <div>
             <span class="eyebrow">КАТАЛОГ АВТОМОБИЛЯ</span>
@@ -2609,7 +2613,7 @@ async function loadVinNodeParts(node){
       groups.get(key).items.push(item);
     }
     const html=items.length?'<div class="vin-group-list">'+
-      '<p class="vin-group-intro">'+groups.size+' наименований · '+items.length+' отдельных артикулов. Выберите номер для проверки цены и наличия.</p>'+
+      '<p class="vin-group-intro">'+groups.size+' наименований · '+items.length+' отдельных OEM-артикулов. Выберите номер: ниже откроются предложения и аналоги PartGrade с ценами и сроками.</p>'+
       [...groups.values()].map(group=>`
         <details class="vin-part-group" ${groups.size===1&&group.items.length===1?"open":""}>
           <summary>
@@ -2625,6 +2629,7 @@ async function loadVinNodeParts(node){
                   ${item.image_url?'<img loading="lazy" src="'+escapeHtml(API_BASE+item.image_url)+'" alt="" onerror="this.remove()">':""}
                 </span>
                 <div class="vin-part-row-copy">
+                  <span class="vin-oem-caption">OEM-номер по каталогу</span>
                   <b>${escapeHtml(item.article||"—")}</b>
                   <small>${escapeHtml(item.brand||"OEM")}</small>
                   ${item.fit?'<span class="vin-fit-note">'+escapeHtml(String(item.fit))+'</span>':""}
@@ -2633,7 +2638,7 @@ async function loadVinNodeParts(node){
                   data-verified-article="${escapeHtml(item.article_normalized||item.article||"")}"
                   data-verified-brand="${escapeHtml(item.brand||"")}"
                   data-verified-description="${escapeHtml(item.description||node.name||"")}">
-                  Цены и наличие
+                  Цены и аналоги
                 </button>
               </article>`).join("")}
           </div>
@@ -3153,6 +3158,8 @@ async function loadLiveOffers(article,brand,description="",options={}){
     datasets[key]={
       title:(maker+" "+number).trim(),
       subtitle:description||(exact[0]?.name||analogs[0]?.name)||"Результат поиска",
+      // An OEM catalog reference is NOT proof that supplier offers are genuine OEM.
+      vinOemReference:options.fromVinCatalog?{brand:maker,article:number,vin:options.vin||"",description}:null,
       exact,
       analogs
     };
@@ -3529,9 +3536,17 @@ function renderCatalog(){
   const analogRoot=document.getElementById("analogResults");
 
   if(exactRoot){
-    exactRoot.innerHTML=exact.length
+    const ref=currentKey?datasets[currentKey]?.vinOemReference:null;
+    const referenceHtml=ref?'<section class="vin-oem-offer-reference" aria-label="Исходный OEM-номер">'+
+      '<span class="eyebrow">ИСХОДНЫЙ НОМЕР ИЗ VIN-КАТАЛОГА</span>'+
+      '<strong>'+escapeHtml(ref.brand||"")+" · "+escapeHtml(ref.article||"")+'</strong>'+
+      (ref.description?'<small>'+escapeHtml(ref.description)+'</small>':"")+
+      '<p>Сначала — предложения по точному номеру. Ниже — аналоги PartGrade. Совпадение номера само по себе не подтверждает оригинальность поставляемой детали; проверяйте бренд и применяемость.</p>'+
+      '<button type="button" data-back-vin-catalog>← К разделу автомобиля</button>'+
+      '</section>':"";
+    exactRoot.innerHTML=referenceHtml+(exact.length
       ? groupCardHtml(exact,"exact-"+currentKey)
-      : '<div class="product-group"><div class="product-group-head"><div class="product-title"><b>Нет точных предложений</b><small>Ниже могут быть доступны аналоги.</small></div></div></div>';
+      : '<div class="product-group"><div class="product-group-head"><div class="product-title"><b>Нет точных предложений</b><small>Ниже могут быть доступны аналоги.</small></div></div></div>');
   }
 
   if(analogRoot){
@@ -4269,12 +4284,24 @@ document.addEventListener("click",async e=>{
     return;
   }
 
+  const backToVin=e.target.closest("[data-back-vin-catalog]");
+  if(backToVin && vinCatalogState){
+    const d=vinCatalogState.decoded||{};
+    const brand=d.brand_name||d.manufacturer||"";
+    const name=d.model_name||"";
+    const vin=vinCatalogState.vin||"";
+    setSearchHead([brand,name].filter(Boolean).join(" ")||vin,"VIN "+vin,vin);
+    renderVinCatalogBrowser(null,Number(vinCatalogState.activeNodeId||0));
+    return;
+  }
+
   const verifiedArticle=e.target.closest("[data-verified-article]");
   if(verifiedArticle){
     await loadLiveOffers(
       verifiedArticle.dataset.verifiedArticle,
       verifiedArticle.dataset.verifiedBrand,
-      verifiedArticle.dataset.verifiedDescription||""
+      verifiedArticle.dataset.verifiedDescription||"",
+      {fromVinCatalog:Boolean(vinCatalogState?.modification?.id),vin:vinCatalogState?.vin||""}
     );
     return;
   }
