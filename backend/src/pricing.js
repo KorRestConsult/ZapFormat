@@ -7,7 +7,7 @@ const PRICE_TIERS = Object.freeze([
   { id: "premium", min: 10000, max: null }
 ]);
 const ROUNDINGS = new Set([0.01, 1, 10, 50, 100]);
-let activePolicy = null;
+let activePolicies = null;
 
 function asMoney(value) {
   if (value === null || value === undefined || typeof value === "boolean") return null;
@@ -49,19 +49,44 @@ function validatePricingPolicy(input) {
   return { tiers, min_markup_rub: asMoney(input.min_markup_rub), round_to: input.round_to };
 }
 
+// Legacy pricing JSON had one flat profile. Keep it as the retail profile and
+// copy it to service on migration; this changes no prices until the owner saves.
+function validatePricingPolicies(input) {
+  if (!input || typeof input !== "object" || Array.isArray(input)) throw new Error("invalid_pricing_policies");
+  if (Array.isArray(input.tiers)) {
+    const flat = validatePricingPolicy(input);
+    return { individual: flat, service: structuredClone(flat) };
+  }
+  return {
+    individual: validatePricingPolicy(input.individual),
+    service: validatePricingPolicy(input.service)
+  };
+}
+function setPricingPolicies(policies) {
+  activePolicies = policies === null ? null : validatePricingPolicies(policies);
+  return getPricingPolicies();
+}
+function getPricingPolicy(customerType = "individual") {
+  const segment = customerType === "service" ? "service" : "individual";
+  return activePolicies ? structuredClone(activePolicies[segment]) : defaultPolicy();
+}
+function getPricingPolicies() {
+  return {
+    individual: getPricingPolicy("individual"),
+    service: getPricingPolicy("service")
+  };
+}
+// Preserve the original single-policy API used by existing integration tests.
 function setPricingPolicy(policy) {
-  activePolicy = policy === null ? null : validatePricingPolicy(policy);
+  setPricingPolicies(policy);
   return getPricingPolicy();
 }
-function getPricingPolicy() {
-  return activePolicy ? structuredClone(activePolicy) : defaultPolicy();
-}
 
-function customerPrice(procurementPrice, env = process.env) {
+function customerPrice(procurementPrice, env = process.env, customerType = "individual") {
   const procurement = asMoney(procurementPrice);
   if (procurement === null) return null;
   // Explicit env injection in legacy tests preserves the original flat-rate behavior.
-  const policy = env === process.env ? getPricingPolicy() : defaultPolicy(env);
+  const policy = env === process.env ? getPricingPolicy(customerType) : defaultPolicy(env);
   const rateIndex = PRICE_TIERS.findIndex(t => t.max === null || procurement < t.max);
   const percent = policy.tiers[Math.max(0, rateIndex)].percent;
   const costKopecks = Math.round(procurement * 100);
@@ -78,6 +103,9 @@ module.exports = {
   PRICE_TIERS,
   defaultPolicy,
   validatePricingPolicy,
+  validatePricingPolicies,
   setPricingPolicy,
-  getPricingPolicy
+  setPricingPolicies,
+  getPricingPolicy,
+  getPricingPolicies
 };
