@@ -376,3 +376,19 @@ test('OEM duplicates are grouped by description, not by part number', () => {
   assert.match(app, /await loadLiveOffers\(/);
   assert.match(app, /"\/api\/catalog\/vin-node\?modification_id="/);
 });
+
+test('VIN find input precedes the six actual system shortcuts on mobile', () => {
+  const browser = app.slice(app.indexOf('function renderVinCatalogBrowser('),app.indexOf('async function loadVinNodeParts('));
+  assert.ok(browser.indexOf('class="vin-primary-find"') > -1, 'search panel missing');
+  assert.ok(browser.indexOf('vin-primary-find') < browser.indexOf('vinCatalogHeroHtml()'), 'search must precede shortcuts');
+  assert.match(app, /class="vin-quick-title">Популярные разделы/);
+  assert.match(browser, /Все системы автомобиля/);
+});
+test('OEM reference never claims supplier authenticity and routes to live offers', () => {
+  assert.match(app, /OEM-номер по каталогу/);
+  assert.match(app, /vinOemReference:options\.fromVinCatalog/);
+  assert.match(app, /Совпадение номера само по себе не подтверждает оригинальность/);
+  assert.match(app, /data-back-vin-catalog/);
+  assert.match(app, /Цены и аналоги/);
+  assert.match(app, /\/api\/catalog\/offers\?number=/);
+});
