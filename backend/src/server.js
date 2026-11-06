@@ -1916,6 +1916,82 @@ app.get("/api/admin/overview", async (_req, res, next) => {
   }
 });
 
+// Owner's compact operational dashboard. All calendar boundaries are Ryazan
+// time (Europe/Moscow), and TEST orders never enter business totals.
+// Cash collection and supplier pickup scheduling are not yet recorded in the
+// database: expose null, not a fabricated zero or booked orders as revenue.
+app.get("/api/admin/dashboard", async (_req, res, next) => {
+  try {
+    const [orders, requests, deliveries, trend] = await Promise.all([
+      pool.query(`
+        SELECT
+          count(*) FILTER (WHERE status = 'new')::int AS new_orders,
+          count(*) FILTER (WHERE status IN ('new','received','confirmed','processing','ready'))::int AS active_orders,
+          count(*) FILTER (
+            WHERE status <> 'cancelled'
+              AND (created_at AT TIME ZONE 'Europe/Moscow')::date = (now() AT TIME ZONE 'Europe/Moscow')::date
+          )::int AS orders_today,
+          coalesce(sum(total_amount) FILTER (
+            WHERE status <> 'cancelled'
+              AND (created_at AT TIME ZONE 'Europe/Moscow')::date = (now() AT TIME ZONE 'Europe/Moscow')::date
+          ),0)::numeric(14,2) AS booked_today
+        FROM orders WHERE coalesce(is_test,false) = false
+      `),
+      pool.query(`
+        SELECT count(*) FILTER (WHERE status NOT IN ('completed','cancelled'))::int AS active_requests
+        FROM quote_requests
+      `),
+      pool.query(`
+        SELECT count(*)::int AS in_work
+        FROM courier_assignments ca
+        JOIN orders o ON o.id = ca.order_id
+        WHERE ca.status IN ('assigned','accepted','picked_up','problem')
+          AND o.status <> 'cancelled'
+          AND coalesce(o.is_test,false) = false
+      `),
+      pool.query(`
+        WITH days AS (
+          SELECT ((now() AT TIME ZONE 'Europe/Moscow')::date - i.offset_days)::date AS day
+          FROM generate_series(6,0,-1) AS i(offset_days)
+        ), daily AS (
+          SELECT (created_at AT TIME ZONE 'Europe/Moscow')::date AS day,
+                 count(*)::int AS orders,
+                 coalesce(sum(total_amount),0)::numeric(14,2) AS booked_amount
+          FROM orders
+          WHERE coalesce(is_test,false) = false
+            AND status <> 'cancelled'
+            AND (created_at AT TIME ZONE 'Europe/Moscow')::date >= (now() AT TIME ZONE 'Europe/Moscow')::date - 6
+          GROUP BY 1
+        )
+        SELECT days.day::text AS day,
+               to_char(days.day,'DD.MM') AS label,
+               coalesce(daily.orders,0)::int AS orders,
+               coalesce(daily.booked_amount,0)::numeric(14,2) AS booked_amount
+        FROM days LEFT JOIN daily ON daily.day = days.day
+        ORDER BY days.day
+      `)
+    ]);
+    res.set("Cache-Control", "no-store");
+    res.json({
+      timezone: "Europe/Moscow",
+      new_orders: orders.rows[0].new_orders,
+      active_orders: orders.rows[0].active_orders,
+      orders_today: orders.rows[0].orders_today,
+      booked_today: Number(orders.rows[0].booked_today),
+      active_requests: requests.rows[0].active_requests,
+      deliveries_in_work: deliveries.rows[0].in_work,
+      cash_received_today: null,
+      pickup_scheduled_today: null,
+      cash_tracking: "not_recorded",
+      pickup_tracking: "not_scheduled",
+      trend: trend.rows.map(row => ({
+        day: row.day, label: row.label, orders: row.orders,
+        booked_amount: Number(row.booked_amount)
+      }))
+    });
+  } catch (error) { next(error); }
+});
+
 // Limited, read-only order queue; no procurement or supplier credentials leak.
 app.get("/api/admin/orders", async (req, res, next) => {
   try {
