@@ -144,22 +144,30 @@ function positionKey(brand, article) {
 }
 
 function internalItemStatusFromSupply(statusCode, statusName) {
-  const value = String(statusCode || statusName || "")
+  // Supplier progress describes procurement, not the customer's handoff.
+  // An order "issued" by PartGrade still needs owner receipt and local courier
+  // delivery; only an owner action can make a customer item ready/completed.
+  const value = [statusCode, statusName].filter(value => value !== null && value !== undefined)
+    .join(" ")
     .trim()
     .toLowerCase()
     .replace(/[\s_-]+/g, "");
 
-  if (!value) return "processing";
-  if (/cancel|canceled|cancelled|reject|отмен|аннулир|supordercanceled/.test(value)) {
+  if (/cancel|canceled|cancelled|reject|refus|отмен|аннулир|отказ|отклон|supordercanceled/.test(value)) {
     return "cancelled";
   }
-  if (/finished|complete|completed|delivered|issued|выдан|заверш/.test(value)) {
-    return "completed";
-  }
-  if (/ready|готов|pickupready|availableforpickup/.test(value)) {
-    return "ready";
-  }
   return "processing";
+}
+
+/** Supplier refusal demands owner follow-up; it never by itself cancels a
+ * customer order, which may be fulfilled from another approved supplier. */
+function aggregateOrderStatusFromSupplierItems(statuses, currentStatus = "") {
+  const current = String(currentStatus || "").trim().toLowerCase();
+  // Customer-ready and customer-completed are staff actions and must be sticky
+  // across later supplier synchronizations.
+  if (["ready", "completed", "cancelled"].includes(current)) return current;
+  const next = aggregateOrderStatusFromItems(statuses, current);
+  return next === "cancelled" && current !== "cancelled" ? "processing" : next;
 }
 
 function aggregateOrderStatusFromItems(statuses, currentStatus = "") {
@@ -191,5 +199,6 @@ module.exports = {
   supplierPositionStatusCode,
   positionKey,
   internalItemStatusFromSupply,
-  aggregateOrderStatusFromItems
+  aggregateOrderStatusFromItems,
+  aggregateOrderStatusFromSupplierItems
 };

@@ -410,3 +410,16 @@ test('VIN empty node offers truthful provider fallback, alternatives and a way t
   assert.match(app, /catalogKind:verifiedArticle\.dataset\.verifiedKind/);
   assert.match(app, /НЕОРИГИНАЛЬНЫЙ АРТИКУЛ ИЗ КАТАЛОГА FAPI/);
 });
+
+test('Supplier status cannot claim a part was handed to the end customer', () => {
+  const supplier = readFileSync(resolve(root, 'backend/src/supplier-orders.js'), 'utf8');
+  const server = readFileSync(resolve(root, 'backend/src/server.js'), 'utf8');
+  assert.match(supplier, /function aggregateOrderStatusFromSupplierItems/);
+  assert.match(supplier, /return next === "cancelled" && current !== "cancelled" \? "processing" : next/);
+  assert.match(supplier, /отказ/);
+  assert.doesNotMatch(
+    supplier.slice(supplier.indexOf('function internalItemStatusFromSupply'),supplier.indexOf('function aggregateOrderStatusFromSupplierItems')),
+    /return "completed"|return "ready"/
+  );
+  assert.match(server, /aggregateOrderStatusFromSupplierItems\(/);
+});

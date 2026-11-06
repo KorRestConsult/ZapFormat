@@ -56,7 +56,7 @@ const {
   supplierPositionStatusCode,
   positionKey,
   internalItemStatusFromSupply,
-  aggregateOrderStatusFromItems
+  aggregateOrderStatusFromSupplierItems
 } = require("./supplier-orders");
 
 const app = express();
@@ -879,7 +879,10 @@ async function saveSupplierOrderSnapshots(orderId, snapshots) {
       "SELECT status FROM order_items WHERE order_id = $1 ORDER BY created_at ASC",
       [orderId]
     );
-    const nextOrderStatus = aggregateOrderStatusFromItems(
+    // PartGrade "Выдано" means issued by the supplier, not delivered
+    // to the end customer. Supplier refusal also needs owner review before
+    // the customer's entire ZapFormat order can be cancelled.
+    const nextOrderStatus = aggregateOrderStatusFromSupplierItems(
       finalItemRows.rows.map((row) => row.status),
       orderMeta?.status
     );
