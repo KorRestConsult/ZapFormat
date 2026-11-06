@@ -27,7 +27,8 @@ const { probeResendDelivery } = require("./resend-mail");
 const { verifyGitHubActionsToken } = require("./github-oidc");
 const { interpretSearch, fallbackIntent, researchPartCandidates, normalizeVehicle } = require("./ai-search");
 const { publicBootstrapJwk, installEncryptedOpenAIKey, installTimewebAIToken, installSmsRuToken, installFapiToken, installTelegramConfig, installGmailSMTP, saveResendConfig } = require("./secret-bootstrap");
-const { configured: telegramConfigured, connected: telegramConnected, pairingCode: telegramPairingCode, getMe: telegramGetMe, getMeForToken: telegramGetMeForToken, discoverPairedChat, sendOwnerMessage, notifyOwnerOrderCreated } = require("./telegram-notifier");
+const { configured: telegramConfigured, connected: telegramConnected, pairingCode: telegramPairingCode, getMe: telegramGetMe, getMeForToken: telegramGetMeForToken, telegramCall, discoverPairedChat, sendOwnerMessage, notifyOwnerOrderCreated } = require("./telegram-notifier");
+const { installCustomerTelegram } = require("./customer-telegram");
 const {
   SmsDeliveryError,
   createOtpCode,
@@ -1180,6 +1181,16 @@ async function addUserNotification(db, userId, setting, type, title, body = null
      RETURNING id`,
     [userId, String(type || "info").slice(0, 80), String(title).slice(0, 200), body ? String(body).slice(0, 1000) : null]
   );
+  if(result.rowCount){
+    // Same DB transaction as the notification: Telegram may only report a
+    // committed event and only to a customer who explicitly linked the bot.
+    await db.query(
+      "INSERT INTO customer_telegram_deliveries(notification_id,user_id) "+
+      "SELECT $1,$2 WHERE EXISTS (SELECT 1 FROM customer_telegram_links WHERE user_id=$2 AND enabled=true) "+
+      "ON CONFLICT (notification_id) DO NOTHING",
+      [result.rows[0].id,userId]
+    );
+  }
   return result.rowCount > 0;
 }
 
@@ -1472,6 +1483,7 @@ app.post("/api/print-agent/jobs/:jobId/fail", async (req, res, next) => {
   } catch (error) { next(error); }
 });
 
+const customerTelegram = installCustomerTelegram({app,pool,requireUser,rateLimit,telegramCall});
 app.use("/api/admin", requireDatabase, requireUser, requireAdmin);
 installStaffRoutes({ app, pool, requireDatabase, requireUser });
 app.post("/api/admin/print-agent/pairing", async (req, res, next) => {
@@ -6329,6 +6341,8 @@ async function start() {
   app.listen(PORT, HOST, () => {
     console.log(`ZAPFORMAT API listening on http://${HOST}:${PORT}`);
   });
+
+  customerTelegram.start();
 
   const supplySyncTimer = setInterval(() => {
     syncSupplierOrders().catch((error) => {
