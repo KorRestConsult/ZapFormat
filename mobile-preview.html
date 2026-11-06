@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex,nofollow">
+  <meta name="theme-color" content="#edf2f7">
+  <title>ZapFormat — мобильный предпросмотр</title>
+  <style>
+    :root { color-scheme: light; font-family: -apple-system,BlinkMacSystemFont,"Segoe UI",Arial,sans-serif; background: #edf2f7; color: #192f45; }
+    * { box-sizing: border-box; }
+    body { margin: 0; height: 100dvh; overflow: hidden; }
+    .workspace { width: 100%; height: 100%; display: flex; flex-direction: column; align-items: center; gap: 10px; padding: 12px 14px 14px; }
+    .toolbar { width: min(100%, 590px); flex: none; display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
+    .title { font-size: 14px; font-weight: 750; letter-spacing: -.02em; }
+    .subtitle { color: #698096; font-size: 11px; margin-top: 3px; }
+    .actions { display: flex; gap: 8px; align-items: center; }
+    button, a.button { font: 650 12px/1.2 inherit; font-size: 12px; font-weight: 650; display: inline-flex; align-items: center; justify-content: center; padding: 9px 13px; border: 1px solid #bfcedd; border-radius: 9px; background: #fff; color: #17334c; text-decoration: none; cursor: pointer; min-height: 35px; }
+    button:hover, a.button:hover { background: #f9fbfd; }
+    button:focus-visible, a.button:focus-visible { outline: 3px solid #f18a34; outline-offset: 2px; }
+    .device { width: min(390px, 100%); height: min(844px, 100%); max-height: 100%; min-height: 0; flex: 1 1 auto; border: 6px solid #213348; border-radius: 24px; background: #fff; overflow: hidden; box-shadow: 0 12px 40px #1a35452b; position: relative; }
+    iframe { display: block; width: 100%; height: 100%; border: none; background: white; }
+    .hint { flex: none; font-size: 11px; line-height: 1.2; color: #708398; text-align: center; }
+    @media (max-width: 600px) {
+      .workspace { padding: 8px 5px; gap: 7px; }
+      .toolbar { padding: 0 7px; }
+      .subtitle, .hint { display: none; }
+      .device { border-width: 3px; border-radius: 15px; }
+    }
+  </style>
+</head>
+<body>
+  <main class="workspace">
+    <header class="toolbar">
+      <div><div class="title">ZapFormat · Мобильная версия</div><div class="subtitle">Постоянный предпросмотр · 390 px · гараж</div></div>
+      <nav class="actions" aria-label="Управление предпросмотром">
+        <button id="reload" type="button">Обновить сайт</button>
+        <a class="button" href="/?view=garage">Обычный сайт</a>
+      </nav>
+    </header>
+    <div class="device" aria-label="Мобильный экран">
+      <iframe id="phone" title="Мобильная версия ZapFormat" src="/?view=garage&amp;preview=mobile&amp;v=20261106-photo-label4" loading="eager"></iframe>
+    </div>
+    <div class="hint">Обновление вкладки Chrome не выключает мобильный режим. Сайт внутри экрана интерактивный.</div>
+  </main>
+  <script>
+    document.getElementById("reload").addEventListener("click", function () {
+      const frame = document.getElementById("phone");
+      try { frame.contentWindow.location.reload(); }
+      catch (_) { frame.src = frame.src; }
+    });
+  </script>
+</body>
+</html>
