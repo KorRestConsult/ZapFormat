@@ -123,6 +123,80 @@
     }catch(error){$("authError").textContent=error.status===401?"Неверный логин или пароль.":error.status===429?"Слишком много попыток. Повторите позже.":"Не удалось войти. Проверьте связь с сервером.";}
     finally{button.disabled=false;$("password").value="";}
   }
+  let recoveryChallengeId="";
+  function recoveryStage(stage){
+    const active=stage!=="login";
+    $("loginForm").hidden=active;
+    $("courierRegisterToggle").hidden=active;
+    $("adminForgotPasswordToggle").hidden=active;
+    $("adminRecoveryStartForm").hidden=stage!=="start";
+    $("adminRecoveryVerifyForm").hidden=stage!=="verify";
+    $("adminRecoveryCancel").hidden=!active;
+    $("authTitle").textContent=active?"Восстановление доступа":"Вход";
+    $("authError").textContent="";
+    if(!active)recoveryChallengeId="";
+  }
+  async function startAdminRecovery(event){
+    event.preventDefault();
+    const button=$("adminRecoveryStartButton");
+    if(button.disabled)return;
+    button.disabled=true;$("authError").textContent="";
+    try{
+      const identity=$("adminRecoveryIdentity").value.trim();
+      if(!identity)return;
+      const result=await request("/api/auth/password-reset/start",{
+        method:"POST",body:{identity,account_scope:"admin"},token:""
+      });
+      recoveryChallengeId=String(result.challenge_id||"");
+      if(!recoveryChallengeId)throw new Error("challenge_missing");
+      $("adminRecoveryHelp").textContent=result.masked_phone
+        ?"Код придёт на номер "+result.masked_phone+". Если поступит звонок, введите последние 4 цифры номера звонящего."
+        :"Если административная учётная запись существует и к ней привязан телефон, на него поступит код подтверждения.";
+      recoveryStage("verify");
+    }catch(error){
+      $("authError").textContent=error.status===429?"Слишком много попыток. Повторите позже."
+        :error.status===503?"Служба подтверждения временно недоступна."
+        :"Не удалось начать восстановление. Проверьте связь и попробуйте снова.";
+    }finally{button.disabled=false;}
+  }
+  async function verifyAdminRecovery(event){
+    event.preventDefault();
+    const button=$("adminRecoveryVerifyButton");
+    if(button.disabled||!recoveryChallengeId)return;
+    const code=$("adminRecoveryCode").value.trim();
+    const password=$("adminRecoveryPassword").value;
+    const confirmation=$("adminRecoveryPasswordConfirmation").value;
+    if(password.length<12||password!==confirmation){
+      $("authError").textContent=password.length<12?"Пароль должен содержать не менее 12 символов.":"Пароли не совпадают.";
+      return;
+    }
+    button.disabled=true;$("authError").textContent="";
+    try{
+      const data=await request("/api/auth/password-reset/verify",{
+        method:"POST",body:{challenge_id:recoveryChallengeId,code,password,
+          password_confirmation:confirmation,account_scope:"admin"},token:""
+      });
+      $("adminRecoveryPassword").value="";
+      $("adminRecoveryPasswordConfirmation").value="";
+      $("adminRecoveryCode").value="";
+      if(!authorized(data.user)||!data.access_token){
+        recoveryStage("login");
+        $("authError").textContent="Эта учётная запись не имеет прав на админку.";
+        return;
+      }
+      setToken(data.access_token);
+      const verified=await request("/api/auth/me");
+      if(!authorized(verified.user)){loggedOut("Доступ к админке не подтверждён сервером.");return;}
+      recoveryStage("login");
+      loggedIn(verified.user);
+    }catch(error){
+      $("authError").textContent=error.status===429?"Слишком много попыток. Повторите позже."
+        :["verification_code_invalid","verification_expired"].includes(error.message)
+          ?"Неверный или просроченный код подтверждения."
+          :error.status===400?"Проверьте код и новый пароль."
+          :"Не удалось восстановить доступ. Проверьте соединение с сервером.";
+    }finally{button.disabled=false;}
+  }
   async function logout(){
     const token=state.token;loggedOut();
     if(token)await request("/api/auth/logout",{method:"POST",token}).catch(()=>{});
@@ -639,6 +713,13 @@
     $("page").querySelectorAll("[data-open]").forEach(b=>b.addEventListener("click",()=>openPage(b.dataset.open)));
   }
   $("loginForm").addEventListener("submit",signIn);
+  $("adminForgotPasswordToggle").addEventListener("click",()=>{
+    $("adminRecoveryIdentity").value=$("login").value.trim();
+    recoveryStage("start");
+  });
+  $("adminRecoveryCancel").addEventListener("click",()=>recoveryStage("login"));
+  $("adminRecoveryStartForm").addEventListener("submit",startAdminRecovery);
+  $("adminRecoveryVerifyForm").addEventListener("submit",verifyAdminRecovery);
   $("reconnectButton").addEventListener("click",()=>restoreSession());
   $("changeAccountButton").addEventListener("click",()=>logout());
   window.addEventListener("online",()=>{if(state.token&&!state.user)restoreSession();});
