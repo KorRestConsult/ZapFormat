@@ -18,7 +18,7 @@ const { FapiError, createFapiClient } = require("./fapi");
 const { selectFapiNodes, selectFapiModification, uniqueOemRows, catalogNodePartRows } = require("./fapi-fitment");
 const { createOfferTokenCodec } = require("./offer-token");
 const { createOrderInvoicePdf } = require("./invoice-pdf");
-const { customerPrice, getPricingPolicy, setPricingPolicy, validatePricingPolicy } = require("./pricing");
+const { customerPrice, getPricingPolicy, getPricingPolicies, setPricingPolicies, validatePricingPolicies } = require("./pricing");
 const { isAdminRole } = require("./admin-access");
 const { installStaffRoutes } = require("./staff-routes");
 const { installEmailRegistration } = require("./email-registration");
@@ -556,8 +556,8 @@ function supplierIdentity(row) {
   };
 }
 
-function publicSupplierOffer(row, queryNumber, queryBrand) {
-  const price = customerPrice(row?.price);
+function publicSupplierOffer(row, queryNumber, queryBrand, customerType = "individual") {
+  const price = customerPrice(row?.price, process.env, customerType);
   if (price === null) return null;
 
   const rowBrand = row?.brand || queryBrand;
@@ -612,7 +612,7 @@ function rowMatchesOfferPayload(row, payload) {
   return true;
 }
 
-async function revalidateOfferToken(token, quantity = 1, cache = new Map()) {
+async function revalidateOfferToken(token, quantity = 1, cache = new Map(), customerType = "individual") {
   let payload;
   try {
     payload = offerTokens.open(token);
@@ -631,7 +631,7 @@ async function revalidateOfferToken(token, quantity = 1, cache = new Map()) {
   const found = (Array.isArray(rows) ? rows : []).find((row) => rowMatchesOfferPayload(row, payload));
   if (!found) return { status: "unavailable" };
 
-  const offer = publicSupplierOffer(found, payload.qn, payload.qb);
+  const offer = publicSupplierOffer(found, payload.qn, payload.qb, customerType);
   if (!offer) return { status: "unavailable" };
 
   const requested = Math.max(1, Math.min(999, Number(quantity || 1)));
@@ -1279,6 +1279,15 @@ async function userFromSessionToken(token) {
 async function currentUser(req) {
   return userFromSessionToken(sessionTokenFromRequest(req));
 }
+// The browser never chooses its own wholesale tier. Only an active,
+// authenticated customer record may activate the service price.
+function pricingCustomerType(user) {
+  return user?.role === "customer" && user.customer_type === "service"
+    ? "service" : "individual";
+}
+async function pricingCustomerTypeFromRequest(req) {
+  return pricingCustomerType(pool ? await currentUser(req) : null);
+}
 
 async function requireUser(req, res, next) {
   try {
@@ -1823,23 +1832,29 @@ async function initPricingSettings() {
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
   )`);
   const stored = await pool.query("SELECT policy FROM store_pricing_settings WHERE id = TRUE");
-  if (stored.rows[0]) setPricingPolicy(stored.rows[0].policy);
+  if (stored.rows[0]) setPricingPolicies(stored.rows[0].policy);
 }
 app.get("/api/admin/pricing", async (req, res, next) => {
   if (req.user?.role !== "owner") return res.status(403).json({ error: "owner_only" });
   try {
     const stored = await pool.query("SELECT policy, updated_at FROM store_pricing_settings WHERE id = TRUE");
     res.json({
-      policy: stored.rows[0] ? setPricingPolicy(stored.rows[0].policy) : getPricingPolicy(),
+      policies: stored.rows[0] ? setPricingPolicies(stored.rows[0].policy) : getPricingPolicies(),
+      policy: getPricingPolicy(),
       updated_at: stored.rows[0]?.updated_at || null
     });
   } catch (error) { next(error); }
 });
 app.put("/api/admin/pricing", async (req, res, next) => {
   if (req.user?.role !== "owner") return res.status(403).json({ error: "owner_only" });
-  let policy;
+  let policies;
   try {
-    policy = validatePricingPolicy(req.body?.policy);
+    // Legacy admin tabs submit only one flat policy. Update retail only,
+    // keeping the separate service tariff intact.
+    const submitted = req.body?.policies ?? (req.body?.policy
+      ? { individual: req.body.policy, service: getPricingPolicy("service") }
+      : null);
+    policies = validatePricingPolicies(submitted);
   } catch (_error) {
     return res.status(400).json({ error: "invalid_pricing_policy" });
   }
@@ -1849,10 +1864,10 @@ app.put("/api/admin/pricing", async (req, res, next) => {
        VALUES (TRUE, $1::jsonb, NOW())
        ON CONFLICT (id) DO UPDATE SET policy = EXCLUDED.policy, updated_at = NOW()
        RETURNING updated_at`,
-      [JSON.stringify(policy)]
+      [JSON.stringify(policies)]
     );
-    setPricingPolicy(policy);
-    res.json({ ok: true, policy: getPricingPolicy(), updated_at: result.rows[0].updated_at });
+    setPricingPolicies(policies);
+    res.json({ ok: true, policies: getPricingPolicies(), policy: getPricingPolicy(), updated_at: result.rows[0].updated_at });
   } catch (error) { next(error); }
 });
 
@@ -2226,6 +2241,8 @@ async function submitQuoteRequest(req, res, next) {
       return res.status(400).json({ error: "items_required" });
     }
 
+    const requestUser = guest ? null : (pool ? await currentUser(req) : null);
+    const customerType = pricingCustomerType(requestUser);
     const validationCache = new Map();
     const validation = await Promise.all(items.map(async (item) => {
       if (!item.offer_token) {
@@ -2238,7 +2255,7 @@ async function submitQuoteRequest(req, res, next) {
         };
       }
 
-      const result = await revalidateOfferToken(item.offer_token, item.quantity, validationCache);
+      const result = await revalidateOfferToken(item.offer_token, item.quantity, validationCache, customerType);
       return { client_id: item.client_id, ...result };
     }));
 
@@ -2299,7 +2316,6 @@ async function submitQuoteRequest(req, res, next) {
       "-" +
       crypto.randomBytes(3).toString("hex").toUpperCase();
 
-    const requestUser = guest ? null : (pool ? await currentUser(req) : null);
     const testModeRequested = req.body?.test_mode === true;
     let ownerTestMode = false;
     if (testModeRequested) {
@@ -3895,9 +3911,10 @@ app.get("/api/catalog/offers", async (req, res, next) => {
       return res.status(400).json({ error: "article_and_brand_required" });
     }
 
+    const customerType = await pricingCustomerTypeFromRequest(req);
     const rows = await searchSupplierOffers(number, brand);
     const mapped = (Array.isArray(rows) ? rows : [])
-      .map((row) => publicSupplierOffer(row, number, brand))
+      .map((row) => publicSupplierOffer(row, number, brand, customerType))
       .filter(Boolean);
 
     const sortOffers = (list) => list.sort((a, b) => a.price - b.price || a.delivery_hours - b.delivery_hours);
@@ -3925,6 +3942,7 @@ app.post("/api/catalog/revalidate", async (req, res, next) => {
     }
 
     const cache = new Map();
+    const customerType = await pricingCustomerTypeFromRequest(req);
     const results = await Promise.all(items.map(async (item, index) => {
       const clientId = String(item?.id || index).slice(0, 160);
       const token = String(item?.offer_token || "").trim();
@@ -3934,7 +3952,7 @@ app.post("/api/catalog/revalidate", async (req, res, next) => {
         return { id: clientId, status: "invalid" };
       }
 
-      const result = await revalidateOfferToken(token, quantity, cache);
+      const result = await revalidateOfferToken(token, quantity, cache, customerType);
       return {
         id: clientId,
         status: result.status,

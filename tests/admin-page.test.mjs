@@ -39,13 +39,13 @@ test('privileged API only runs after owner/admin session validation',()=>{
 
 test('pricing is a real backend read/write with explicit save and guard',()=>{
   assert.match(js,/request\("\/api\/admin\/pricing"\)/);
-  assert.match(js,/method:"PUT",body:\{policy:p\}/);
+  assert.match(js,/method:"PUT",body:\{policies\}/);
   assert.match(js,/window\.confirm\(/);
   assert.match(js,/state\.savedPricing/);
   assert.match(js,/previewPrice/);
   assert.match(js,/min_markup_rub/);
   assert.match(js,/round_to/);
-  assert.match(js,/if\(!state\.savedPricing\|\|state\.busy\)return/);
+  assert.match(js,/if\(!state\.savedPricing\|\|!state\.pricing\|\|state\.busy\)return/);
 });
 
 test('screens do not advertise invented revenue or reveal procurement lines to anonymous visitors',()=>{

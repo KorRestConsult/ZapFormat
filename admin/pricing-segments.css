@@ -1,0 +1,32 @@
+/* Independent retail / auto-service rate tabs — owner console only. */
+.zf-pricing-segments{
+  display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:5px;
+  max-width:520px;padding:5px;margin:0 0 14px;background:#edf2f7;
+  border:1px solid #e1e8f0;border-radius:15px;
+}
+.zf-pricing-segments button{
+  min-width:0;min-height:42px;padding:10px 12px;border:0;border-radius:11px;
+  background:transparent;color:#586e82;font-size:13px;font-weight:750;
+  transition:background .14s,box-shadow .14s,color .14s;
+}
+.zf-pricing-segments button.active{
+  background:white;color:#17324a;box-shadow:0 2px 10px rgba(12,41,70,.09);
+}
+.zf-pricing-segments button.active::before{
+  content:"";display:inline-block;width:7px;height:7px;margin-right:7px;
+  vertical-align:middle;border-radius:50%;background:#FA8122;
+}
+.zf-pricing-segments button:focus-visible{outline:2px solid #FA8122;outline-offset:1px}
+.zf-pricing-context{
+  margin:0 0 17px;padding:13px 15px;border-radius:12px;
+  background:#f5f8fb;border:1px solid #e2eaf2;
+}
+.zf-pricing-context b{font-size:14px;color:#182e43}
+.zf-pricing-context p{margin:5px 0 0;font-size:12px;line-height:1.55;color:#687b90}
+.zf-pricing-note{
+  margin:12px 0 0;font-size:12px;line-height:1.5;color:#75869a;
+}
+@media(max-width:780px){
+  .zf-pricing-segments{max-width:none}
+  .zf-pricing-segments button{padding:10px 8px;font-size:12px}
+}
