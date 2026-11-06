@@ -346,11 +346,13 @@ test("VIN category navigation uses delegated live click actions and breadcrumb b
  assert.match(app,/if\(vinCatalogState\)renderVinCatalogBrowser\(null,Number\(current\?\.parent_id\|\|0\)\)/);
  assert.match(app,/Number\(state.activeNodeId\|\|0\)!==Number\(node.id\)/);
 });
-test("Garage vehicle illustration is body-aware and does not hardcode X3 for all customers",()=>{
+test("Garage artwork is body-aware and VIN catalog shows the owner photo above independent shortcuts",()=>{
  assert.match(app,/function vehicleBodyStyle\(vehicle=\{\}\)/);
  assert.match(app,/function vehicleIllustrationHtml\(vehicle=\{\},parts=false\)/);
  assert.match(app,/garageVehiclePlaceholderSvg\(\)/);
- assert.match(app,/vehicleArtworkHtml\(d,true\)/);
+ assert.match(app,/function updateVinResultPhoto\(\)/);
+ assert.match(app,/class="vin-quick-sections"/);
+ assert.match(html,/id="vinResultPhoto"/);
  assert.match(css,/#account-garage \.garage-tabs button.active\{[\s\S]*?color:#fff!important/);
  assert.match(css,/#view-search\.vin-catalog-mode \.vin-hotspot-list\{[\s\S]*?display:grid!important/);
  assert.match(html,/styles\.css\?v=20261104-session-persistence7/);

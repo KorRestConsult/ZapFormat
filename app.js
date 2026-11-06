@@ -2380,19 +2380,26 @@ function vehicleArtworkHtml(vehicle={},parts=false){
   return vehicleIllustrationHtml(vehicle,parts);
 }
 
+// VIN photo is a read-only thumbnail of the client's own saved garage photo.
+// The quick category panel is deliberately independent of the photo and header.
+function updateVinResultPhoto(){
+  const box=document.getElementById("vinResultPhoto");
+  const img=document.getElementById("vinResultPhotoImg");
+  if(!box||!img)return;
+  const vin=normalizeVin(vinCatalogState?.vin||"");
+  const matched=garageVehicles.find(car=>normalizeVin(car.vin||"")===vin);
+  const photoId=String(matched?.id||(!garageVehicles.length?vinCatalogState?.savedVehicleId:"")||"");
+  const photo=photoId?garagePhotoCache.get(photoId):null;
+  if(photo){
+    if(img.getAttribute("src")!==photo)img.src=photo;
+    box.hidden=false;
+  }else{
+    box.hidden=true;
+    img.removeAttribute("src");
+    if(photoId&&!garagePhotoCache.has(photoId)&&sessionUser)void loadGaragePhoto(photoId);
+  }
+}
 function vinCatalogHeroHtml(){
-  const d=vinCatalogState?.decoded||{};
-  const m=vinCatalogState?.modification||{};
-  const title=[d.brand_name||d.manufacturer,d.model_name].filter(Boolean).join(" ")||"Автомобиль";
-  const details=[
-    m.name||d.modification_name,
-    m.capacity||"",
-    m.power_kw ? m.power_kw+" кВт" : "",
-    m.engine_type||d.engine_type||"",
-    m.drive_type||d.drive_type||"",
-    d.transmission ? "АКПП" : ""
-  ].filter(Boolean);
-
   const roots=vinCatalogMainRoots();
   const rootBy=(rx)=>roots.find(x=>rx.test(String(x.name||"")));
   const hotspotDefs=[
@@ -2404,31 +2411,20 @@ function vinCatalogHeroHtml(){
     ["Трансмиссия",/коробка передач/i,"hot-gearbox","Коробка передач"]
   ];
   const hotspots=hotspotDefs.map(([label,rx,cls,fallbackName])=>({
-    label,
-    node:rootBy(rx)||null,
-    cls,
-    name:fallbackName
+    label,node:rootBy(rx)||null,cls,name:fallbackName
   }));
-
   const callout=(item)=>{
     const inner='<span>'+vinCatalogIcon(item.name)+'</span><b>'+escapeHtml(item.label)+'</b>';
     return item.node
       ? '<button type="button" class="vin-hotspot '+item.cls+'" data-vin-node="'+item.node.id+'">'+inner+'</button>'
       : '<button type="button" class="vin-hotspot vin-hotspot-fallback '+item.cls+'" data-vin-fallback="'+escapeHtml(item.label)+'" title="Открыть заявку на подбор">'+inner+'<small>По заявке</small></button>';
   };
-
-  const savedCar=garageVehicles.find(car=>normalizeVin(car.vin||"")===normalizeVin(vinCatalogState?.vin||""));
-  const photoId=String(vinCatalogState?.savedVehicleId||savedCar?.id||"");
-  if(photoId && !garagePhotoCache.has(photoId)) void loadGaragePhoto(photoId);
-  const photo=photoId?garagePhotoCache.get(photoId):null;
-  const media=photo?'<img class="vin-owner-photo" src="'+escapeHtml(photo)+'" alt="Фото автомобиля из гаража">':vehicleArtworkHtml(d,true);
+  updateVinResultPhoto();
+  const hasSavedCar=garageVehicles.some(car=>normalizeVin(car.vin||"")===normalizeVin(vinCatalogState?.vin||""));
   return `
-    <section class="vin-vehicle-hero">
-      <div class="vin-exploded">
-        <div class="vin-car-schematic">${media}</div>
-        <div class="vin-hotspot-list">${hotspots.map(callout).join("")}</div>
-        ${!vinCatalogState?.savedVehicleId&&!savedCar?'<button class="vin-save-compact" type="button" data-save-vin-vehicle>Сохранить автомобиль</button>':""}
-      </div>
+    <section class="vin-quick-sections" aria-label="Быстрый выбор системы автомобиля">
+      <div class="vin-hotspot-list">${hotspots.map(callout).join("")}</div>
+      ${!vinCatalogState?.savedVehicleId&&!hasSavedCar?'<button class="vin-save-compact" type="button" data-save-vin-vehicle>Сохранить автомобиль</button>':""}
     </section>`;
 }
 function vinCatalogCardsHtml(nodes){
@@ -2501,6 +2497,7 @@ function renderVinCatalogBrowser(data,nodeId=0){
   setCatalogControlsVisible(false);
   setVinCatalogCount(children.length,current?"подразделов":"разделов");
 
+  if(current)updateVinResultPhoto();
   root.innerHTML=`
     <div class="vin-catalog-browser">
       ${current?"":vinCatalogHeroHtml()}
@@ -2947,6 +2944,10 @@ function setCatalogControlsVisible(visible){
 function setVinCatalogMode(enabled){
   const searchView=document.getElementById("view-search");
   searchView?.classList.toggle("vin-catalog-mode",Boolean(enabled));
+  if(!enabled){
+    const photo=document.getElementById("vinResultPhoto");
+    if(photo)photo.hidden=true;
+  }
 
   const secondaryForm=document.getElementById("searchForm2");
   if(secondaryForm) secondaryForm.hidden=Boolean(enabled);
@@ -4678,13 +4679,7 @@ async function loadGaragePhoto(vehicleId){
     const previous=garagePhotoCache.get(id);
     if(previous)URL.revokeObjectURL(previous);
     garagePhotoCache.set(id,url);
-    if(vinCatalogState?.vin){
-      const car=garageVehicles.find(x=>String(x.id)===id);
-      if(String(vinCatalogState.savedVehicleId||"")===id || car&&normalizeVin(car.vin||"")===normalizeVin(vinCatalogState.vin)){
-        const hero=document.querySelector("#view-search.vin-catalog-mode .vin-car-schematic");
-        if(hero)hero.innerHTML='<img class="vin-owner-photo" src="'+escapeHtml(url)+'" alt="Фото автомобиля из гаража">';
-      }
-    }
+    if(vinCatalogState?.vin)updateVinResultPhoto();
     renderGarageApp();
   }catch(error){
     console.warn("Garage photo read failed",error?.message||"network_error");
