@@ -7,7 +7,8 @@ const {
   normalizeSupplierOrders,
   positionKey,
   internalItemStatusFromSupply,
-  aggregateOrderStatusFromItems
+  aggregateOrderStatusFromItems,
+  aggregateOrderStatusFromSupplierItems
 } = require("../src/supplier-orders");
 
 test("supplier checkout auto-selects unique options", () => {
@@ -42,8 +43,12 @@ test("supplier order helpers normalize payloads and statuses", () => {
   assert.equal(internalItemStatusFromSupply("canceled"), "cancelled");
   assert.equal(internalItemStatusFromSupply("delivery"), "processing");
   assert.equal(internalItemStatusFromSupply("orderPicking"), "processing");
-  assert.equal(internalItemStatusFromSupply("finished"), "completed");
-  assert.equal(internalItemStatusFromSupply(null, "Готов к выдаче"), "ready");
+  assert.equal(internalItemStatusFromSupply("finished"), "processing");
+  assert.equal(internalItemStatusFromSupply("issued"), "processing");
+  assert.equal(internalItemStatusFromSupply(null, "Выдано"), "processing");
+  assert.equal(internalItemStatusFromSupply(null, "Готов к выдаче"), "processing");
+  assert.equal(internalItemStatusFromSupply("4", "Отказ"), "cancelled");
+  assert.equal(internalItemStatusFromSupply(null, "Подтверждено поставщиком"), "processing");
 });
 
 test("supplier item statuses roll up to a customer order status", () => {
@@ -53,4 +58,12 @@ test("supplier item statuses roll up to a customer order status", () => {
   assert.equal(aggregateOrderStatusFromItems(["completed", "cancelled"], "processing"), "completed");
   assert.equal(aggregateOrderStatusFromItems(["cancelled", "cancelled"], "processing"), "cancelled");
   assert.equal(aggregateOrderStatusFromItems(["processing"], "completed"), "completed");
+});
+
+test("supplier sync never completes or auto-cancels a customer order", () => {
+  assert.equal(aggregateOrderStatusFromSupplierItems(["processing", "processing"], "new"), "processing");
+  assert.equal(aggregateOrderStatusFromSupplierItems(["cancelled", "cancelled"], "processing"), "processing");
+  assert.equal(aggregateOrderStatusFromSupplierItems(["processing"], "ready"), "ready");
+  assert.equal(aggregateOrderStatusFromSupplierItems(["processing"], "completed"), "completed");
+  assert.equal(aggregateOrderStatusFromSupplierItems(["cancelled"], "cancelled"), "cancelled");
 });
