@@ -71,3 +71,20 @@
   #authScreen #adminResetStartForm input,
   #authScreen #adminResetVerifyForm input { font-size: 16px; }
 }
+
+
+/* Workspace wordmark matches the approved storefront split.
+   Preserve mobile sizing and the existing navy background. */
+#appScreen .brand strong {
+  display: flex;
+  align-items: baseline;
+  gap: 0;
+  font-family: -apple-system, system-ui, "Segoe UI", Inter, Arial, sans-serif;
+  font-weight: 950;
+  letter-spacing: -.055em;
+  white-space: nowrap;
+}
+#appScreen .zf-wordmark-main { color: #f7fbff; }
+#appScreen .zf-wordmark-accent,
+#appScreen .zf-topmark-accent { color: #FA8122; }
+#appScreen .zf-topmark-main { color: inherit; }

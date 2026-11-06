@@ -8,7 +8,7 @@
 <title>ZapFormat — Вход</title>
 <link rel="stylesheet" href="./admin.css?v=20261103-reconnect1">
 <link rel="stylesheet" href="./premium-admin.css?v=20261104-brand2">
-<link rel="stylesheet" href="./zf-premium.css?v=20261106-premium1">
+<link rel="stylesheet" href="./zf-premium.css?v=20261106-wordmark2">
 <script defer src="./staff.js?v=20261031-courier-preview1"></script>
 <script defer src="./admin.js?v=20261104-account-scopes1"></script>
 </head>
@@ -68,7 +68,7 @@
 </div>
 <div class="app" id="appScreen" hidden>
   <aside class="sidebar">
-    <div class="brand"><div class="brand-icon">Z<span>F</span></div><div><strong>ZapFormat</strong><small>Панель владельца</small></div></div>
+    <div class="brand"><div class="brand-icon">Z<span>F</span></div><div><strong aria-label="ZapFormat"><span class="zf-wordmark-main">ZAP</span><span class="zf-wordmark-accent">FORMAT</span></strong><small>Панель владельца</small></div></div>
     <div class="nav-caption">УПРАВЛЕНИЕ</div>
     <nav id="menu" aria-label="Разделы панели">
       <button type="button" data-page="overview" class="active"><span class="nav-icon">◫</span> Обзор</button>
@@ -88,7 +88,7 @@
   </aside>
   <div class="workspace">
     <header class="topbar">
-      <div><span class="eyebrow">ZAPFORMAT / <span id="breadcrumbs">ОБЗОР</span></span><h1 id="pageTitle">Обзор бизнеса</h1><p class="muted" id="pageSubtitle">Актуальные данные из системы заказов</p></div>
+      <div><span class="eyebrow"><span class="zf-topmark-main">ZAP</span><span class="zf-topmark-accent">FORMAT</span> / <span id="breadcrumbs">ОБЗОР</span></span><h1 id="pageTitle">Обзор бизнеса</h1><p class="muted" id="pageSubtitle">Актуальные данные из системы заказов</p></div>
       <div class="header-actions"><button type="button" class="secondary" id="refreshButton" title="Обновить текущий раздел">↻ Обновить</button><div class="user-chip"><span class="avatar">ZF</span><span id="userName">Владелец</span></div></div>
     </header>
     <div class="alert" id="globalAlert" role="status" aria-live="polite" hidden></div>
