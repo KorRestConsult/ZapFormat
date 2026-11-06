@@ -1160,6 +1160,8 @@ async function supplierIntegrationStatus() {
   };
 }
 
+let customerTelegramStorageReady=false;
+
 async function addUserNotification(db, userId, setting, type, title, body = null) {
   const columns = {
     order_status: "order_status",
@@ -1181,7 +1183,7 @@ async function addUserNotification(db, userId, setting, type, title, body = null
      RETURNING id`,
     [userId, String(type || "info").slice(0, 80), String(title).slice(0, 200), body ? String(body).slice(0, 1000) : null]
   );
-  if(result.rowCount){
+  if(result.rowCount && customerTelegramStorageReady){
     // Same DB transaction as the notification: Telegram may only report a
     // committed event and only to a customer who explicitly linked the bot.
     await db.query(
@@ -6384,12 +6386,23 @@ async function start() {
     // the storage error rather than pretend that a policy was saved.
     try { await initPricingSettings(); }
     catch (error) { console.error("[PricingSettings]", error?.message || "load_failed"); }
+    // Apply additive, idempotent customer Telegram schema before accepting
+    // requests. Its failure must never interrupt the existing shop or
+    // user_notifications; keep Telegram disabled instead.
+    try {
+      const sql=await fs.readFile(path.join(__dirname,"../db/019_customer_telegram.sql"),"utf8");
+      await pool.query(sql);
+      customerTelegramStorageReady=true;
+    } catch(error){
+      customerTelegramStorageReady=false;
+      console.warn("[CustomerTelegramSchema]",error?.code||"migration_unavailable");
+    }
   }
   app.listen(PORT, HOST, () => {
     console.log(`ZAPFORMAT API listening on http://${HOST}:${PORT}`);
   });
 
-  customerTelegram.start();
+  if(customerTelegramStorageReady) customerTelegram.start();
 
   const supplySyncTimer = setInterval(() => {
     syncSupplierOrders().catch((error) => {
