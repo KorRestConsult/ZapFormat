@@ -762,3 +762,27 @@ input,textarea,select{border-radius:12px}
   display:none!important;
 }
 /* The entire photo remains tappable; do not overlay a label on saved photos. */
+
+/* Mobile garage and VIN catalog cleanup — 2026-11-06 */
+body:not(.guest-mode) #sessionEntryButton,body:not(.guest-mode) #accountEntryButton{background:#fa8122!important;color:#fff!important;border-color:#fa8122!important}
+#account-garage .zf-garage-edit-icon{display:flex!important;align-items:center!important;justify-content:center!important;padding:0!important;background:#fa8122!important;border:1px solid #fa8122!important;color:#fff!important;line-height:1!important}
+#account-garage .zf-garage-edit-icon svg{display:block!important;width:17px!important;height:17px!important;flex:none!important;fill:currentColor!important;stroke:none!important}
+#account-garage .zf-garage-vin[data-copy-garage-vin]{width:100%!important;border:0!important;background:transparent!important;text-align:left!important;padding:3px 0!important;cursor:copy!important;color:#49647a!important;opacity:1!important;touch-action:manipulation}
+#account-garage .zf-garage-vin[data-copy-garage-vin]:active{color:#df731b!important}
+#account-garage .zf-garage-specs{grid-column:1/-1;grid-row:3;min-width:0;width:100%;border-top:1px solid #e5edf3;margin-top:2px;padding-top:7px}
+#account-garage .zf-garage-specs summary{cursor:pointer;color:#49657c;font:750 12px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;padding:4px 0;list-style:none}
+#account-garage .zf-garage-specs summary::-webkit-details-marker{display:none}
+#account-garage .zf-garage-specs summary:after{content:"⌄";float:right;color:#ee8023}
+#account-garage .zf-garage-specs[open] summary:after{content:"⌃"}
+#account-garage .zf-garage-specs dl{display:grid;gap:0;margin:8px 0 0}
+#account-garage .zf-garage-specs dl div{display:flex;align-items:start;justify-content:space-between;gap:12px;padding:8px 0;border-top:1px solid #eef3f7}
+#account-garage .zf-garage-specs dt{color:#7b8c9b;font-size:11px}
+#account-garage .zf-garage-specs dd{margin:0;text-align:right;overflow-wrap:anywhere;color:#29445c;font-size:11px;font-weight:750}
+#view-search.vin-catalog-mode #catalogVehicleContext{display:none!important}
+#view-search.vin-catalog-mode #manualLead:has(#manualLeadForm[hidden]){display:none!important}
+#view-search.vin-catalog-mode #manualLeadToggle{display:none!important}
+#view-search.vin-catalog-mode .catalog-count{display:none!important}
+#view-search.vin-catalog-mode .vin-vehicle-hero{display:block!important;grid-template-columns:minmax(0,1fr)!important;padding:12px!important}
+#view-search.vin-catalog-mode .vin-vehicle-hero .vin-exploded{display:block!important;width:100%!important;min-width:0!important}
+#view-search.vin-catalog-mode .vin-car-schematic .vin-owner-photo{display:block;width:100%;height:100%;object-fit:cover;border-radius:12px}
+#view-search.vin-catalog-mode .vin-save-compact{display:block;margin:12px auto 0;padding:9px 14px;border-radius:11px;border:1px solid #f6b37f;background:#fff7ef;color:#aa5216;font-weight:750}

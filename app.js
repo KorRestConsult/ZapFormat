@@ -2417,33 +2417,17 @@ function vinCatalogHeroHtml(){
       : '<button type="button" class="vin-hotspot vin-hotspot-fallback '+item.cls+'" data-vin-fallback="'+escapeHtml(item.label)+'" title="Открыть заявку на подбор">'+inner+'<small>По заявке</small></button>';
   };
 
+  const savedCar=garageVehicles.find(car=>normalizeVin(car.vin||"")===normalizeVin(vinCatalogState?.vin||""));
+  const photoId=String(vinCatalogState?.savedVehicleId||savedCar?.id||"");
+  if(photoId && !garagePhotoCache.has(photoId)) void loadGaragePhoto(photoId);
+  const photo=photoId?garagePhotoCache.get(photoId):null;
+  const media=photo?'<img class="vin-owner-photo" src="'+escapeHtml(photo)+'" alt="Фото автомобиля из гаража">':vehicleArtworkHtml(d,true);
   return `
     <section class="vin-vehicle-hero">
-      <div class="vin-vehicle-copy">
-        <span class="eyebrow">VIN-КАТАЛОГ · ТОЧНЫЙ ПОДБОР</span>
-        <h2>${escapeHtml(title)}</h2>
-        <p class="vin-vehicle-mod">${escapeHtml(details.join(" · "))}</p>
-        <details class="vin-vehicle-specs">
-          <summary>Характеристики автомобиля</summary>
-        <div class="vin-vehicle-facts">
-          ${d.production_date?'<span><small>Производство</small><b>'+escapeHtml(String(d.production_date))+'</b></span>':""}
-          ${d.engine_code?'<span><small>Двигатель</small><b>'+escapeHtml(String(d.engine_code))+'</b></span>':""}
-          ${d.model_year?'<span><small>Модельный год</small><b>'+escapeHtml(String(d.model_year))+'</b></span>':""}
-          ${d.body_color?'<span><small>Цвет</small><b>'+escapeHtml(String(d.body_color))+'</b></span>':""}
-        </div></details>
-        <div class="vin-vehicle-vin"><small>VIN</small><b>${escapeHtml(String(d.vin||vinCatalogState?.vin||""))}</b></div>
-        <div class="vin-vehicle-actions">
-          ${vinCatalogState?.savedVehicleId
-            ? '<span class="vin-saved-pill">✓ В моём гараже</span>'
-            : '<button type="button" data-save-vin-vehicle>Сохранить автомобиль</button>'}
-        </div>
-      </div>
       <div class="vin-exploded">
-        <div class="vin-exploded-title"><b>Обзор автомобиля</b><span>Условная схема кузова · выберите раздел ниже</span></div>
-        <div class="vin-car-schematic">
-          ${vehicleArtworkHtml(d,true)}
-        </div>
+        <div class="vin-car-schematic">${media}</div>
         <div class="vin-hotspot-list">${hotspots.map(callout).join("")}</div>
+        ${!vinCatalogState?.savedVehicleId&&!savedCar?'<button class="vin-save-compact" type="button" data-save-vin-vehicle>Сохранить автомобиль</button>':""}
       </div>
     </section>`;
 }
@@ -3256,19 +3240,15 @@ async function search(query,options={}){
         catalogModificationId:result?.modification?.id||decoded.dt_type_id||null
       };
       result.saved_vehicle_id=active?.id||null;
+      storeGarageVinSpecifications(vin,decoded,result?.modification||{});
       const vehicleTitle=[
         decoded.brand_name||decoded.manufacturer||"",
         decoded.model_name||""
       ].filter(Boolean).join(" ")||vin;
-      const vehicleDetail=[
-        "VIN "+vin,
-        result?.modification?.name||decoded.modification_name||""
-      ].filter(Boolean).join(" · ");
+      const vehicleDetail="VIN "+vin;
       setSearchHead(
         vehicleTitle,
-        result?.ready
-          ? vehicleDetail+" · выберите узел автомобиля"
-          : vehicleDetail,
+        vehicleDetail,
         vin
       );
       if(result?.ready){
@@ -3277,7 +3257,7 @@ async function search(query,options={}){
       }else if(result?.catalog_status==="credits_exhausted"){
         setSearchHead(
           vehicleTitle,
-          vehicleDetail+" · каталог деталей обновляется",
+          vehicleDetail,
           vin
         );
         renderVinCatalogLocked({...result,vin});
@@ -4698,6 +4678,13 @@ async function loadGaragePhoto(vehicleId){
     const previous=garagePhotoCache.get(id);
     if(previous)URL.revokeObjectURL(previous);
     garagePhotoCache.set(id,url);
+    if(vinCatalogState?.vin){
+      const car=garageVehicles.find(x=>String(x.id)===id);
+      if(String(vinCatalogState.savedVehicleId||"")===id || car&&normalizeVin(car.vin||"")===normalizeVin(vinCatalogState.vin)){
+        const hero=document.querySelector("#view-search.vin-catalog-mode .vin-car-schematic");
+        if(hero)hero.innerHTML='<img class="vin-owner-photo" src="'+escapeHtml(url)+'" alt="Фото автомобиля из гаража">';
+      }
+    }
     renderGarageApp();
   }catch(error){
     console.warn("Garage photo read failed",error?.message||"network_error");
@@ -4795,6 +4782,38 @@ function garageVehiclePlaceholderSvg(){
   </svg>`;
 }
 
+function storeGarageVinSpecifications(vin,decoded={},modification={}){
+  const key=normalizeVin(vin||"");
+  if(!looksLikeVin(key))return;
+  const safe={
+    production_date:String(decoded.production_date||"").slice(0,64),
+    engine_code:String(decoded.engine_code||modification.engine_code||"").slice(0,100),
+    model_year:String(decoded.model_year||"").slice(0,32),
+    body_color:String(decoded.body_color||"").slice(0,100),
+    modification:String(modification.name||decoded.modification_name||"").slice(0,160),
+    drive_type:String(modification.drive_type||decoded.drive_type||"").slice(0,80),
+    power_kw:String(modification.power_kw||"").slice(0,40),
+    transmission:String(decoded.transmission||"").slice(0,80)
+  };
+  try{localStorage.setItem("zf-garage-specs:"+key,JSON.stringify(safe));}catch{}
+}
+function garageVehicleSpecsHtml(vehicle){
+  let info={};
+  try{
+    const key=normalizeVin(vehicle.vin||"");
+    if(looksLikeVin(key))info=JSON.parse(localStorage.getItem("zf-garage-specs:"+key)||"{}")||{};
+  }catch{}
+  const rows=[
+    ["VIN",vehicle.vin],["Кузов",vehicle.generation],["Год выпуска",vehicle.year],
+    ["Двигатель",info.engine_code||vehicle.engine],["Дата производства",info.production_date],
+    ["Модельный год",info.model_year],["Цвет кузова",info.body_color],
+    ["Модификация",info.modification],["Привод",info.drive_type],
+    ["Мощность",info.power_kw?info.power_kw+" кВт":""],["Коробка передач",info.transmission]
+  ].filter(([,value])=>String(value??"").trim());
+  return `<details class="zf-garage-specs"><summary>Характеристики автомобиля</summary>
+    <dl>${rows.map(([label,value])=>'<div><dt>'+escapeHtml(label)+'</dt><dd>'+escapeHtml(String(value))+'</dd></div>').join("")}</dl>
+  </details>`;
+}
 function renderGarageVehicleCard(v,index){
   const vinReady=looksLikeVin(v.vin||"");
   const vehicleName=[v.brand,v.model].filter(Boolean).join(" ").trim()||"Автомобиль";
@@ -4802,17 +4821,17 @@ function renderGarageVehicleCard(v,index){
     <article class="zf-garage-car" aria-label="${escapeHtml(vehicleName)}">
       <div class="zf-garage-card-title-row">
         <div class="zf-garage-car-name">
-          <span class="eyebrow">АВТОМОБИЛЬ ${index+1}</span>
           <h3>${escapeHtml(vehicleName)}</h3>
           <p>${escapeHtml(v.year||"Год не указан")} · ${escapeHtml(v.engine||"Двигатель не указан")}</p>
         </div>
-        <button type="button" class="zf-garage-edit-icon" data-garage-edit-car="${escapeHtml(v.id)}" aria-label="Изменить данные автомобиля" title="Изменить данные">···</button>
+        <button type="button" class="zf-garage-edit-icon" data-garage-edit-car="${escapeHtml(v.id)}" aria-label="Изменить данные автомобиля" title="Изменить данные"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="5" cy="12" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="19" cy="12" r="2"/></svg></button>
       </div>
       <div class="zf-garage-car-art"><div class="zf-garage-photo-frame">${garagePhotoCache.get(String(v.id))?'<img class="zf-garage-own-photo" src="'+escapeHtml(garagePhotoCache.get(String(v.id)))+'" alt="Фото автомобиля клиента" loading="lazy">':'<span class="zf-garage-photo-placeholder"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.65" aria-hidden="true"><rect x="3" y="6" width="18" height="15" rx="2.5"/><circle cx="8.5" cy="11" r="1.5"/><path d="m4 18 5-5 3.5 3.5 3-3L20 18"/></svg><strong>Добавьте фото</strong><small>своего авто</small></span>'}</div><button type="button" class="zf-garage-photo-control" data-garage-photo="${escapeHtml(v.id)}" aria-label="${garagePhotoCache.get(String(v.id))?"Заменить фото автомобиля":"Добавить фото автомобиля"}"><span class="zf-garage-photo-action">${garagePhotoCache.get(String(v.id))?"":"Выбрать фото"}</span></button></div>
       <div class="zf-garage-car-bottom">
-        <span class="zf-garage-vin">${vinReady?"VIN "+escapeHtml(v.vin):"VIN не указан"}</span>
+        ${vinReady?`<button type="button" class="zf-garage-vin" data-copy-garage-vin="${escapeHtml(v.vin)}" aria-label="Скопировать VIN ${escapeHtml(v.vin)}" title="Нажмите, чтобы скопировать VIN">VIN ${escapeHtml(v.vin)}</button>`:`<span class="zf-garage-vin">VIN не указан</span>`}
         <button type="button" class="garage-primary" data-garage-vin-search="${escapeHtml(v.id)}">Подобрать по VIN</button>
       </div>
+      ${garageVehicleSpecsHtml(v)}
     </article>
   `;
 }
@@ -5268,6 +5287,23 @@ document.addEventListener("click",async e=>{
     return;
   }
 
+  const vinCopy=e.target.closest("[data-copy-garage-vin]");
+  if(vinCopy){
+    const vin=normalizeVin(vinCopy.dataset.copyGarageVin||"");
+    if(!looksLikeVin(vin))return;
+    try{
+      if(navigator.clipboard?.writeText)await navigator.clipboard.writeText(vin);
+      else{
+        const field=document.createElement("textarea");field.value=vin;
+        field.setAttribute("readonly","");field.style.cssText="position:fixed;left:-9999px;opacity:0";
+        document.body.appendChild(field);field.select();
+        const success=document.execCommand("copy");field.remove();
+        if(!success)throw new Error("clipboard_unavailable");
+      }
+      showToast("VIN скопирован");
+    }catch{showToast("Не удалось скопировать VIN.","warn");}
+    return;
+  }
   const garagePhotoSelect=e.target.closest("[data-garage-photo]");
   if(garagePhotoSelect){
     chooseGaragePhoto(garagePhotoSelect.dataset.garagePhoto);
