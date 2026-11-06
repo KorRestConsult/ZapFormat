@@ -15,7 +15,7 @@ function canMoveDelivery(current, target) {
 }
 const uuid = (v) => /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(String(v || ""));
 
-function installStaffRoutes({ app, pool, requireDatabase, requireUser }) {
+function installStaffRoutes({ app, pool, requireDatabase, requireUser, addUserNotification }) {
   const owner = (req, res, next) => req.user?.role === "owner" ? next() : res.status(403).json({ error: "owner_only" });
   const courier = (req, res, next) => req.user?.role === "courier" ? next() : res.status(403).json({ error: "courier_only" });
   const staffLog = async (db, actor, action, type, id, orderId = null, details = {}) => {
@@ -94,6 +94,24 @@ function installStaffRoutes({ app, pool, requireDatabase, requireUser }) {
         [id, status]
       );
       await staffLog(db, req.user.id, "courier." + status, "assignment", id, before.order_id, { from: before.status, note });
+      const order = await db.query("SELECT user_id,order_number FROM orders WHERE id=$1 LIMIT 1",[before.order_id]);
+      if(order.rowCount && typeof addUserNotification==="function"){
+        const labels={
+          accepted:"Курьер принял задание",
+          picked_up:"Заказ передан курьеру",
+          delivered:"Курьер отметил вручение заказа",
+          problem:"Возник вопрос по доставке"
+        };
+        if(labels[status])await addUserNotification(
+          db,order.rows[0].user_id,"order_status","courier_status",
+          "Заказ #"+order.rows[0].order_number+" · "+labels[status],
+          status==="delivered"
+            ?"Курьер подтвердил передачу заказа. Если заказ не получен, свяжитесь с ZapFormat."
+            :status==="problem"
+              ?"Доставка требует уточнения. Мы свяжемся с вами."
+              :"Статус курьерской доставки ZapFormat обновлён."
+        );
+      }
       return { ok: true, status, previous_status: before.status };
     });
     res.status(result.code || 200).json(result);
@@ -156,6 +174,12 @@ function installStaffRoutes({ app, pool, requireDatabase, requireUser }) {
       );
       if (!result.rowCount) return { code: 409, error: "delivery_already_finished" };
       await staffLog(db, req.user.id, "courier.assigned", "assignment", result.rows[0].id, orderId, { courier_id: courierId });
+      const order=await db.query("SELECT user_id,order_number FROM orders WHERE id=$1 LIMIT 1",[orderId]);
+      if(order.rowCount && typeof addUserNotification==="function"){
+        await addUserNotification(db,order.rows[0].user_id,"order_status","courier_status",
+          "Заказ #"+order.rows[0].order_number+" · Назначен курьер",
+          "Заказ передан в службу доставки ZapFormat. О фактической передаче курьеру сообщим отдельно.");
+      }
       return { ok: true, assignment_id: result.rows[0].id };
     });
     res.status(result.code || 201).json(result);

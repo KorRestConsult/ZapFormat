@@ -8,6 +8,7 @@ const AI_ENV_FILE = "/var/lib/zapformat/zapformat-ai.env";
 const SMS_ENV_FILE = "/var/lib/zapformat/zapformat-sms.env";
 const FAPI_ENV_FILE = "/var/lib/zapformat/zapformat-fapi.env";
 const TELEGRAM_ENV_FILE = "/var/lib/zapformat/zapformat-telegram.env";
+const CUSTOMER_TELEGRAM_ENV_FILE = "/var/lib/zapformat/zapformat-customer-telegram.env";
 const MAIL_ENV_FILE = "/var/lib/zapformat/zapformat-email.env";
 
 async function ensureBootstrapPrivateKey() {
@@ -270,6 +271,25 @@ async function installTelegramConfig(payload) {
   return { configured: Boolean(token), connected: Boolean(token && chatId) };
 }
 
+
+async function installCustomerTelegramConfig(input){
+  const token=String(input?.bot_token||"").trim();
+  const webhookSecret=String(input?.webhook_secret||"").trim();
+  if(!/^\d{5,15}:[A-Za-z0-9_-]{20,}$/.test(token) || token.length>256)
+    throw new Error("telegram_bot_token_invalid");
+  if(!/^[A-Za-z0-9_-]{20,256}$/.test(webhookSecret))
+    throw new Error("telegram_webhook_secret_invalid");
+  if(token===String(process.env.ZAPFORMAT_TELEGRAM_BOT_TOKEN||"").trim())
+    throw new Error("customer_bot_must_be_separate");
+  const body=envLine("ZAPFORMAT_CUSTOMER_TELEGRAM_BOT_TOKEN",token)+
+    envLine("ZAPFORMAT_CUSTOMER_TELEGRAM_WEBHOOK_SECRET",webhookSecret);
+  await fs.writeFile(CUSTOMER_TELEGRAM_ENV_FILE,body,{mode:0o600});
+  await fs.chmod(CUSTOMER_TELEGRAM_ENV_FILE,0o600).catch(()=>{});
+  process.env.ZAPFORMAT_CUSTOMER_TELEGRAM_BOT_TOKEN=token;
+  process.env.ZAPFORMAT_CUSTOMER_TELEGRAM_WEBHOOK_SECRET=webhookSecret;
+  return {configured:true};
+}
+
 module.exports = {
   publicBootstrapJwk,
   installEncryptedOpenAIKey,
@@ -279,9 +299,11 @@ module.exports = {
   saveResendConfig,
   installFapiToken,
   installTelegramConfig,
+  installCustomerTelegramConfig,
   AI_ENV_FILE,
   SMS_ENV_FILE,
   FAPI_ENV_FILE,
   TELEGRAM_ENV_FILE,
+  CUSTOMER_TELEGRAM_ENV_FILE,
   MAIL_ENV_FILE
 };

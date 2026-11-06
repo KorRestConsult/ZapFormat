@@ -628,6 +628,41 @@
     });
   }
 
+
+  function renderCustomerTelegram(status){
+    const ready=status?.available===true;
+    const configured=status?.configured===true;
+    const username=String(status?.username||"");
+    const display=ready
+      ? '<div class="callout success"><b>Клиентский бот подключён:</b> @'+escape(username)+'. Покупатели привязывают свои чаты в личном кабинете. Команды /orders и /stop уже доступны.</div>'
+      : configured
+        ? '<div class="callout">Токен сохранён, но Telegram пока недоступен. Проверьте сетевую связь сервера и повторите настройку.</div>'
+        : '<div class="callout">Для покупателей требуется отдельный бот BotFather. Не используйте токен вашего личного бота владельца. Никому не отправляйте токен в чат.</div>';
+    $("page").insertAdjacentHTML("beforeend",panel("Telegram для клиентов",
+      display+
+      '<p class="muted">Клиент сам разрешает уведомления через одноразовую ссылку на сайте. Бот сообщает об изменениях заказа и деталей, не показывает закупочную цену и не принимает оплату.</p>'+
+      '<form id="customerTelegramSetupForm" class="security-form" autocomplete="off">'+
+        '<label>Токен отдельного клиентского бота<input type="password" id="customerTelegramBotToken" spellcheck="false" autocomplete="off" placeholder="Токен от BotFather" required></label>'+
+        '<button class="primary" type="submit" id="customerTelegramSetupButton">'+(configured?"Обновить подключение":"Подключить клиентского бота")+'</button>'+
+      '</form>'+
+      '<p class="muted">После подключения войдите на сайт в качестве клиента, выберите «Мои заказы в Telegram» и отправьте себе тестовое уведомление.</p>'
+    ));
+    $("customerTelegramSetupForm")?.addEventListener("submit",async event=>{
+      event.preventDefault();
+      if(state.busy)return;
+      const token=$("customerTelegramBotToken").value.trim();
+      if(!token)return;
+      state.busy=true;$("customerTelegramSetupButton").disabled=true;
+      try{
+        const result=await request("/api/admin/customer-telegram/config",{method:"POST",body:{bot_token:token}});
+        $("customerTelegramBotToken").value="";
+        alertMessage(result.available?"Клиентский бот подключён. Покупатели могут привязывать Telegram.":"Токен сохранён, но Telegram пока недоступен.","success");
+        await openPage("telegram");
+      }catch(error){handleError(error,"Не удалось настроить клиентского бота. Проверьте токен BotFather.");}
+      finally{state.busy=false;if($("customerTelegramSetupButton"))$("customerTelegramSetupButton").disabled=false}
+    });
+  }
+
   function renderSecurity(){
     $("page").innerHTML=panel("Пароль владельца", `<p class="muted">Для смены пароля укажите действующий пароль и придумайте новый длиной от 12 до 128 символов. После успешной смены все прежние сеансы будут отключены, потребуется войти снова.</p>
       <form id="passwordChangeForm" class="security-form" autocomplete="off">
@@ -743,7 +778,10 @@
       if(page==="telegram"){
         const status=await request("/api/admin/telegram/status");
         if(seq!==state.seq||!state.user)return;
-        renderTelegram(status);return;
+        renderTelegram(status);
+        const customerStatus=await request("/api/admin/customer-telegram/status").catch(()=>({configured:false,available:false}));
+        if(seq!==state.seq||!state.user)return;
+        renderCustomerTelegram(customerStatus);return;
       }
       if(page==="pricing"){
         const data=await request("/api/admin/pricing");
