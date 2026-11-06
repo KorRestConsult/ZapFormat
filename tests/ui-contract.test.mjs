@@ -400,3 +400,13 @@ test('VIN BMW short OEM numbers are not treated as separate replacement SKUs', (
   assert.match(app, /Краткий номер:/);
   assert.match(app, /data-verified-article=/);
 });
+
+test('VIN empty node offers truthful provider fallback, alternatives and a way to continue', () => {
+  assert.match(app, /data\?\.catalog_kind==="aftermarket"/);
+  assert.match(app, /Артикул производителя · не OEM/);
+  assert.match(app, /Другие разделы этой системы/);
+  assert.match(app, /vinCatalogChildren\(node\.parent_id\)/);
+  assert.match(app, /data-verified-kind=/);
+  assert.match(app, /catalogKind:verifiedArticle\.dataset\.verifiedKind/);
+  assert.match(app, /НЕОРИГИНАЛЬНЫЙ АРТИКУЛ ИЗ КАТАЛОГА FAPI/);
+});
