@@ -51,10 +51,10 @@ test('pricing is a real backend read/write with explicit save and guard',()=>{
 test('screens do not advertise invented revenue or reveal procurement lines to anonymous visitors',()=>{
   assert.ok(!html.includes('85 000'),'demo revenue must not appear');
   assert.ok(!html.includes('Иван П.'),'fake customers must not appear');
-  assert.match(js,/Сумма оформленных заказов/);
-  assert.match(js,/не равно поступившей оплате/);
-  assert.match(js,/Не является чистой прибылью/);
-  assert.match(js,/без закупочной цены/);
+  assert.match(js,/Сумма заказов/);
+  assert.match(js,/не подтверждённая оплата/);
+  assert.match(js,/не являются чистой прибылью/i);
+  assert.match(js,/Общая валовая прибыль не может быть рассчитана достоверно/);
   assert.match(js,/escape\(i\.recipient_phone/);
   assert.match(js,/escape\(i\.email/);
 });
