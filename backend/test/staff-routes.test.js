@@ -31,7 +31,7 @@ test("deployment applies courier migration and staff pages are role-limited",()=
   const s=fs.readFileSync(path.resolve(__dirname,"../src/server.js"),"utf8");
   const ui=fs.readFileSync(path.resolve(__dirname,"../../admin/admin.js"),"utf8");
   assert.ok(deploy.includes("db/013_staff_courier.sql"));
-  assert.ok(s.includes("installStaffRoutes({ app, pool, requireDatabase, requireUser })"));
+  assert.match(s, /installStaffRoutes\(\{ app, pool, requireDatabase, requireUser(?:, addUserNotification)? \}\)/);
   assert.ok(ui.includes('role==="courier"?["deliveries","security"]'));
   assert.ok(ui.includes('role==="customer"?["apply","security"]'));
 });
