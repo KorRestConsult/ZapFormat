@@ -87,7 +87,8 @@ test("owner courier demo is read-only and has no supplier writes",()=>{
 
 test("courier-facing login fits mobile screens without removing real registration forms",()=>{
   assert.match(html,/<h2 id=\"authTitle\">Вход<\/h2>/);
-  assert.match(html,/Служебный кабинет/);
+  assert.doesNotMatch(html,/<p>Служебный кабинет<\/p>/);
+  assert.match(html,/Для владельца и сотрудников ZapFormat/);
   assert.match(css,/@media \(max-width: 780px\)/);
   assert.match(css,/#authScreen \.auth-brand \{/);
   assert.match(css,/#authScreen \.auth-card input \{/);
@@ -99,11 +100,16 @@ test("courier-facing login fits mobile screens without removing real registratio
   }
 });
 
-test("service login wordmark is a single stacked block on narrow mobile screens",()=>{
-  assert.match(html,/class=\"auth-brand-copy\"><h1>ZapFormat<\/h1><p>Служебный кабинет<\/p>/);
+test("admin login uses approved ZAPFORMAT wordmark without redundant captions",()=>{
+  const brandCss=readFileSync(resolve(root,"admin/zf-premium.css"),"utf8");
+  assert.ok(html.includes('<span class="zf-wordmark-main">ZAP</span><span class="zf-wordmark-accent">FORMAT</span>'));
+  assert.doesNotMatch(html,/>ЗАКРЫТАЯ ПАНЕЛЬ</);
+  assert.doesNotMatch(html,/<p>Служебный кабинет<\/p>/);
   assert.match(css,/#authScreen \.auth-brand-copy \{/);
-  assert.match(css,/#authScreen \.auth-brand p \{/);
   assert.match(css,/@media \(max-width:360px\)/);
+  assert.match(brandCss,/#authScreen \.auth-brand \.auth-brand-copy h1/);
+  assert.match(brandCss,/font-weight: 950/);
+  assert.match(brandCss,/#authScreen \.zf-wordmark-accent \{ color: #fa8122; \}/);
 });
 
 test("owner order view shows separately tracked purchasing, courier and unconfirmed cash stages",()=>{
