@@ -2599,28 +2599,45 @@ async function loadVinNodeParts(node){
       return;
     }
 
-    const html=items.length ? `
-      <div class="vin-parts-grid">
-        ${items.map(item=>`
-          <article class="vin-part-card">
-            <div class="vin-part-image">
-              <span class="vin-part-image-fallback">${vinCatalogIcon(node.name)}</span>
-              ${item.image_url?'<img loading="lazy" src="'+escapeHtml(API_BASE+item.image_url)+'" alt="'+escapeHtml(item.description||item.article||"Деталь")+'" onerror="this.style.display=\'none\'">':""}
-            </div>
-            <div class="vin-part-copy">
-              <small>${escapeHtml(item.brand||"OEM")}</small>
-              <b>${escapeHtml(item.article||"—")}</b>
-              <p>${escapeHtml(item.description||node.name||"Деталь")}</p>
-              ${item.fit?'<span class="vin-fit-note">'+escapeHtml(String(item.fit))+'</span>':""}
-            </div>
-            <button type="button" class="vin-price-button"
-              data-verified-article="${escapeHtml(item.article_normalized||item.article||"")}"
-              data-verified-brand="${escapeHtml(item.brand||"")}"
-              data-verified-description="${escapeHtml(item.description||node.name||"")}">
-              Цены и наличие
-            </button>
-          </article>`).join("")}
-      </div>`
+    // Same name is not the same SKU. Group repeated descriptions and keep
+    // each verified brand/article/fitment separately actionable through PartGrade.
+    const groups=new Map();
+    for(const item of items){
+      const title=String(item.description||node.name||"Деталь").trim();
+      const key=title.toLocaleLowerCase("ru-RU");
+      if(!groups.has(key))groups.set(key,{title,items:[]});
+      groups.get(key).items.push(item);
+    }
+    const html=items.length?'<div class="vin-group-list">'+
+      '<p class="vin-group-intro">'+groups.size+' наименований · '+items.length+' отдельных артикулов. Выберите номер для проверки цены и наличия.</p>'+
+      [...groups.values()].map(group=>`
+        <details class="vin-part-group" ${groups.size===1&&group.items.length===1?"open":""}>
+          <summary>
+            <span class="vin-part-group-icon">${vinCatalogIcon(group.title)}</span>
+            <span class="vin-part-group-title"><b>${escapeHtml(group.title)}</b><small>${group.items.length} ${group.items.length===1?"артикул":"артикулов"}</small></span>
+            <span class="vin-part-group-arrow" aria-hidden="true">⌄</span>
+          </summary>
+          <div class="vin-part-group-items">
+            ${group.items.map(item=>`
+              <article class="vin-part-row">
+                <span class="vin-part-thumb">
+                  <span class="vin-part-image-fallback">${vinCatalogIcon(group.title)}</span>
+                  ${item.image_url?'<img loading="lazy" src="'+escapeHtml(API_BASE+item.image_url)+'" alt="" onerror="this.remove()">':""}
+                </span>
+                <div class="vin-part-row-copy">
+                  <b>${escapeHtml(item.article||"—")}</b>
+                  <small>${escapeHtml(item.brand||"OEM")}</small>
+                  ${item.fit?'<span class="vin-fit-note">'+escapeHtml(String(item.fit))+'</span>':""}
+                </div>
+                <button type="button" class="vin-price-button"
+                  data-verified-article="${escapeHtml(item.article_normalized||item.article||"")}"
+                  data-verified-brand="${escapeHtml(item.brand||"")}"
+                  data-verified-description="${escapeHtml(item.description||node.name||"")}">
+                  Цены и наличие
+                </button>
+              </article>`).join("")}
+          </div>
+        </details>`).join("")+'</div>'
       : '<div class="garage-empty-inline vin-empty-node"><b>В этом узле оригинальные номера не найдены.</b><span>Вернитесь на уровень выше и выберите соседний раздел.</span></div>';
 
     browser.insertAdjacentHTML("beforeend",html);
