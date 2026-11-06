@@ -26,7 +26,7 @@ const { installEmailPasswordReset } = require("./email-password-reset");
 const { probeResendDelivery } = require("./resend-mail");
 const { verifyGitHubActionsToken } = require("./github-oidc");
 const { interpretSearch, fallbackIntent, researchPartCandidates, normalizeVehicle } = require("./ai-search");
-const { publicBootstrapJwk, installEncryptedOpenAIKey, installTimewebAIToken, installSmsRuToken, installFapiToken, installTelegramConfig, installCustomerTelegramConfig, installGmailSMTP, saveResendConfig } = require("./secret-bootstrap");
+const { publicBootstrapJwk, installEncryptedOpenAIKey, installTimewebAIToken, installSmsRuToken, installFapiToken, installTelegramConfig, installCustomerTelegramConfig, restoreCustomerTelegramConfig, installGmailSMTP, saveResendConfig } = require("./secret-bootstrap");
 const { configured: telegramConfigured, connected: telegramConnected, pairingCode: telegramPairingCode, getMe: telegramGetMe, getMeForToken: telegramGetMeForToken, telegramCall, discoverPairedChat, sendOwnerMessage, notifyOwnerOrderCreated } = require("./telegram-notifier");
 const { installCustomerTelegram } = require("./customer-telegram");
 const {
@@ -6380,6 +6380,8 @@ app.use((error, _req, res, _next) => {
 });
 
 async function start() {
+  try { await restoreCustomerTelegramConfig(); }
+  catch(error) { console.warn("[CustomerTelegramConfig]",error?.code||"restore_unavailable"); }
   if (pool) {
     await pool.query("SELECT 1");
     // Failure here must not take down checkout; the admin editor will show

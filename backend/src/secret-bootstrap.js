@@ -290,6 +290,37 @@ async function installCustomerTelegramConfig(input){
   return {configured:true};
 }
 
+
+async function restoreCustomerTelegramConfig(){
+  if(process.env.ZAPFORMAT_CUSTOMER_TELEGRAM_BOT_TOKEN && process.env.ZAPFORMAT_CUSTOMER_TELEGRAM_WEBHOOK_SECRET)
+    return {configured:true,source:"environment"};
+  let body;
+  try{body=await fs.readFile(CUSTOMER_TELEGRAM_ENV_FILE,"utf8")}
+  catch(error){
+    if(error?.code==="ENOENT")return {configured:false,source:"not_configured"};
+    throw error;
+  }
+  const stored={};
+  for(const line of body.split(/\r?\n/)){
+    const index=line.indexOf("=");
+    if(index<1)continue;
+    const key=line.slice(0,index);
+    if(["ZAPFORMAT_CUSTOMER_TELEGRAM_BOT_TOKEN","ZAPFORMAT_CUSTOMER_TELEGRAM_WEBHOOK_SECRET"].includes(key))
+      stored[key]=line.slice(index+1).trim();
+  }
+  const token=stored.ZAPFORMAT_CUSTOMER_TELEGRAM_BOT_TOKEN||"";
+  const secret=stored.ZAPFORMAT_CUSTOMER_TELEGRAM_WEBHOOK_SECRET||"";
+  if(!/^\d{5,15}:[A-Za-z0-9_-]{20,}$/.test(token)||token.length>256||
+     !/^[A-Za-z0-9_-]{20,256}$/.test(secret)||
+     token===String(process.env.ZAPFORMAT_TELEGRAM_BOT_TOKEN||"").trim())
+    return {configured:false,source:"invalid_config"};
+  if(!process.env.ZAPFORMAT_CUSTOMER_TELEGRAM_BOT_TOKEN)
+    process.env.ZAPFORMAT_CUSTOMER_TELEGRAM_BOT_TOKEN=token;
+  if(!process.env.ZAPFORMAT_CUSTOMER_TELEGRAM_WEBHOOK_SECRET)
+    process.env.ZAPFORMAT_CUSTOMER_TELEGRAM_WEBHOOK_SECRET=secret;
+  return {configured:true,source:"private_file"};
+}
+
 module.exports = {
   publicBootstrapJwk,
   installEncryptedOpenAIKey,
@@ -300,6 +331,7 @@ module.exports = {
   installFapiToken,
   installTelegramConfig,
   installCustomerTelegramConfig,
+  restoreCustomerTelegramConfig,
   AI_ENV_FILE,
   SMS_ENV_FILE,
   FAPI_ENV_FILE,

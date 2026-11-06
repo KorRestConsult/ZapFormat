@@ -472,3 +472,13 @@ test('only a linked customer may receive status notifications, never order costs
   assert.match(bot, /\/stop/);
   assert.match(courier, /addUserNotification/);
 });
+
+test('customer bot configuration survives API restart without logging credentials', () => {
+  const secret=readFileSync(resolve(root,'backend/src/secret-bootstrap.js'),'utf8');
+  const backend=readFileSync(resolve(root,'backend/src/server.js'),'utf8');
+  assert.match(secret,/async function restoreCustomerTelegramConfig\(/);
+  assert.match(secret,/CUSTOMER_TELEGRAM_ENV_FILE/);
+  assert.match(secret,/source:"private_file"/);
+  assert.match(backend,/await restoreCustomerTelegramConfig\(\)/);
+  assert.ok(backend.indexOf('await restoreCustomerTelegramConfig()')<backend.indexOf('customerTelegram.start()'));
+});
