@@ -58,7 +58,8 @@ test("admin regulator edits two profiles and preserves explicit owner save",()=>
   assert.match(server,/app\.get\("\/api\/admin\/pricing"/);
   assert.match(server,/app\.put\("\/api\/admin\/pricing"/);
   assert.match(server,/policies: stored\.rows\[0\] \? setPricingPolicies/);
-  assert.match(server,/validatePricingPolicies\(req\.body\?\.policies \?\? req\.body\?\.policy\)/);
+  assert.match(server,/policies = validatePricingPolicies\(submitted\)/);
+  assert.match(server,/service: getPricingPolicy\("service"\)/);
   assert.match(admin,/data-pricing-profile="individual"/);
   assert.match(admin,/data-pricing-profile="service"/);
   assert.match(admin,/body:\{policies\}/);
