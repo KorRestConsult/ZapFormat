@@ -423,3 +423,15 @@ test('Supplier status cannot claim a part was handed to the end customer', () =>
   );
   assert.match(server, /aggregateOrderStatusFromSupplierItems\(/);
 });
+
+test('customer-facing PartGrade statuses never assert customer delivery', () => {
+  const supplierLabels=app.slice(app.indexOf('function supplyStatusLabel('),app.indexOf('function historyNoteText('));
+  const backend=readFileSync(resolve(root,'backend/src/server.js'),'utf8');
+  assert.match(supplierLabels, /Выдано поставщиком/);
+  assert.match(supplierLabels, /Готово у поставщика/);
+  assert.doesNotMatch(supplierLabels, /return "Завершено"/);
+  assert.match(app, /Принято на склад ZapFormat/);
+  assert.match(app, /if\(match\) return "Поставщик: "/);
+  assert.match(backend, /Статус у поставщика:/);
+  assert.match(backend, /Приёмка и доставка ZapFormat подтверждаются отдельно/);
+});

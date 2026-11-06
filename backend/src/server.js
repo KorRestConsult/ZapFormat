@@ -867,7 +867,7 @@ async function saveSupplierOrderSnapshots(orderId, snapshots) {
             "item_changes",
             "item_status",
             "Заказ #" + String(orderMeta.order_number) + " · " + String(match.brand || "") + " " + String(match.article || ""),
-            "Статус позиции: " + String(nextSupplyStatus)
+            "Статус у поставщика: " + String(nextSupplyStatus) + ". Приёмка и доставка ZapFormat подтверждаются отдельно."
           );
         }
 

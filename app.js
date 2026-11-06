@@ -931,11 +931,11 @@ function supplyStatusLabel(status){
   const value=raw.toLowerCase().replace(/[\s_-]+/g,"");
   if(/reject|refus|declin|отказ|нетвналич/.test(value)) return "Позиция недоступна";
   if(/cancel|canceled|cancelled|отмен/.test(value)) return "Отменено";
-  if(/complete|completed|delivered|issued|выдан|заверш/.test(value)) return "Завершено";
-  if(/ready|готов/.test(value)) return "Готово к отправке";
-  if(/ship|transit|delivery|dispatch|впути|достав/.test(value)) return "В пути";
-  if(/process|work|ordered|confirmed|обработ|работ/.test(value)) return "В работе";
-  if(/new|created|received|accepted|принят|создан/.test(value)) return "Принято";
+  if(/complete|completed|delivered|issued|выдан|заверш/.test(value)) return "Выдано поставщиком";
+  if(/ready|готов/.test(value)) return "Готово у поставщика";
+  if(/ship|transit|delivery|dispatch|впути|достав/.test(value)) return "В пути от поставщика";
+  if(/process|work|ordered|confirmed|обработ|работ/.test(value)) return "Поставщик обрабатывает";
+  if(/new|created|received|accepted|принят|создан/.test(value)) return "Принято поставщиком";
 
   const looksTechnical=/^[A-Za-z0-9_.:-]+$/.test(raw) || /^[a-z]+(?:[A-Z][a-z0-9]*)+$/.test(raw);
   return looksTechnical ? "Статус обновлён" : raw;
@@ -944,7 +944,7 @@ function supplyStatusLabel(status){
 function historyNoteText(note){
   const raw=String(note||"").trim();
   const match=raw.match(/^Статус поставки:\s*(.+)$/i);
-  if(match) return "Статус позиции: "+supplyStatusLabel(match[1]);
+  if(match) return "Поставщик: "+supplyStatusLabel(match[1]);
   return raw;
 }
 
@@ -1108,7 +1108,7 @@ function renderLiveAccount(overview,orders,requests,garage){
         : (Number.isFinite(Number(item?.delivery_days)) ? String(Number(item.delivery_days))+" дн." : "—");
       const itemStatus=item?.status||row.status;
       const shipment=item?.received_at
-        ? "Получено"
+        ? "Принято на склад ZapFormat"
         : (item?.supplier_status ? supplyStatusLabel(item.supplier_status) : "—");
       const returnText=item?.return_status ? requestStatusLabel(item.return_status) : "—";
       const description=item?.description||(!isOrder?row.search_text:"")||"—";
