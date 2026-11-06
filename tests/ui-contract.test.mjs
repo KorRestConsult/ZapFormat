@@ -435,3 +435,16 @@ test('customer-facing PartGrade statuses never assert customer delivery', () => 
   assert.match(backend, /Статус у поставщика:/);
   assert.match(backend, /Приёмка и доставка ZapFormat подтверждаются отдельно/);
 });
+
+test('mobile shortlist uses real eligible customer offers only and cannot auto-buy', () => {
+  assert.match(app, /function supplierOfferHighlights\(data\)/);
+  assert.match(app, /if\(!data\?\.liveSupplier\)return ""/);
+  assert.match(app, /Number\(part.qty\)>=Math.max\(1,Number\(part.packing\|\|1\)\)/);
+  assert.match(app, /liveSupplier:true/);
+  assert.match(app, /Выгодный точный номер/);
+  assert.match(app, /Самый доступный аналог/);
+  assert.match(app, /Лучший срок поставщика/);
+  assert.match(app, /data-focus-offer=/);
+  assert.match(app, /target.scrollIntoView\(/);
+  assert.match(app, /supplier-picks-note/);
+});
