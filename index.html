@@ -8,7 +8,7 @@
   <title>ZapFormat — автозапчасти</title>
   <meta name="description" content="ZapFormat — поиск автозапчастей по артикулу и названию. Личный гараж, корзина и история заказов." />
   <link rel="stylesheet" href="./styles.css?v=20261104-session-persistence7" />
-  <link rel="stylesheet" href="./premium.css?v=20261106-partgrade-picks1" />
+  <link rel="stylesheet" href="./premium.css?v=20261106-customer-telegram1" />
 </head>
 <body class="guest-mode auth-route">
   <div class="app">
@@ -432,6 +432,24 @@
                 </form>
               </section>
 
+
+              <section class="profile-section customer-telegram-section" aria-labelledby="customerTelegramTitle">
+                <div class="profile-section-head">
+                  <span class="eyebrow">УВЕДОМЛЕНИЯ</span>
+                  <h3 id="customerTelegramTitle">Мои заказы в Telegram</h3>
+                </div>
+                <p>Статусы заказов и отдельных деталей будут приходить в Telegram. Не потребуется каждый раз открывать сайт.</p>
+                <div id="customerTelegramStatus" class="customer-telegram-status" role="status" aria-live="polite">Проверяем возможность подключения…</div>
+                <div class="customer-telegram-actions">
+                  <button type="button" class="account-primary" id="customerTelegramConnect" hidden>Подключить Telegram</button>
+                  <a class="account-primary customer-telegram-link" id="customerTelegramOpenBot" href="#" target="_blank" rel="noopener noreferrer" hidden>Открыть бота в Telegram</a>
+                  <button type="button" class="account-primary" id="customerTelegramCheck" hidden>Проверить подключение</button>
+                  <button type="button" class="account-primary" id="customerTelegramTest" hidden>Проверить уведомление</button>
+                  <button type="button" class="management-desk-reload" id="customerTelegramDisconnect" hidden>Отключить Telegram</button>
+                </div>
+                <small class="customer-telegram-note">Подключение добровольное. Уведомления содержат только данные ваших заказов, без внутренних закупочных цен.</small>
+              </section>
+
               <section class="profile-section" id="profileDeliverySection">
                 <div class="profile-section-head"><span class="eyebrow">ПОЛУЧЕНИЕ</span><h3>Адрес и получатель</h3></div>
                 <form class="account-form" id="deliveryForm">
@@ -563,7 +581,7 @@
 </div>
 
   <script src="./config.js?v=20261103-domain-live1"></script>
-  <script src="./app.js?v=20261106-partgrade-picks1"></script>
+  <script src="./app.js?v=20261106-customer-telegram1"></script>
   <script src="./admin-desk.js?v=20261030-pricing1"></script>
 </body>
 </html>
