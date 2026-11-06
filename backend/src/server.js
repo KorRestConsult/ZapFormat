@@ -4074,14 +4074,24 @@ app.post("/api/auth/password-reset/start", authLimiter, async (req, res, next) =
 
     const email = identity.includes("@") ? normalizeEmail(identity) : null;
     const phone = identity.includes("@") ? null : normalizePhone(identity);
+    // A person may hold a separate customer and owner profile with the same
+    // contact details. Recovery MUST choose the requested account scope.
+    const scope = String(req.body?.account_scope || "customer").trim();
+    if (!["customer", "admin"].includes(scope)) {
+      return res.status(400).json({ error: "invalid_account_scope" });
+    }
     const result = await pool.query(
       `SELECT id, phone
          FROM users
         WHERE status = 'active'
           AND (($1::text IS NOT NULL AND lower(email) = $1)
             OR ($2::text IS NOT NULL AND phone = $2))
+          AND (($3::text = 'admin' AND role IN ('owner', 'admin'))
+            OR ($3::text = 'customer' AND role = 'customer'))
+        ORDER BY CASE role WHEN 'owner' THEN 0 WHEN 'admin' THEN 1 ELSE 2 END,
+                 CASE customer_type WHEN 'individual' THEN 0 ELSE 1 END
         LIMIT 1`,
-      [email, phone]
+      [email, phone, scope]
     );
     const user = result.rows[0];
 
