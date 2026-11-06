@@ -57,6 +57,12 @@ test("one-time link connects the intended customer, cannot be replayed, /stop re
     if(q.startsWith("SELECT user_id FROM customer_telegram_links WHERE chat_id=$1 AND user_id<>"))return{rowCount:0,rows:[]};
     if(q.startsWith("INSERT INTO customer_telegram_links")){store.chat=args[1];store.enabled=true;return{rowCount:1,rows:[]}}
     if(q.startsWith("UPDATE customer_telegram_links SET enabled=false")){store.enabled=false;return{rowCount:1,rows:[]}}
+    if(q.startsWith("DELETE FROM customer_telegram_links WHERE chat_id=")){
+      const wasLinked=store.chat===args[0];
+      store.chat=null;store.enabled=false;
+      return{rowCount:wasLinked?1:0,rows:wasLinked?[{user_id:userId}]:[]};
+    }
+    if(q.startsWith("DELETE FROM customer_telegram_deliveries"))return{rowCount:0,rows:[]};
     if(q.startsWith("SELECT user_id FROM customer_telegram_links WHERE chat_id=$1")){
       return{rowCount:store.enabled?1:0,rows:store.enabled?[{user_id:userId}]:[]};
     }
