@@ -786,3 +786,91 @@ body:not(.guest-mode) #sessionEntryButton,body:not(.guest-mode) #accountEntryBut
 #view-search.vin-catalog-mode .vin-vehicle-hero .vin-exploded{display:block!important;width:100%!important;min-width:0!important}
 #view-search.vin-catalog-mode .vin-car-schematic .vin-owner-photo{display:block;width:100%;height:100%;object-fit:cover;border-radius:12px}
 #view-search.vin-catalog-mode .vin-save-compact{display:block;margin:12px auto 0;padding:9px 14px;border-radius:11px;border:1px solid #f6b37f;background:#fff7ef;color:#aa5216;font-weight:750}
+
+/* VIN result: owner's thumbnail sits in the header, not next to the category actions. */
+#view-search .vin-result-photo[hidden]{display:none!important}
+#view-search.vin-catalog-mode .catalog-query-head{
+  display:grid!important;
+  grid-template-columns:minmax(0,1fr) auto!important;
+  align-items:center!important;column-gap:16px!important;
+}
+#view-search.vin-catalog-mode .catalog-query-head>div:first-child{
+  min-width:0!important;max-width:100%!important;
+}
+#view-search.vin-catalog-mode .vin-result-photo{
+  display:block;grid-column:2;grid-row:1;
+  width:110px;height:88px;overflow:hidden;
+  border-radius:13px;border:1px solid #dbe5ed;
+  background:#edf2f6;flex:none;
+}
+#view-search.vin-catalog-mode .vin-result-photo img{
+  display:block;width:100%;height:100%;object-fit:cover;
+}
+/* Independent, symmetric group of six shortcuts; original category IDs are untouched. */
+#view-search.vin-catalog-mode .vin-quick-sections{
+  width:100%;min-width:0;max-width:100%;box-sizing:border-box;
+  padding:17px!important;border:1px solid #dce6ee;border-radius:19px;
+  background:#fff;box-shadow:0 6px 20px rgba(24,50,75,.045);
+}
+#view-search.vin-catalog-mode .vin-quick-sections .vin-hotspot-list{
+  display:grid!important;
+  grid-template-columns:repeat(3,minmax(0,1fr))!important;
+  position:static!important;width:100%!important;max-width:100%!important;
+  margin:0!important;padding:0!important;gap:10px!important;
+}
+#view-search.vin-catalog-mode .vin-quick-sections .vin-hotspot{
+  position:static!important;inset:auto!important;transform:none!important;
+  width:100%!important;height:100%!important;min-height:58px!important;
+  display:flex!important;align-items:center!important;justify-content:flex-start!important;
+  gap:9px!important;padding:10px!important;min-width:0!important;
+  border:1px solid #d5e1eb!important;border-left:3px solid #fa8122!important;
+  border-radius:12px!important;background:#fff!important;box-shadow:none!important;
+  text-align:left!important;white-space:normal!important;touch-action:manipulation;
+}
+#view-search.vin-catalog-mode .vin-quick-sections .vin-hotspot span{
+  display:grid!important;place-items:center!important;flex:0 0 30px!important;
+  width:30px!important;height:30px!important;min-width:30px!important;
+  margin:0!important;
+}
+#view-search.vin-catalog-mode .vin-quick-sections .vin-hotspot b{
+  min-width:0;font-size:13px!important;line-height:1.2!important;
+  overflow-wrap:anywhere;text-align:left!important;
+}
+#view-search.vin-catalog-mode .vin-quick-sections .vin-hotspot:hover,
+#view-search.vin-catalog-mode .vin-quick-sections .vin-hotspot:focus-visible{
+  border-color:#f5b27c!important;background:#fff9f3!important;
+}
+@media(max-width:680px){
+  #view-search.vin-catalog-mode .catalog-query-head{
+    grid-template-columns:minmax(0,1fr) 82px!important;
+    gap:10px!important;padding:15px!important;
+  }
+  #view-search.vin-catalog-mode .vin-result-photo{
+    width:82px;height:82px;border-radius:11px;
+  }
+  #view-search.vin-catalog-mode .vin-quick-sections{
+    padding:13px!important;border-radius:17px!important;
+  }
+  #view-search.vin-catalog-mode .vin-quick-sections .vin-hotspot-list{
+    grid-template-columns:repeat(2,minmax(0,1fr))!important;
+    gap:9px!important;
+  }
+  #view-search.vin-catalog-mode .vin-quick-sections .vin-hotspot{
+    min-height:57px!important;padding:8px!important;gap:8px!important;
+  }
+  #view-search.vin-catalog-mode .vin-quick-sections .vin-hotspot b{
+    font-size:12px!important;
+  }
+}
+@media(max-width:350px){
+  #view-search.vin-catalog-mode .vin-quick-sections .vin-hotspot-list{
+    grid-template-columns:repeat(2,minmax(0,1fr))!important;
+    gap:7px!important;
+  }
+  #view-search.vin-catalog-mode .vin-quick-sections .vin-hotspot{
+    padding:7px!important;gap:6px!important;
+  }
+  #view-search.vin-catalog-mode .vin-quick-sections .vin-hotspot span{
+    width:26px!important;height:26px!important;flex-basis:26px!important;
+  }
+}
