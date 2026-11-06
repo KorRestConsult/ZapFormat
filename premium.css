@@ -960,3 +960,42 @@ body:not(.guest-mode) #sessionEntryButton,body:not(.guest-mode) #accountEntryBut
     grid-column:2;justify-self:start;max-width:none;min-height:36px;margin-top:2px
   }
 }
+
+/* VIN catalog v2: decide whether to search OR choose a real vehicle system. */
+#view-search.vin-catalog-mode .vin-primary-find{
+  box-sizing:border-box;width:100%;min-width:0;margin:0 0 12px;
+  padding:16px;border:1px solid #dce6ee;border-radius:18px;
+  background:#fff;box-shadow:0 6px 20px rgba(24,50,75,.045)
+}
+#view-search.vin-catalog-mode .vin-primary-find .vin-catalog-search-wrap{margin-bottom:0}
+#view-search.vin-catalog-mode .vin-primary-find .vin-catalog-search-results{margin:10px 0 0}
+#view-search.vin-catalog-mode .vin-or-pick{
+  margin:12px 0 0;color:#738a9c;font-size:12px;line-height:1.3;
+  font-weight:650;text-align:center
+}
+#view-search.vin-catalog-mode .vin-quick-sections{margin-bottom:12px}
+#view-search.vin-catalog-mode .vin-quick-title{
+  color:#1f3d55;font-size:13px;font-weight:800;margin:0 0 12px
+}
+#view-search.vin-catalog-mode .vin-oem-caption{
+  color:#64829a;font-size:10px;font-weight:750;line-height:1.3
+}
+.vin-oem-offer-reference{
+  display:grid;gap:5px;padding:17px;margin-bottom:12px;
+  background:#fff;border:1px solid #d8e5ed;border-left:4px solid #fa8122;
+  border-radius:15px;min-width:0;
+}
+.vin-oem-offer-reference .eyebrow{font-size:10px}
+.vin-oem-offer-reference strong{font-size:17px;line-height:1.35;color:#183d56;overflow-wrap:anywhere}
+.vin-oem-offer-reference small{font-size:12px;color:#527188;line-height:1.45}
+.vin-oem-offer-reference p{font-size:12px;line-height:1.5;color:#567084;margin:7px 0}
+.vin-oem-offer-reference button{
+  color:#ae561a;background:#fff7f0;border:1px solid #f4c39b;
+  border-radius:10px;padding:9px 11px;font:750 12px/1.3 -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+  width:max-content;max-width:100%;cursor:pointer
+}
+@media(max-width:680px){
+  #view-search.vin-catalog-mode .vin-primary-find{padding:13px;border-radius:17px}
+  .vin-oem-offer-reference{padding:13px}
+  .vin-oem-offer-reference strong{font-size:15px}
+}
