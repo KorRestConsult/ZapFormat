@@ -45,7 +45,7 @@ test('pricing is a real backend read/write with explicit save and guard',()=>{
   assert.match(js,/previewPrice/);
   assert.match(js,/min_markup_rub/);
   assert.match(js,/round_to/);
-  assert.match(js,/if\(!state\.savedPricing\|\|state\.busy\)return/);
+  assert.match(js,/if\(!state\.savedPricing\|\|!state\.pricing\|\|state\.busy\)return/);
 });
 
 test('screens do not advertise invented revenue or reveal procurement lines to anonymous visitors',()=>{
