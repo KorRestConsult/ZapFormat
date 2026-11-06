@@ -163,6 +163,9 @@ function internalItemStatusFromSupply(statusCode, statusName) {
  * customer order, which may be fulfilled from another approved supplier. */
 function aggregateOrderStatusFromSupplierItems(statuses, currentStatus = "") {
   const current = String(currentStatus || "").trim().toLowerCase();
+  // Customer-ready and customer-completed are staff actions and must be sticky
+  // across later supplier synchronizations.
+  if (["ready", "completed", "cancelled"].includes(current)) return current;
   const next = aggregateOrderStatusFromItems(statuses, current);
   return next === "cancelled" && current !== "cancelled" ? "processing" : next;
 }
