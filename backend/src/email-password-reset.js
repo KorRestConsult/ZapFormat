@@ -8,7 +8,9 @@ function installEmailPasswordReset({app,pool,limiter,issueSession,publicUser,otp
   app.post("/api/auth/email-password-reset/start",limiter,async(req,res,next)=>{
     const email=String(req.body?.email||"").trim().toLowerCase();
     const customerType=String(req.body?.customer_type||"individual").trim();
-    if(!["individual","service"].includes(customerType))return res.status(400).json({error:"invalid_customer_type"});
+    const scope=String(req.body?.account_scope||"customer").trim();
+    if(!["customer","admin"].includes(scope))return res.status(400).json({error:"invalid_account_scope"});
+    if(scope==="customer"&&!["individual","service"].includes(customerType))return res.status(400).json({error:"invalid_customer_type"});
     if(!config(env).ready)return res.status(503).json({error:"email_not_configured"});
     if(!validEmail(email))return res.status(400).json({error:"invalid_email_registration"});
     if(!otpSecret())return res.status(503).json({error:"verification_unavailable"});
@@ -16,10 +18,16 @@ function installEmailPasswordReset({app,pool,limiter,issueSession,publicUser,otp
     const reply=id=>res.status(202).json({ok:true,challenge_id:id,masked_email:maskEmail(email),expires_in:600,resend_in:60});
     try{
       const found=await pool.query(
-        "SELECT id FROM users WHERE lower(email)=$1 AND customer_type=$2 AND email_verified_at IS NOT NULL AND role='customer' AND status='active' LIMIT 1",
-        [email,customerType]
+        `SELECT id FROM users
+         WHERE lower(email)=$1 AND status='active'
+           AND (($3::text='admin' AND role IN ('owner','admin'))
+             OR ($3::text='customer' AND customer_type=$2
+                 AND email_verified_at IS NOT NULL AND role='customer'))
+         ORDER BY CASE role WHEN 'owner' THEN 0 WHEN 'admin' THEN 1 ELSE 2 END
+         LIMIT 1`,
+        [email,customerType,scope]
       );
-      // Never reveal whether a customer email is registered or verified.
+      // Never reveal whether an email is bound to a customer or privileged account.
       if(!found.rowCount)return reply(crypto.randomUUID());
       const userId=found.rows[0].id;
       const recent=await pool.query(
@@ -68,7 +76,7 @@ function installEmailPasswordReset({app,pool,limiter,issueSession,publicUser,otp
         return res.status(400).json({error:"verification_code_invalid"});
       }
       const userResult=await db.query(
-        "SELECT * FROM users WHERE id=$1 AND email_verified_at IS NOT NULL AND role='customer' AND status='active' FOR UPDATE",
+        "SELECT * FROM users WHERE id=$1 AND status='active' AND ((role='customer' AND email_verified_at IS NOT NULL) OR role IN ('owner','admin')) FOR UPDATE",
         [challenge.user_id]
       );
       if(!userResult.rowCount){
