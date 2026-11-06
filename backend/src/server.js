@@ -4065,6 +4065,13 @@ app.post("/api/auth/register/verify", authLimiter, async (req, res, next) => {
   }
 });
 
+// Frontends must check this before starting a privileged recovery. Older
+// backend releases do not understand account_scope and could reset a customer.
+app.get("/api/auth/recovery/capabilities", (_req, res) => {
+  res.set("Cache-Control", "no-store");
+  return res.json({ admin_scoped_reset: true, admin_email_reset: true });
+});
+
 app.post("/api/auth/password-reset/start", authLimiter, async (req, res, next) => {
   try {
     const identity = String(req.body?.identity || "").trim();
