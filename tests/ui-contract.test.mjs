@@ -392,3 +392,11 @@ test('OEM reference never claims supplier authenticity and routes to live offers
   assert.match(app, /Цены и аналоги/);
   assert.match(app, /\/api\/catalog\/offers\?number=/);
 });
+test('VIN BMW short OEM numbers are not treated as separate replacement SKUs', () => {
+  assert.match(app, /shortAliasesMerged/);
+  assert.match(app, /const suffix=article.slice\(-7\)/);
+  assert.match(app, /brand==="BMW"/);
+  assert.match(app, /long\.shortOemAliases\.push/);
+  assert.match(app, /Краткий номер:/);
+  assert.match(app, /data-verified-article=/);
+});
