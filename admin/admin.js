@@ -104,6 +104,93 @@
       }
     }
   }
+  // Owner/admin recovery is deliberately separate from customer recovery.
+  // Never send a code if the live API is too old to honor account_scope.
+  const adminRecovery={mode:"",challengeId:""};
+  function showAdminRecovery(stage){
+    $("loginForm").hidden=stage!=="login";
+    $("courierRegisterToggle").hidden=stage!=="login";
+    $("adminResetStartForm").hidden=stage!=="identity";
+    $("adminResetVerifyForm").hidden=stage!=="verify";
+    $("authTitle").textContent=stage==="login"?"Вход":"Восстановление доступа";
+    $("authError").textContent="";
+    $("adminResetMessage").textContent="";
+  }
+  function recoveryError(e){
+    const key=String(e?.message||"");
+    if(e?.status===429)return "Слишком много попыток. Повторите позже.";
+    if(key==="email_not_configured"||key==="email_delivery_failed")return "Письмо пока не отправляется. Можно попробовать номер телефона.";
+    if(key==="sms_not_configured"||key==="sms_send_failed")return "Звонок или SMS сейчас недоступны. Можно попробовать почту владельца.";
+    if(key==="invalid_email_registration"||key==="invalid_phone")return "Проверьте телефон или почтовый адрес.";
+    if(key==="verification_code_invalid")return "Неверный код. Проверьте цифры.";
+    if(key==="verification_expired")return "Код истёк или не был выдан. Запросите новый.";
+    if(key==="passwords_do_not_match")return "Новые пароли не совпадают.";
+    if(key==="password_too_short")return "Новый пароль слишком короткий.";
+    return "Не удалось завершить проверку. Проверьте связь и повторите.";
+  }
+  async function startAdminRecovery(event){
+    event.preventDefault();
+    const button=$("adminResetStartButton");
+    if(button.disabled)return;
+    const identity=$("adminResetIdentity").value.trim();
+    if(!identity)return;
+    const email=identity.includes("@");
+    const mode=email?"email":"phone";
+    button.disabled=true;
+    $("adminResetMessage").textContent="";
+    try{
+      const capabilities=await request("/api/auth/recovery/capabilities",{token:""});
+      if(!capabilities.admin_scoped_reset||!capabilities.admin_email_reset)throw Error("server_update_required");
+      const endpoint=email?"/api/auth/email-password-reset/start":"/api/auth/password-reset/start";
+      const body=email?{email:identity,account_scope:"admin"}:{identity,account_scope:"admin"};
+      const result=await request(endpoint,{method:"POST",body,token:""});
+      if(!result.challenge_id)throw Error("challenge_missing");
+      adminRecovery.mode=mode;
+      adminRecovery.challengeId=String(result.challenge_id);
+      $("adminResetHelp").textContent=email
+        ?"Если почта закреплена за служебным аккаунтом, проверьте письмо и введите шестизначный код."
+        :"Если телефон закреплён за служебным аккаунтом, ожидайте звонок или SMS. Введите последние 4 цифры номера звонящего или код SMS.";
+      $("adminResetVerifyForm").reset();
+      showAdminRecovery("verify");
+    }catch(error){
+      $("adminResetMessage").textContent=error.message==="server_update_required"||error.status===404
+        ?"Сервер ещё не поддерживает безопасное восстановление владельца. Повторите после обновления."
+        :recoveryError(error);
+    }finally{button.disabled=false;}
+  }
+  async function verifyAdminRecovery(event){
+    event.preventDefault();
+    const button=$("adminResetVerifyButton");
+    if(button.disabled)return;
+    const code=$("adminResetCode").value.trim();
+    const password=$("adminResetPassword").value;
+    const confirmation=$("adminResetPasswordConfirm").value;
+    if(password!==confirmation){$("adminResetMessage").textContent="Новые пароли не совпадают.";return;}
+    if(password.length<12){$("adminResetMessage").textContent="Новый пароль должен содержать не менее 12 символов.";return;}
+    button.disabled=true;
+    $("adminResetMessage").textContent="";
+    try{
+      const endpoint=adminRecovery.mode==="email"
+        ?"/api/auth/email-password-reset/verify":"/api/auth/password-reset/verify";
+      const data=await request(endpoint,{method:"POST",body:{
+        challenge_id:adminRecovery.challengeId,code,password,password_confirmation:confirmation
+      },token:""});
+      if(!data.access_token||!["owner","admin"].includes(String(data.user?.role))){
+        $("adminResetMessage").textContent="Этот контакт не связан с действующей учётной записью владельца.";
+        return;
+      }
+      setToken(data.access_token);
+      const verified=await request("/api/auth/me");
+      if(!["owner","admin"].includes(String(verified.user?.role))){
+        loggedOut("Не удалось подтвердить права владельца.");return;
+      }
+      $("adminResetVerifyForm").reset();
+      adminRecovery.challengeId="";adminRecovery.mode="";
+      loggedIn(verified.user);
+    }catch(error){$("adminResetMessage").textContent=recoveryError(error);}
+    finally{button.disabled=false;}
+  }
+
   async function signIn(event){
     event.preventDefault();const button=$("loginButton");if(button.disabled)return;
     button.disabled=true;$("authError").textContent="";
@@ -639,6 +726,16 @@
     $("page").querySelectorAll("[data-open]").forEach(b=>b.addEventListener("click",()=>openPage(b.dataset.open)));
   }
   $("loginForm").addEventListener("submit",signIn);
+  $("adminResetToggle").addEventListener("click",()=>{
+    $("adminResetIdentity").value=$("login").value.trim();
+    adminRecovery.challengeId="";adminRecovery.mode="";
+    showAdminRecovery("identity");
+  });
+  $("adminResetCancel").addEventListener("click",()=>showAdminRecovery("login"));
+  $("adminResetRestart").addEventListener("click",()=>showAdminRecovery("identity"));
+  $("adminResetStartForm").addEventListener("submit",startAdminRecovery);
+  $("adminResetVerifyForm").addEventListener("submit",verifyAdminRecovery);
+
   $("reconnectButton").addEventListener("click",()=>restoreSession());
   $("changeAccountButton").addEventListener("click",()=>logout());
   window.addEventListener("online",()=>{if(state.token&&!state.user)restoreSession();});
