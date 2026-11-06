@@ -4071,6 +4071,9 @@ app.post("/api/auth/password-reset/start", authLimiter, async (req, res, next) =
     if (!identity) {
       return res.status(400).json({ error: "identity_required" });
     }
+    const accountScope=String(req.body?.account_scope||"customer").trim();
+    if(!["customer","admin"].includes(accountScope))
+      return res.status(400).json({error:"invalid_account_scope"});
 
     const email = identity.includes("@") ? normalizeEmail(identity) : null;
     const phone = identity.includes("@") ? null : normalizePhone(identity);
@@ -4080,8 +4083,11 @@ app.post("/api/auth/password-reset/start", authLimiter, async (req, res, next) =
         WHERE status = 'active'
           AND (($1::text IS NOT NULL AND lower(email) = $1)
             OR ($2::text IS NOT NULL AND phone = $2))
+          AND (($3::text='admin' AND role IN ('owner','admin','courier'))
+            OR ($3::text='customer' AND role='customer'))
+        ORDER BY CASE role WHEN 'owner' THEN 0 WHEN 'admin' THEN 1 WHEN 'courier' THEN 2 ELSE 3 END
         LIMIT 1`,
-      [email, phone]
+      [email, phone, accountScope]
     );
     const user = result.rows[0];
 
@@ -4116,6 +4122,9 @@ app.post("/api/auth/password-reset/verify", authLimiter, async (req, res, next) 
     const code = String(req.body?.code || "").trim();
     const password = String(req.body?.password || "");
     const passwordConfirmation = String(req.body?.password_confirmation || "");
+    const accountScope=String(req.body?.account_scope||"customer").trim();
+    if(!["customer","admin"].includes(accountScope))
+      return res.status(400).json({error:"invalid_account_scope"});
 
     if (!challengeId || !(verificationMethod()==="call"?/^\d{4}$/:/^\d{6}$/).test(code)) {
       return res.status(400).json({ error: "verification_code_required" });
@@ -4155,6 +4164,13 @@ app.post("/api/auth/password-reset/verify", authLimiter, async (req, res, next) 
       );
       await client.query("COMMIT");
       return res.status(400).json({ error: "verification_code_invalid" });
+    }
+
+    const recoveryUser=await client.query("SELECT role FROM users WHERE id=$1 AND status='active' FOR UPDATE",[challenge.user_id]);
+    const recoveryRole=String(recoveryUser.rows[0]?.role||"");
+    if(!recoveryUser.rowCount || (accountScope==="admin"?!["owner","admin","courier"].includes(recoveryRole):recoveryRole!=="customer")){
+      await client.query("ROLLBACK");
+      return res.status(400).json({error:"verification_expired"});
     }
 
     const passwordHash = await bcrypt.hash(password, 12);
