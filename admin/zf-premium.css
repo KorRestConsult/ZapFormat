@@ -1,0 +1,13 @@
+/* Approved ZF Premium mark. Admin-only; customer storefront untouched. */
+.brand-icon {
+  background: url("./zf-premium.svg") center / 112% 112% no-repeat !important;
+  border: 0 !important;
+  font-size: 0 !important;
+  line-height: 0 !important;
+  letter-spacing: 0 !important;
+  color: transparent !important;
+  text-shadow: none !important;
+  box-shadow: none !important;
+  filter: drop-shadow(0 0 2px rgba(250,129,34,.25));
+}
+.brand-icon span { display: none !important; }
