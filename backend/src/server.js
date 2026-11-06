@@ -26,8 +26,9 @@ const { installEmailPasswordReset } = require("./email-password-reset");
 const { probeResendDelivery } = require("./resend-mail");
 const { verifyGitHubActionsToken } = require("./github-oidc");
 const { interpretSearch, fallbackIntent, researchPartCandidates, normalizeVehicle } = require("./ai-search");
-const { publicBootstrapJwk, installEncryptedOpenAIKey, installTimewebAIToken, installSmsRuToken, installFapiToken, installTelegramConfig, installGmailSMTP, saveResendConfig } = require("./secret-bootstrap");
-const { configured: telegramConfigured, connected: telegramConnected, pairingCode: telegramPairingCode, getMe: telegramGetMe, getMeForToken: telegramGetMeForToken, discoverPairedChat, sendOwnerMessage, notifyOwnerOrderCreated } = require("./telegram-notifier");
+const { publicBootstrapJwk, installEncryptedOpenAIKey, installTimewebAIToken, installSmsRuToken, installFapiToken, installTelegramConfig, installCustomerTelegramConfig, installGmailSMTP, saveResendConfig } = require("./secret-bootstrap");
+const { configured: telegramConfigured, connected: telegramConnected, pairingCode: telegramPairingCode, getMe: telegramGetMe, getMeForToken: telegramGetMeForToken, telegramCall, discoverPairedChat, sendOwnerMessage, notifyOwnerOrderCreated } = require("./telegram-notifier");
+const { installCustomerTelegram } = require("./customer-telegram");
 const {
   SmsDeliveryError,
   createOtpCode,
@@ -1180,6 +1181,16 @@ async function addUserNotification(db, userId, setting, type, title, body = null
      RETURNING id`,
     [userId, String(type || "info").slice(0, 80), String(title).slice(0, 200), body ? String(body).slice(0, 1000) : null]
   );
+  if(result.rowCount){
+    // Same DB transaction as the notification: Telegram may only report a
+    // committed event and only to a customer who explicitly linked the bot.
+    await db.query(
+      "INSERT INTO customer_telegram_deliveries(notification_id,user_id) "+
+      "SELECT $1,$2 WHERE EXISTS (SELECT 1 FROM customer_telegram_links WHERE user_id=$2 AND enabled=true) "+
+      "ON CONFLICT (notification_id) DO NOTHING",
+      [result.rows[0].id,userId]
+    );
+  }
   return result.rowCount > 0;
 }
 
@@ -1481,8 +1492,9 @@ app.post("/api/print-agent/jobs/:jobId/fail", async (req, res, next) => {
   } catch (error) { next(error); }
 });
 
+const customerTelegram = installCustomerTelegram({app,pool,requireUser,rateLimit,telegramCall});
 app.use("/api/admin", requireDatabase, requireUser, requireAdmin);
-installStaffRoutes({ app, pool, requireDatabase, requireUser });
+installStaffRoutes({ app, pool, requireDatabase, requireUser, addUserNotification });
 app.post("/api/admin/print-agent/pairing", async (req, res, next) => {
   if (req.user?.role !== "owner") return res.status(403).json({ error: "forbidden" });
   try {
@@ -1591,6 +1603,35 @@ app.post("/api/admin/email/resend/check", async(req,res) => {
   }catch(error){
     console.error("[ResendCheck]",error?.code||"connection_failure");
     return res.status(502).json({error:"resend_provider_unavailable"});
+  }
+});
+
+app.get("/api/admin/customer-telegram/status", (req,res)=>{
+  if(req.user?.role!=="owner")return res.status(403).json({error:"owner_only"});
+  const state=customerTelegram.state;
+  res.set("Cache-Control","no-store");
+  res.json({configured:state.configured,available:state.ready,username:state.username,
+    error:state.error==="not_configured"?null:state.error});
+});
+
+app.post("/api/admin/customer-telegram/config", async(req,res)=>{
+  if(req.user?.role!=="owner")return res.status(403).json({error:"owner_only"});
+  const token=String(req.body?.bot_token||"").trim();
+  if(!/^\d{5,15}:[A-Za-z0-9_-]{20,}$/.test(token)||token.length>256)
+    return res.status(400).json({error:"telegram_bot_token_invalid"});
+  if(token===String(process.env.ZAPFORMAT_TELEGRAM_BOT_TOKEN||"").trim())
+    return res.status(400).json({error:"customer_bot_must_be_separate"});
+  try{
+    const me=await telegramGetMeForToken(token);
+    if(!me?.username)return res.status(400).json({error:"telegram_bot_username_missing"});
+    const secret=crypto.randomBytes(24).toString("base64url");
+    await installCustomerTelegramConfig({bot_token:token,webhook_secret:secret});
+    const available=await customerTelegram.initialize();
+    res.set("Cache-Control","no-store");
+    res.json({ok:true,configured:true,available,username:me.username});
+  }catch(error){
+    console.warn("[CustomerTelegram] config",error?.code||"setup_failed");
+    res.status(502).json({error:error?.code||"customer_telegram_config_failed"});
   }
 });
 
@@ -6347,6 +6388,8 @@ async function start() {
   app.listen(PORT, HOST, () => {
     console.log(`ZAPFORMAT API listening on http://${HOST}:${PORT}`);
   });
+
+  customerTelegram.start();
 
   const supplySyncTimer = setInterval(() => {
     syncSupplierOrders().catch((error) => {
