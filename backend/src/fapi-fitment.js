@@ -190,6 +190,26 @@ function uniqueOemRows(rows, limit = 16) {
   return out;
 }
 
+
+/**
+ * The manufacturer-original OEM list and the modification's aftermarket list
+ * are different FAPI endpoints. An empty original list is a valid response,
+ * not evidence that the part group or PartGrade is unavailable.
+ *
+ * Keep the source kind explicit so consumers never present an aftermarket
+ * catalogue number as an original-equipment number.
+ */
+async function catalogNodePartRows(fapiClient, modificationId, nodeId, limit = 40) {
+  const originals = uniqueOemRows(await fapiClient.oem(modificationId, nodeId), limit);
+  if (originals.length) return { kind: "oem", items: originals };
+
+  const alternatives = uniqueOemRows(await fapiClient.products(modificationId, nodeId), limit);
+  return {
+    kind: alternatives.length ? "aftermarket" : "empty",
+    items: alternatives
+  };
+}
+
 function analogCandidates(response, sourceArticle, limit = 20) {
   const manufacturers = new Map(
     (response?.manufacturerList?.mf || []).map((row) => [
@@ -237,5 +257,6 @@ module.exports = {
   modificationRows,
   selectFapiModification,
   uniqueOemRows,
+  catalogNodePartRows,
   analogCandidates
 };

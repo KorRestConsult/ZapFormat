@@ -2588,6 +2588,7 @@ async function loadVinNodeParts(node){
     );
     if(vinCatalogState!==state || Number(state.activeNodeId||0)!==Number(node.id))return;
     const items=Array.isArray(data?.items)?data.items:[];
+    const catalogKind=data?.catalog_kind==="aftermarket"?"aftermarket":"oem";
     setVinCatalogCount(items.length,"позиций");
     const browser=root.querySelector(".vin-catalog-panel");
     if(!browser) return;
@@ -2639,8 +2640,11 @@ async function loadVinNodeParts(node){
       });
     }
     const distinctArticles=[...groups.values()].reduce((total,g)=>total+g.items.length,0);
-    const html=distinctArticles?'<div class="vin-group-list">'+
-      '<p class="vin-group-intro">'+groups.size+' наименований · '+distinctArticles+' OEM-позиций'+(shortAliasesMerged?' · '+shortAliasesMerged+' кратких номеров объединено':'')+'. Выберите номер: ниже откроются предложения и аналоги PartGrade с ценами и сроками.</p>'+
+    const sourceNotice=catalogKind==="aftermarket"
+      ?'<div class="vin-catalog-source-notice"><b>Оригинальные номера в этом разделе не найдены.</b><span>Показываем неоригинальные детали из каталога FAPI по модификации автомобиля. Это не гарантия совместимости с комплектацией конкретного VIN. Перед заказом проверьте применяемость.</span></div>'
+      :"";
+    const html=distinctArticles?sourceNotice+'<div class="vin-group-list">'+
+      '<p class="vin-group-intro">'+groups.size+' наименований · '+distinctArticles+' '+(catalogKind==="aftermarket"?"артикулов производителей":"OEM-позиций")+(shortAliasesMerged?' · '+shortAliasesMerged+' кратких номеров объединено':'')+'. Выберите номер: ниже откроются предложения PartGrade с ценами и сроками.</p>'+
       [...groups.values()].map(group=>`
         <details class="vin-part-group" ${groups.size===1&&group.items.length===1?"open":""}>
           <summary>
@@ -2656,7 +2660,7 @@ async function loadVinNodeParts(node){
                   ${item.image_url?'<img loading="lazy" src="'+escapeHtml(API_BASE+item.image_url)+'" alt="" onerror="this.remove()">':""}
                 </span>
                 <div class="vin-part-row-copy">
-                  <span class="vin-oem-caption">OEM-номер по каталогу</span>
+                  <span class="vin-oem-caption">${catalogKind==="aftermarket"?"Артикул производителя · не OEM":"OEM-номер по каталогу"}</span>
                   <b>${escapeHtml(item.article||"—")}</b>
                   <small>${escapeHtml(item.brand||"OEM")}</small>
                   ${item.shortOemAliases?.length?'<small class="vin-oem-alias">Краткий номер: '+escapeHtml(item.shortOemAliases.join(", "))+'</small>':""}
@@ -2665,13 +2669,18 @@ async function loadVinNodeParts(node){
                 <button type="button" class="vin-price-button"
                   data-verified-article="${escapeHtml(item.article_normalized||item.article||"")}"
                   data-verified-brand="${escapeHtml(item.brand||"")}"
-                  data-verified-description="${escapeHtml(item.description||node.name||"")}">
+                  data-verified-description="${escapeHtml(item.description||node.name||"")}"
+                  data-verified-kind="${catalogKind}">
                   Цены и аналоги
                 </button>
               </article>`).join("")}
           </div>
         </details>`).join("")+'</div>'
-      : '<div class="garage-empty-inline vin-empty-node"><b>В этом узле оригинальные номера не найдены.</b><span>Вернитесь на уровень выше и выберите соседний раздел.</span></div>';
+      :'<div class="vin-catalog-source-notice vin-catalog-no-articles"><b>У FAPI нет артикулов в этом разделе.</b>'+
+        '<span>В этом узле нет ни оригинальных, ни неоригинальных номеров, доступных из подключённого каталога. Это не означает, что деталь не существует. Попробуйте другой раздел или поиск по названию.</span></div>'+
+        '<div class="vin-related-nodes"><b>Другие разделы этой системы</b>'+
+          vinCatalogCardsHtml(vinCatalogChildren(node.parent_id).filter(x=>Number(x.id)!==Number(node.id)).slice(0,6))+
+        '</div>';
 
     browser.insertAdjacentHTML("beforeend",html);
   }catch(error){
@@ -3187,7 +3196,7 @@ async function loadLiveOffers(article,brand,description="",options={}){
       title:(maker+" "+number).trim(),
       subtitle:description||(exact[0]?.name||analogs[0]?.name)||"Результат поиска",
       // An OEM catalog reference is NOT proof that supplier offers are genuine OEM.
-      vinOemReference:options.fromVinCatalog?{brand:maker,article:number,vin:options.vin||"",description}:null,
+      vinOemReference:options.fromVinCatalog?{brand:maker,article:number,vin:options.vin||"",description,kind:options.catalogKind==="aftermarket"?"aftermarket":"oem"}:null,
       exact,
       analogs
     };
@@ -3565,11 +3574,13 @@ function renderCatalog(){
 
   if(exactRoot){
     const ref=currentKey?datasets[currentKey]?.vinOemReference:null;
-    const referenceHtml=ref?'<section class="vin-oem-offer-reference" aria-label="Исходный OEM-номер">'+
-      '<span class="eyebrow">ИСХОДНЫЙ НОМЕР ИЗ VIN-КАТАЛОГА</span>'+
+    const referenceHtml=ref?'<section class="vin-oem-offer-reference" aria-label="Исходный номер детали">'+
+      '<span class="eyebrow">'+(ref.kind==="aftermarket"?"НЕОРИГИНАЛЬНЫЙ АРТИКУЛ ИЗ КАТАЛОГА FAPI":"ИСХОДНЫЙ OEM-НОМЕР ИЗ VIN-КАТАЛОГА")+'</span>'+
       '<strong>'+escapeHtml(ref.brand||"")+" · "+escapeHtml(ref.article||"")+'</strong>'+
       (ref.description?'<small>'+escapeHtml(ref.description)+'</small>':"")+
-      '<p>Сначала — предложения по точному номеру. Ниже — аналоги PartGrade. Совпадение номера само по себе не подтверждает оригинальность поставляемой детали; проверяйте бренд и применяемость.</p>'+
+      '<p>'+(ref.kind==="aftermarket"
+        ?"Для этой модификации не найден OEM-номер в данном узле. Это номер производителя из FAPI; ниже предложения PartGrade и аналоги. Применяемость к конкретной комплектации требует проверки."
+        :"Сначала — предложения по точному OEM-номеру, ниже — аналоги PartGrade. Совпадение номера само по себе не подтверждает оригинальность поставляемой детали; проверяйте бренд и применяемость.")+'</p>'+
       '<button type="button" data-back-vin-catalog>← К разделу автомобиля</button>'+
       '</section>':"";
     exactRoot.innerHTML=referenceHtml+(exact.length
@@ -4329,7 +4340,8 @@ document.addEventListener("click",async e=>{
       verifiedArticle.dataset.verifiedArticle,
       verifiedArticle.dataset.verifiedBrand,
       verifiedArticle.dataset.verifiedDescription||"",
-      {fromVinCatalog:Boolean(vinCatalogState?.modification?.id),vin:vinCatalogState?.vin||""}
+      {fromVinCatalog:Boolean(vinCatalogState?.modification?.id),vin:vinCatalogState?.vin||"",
+       catalogKind:verifiedArticle.dataset.verifiedKind==="aftermarket"?"aftermarket":"oem"}
     );
     return;
   }
