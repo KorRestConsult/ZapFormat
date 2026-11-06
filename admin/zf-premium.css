@@ -11,3 +11,23 @@
   filter: drop-shadow(0 0 2px rgba(250,129,34,.25));
 }
 .brand-icon span { display: none !important; }
+
+
+/* Login wordmark: same typography and exact orange as storefront's ZAPFORMAT.
+   White ZAP is the inverse for the dark admin background. */
+#authScreen .auth-brand .auth-brand-copy h1 {
+  display: flex;
+  align-items: baseline;
+  gap: 0;
+  margin: 0;
+  padding: 0;
+  font-family: -apple-system, system-ui, "Segoe UI", Inter, Arial, sans-serif;
+  font-size: 20.898px;
+  font-weight: 950;
+  line-height: 1;
+  letter-spacing: -1.21px;
+  text-transform: none;
+  white-space: nowrap;
+}
+#authScreen .zf-wordmark-main { color: #f7fbff; }
+#authScreen .zf-wordmark-accent { color: #fa8122; }
