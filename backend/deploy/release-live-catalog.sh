@@ -148,6 +148,7 @@ node --check backend/src/ai-search.js
 node --check backend/src/vehicle-catalog.js
 node --check backend/src/secret-bootstrap.js
 node --check backend/src/telegram-notifier.js
+node --check backend/src/customer-telegram.js
 node --check backend/src/auth-otp.js
 node --check backend/src/auth-call.js
 node --check backend/src/fapi.js
@@ -203,6 +204,7 @@ if [[ -n "${DATABASE_URL:-}" ]]; then
   psql -X -v ON_ERROR_STOP=1 "${DATABASE_URL}" -f db/016_email_password_reset.sql >/dev/null
   psql -X -v ON_ERROR_STOP=1 "${DATABASE_URL}" -f db/017_customer_account_scopes.sql >/dev/null
   psql -X -v ON_ERROR_STOP=1 "${DATABASE_URL}" -f db/018_vehicle_photos.sql >/dev/null
+  psql -X -v ON_ERROR_STOP=1 "${DATABASE_URL}" -f db/019_customer_telegram.sql >/dev/null
 fi
 
 mkdir -p /etc/systemd/system/zapformat-api.service.d
@@ -221,6 +223,10 @@ EOF
 cat >/etc/systemd/system/zapformat-api.service.d/telegram-env.conf <<'EOF'
 [Service]
 EnvironmentFile=-/var/lib/zapformat/zapformat-telegram.env
+EOF
+cat >/etc/systemd/system/zapformat-api.service.d/customer-telegram-env.conf <<'EOF'
+[Service]
+EnvironmentFile=-/var/lib/zapformat/zapformat-customer-telegram.env
 EOF
 cat >/etc/systemd/system/zapformat-api.service.d/email-env.conf <<'EOF'
 [Service]
