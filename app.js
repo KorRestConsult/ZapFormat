@@ -2612,8 +2612,35 @@ async function loadVinNodeParts(node){
       if(!groups.has(key))groups.set(key,{title,items:[]});
       groups.get(key).items.push(item);
     }
-    const html=items.length?'<div class="vin-group-list">'+
-      '<p class="vin-group-intro">'+groups.size+' наименований · '+items.length+' отдельных OEM-артикулов. Выберите номер: ниже откроются предложения и аналоги PartGrade с ценами и сроками.</p>'+
+    // BMW's 7-digit reference is often the last seven digits of its complete
+    // 11-digit OEM number. Only coalesce when BOTH numbers were supplied by FAPI
+    // for the same VIN, same manufacturer and same named part. Keep the alias.
+    let shortAliasesMerged=0;
+    for(const group of groups.values()){
+      const longNumbers=new Map();
+      for(const item of group.items){
+        const brand=String(item.brand||"").trim().toUpperCase();
+        const article=String(item.article_normalized||item.article||"").replace(/\D/g,"");
+        if(brand==="BMW" && /^\d{11}$/.test(article)){
+          const suffix=article.slice(-7);
+          if(!longNumbers.has(suffix))longNumbers.set(suffix,item);
+        }
+      }
+      group.items=group.items.filter(item=>{
+        const brand=String(item.brand||"").trim().toUpperCase();
+        const article=String(item.article_normalized||item.article||"").replace(/\D/g,"");
+        const long=brand==="BMW" && /^\d{7}$/.test(article)?longNumbers.get(article):null;
+        if(!long)return true;
+        long.shortOemAliases=long.shortOemAliases||[];
+        long.shortOemAliases.push(String(item.article||article));
+        if(!long.fit&&item.fit)long.fit=item.fit;
+        shortAliasesMerged++;
+        return false;
+      });
+    }
+    const distinctArticles=[...groups.values()].reduce((total,g)=>total+g.items.length,0);
+    const html=distinctArticles?'<div class="vin-group-list">'+
+      '<p class="vin-group-intro">'+groups.size+' наименований · '+distinctArticles+' OEM-позиций'+(shortAliasesMerged?' · '+shortAliasesMerged+' кратких номеров объединено':'')+'. Выберите номер: ниже откроются предложения и аналоги PartGrade с ценами и сроками.</p>'+
       [...groups.values()].map(group=>`
         <details class="vin-part-group" ${groups.size===1&&group.items.length===1?"open":""}>
           <summary>
@@ -2632,6 +2659,7 @@ async function loadVinNodeParts(node){
                   <span class="vin-oem-caption">OEM-номер по каталогу</span>
                   <b>${escapeHtml(item.article||"—")}</b>
                   <small>${escapeHtml(item.brand||"OEM")}</small>
+                  ${item.shortOemAliases?.length?'<small class="vin-oem-alias">Краткий номер: '+escapeHtml(item.shortOemAliases.join(", "))+'</small>':""}
                   ${item.fit?'<span class="vin-fit-note">'+escapeHtml(String(item.fit))+'</span>':""}
                 </div>
                 <button type="button" class="vin-price-button"
