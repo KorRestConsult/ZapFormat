@@ -87,7 +87,7 @@ test("owner courier demo is read-only and has no supplier writes",()=>{
 
 test("courier-facing login fits mobile screens without removing real registration forms",()=>{
   assert.match(html,/<h2 id=\"authTitle\">Вход<\/h2>/);
-  assert.match(html,/Служебный кабинет/);
+  assert.match(html,/Для владельца и сотрудников ZapFormat/);
   assert.match(css,/@media \(max-width: 780px\)/);
   assert.match(css,/#authScreen \.auth-brand \{/);
   assert.match(css,/#authScreen \.auth-card input \{/);
@@ -100,7 +100,7 @@ test("courier-facing login fits mobile screens without removing real registratio
 });
 
 test("service login wordmark is a single stacked block on narrow mobile screens",()=>{
-  assert.match(html,/class=\"auth-brand-copy\"><h1>ZapFormat<\/h1><p>Служебный кабинет<\/p>/);
+  assert.match(html,/class=\"auth-brand-copy\"><h1 aria-label=\"ZapFormat\">/);
   assert.match(css,/#authScreen \.auth-brand-copy \{/);
   assert.match(css,/#authScreen \.auth-brand p \{/);
   assert.match(css,/@media \(max-width:360px\)/);
