@@ -369,7 +369,7 @@ test('VIN tree search resolves provider IDs and hides the full catalog by defaul
 });
 test('OEM duplicates are grouped by description, not by part number', () => {
   assert.match(app, /const groups=new Map\(\)/);
-  assert.match(app, /group\.items\.push\(item\)/);
+  assert.match(app, /groups\.get\(key\)\.items\.push\(item\)/);
   assert.match(app, /class="vin-part-group"/);
   assert.match(app, /class="vin-part-row"/);
   assert.match(app, /data-verified-article=/);
