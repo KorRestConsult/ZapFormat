@@ -344,7 +344,7 @@
       '<div class="zf-ops-tasks">'+
       task("orders","Новые заказы","Открыть очередь и обработать",d.new_orders)+
       task("requests","Обращения клиентов","Ответить на запросы",d.active_requests)+
-      task("staff","Доставки в работе","Назначения и действия курьеров",d.deliveries_in_work)+
+      task("logistics","Доставки в работе","Склад и доставка",d.deliveries_in_work)+
       '</div></section>';
     const trend=Array.isArray(d.trend)?d.trend.slice(-7):[];
     const max=Math.max(1,...trend.map(x=>num(x.orders)));
