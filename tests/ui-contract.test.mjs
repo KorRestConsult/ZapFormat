@@ -448,3 +448,27 @@ test('mobile shortlist uses real eligible customer offers only and cannot auto-b
   assert.match(app, /target.scrollIntoView\(/);
   assert.match(app, /supplier-picks-note/);
 });
+
+test('customer Telegram is opt-in, authenticated and available in mobile cabinet', () => {
+  assert.match(html, /id="customerTelegramStatus"/);
+  assert.match(html, /id="customerTelegramConnect"/);
+  assert.match(html, /id="customerTelegramDisconnect"/);
+  assert.match(html, /id="customerTelegramTest"/);
+  assert.match(app, /\/api\/account\/telegram\/status/);
+  assert.match(app, /\/api\/account\/telegram\/connect/);
+  assert.match(app, /\/api\/account\/telegram\/disconnect/);
+  assert.match(app, /\/api\/account\/telegram\/test/);
+  assert.match(app, /https:\\\/\\\/t\\\.me\\\//);
+});
+test('only a linked customer may receive status notifications, never order costs', () => {
+  const server=readFileSync(resolve(root,'backend/src/server.js'),'utf8');
+  const bot=readFileSync(resolve(root,'backend/src/customer-telegram.js'),'utf8');
+  const courier=readFileSync(resolve(root,'backend/src/staff-routes.js'),'utf8');
+  assert.match(server, /installCustomerTelegram/);
+  assert.match(server, /customer_telegram_deliveries/);
+  assert.match(bot, /customer_telegram_links.*enabled=true/);
+  assert.match(bot, /X-Telegram-Bot-Api-Secret-Token/);
+  assert.match(bot, /\/orders/);
+  assert.match(bot, /\/stop/);
+  assert.match(courier, /addUserNotification/);
+});
