@@ -1,6 +1,6 @@
 const test = require("node:test");
 const assert = require("node:assert/strict");
-const { selectFapiNodes, selectFapiModification, uniqueOemRows, analogCandidates } = require("../src/fapi-fitment");
+const { selectFapiNodes, selectFapiModification, uniqueOemRows, catalogNodePartRows, analogCandidates } = require("../src/fapi-fitment");
 
 test("selectFapiNodes prefers the requested part group", () => {
   const tree = [
@@ -87,4 +87,37 @@ test("partial VIN resolves BMW F25 135 kW to xDrive20d modification", () => {
   assert.equal(result.id, 33778);
   assert.equal(result.short_name, "xDrive 20 d");
   assert.equal(result.power_kw, 135);
+});
+
+test("catalogNodePartRows prefers original OEM numbers without a second paid call", async () => {
+  const calls=[];
+  const client={
+    oem: async()=>{calls.push("oem");return [{mfd:"BMW",mfi:1,n:"11127807293",ns:"11127807293",d:"Головка цилиндра"}]},
+    products:async()=>{calls.push("products");return []}
+  };
+  const result=await catalogNodePartRows(client,33778,100225);
+  assert.equal(result.kind,"oem");
+  assert.equal(result.items.length,1);
+  assert.deepEqual(calls,["oem"]);
+});
+
+test("catalogNodePartRows checks aftermarket entries when OEM catalogue is empty",async()=>{
+  const calls=[];
+  const client={
+    oem:async(mod,node)=>{calls.push(["oem",mod,node]);return []},
+    products:async(mod,node)=>{calls.push(["products",mod,node]);return [
+      {mfd:"ELRING",mfi:12,n:"123.456",ns:"123456",d:"Комплект прокладок"}
+    ]}
+  };
+  const result=await catalogNodePartRows(client,33778,100224);
+  assert.equal(result.kind,"aftermarket");
+  assert.equal(result.items.length,1);
+  assert.equal(result.items[0].brand,"ELRING");
+  assert.deepEqual(calls.map(x=>x[0]),["oem","products"]);
+});
+
+test("catalogNodePartRows reports genuinely empty when both FAPI sources have no rows",async()=>{
+  const client={oem:async()=>[],products:async()=>[]};
+  const result=await catalogNodePartRows(client,33778,100404);
+  assert.deepEqual(result,{kind:"empty",items:[]});
 });
