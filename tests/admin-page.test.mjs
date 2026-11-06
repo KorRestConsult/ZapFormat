@@ -123,3 +123,21 @@ test("owner order view shows separately tracked purchasing, courier and unconfir
   assert.match(js,/Получение наличных в системе не фиксируется/);
   assert.match(css,/\.order-checkpoints/);
 });
+
+test("owner recovery is visible, scoped and gated against older backends",()=>{
+  const emailReset=readFileSync(resolve(root,"backend/src/email-password-reset.js"),"utf8");
+  for(const id of ["adminResetToggle","adminResetStartForm","adminResetVerifyForm",
+                   "adminResetIdentity","adminResetCode","adminResetPassword"]){
+    assert.match(html,new RegExp('id="'+id+'"'));
+  }
+  assert.match(js,/admin_scoped_reset/);
+  assert.match(js,/account_scope:"admin"/);
+  assert.match(js,/adminResetStartForm/);
+  assert.match(js,/adminResetVerifyForm/);
+  assert.match(js,/request\("\/api\/auth\/me"\)/);
+  assert.match(server,/app.get\("\/api\/auth\/recovery\/capabilities"/);
+  assert.match(server,/role IN \('owner', 'admin'\)/);
+  assert.match(server,/\$3::text = 'customer' AND role = 'customer'/);
+  assert.match(emailReset,/role IN \('owner','admin'\)/);
+  assert.match(emailReset,/role IN \('owner','admin'\)\) FOR UPDATE/);
+});

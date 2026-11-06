@@ -31,3 +31,43 @@
 }
 #authScreen .zf-wordmark-main { color: #f7fbff; }
 #authScreen .zf-wordmark-accent { color: #fa8122; }
+
+
+/* Verified owner recovery on small screens; never changes client login. */
+#authScreen .auth-reset-link {
+  display: block;
+  width: fit-content;
+  max-width: 100%;
+  margin: 12px auto 0;
+  padding: 6px 10px;
+  color: #2867b8;
+  background: transparent;
+  border: 0;
+  font-size: 13px;
+  font-weight: 700;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  cursor: pointer;
+}
+#authScreen #adminResetStartForm,
+#authScreen #adminResetVerifyForm { width: 100%; }
+#authScreen #adminResetStartForm .muted,
+#authScreen #adminResetVerifyForm .muted { margin-bottom: 14px; }
+#authScreen .auth-reset-message {
+  color: #bc382c;
+  margin: 10px 0 0;
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.4;
+}
+#authScreen .auth-reset-message:empty { display: none; }
+@media (max-width: 780px) {
+  #authScreen:has(#adminResetVerifyForm:not([hidden])) {
+    justify-content: flex-start;
+    padding-top: 18px;
+    padding-bottom: 28px;
+    min-height: 100dvh;
+  }
+  #authScreen #adminResetStartForm input,
+  #authScreen #adminResetVerifyForm input { font-size: 16px; }
+}

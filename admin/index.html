@@ -24,7 +24,27 @@
       <label for="password">Пароль</label>
       <input id="password" name="password" type="password" autocomplete="current-password" required placeholder="Пароль">
       <button type="submit" class="primary full" id="loginButton">Войти в кабинет <span aria-hidden="true">→</span></button>
+      <button type="button" class="auth-reset-link" id="adminResetToggle">Забыли пароль?</button>
     </form>
+    <form id="adminResetStartForm" hidden>
+      <p class="muted">Восстановим доступ через телефон или почту, привязанные к служебному аккаунту.</p>
+      <label for="adminResetIdentity">Телефон или электронная почта</label>
+      <input id="adminResetIdentity" name="identity" type="text" autocomplete="username" required maxlength="254" placeholder="+7 900 000-00-00">
+      <button type="submit" class="primary full" id="adminResetStartButton">Получить код подтверждения <span aria-hidden="true">→</span></button>
+      <button type="button" class="auth-reset-link" id="adminResetCancel">Вернуться ко входу</button>
+    </form>
+    <form id="adminResetVerifyForm" hidden>
+      <p class="muted" id="adminResetHelp">Введите полученный код и задайте новый пароль.</p>
+      <label for="adminResetCode">Код подтверждения</label>
+      <input id="adminResetCode" name="code" type="text" inputmode="numeric" autocomplete="one-time-code" pattern="[0-9]{4,6}" maxlength="6" required placeholder="4–6 цифр">
+      <label for="adminResetPassword">Новый пароль (от 12 символов)</label>
+      <input id="adminResetPassword" name="password" type="password" autocomplete="new-password" minlength="12" maxlength="128" required>
+      <label for="adminResetPasswordConfirm">Повторите новый пароль</label>
+      <input id="adminResetPasswordConfirm" name="password_confirmation" type="password" autocomplete="new-password" minlength="12" maxlength="128" required>
+      <button type="submit" class="primary full" id="adminResetVerifyButton">Подтвердить и войти <span aria-hidden="true">→</span></button>
+      <button type="button" class="auth-reset-link" id="adminResetRestart">Другой контакт</button>
+    </form>
+    <p class="auth-reset-message" id="adminResetMessage" role="status" aria-live="polite"></p>
     <button type="button" class="secondary full" id="reconnectButton" hidden>Повторить подключение <span aria-hidden="true">↻</span></button>
     <button type="button" class="auth-change-account" id="changeAccountButton" hidden>Войти в другой аккаунт</button>
     <button type="button" class="secondary full" id="courierRegisterToggle">Подать заявку курьера</button>
