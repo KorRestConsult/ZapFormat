@@ -26,7 +26,7 @@ const { installEmailPasswordReset } = require("./email-password-reset");
 const { probeResendDelivery } = require("./resend-mail");
 const { verifyGitHubActionsToken } = require("./github-oidc");
 const { interpretSearch, fallbackIntent, researchPartCandidates, normalizeVehicle } = require("./ai-search");
-const { publicBootstrapJwk, installEncryptedOpenAIKey, installTimewebAIToken, installSmsRuToken, installFapiToken, installTelegramConfig, installGmailSMTP, saveResendConfig } = require("./secret-bootstrap");
+const { publicBootstrapJwk, installEncryptedOpenAIKey, installTimewebAIToken, installSmsRuToken, installFapiToken, installTelegramConfig, installCustomerTelegramConfig, installGmailSMTP, saveResendConfig } = require("./secret-bootstrap");
 const { configured: telegramConfigured, connected: telegramConnected, pairingCode: telegramPairingCode, getMe: telegramGetMe, getMeForToken: telegramGetMeForToken, telegramCall, discoverPairedChat, sendOwnerMessage, notifyOwnerOrderCreated } = require("./telegram-notifier");
 const { installCustomerTelegram } = require("./customer-telegram");
 const {
@@ -1594,6 +1594,35 @@ app.post("/api/admin/email/resend/check", async(req,res) => {
   }catch(error){
     console.error("[ResendCheck]",error?.code||"connection_failure");
     return res.status(502).json({error:"resend_provider_unavailable"});
+  }
+});
+
+app.get("/api/admin/customer-telegram/status", (req,res)=>{
+  if(req.user?.role!=="owner")return res.status(403).json({error:"owner_only"});
+  const state=customerTelegram.state;
+  res.set("Cache-Control","no-store");
+  res.json({configured:state.configured,available:state.ready,username:state.username,
+    error:state.error==="not_configured"?null:state.error});
+});
+
+app.post("/api/admin/customer-telegram/config", async(req,res)=>{
+  if(req.user?.role!=="owner")return res.status(403).json({error:"owner_only"});
+  const token=String(req.body?.bot_token||"").trim();
+  if(!/^\d{5,15}:[A-Za-z0-9_-]{20,}$/.test(token)||token.length>256)
+    return res.status(400).json({error:"telegram_bot_token_invalid"});
+  if(token===String(process.env.ZAPFORMAT_TELEGRAM_BOT_TOKEN||"").trim())
+    return res.status(400).json({error:"customer_bot_must_be_separate"});
+  try{
+    const me=await telegramGetMeForToken(token);
+    if(!me?.username)return res.status(400).json({error:"telegram_bot_username_missing"});
+    const secret=crypto.randomBytes(24).toString("base64url");
+    await installCustomerTelegramConfig({bot_token:token,webhook_secret:secret});
+    const available=await customerTelegram.initialize();
+    res.set("Cache-Control","no-store");
+    res.json({ok:true,configured:true,available,username:me.username});
+  }catch(error){
+    console.warn("[CustomerTelegram] config",error?.code||"setup_failed");
+    res.status(502).json({error:error?.code||"customer_telegram_config_failed"});
   }
 });
 
