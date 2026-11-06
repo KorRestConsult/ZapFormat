@@ -3197,6 +3197,7 @@ async function loadLiveOffers(article,brand,description="",options={}){
       subtitle:description||(exact[0]?.name||analogs[0]?.name)||"Результат поиска",
       // An OEM catalog reference is NOT proof that supplier offers are genuine OEM.
       vinOemReference:options.fromVinCatalog?{brand:maker,article:number,vin:options.vin||"",description,kind:options.catalogKind==="aftermarket"?"aftermarket":"oem"}:null,
+      liveSupplier:true,
       exact,
       analogs
     };
@@ -3493,10 +3494,46 @@ function cartSvg(){
   return '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2 3h2l2 11h10l2-8H5.2"></path><circle cx="9" cy="19" r="1.5"></circle><circle cx="16" cy="19" r="1.5"></circle></svg>';
 }
 
+
+/* The storefront's own mobile shortlist, calculated from LIVE customer-price
+ * PartGrade offers. It never claims aftermarket compatibility or stock beyond
+ * the current API result and cannot add an item to the basket by itself. */
+function supplierOfferHighlights(data){
+  if(!data?.liveSupplier)return "";
+  const sellable=part=>part && Number(part.qty)>=Math.max(1,Number(part.packing||1))
+    && Number.isFinite(Number(part.retailPrice)) && Number(part.retailPrice)>0
+    && Number.isFinite(Number(part.days)) && Number(part.days)>=0;
+  const cheapest=rows=>(rows||[]).filter(sellable)
+    .sort((a,b)=>itemRetail(a)-itemRetail(b)||a.days-b.days)[0];
+  const exact=cheapest(data.exact);
+  const analog=cheapest(data.analogs);
+  const all=[...(data.exact||[]),...(data.analogs||[])].filter(sellable);
+  const fastest=all.sort((a,b)=>a.days-b.days||itemRetail(a)-itemRetail(b))[0];
+  const cards=[
+    {label:"Выгодный точный номер",item:exact,type:"exact"},
+    {label:"Самый доступный аналог",item:analog,type:"analog"},
+    {label:"Лучший срок поставщика",item:fastest,type:"speed"}
+  ].filter(card=>card.item);
+  if(!cards.length)return "";
+  const html=cards.map(({label,item,type})=>
+    '<button type="button" class="supplier-pick supplier-pick-'+type+'" data-focus-offer="'+escapeHtml(item.id)+'" aria-label="'+escapeHtml(label+', '+item.brand+' '+item.article+', '+rub(itemRetail(item)))+'">'+
+      '<span class="supplier-pick-label">'+escapeHtml(label)+'</span>'+
+      '<strong>'+rub(itemRetail(item))+'</strong>'+
+      '<small>'+escapeHtml(item.brand||"")+' · '+escapeHtml(item.article||"")+'</small>'+
+      '<span class="supplier-pick-foot">'+escapeHtml(deliveryLabel(item.days))+' · '+item.qty+' шт. <span aria-hidden="true">›</span></span>'+
+    '</button>'
+  ).join("");
+  return '<section class="supplier-picks" aria-label="Подборка доступных предложений">'+
+    '<div class="supplier-picks-head"><b>Быстрый выбор</b><small>По текущим предложениям PartGrade</small></div>'+
+    '<div class="supplier-picks-list">'+html+'</div>'+
+    '<p class="supplier-picks-note">Срок указан до поставки, а не до вручения курьером ZapFormat. Нажатие откроет предложение ниже.</p>'+
+  '</section>';
+}
+
 function supplyRowHtml(x){
   if(x.quoteOnly){
     return `
-      <div class="supply-row">
+      <div class="supply-row" data-offer-row="${escapeHtml(x.id)}">
         <div class="supply-left">
           <div class="supply-term">
             <b>Подтверждение</b>
@@ -3513,7 +3550,7 @@ function supplyRowHtml(x){
   const available=Math.max(0,Number(x.qty||0));
   const minimum=Math.max(1,Number(x.packing||1));
   return `
-    <div class="supply-row${available<=0?" unavailable":""}">
+    <div class="supply-row${available<=0?" unavailable":""}" data-offer-row="${escapeHtml(x.id)}">
       <div class="supply-left">
         <div class="supply-term">
           <b>${term}</b>
@@ -3583,7 +3620,8 @@ function renderCatalog(){
         :"Сначала — предложения по точному OEM-номеру, ниже — аналоги PartGrade. Совпадение номера само по себе не подтверждает оригинальность поставляемой детали; проверяйте бренд и применяемость.")+'</p>'+
       '<button type="button" data-back-vin-catalog>← К разделу автомобиля</button>'+
       '</section>':"";
-    exactRoot.innerHTML=referenceHtml+(exact.length
+    const highlightsHtml=supplierOfferHighlights(currentKey?datasets[currentKey]:null);
+    exactRoot.innerHTML=referenceHtml+highlightsHtml+(exact.length
       ? groupCardHtml(exact,"exact-"+currentKey)
       : '<div class="product-group"><div class="product-group-head"><div class="product-title"><b>Нет точных предложений</b><small>Ниже могут быть доступны аналоги.</small></div></div></div>');
   }
@@ -4448,6 +4486,35 @@ document.addEventListener("click",async e=>{
     renderCatalog();
     return;
   }
+
+  const focusOffer=e.target.closest("[data-focus-offer]");
+  if(focusOffer && currentKey && datasets[currentKey]){
+    const offerId=focusOffer.dataset.focusOffer;
+    const offer=[...(datasets[currentKey].exact||[]),...(datasets[currentKey].analogs||[])]
+      .find(item=>item.id===offerId);
+    if(!offer)return;
+    currentFilter="all";
+    document.querySelectorAll("[data-filter]").forEach(x=>x.classList.toggle("active",x.dataset.filter==="all"));
+    if(offer.type==="exact"){
+      expandedGroups.add("exact-"+currentKey);
+    }else{
+      const groups=groupOffersByPart(baseList("analog"));
+      const groupIndex=groups.findIndex(items=>items.some(x=>x.id===offerId));
+      if(groupIndex>=0){
+        analogVisibleGroupLimit=Math.max(analogVisibleGroupLimit,groupIndex+1);
+        expandedGroups.add("analog-"+currentKey+"-"+groupIndex);
+      }
+    }
+    renderCatalog();
+    const target=[...document.querySelectorAll("[data-offer-row]")]
+      .find(row=>row.dataset.offerRow===offerId);
+    if(target){
+      target.scrollIntoView({block:"center",behavior:"smooth"});
+      target.classList.add("supply-row-picked");
+    }
+    return;
+  }
+
   const moreAnalogs=e.target.closest("[data-show-analog-groups]");
   if(moreAnalogs){
     analogVisibleGroupLimit+=ANALOG_GROUP_BATCH;
