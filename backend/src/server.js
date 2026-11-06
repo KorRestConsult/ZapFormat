@@ -15,7 +15,7 @@ const { rateLimit } = require("express-rate-limit");
 const { Pool } = require("pg");
 const { PartGradeError, createPartGradeClient } = require("./partgrade");
 const { FapiError, createFapiClient } = require("./fapi");
-const { selectFapiNodes, selectFapiModification, uniqueOemRows } = require("./fapi-fitment");
+const { selectFapiNodes, selectFapiModification, uniqueOemRows, catalogNodePartRows } = require("./fapi-fitment");
 const { createOfferTokenCodec } = require("./offer-token");
 const { createOrderInvoicePdf } = require("./invoice-pdf");
 const { customerPrice, getPricingPolicy, setPricingPolicy, validatePricingPolicy } = require("./pricing");
@@ -3227,9 +3227,9 @@ app.get("/api/catalog/vin-node", requireUser, aiSearchLimiter, async (req, res, 
       return res.status(400).json({ error: "invalid_catalog_node" });
     }
 
-    let rows;
+    let catalog;
     try {
-      rows = await fapi.oem(modificationId, nodeId);
+      catalog = await catalogNodePartRows(fapi, modificationId, nodeId, 40);
     } catch (error) {
       if (error instanceof FapiError && Number(error.status) === 402) {
         return res.status(200).json({
@@ -3243,7 +3243,8 @@ app.get("/api/catalog/vin-node", requireUser, aiSearchLimiter, async (req, res, 
       }
       throw error;
     }
-    const items = uniqueOemRows(rows, 40).map((row) => ({
+    const items = catalog.items.map((row) => ({
+      source_type: catalog.kind,
       manufacturer_id: row.manufacturer_id,
       brand: row.brand,
       article: row.article,
@@ -3261,7 +3262,8 @@ app.get("/api/catalog/vin-node", requireUser, aiSearchLimiter, async (req, res, 
       provider: "fapi_v2",
       modification_id: modificationId,
       node_id: nodeId,
-      catalog_status: "ok",
+      catalog_status: catalog.kind === "empty" ? "empty" : "ok",
+      catalog_kind: catalog.kind,
       items
     });
   } catch (error) {
