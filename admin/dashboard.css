@@ -1,0 +1,66 @@
+/* ZapFormat owner dashboard — compact, readable, real-data only. */
+.zf-overview { max-width: 1120px; margin: 0 auto; }
+.zf-ops-grid { display: grid; grid-template-columns: repeat(4,minmax(0,1fr)); gap: 11px; }
+.zf-ops-card {
+  min-width: 0; padding: 19px 17px 16px; background: #fff;
+  border: 1px solid #e2eaf1; border-radius: 17px;
+  box-shadow: 0 5px 20px rgba(17,37,62,.035);
+}
+.zf-ops-label { color: #65778d; font-size: 12px; font-weight: 650; line-height: 1.35; }
+.zf-ops-value {
+  display: block; margin: 11px 0 6px; color: #172f48;
+  font-size: clamp(22px,2.2vw,30px); font-weight: 850; letter-spacing: -.04em;
+  line-height: 1.1; font-variant-numeric: tabular-nums;
+  overflow-wrap: anywhere;
+}
+.zf-ops-note { color: #8c9bae; font-size: 11px; line-height: 1.35; }
+.zf-ops-booked {
+  display: flex; flex-wrap: wrap; gap: 4px; align-items: baseline;
+  margin: 11px 1px 18px; font-size: 12px; color: #677c91;
+}
+.zf-ops-booked b { color: #213c55; }
+.zf-ops-booked small { flex-basis: 100%; font-size: 11px; color: #9aa7b3; }
+.zf-ops-section {
+  background: #fff; border: 1px solid #e2eaf1; border-radius: 18px;
+  margin: 0 0 15px; padding: 17px 20px;
+}
+.zf-ops-section-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 7px; }
+.zf-ops-section-head h2 { font-size: 16px; line-height: 1.3; font-weight: 780; letter-spacing: -.02em; color: #182f49; margin: 0; }
+.zf-ops-section-head > span { font-size: 11px; font-weight: 650; color: #91a0ae; }
+.zf-ops-section-head button { padding: 6px 0; font-size: 12px; }
+.zf-ops-task {
+  width: 100%; display: flex; align-items: center; gap: 12px;
+  text-align: left; padding: 10px 0; border: 0;
+  border-bottom: 1px solid #eef2f7; background: transparent; color: inherit;
+}
+.zf-ops-task:last-child { border-bottom: 0; padding-bottom: 2px; }
+.zf-ops-task:hover .zf-ops-task-copy b { color: #d96d16; }
+.zf-ops-task-copy { flex: 1; min-width: 0; display: grid; gap: 2px; }
+.zf-ops-task-copy b { font-size: 13px; font-weight: 730; color: #233c56; }
+.zf-ops-task-copy small { color: #8999aa; font-size: 11px; }
+.zf-ops-task-count {
+  min-width: 25px; padding: 4px 8px; border-radius: 8px; text-align: center;
+  color: #b6611f; background: #fff1e7; font-size: 12px; font-weight: 780;
+  font-variant-numeric: tabular-nums;
+}
+.zf-ops-chevron { font-size: 19px; color: #9aa8b8; font-weight: 400; }
+.zf-ops-chart { margin-bottom: 0; }
+.zf-ops-bars { display: grid; grid-template-columns: repeat(7,minmax(0,1fr)); align-items: end; gap: 12px; height: 138px; margin-top: 12px; }
+.zf-ops-day { display: flex; flex-direction: column; justify-content: flex-end; min-width: 0; height: 100%; align-items: center; gap: 7px; }
+.zf-ops-bar-area { height: 104px; width: 100%; max-width: 64px; display: flex; align-items: flex-end; background: #f6f8fb; border-radius: 7px; overflow: hidden; }
+.zf-ops-bar { width: 100%; background: linear-gradient(180deg,#FA8122,#e96e0d); border-radius: 6px 6px 0 0; }
+.zf-ops-day small { font-size: 11px; color: #8391a4; white-space: nowrap; }
+.zf-ops-chart-empty { padding: 25px 8px; color: #8795a6; text-align: center; font-size: 13px; }
+.zf-ops-caption { margin: 7px 0 0; font-size: 11px; color: #92a0ad; line-height: 1.45; }
+@media (max-width: 1000px) { .zf-ops-grid { grid-template-columns: repeat(2,minmax(0,1fr)); } }
+@media (max-width: 780px) {
+  .zf-ops-grid { gap: 8px; }
+  .zf-ops-card { padding: 13px 12px; min-height: 110px; border-radius: 13px; }
+  .zf-ops-value { font-size: 23px; margin: 9px 0 5px; }
+  .zf-ops-label { font-size: 11px; }
+  .zf-ops-note { font-size: 10px; }
+  .zf-ops-section { padding: 13px 14px; margin-bottom: 11px; border-radius: 14px; }
+  .zf-ops-bars { gap: 6px; height: 125px; }
+  .zf-ops-bar-area { height: 93px; }
+  .zf-ops-day small { font-size: 10px; }
+}
