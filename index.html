@@ -8,7 +8,7 @@
   <title>ZapFormat — автозапчасти</title>
   <meta name="description" content="ZapFormat — поиск автозапчастей по артикулу и названию. Личный гараж, корзина и история заказов." />
   <link rel="stylesheet" href="./styles.css?v=20261104-session-persistence7" />
-  <link rel="stylesheet" href="./premium.css?v=20261106-vin-garage-clean5" />
+  <link rel="stylesheet" href="./premium.css?v=20261106-vin-photo-header6" />
 </head>
 <body class="guest-mode auth-route">
   <div class="app">
@@ -65,6 +65,9 @@
             <p id="resultSubtitle">Точные позиции и аналоги</p>
           </div>
           <div class="catalog-count"><b id="offerCount">0</b><span id="offerCountLabel">предложений</span></div>
+          <div class="vin-result-photo" id="vinResultPhoto" hidden>
+            <img id="vinResultPhotoImg" alt="Фото автомобиля из гаража" loading="lazy" />
+          </div>
         </div>
 
         <form class="catalog-search pg-search" id="searchForm2">
@@ -560,7 +563,7 @@
 </div>
 
   <script src="./config.js?v=20261103-domain-live1"></script>
-  <script src="./app.js?v=20261106-vin-garage-clean5"></script>
+  <script src="./app.js?v=20261106-vin-photo-header6"></script>
   <script src="./admin-desk.js?v=20261030-pricing1"></script>
 </body>
 </html>
