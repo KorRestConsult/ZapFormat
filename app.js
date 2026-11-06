@@ -1192,6 +1192,68 @@ function renderAccountPreferences(preferences){
   renderCheckoutDelivery();
 }
 
+
+async function refreshCustomerTelegramStatus(){
+  const el=document.getElementById("customerTelegramStatus");
+  if(!el||!sessionUser||!backendConfigured())return;
+  const connect=document.getElementById("customerTelegramConnect");
+  const link=document.getElementById("customerTelegramOpenBot");
+  const check=document.getElementById("customerTelegramCheck");
+  const test=document.getElementById("customerTelegramTest");
+  const disconnect=document.getElementById("customerTelegramDisconnect");
+  try{
+    const data=await apiRequest("/api/account/telegram/status");
+    if(connect)connect.hidden=!data.available||data.linked;
+    if(test)test.hidden=!data.linked||!data.available;
+    if(disconnect)disconnect.hidden=!data.linked;
+    if(check)check.hidden=data.linked||!data.available;
+    if(data.linked){
+      el.textContent="Telegram подключён. Изменения по вашим заказам будут приходить в этот чат.";
+      if(link){link.hidden=true;link.removeAttribute("href")}
+    }else if(data.available){
+      el.textContent="Telegram готов к подключению. Нажмите «Подключить Telegram», откройте бота и подтвердите команду Start.";
+    }else{
+      el.textContent="Клиентский Telegram-бот готовится к запуску. Уведомления на сайте продолжают работать.";
+      if(link){link.hidden=true;link.removeAttribute("href")}
+    }
+  }catch(error){
+    el.textContent="Не удалось проверить подключение. Уведомления остаются доступными в личном кабинете.";
+    if(connect)connect.hidden=true;
+  }
+}
+
+document.addEventListener("click",async e=>{
+  const connect=e.target.closest("#customerTelegramConnect");
+  const check=e.target.closest("#customerTelegramCheck");
+  const test=e.target.closest("#customerTelegramTest");
+  const disconnect=e.target.closest("#customerTelegramDisconnect");
+  const btn=connect||check||test||disconnect;
+  if(!btn||!sessionUser)return;
+  const notice=document.getElementById("customerTelegramStatus");
+  btn.disabled=true;
+  try{
+    if(connect){
+      const data=await apiRequest("/api/account/telegram/connect",{method:"POST"});
+      if(!/^https:\/\/t\.me\/[A-Za-z0-9_]{5,32}\?start=zf_[A-Za-z0-9_-]{24}$/.test(data.link||""))
+        throw new Error("telegram_link_invalid");
+      const link=document.getElementById("customerTelegramOpenBot");
+      link.href=data.link;link.hidden=false;
+      document.getElementById("customerTelegramCheck").hidden=false;
+      notice.textContent="Ссылка готова и действует 10 минут. Откройте бота, нажмите Start, затем «Проверить подключение».";
+    }else if(check){
+      await refreshCustomerTelegramStatus();
+    }else if(test){
+      const result=await apiRequest("/api/account/telegram/test",{method:"POST"});
+      notice.textContent=result.sent?"Тестовое сообщение отправлено в ваш Telegram.":"Не удалось отправить тестовое сообщение.";
+    }else if(disconnect){
+      await apiRequest("/api/account/telegram/disconnect",{method:"POST"});
+      await refreshCustomerTelegramStatus();
+    }
+  }catch(error){
+    notice.textContent="Действие не выполнено. Проверьте подключение Telegram и повторите попытку.";
+  }finally{btn.disabled=false}
+});
+
 function renderAccountReports(report){
   const mount=document.getElementById("accountReportStats");
   if(!mount) return;
@@ -1426,6 +1488,7 @@ async function hydrateAccountData(){
       renderLiveAccount(overview,liveAccountOrders,liveAccountRequests,garage);
     }
     if(preferences) renderAccountPreferences(preferences);
+    void refreshCustomerTelegramStatus();
     if(notificationsData) renderAccountNotifications(notificationsData);
     if(garage) await hydrateRealGarage(garage);
     renderAccountSetupChecklist();
