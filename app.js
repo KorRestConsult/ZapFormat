@@ -2427,6 +2427,49 @@ function vinCatalogHeroHtml(){
       ${!vinCatalogState?.savedVehicleId&&!hasSavedCar?'<button class="vin-save-compact" type="button" data-save-vin-vehicle>Сохранить автомобиль</button>':""}
     </section>`;
 }
+
+function vinCatalogSearchMatches(query,limit=14){
+  const clean=String(query||"").toLowerCase().replace(/ё/g,"е").replace(/[^a-zа-я0-9]+/gi," ").trim();
+  if(clean.length<2)return [];
+  const tokens=clean.split(/\s+/).filter(w=>w.length>=3).map(w=>
+    /^масл/.test(w)?"масл":w.length>5?w.slice(0,5):w
+  );
+  if(!tokens.length)return [];
+  // Search the real FAPI tree for this VIN; never invent a missing part section.
+  const synonyms=[];
+  if(/наконеч|рулев/.test(clean))synonyms.push("рулев","наконеч","тяг","шарнир");
+  if(/стабилиз/.test(clean))synonyms.push("стабилиз","тяг","втул");
+  if(/стойк/.test(clean))synonyms.push("стойк","амортиз","стабилиз");
+  if(/шаров/.test(clean))synonyms.push("шаров","рычаг");
+  if(/масл/.test(clean))synonyms.push("масл","смаз");
+  return (vinCatalogState?.nodes||[]).map(node=>{
+    const name=String(node.name||"").toLowerCase().replace(/ё/g,"е");
+    const parents=vinCatalogBreadcrumb(node).slice(0,-1);
+    const ancestry=parents.map(p=>String(p.name||"").toLowerCase().replace(/ё/g,"е")).join(" ");
+    const hits=tokens.filter(w=>name.includes(w));
+    const similar=synonyms.filter(w=>name.includes(w));
+    if(!hits.length&&!similar.length)return null;
+    const score=hits.length*32+similar.length*11+tokens.filter(w=>ancestry.includes(w)).length*5+
+      (tokens.every(w=>name.includes(w))?50:0)+(name.includes(clean)?60:0)-
+      Math.max(0,name.length-75)*0.1;
+    return {node,parents,score};
+  }).filter(Boolean).sort((a,b)=>b.score-a.score||a.node.name.localeCompare(b.node.name,"ru")).slice(0,limit);
+}
+function renderVinCatalogSearchResults(value){
+  const root=document.getElementById("vinCatalogSearchResults");
+  if(!root)return;
+  const query=String(value||"").trim();
+  if(!query){root.hidden=true;root.innerHTML="";return;}
+  const found=vinCatalogSearchMatches(query);
+  root.hidden=false;
+  root.innerHTML=found.length
+    ?'<div class="vin-search-caption">Разделы каталога выбранного автомобиля</div>'+
+      found.map(({node,parents})=>'<button type="button" class="vin-search-result" data-vin-node="'+Number(node.id)+'">'+
+        '<span><b>'+escapeHtml(node.name)+'</b><small>'+escapeHtml(parents.map(p=>p.name).join(" › "))+'</small></span>'+
+        '<span aria-hidden="true">›</span></button>').join("")
+    :'<p class="vin-search-empty">Такого раздела нет в полученном дереве. Попробуйте другое слово или выберите систему автомобиля.</p>';
+}
+
 function vinCatalogCardsHtml(nodes){
   return `<div class="vin-category-grid">${nodes.map(node=>{
     const count=vinCatalogChildren(node.id).length;
@@ -2502,17 +2545,25 @@ function renderVinCatalogBrowser(data,nodeId=0){
     <div class="vin-catalog-browser">
       ${current?"":vinCatalogHeroHtml()}
       <section class="vin-catalog-panel">
+        <label class="vin-search-label" for="vinCatalogNodeSearch">Найти деталь в каталоге</label>
+        <div class="vin-catalog-search-wrap">
+          <span aria-hidden="true">⌕</span>
+          <input id="vinCatalogNodeSearch" type="search" autocomplete="off" placeholder="Например, рулевой наконечник" aria-controls="vinCatalogSearchResults">
+        </div>
+        <div id="vinCatalogSearchResults" class="vin-catalog-search-results" aria-live="polite" hidden></div>
         <div class="vin-catalog-panel-head">
           <div>
             <span class="eyebrow">КАТАЛОГ АВТОМОБИЛЯ</span>
-            <h3>${current?escapeHtml(current.name):"Выберите узел автомобиля"}</h3>
+            <h3>${current?escapeHtml(current.name):"Системы автомобиля"}</h3>
           </div>
           ${current?'<button type="button" class="vin-catalog-back" data-vin-catalog-back>← Назад</button>':""}
         </div>
         ${breadcrumb.length?'<div class="vin-breadcrumb"><button type="button" data-vin-home>Автомобиль</button>'+breadcrumb.map((item,index)=>'<span>›</span><button type="button" data-vin-breadcrumb="'+item.id+'" '+(index===breadcrumb.length-1?'disabled':'')+'>'+escapeHtml(item.name)+'</button>').join("")+'</div>':""}
-        ${children.length
-          ? vinCatalogCardsHtml(children)
-          : '<div class="vin-node-loading"><span class="order-loading-dot"></span><div><b>Загружаем детали узла…</b><small>Получаем оригинальные номера для этого автомобиля.</small></div></div>'}
+        ${current
+          ?(children.length
+            ?vinCatalogCardsHtml(children)
+            :'<div class="vin-node-loading"><span class="order-loading-dot"></span><div><b>Загружаем детали узла…</b><small>Получаем оригинальные номера для этого автомобиля.</small></div></div>')
+          :'<details class="vin-full-tree"><summary><span>Все системы автомобиля</span><small>'+children.length+' разделов</small><span aria-hidden="true" class="vin-full-chevron">⌄</span></summary>'+vinCatalogCardsHtml(children)+'</details>'}
       </section>
     </div>`;
 
@@ -2548,28 +2599,45 @@ async function loadVinNodeParts(node){
       return;
     }
 
-    const html=items.length ? `
-      <div class="vin-parts-grid">
-        ${items.map(item=>`
-          <article class="vin-part-card">
-            <div class="vin-part-image">
-              <span class="vin-part-image-fallback">${vinCatalogIcon(node.name)}</span>
-              ${item.image_url?'<img loading="lazy" src="'+escapeHtml(API_BASE+item.image_url)+'" alt="'+escapeHtml(item.description||item.article||"Деталь")+'" onerror="this.style.display=\'none\'">':""}
-            </div>
-            <div class="vin-part-copy">
-              <small>${escapeHtml(item.brand||"OEM")}</small>
-              <b>${escapeHtml(item.article||"—")}</b>
-              <p>${escapeHtml(item.description||node.name||"Деталь")}</p>
-              ${item.fit?'<span class="vin-fit-note">'+escapeHtml(String(item.fit))+'</span>':""}
-            </div>
-            <button type="button" class="vin-price-button"
-              data-verified-article="${escapeHtml(item.article_normalized||item.article||"")}"
-              data-verified-brand="${escapeHtml(item.brand||"")}"
-              data-verified-description="${escapeHtml(item.description||node.name||"")}">
-              Цены и наличие
-            </button>
-          </article>`).join("")}
-      </div>`
+    // Same name is not the same SKU. Group repeated descriptions and keep
+    // each verified brand/article/fitment separately actionable through PartGrade.
+    const groups=new Map();
+    for(const item of items){
+      const title=String(item.description||node.name||"Деталь").trim();
+      const key=title.toLocaleLowerCase("ru-RU");
+      if(!groups.has(key))groups.set(key,{title,items:[]});
+      groups.get(key).items.push(item);
+    }
+    const html=items.length?'<div class="vin-group-list">'+
+      '<p class="vin-group-intro">'+groups.size+' наименований · '+items.length+' отдельных артикулов. Выберите номер для проверки цены и наличия.</p>'+
+      [...groups.values()].map(group=>`
+        <details class="vin-part-group" ${groups.size===1&&group.items.length===1?"open":""}>
+          <summary>
+            <span class="vin-part-group-icon">${vinCatalogIcon(group.title)}</span>
+            <span class="vin-part-group-title"><b>${escapeHtml(group.title)}</b><small>${group.items.length} ${group.items.length===1?"артикул":"артикулов"}</small></span>
+            <span class="vin-part-group-arrow" aria-hidden="true">⌄</span>
+          </summary>
+          <div class="vin-part-group-items">
+            ${group.items.map(item=>`
+              <article class="vin-part-row">
+                <span class="vin-part-thumb">
+                  <span class="vin-part-image-fallback">${vinCatalogIcon(group.title)}</span>
+                  ${item.image_url?'<img loading="lazy" src="'+escapeHtml(API_BASE+item.image_url)+'" alt="" onerror="this.remove()">':""}
+                </span>
+                <div class="vin-part-row-copy">
+                  <b>${escapeHtml(item.article||"—")}</b>
+                  <small>${escapeHtml(item.brand||"OEM")}</small>
+                  ${item.fit?'<span class="vin-fit-note">'+escapeHtml(String(item.fit))+'</span>':""}
+                </div>
+                <button type="button" class="vin-price-button"
+                  data-verified-article="${escapeHtml(item.article_normalized||item.article||"")}"
+                  data-verified-brand="${escapeHtml(item.brand||"")}"
+                  data-verified-description="${escapeHtml(item.description||node.name||"")}">
+                  Цены и наличие
+                </button>
+              </article>`).join("")}
+          </div>
+        </details>`).join("")+'</div>'
       : '<div class="garage-empty-inline vin-empty-node"><b>В этом узле оригинальные номера не найдены.</b><span>Вернитесь на уровень выше и выберите соседний раздел.</span></div>';
 
     browser.insertAdjacentHTML("beforeend",html);
@@ -4038,6 +4106,10 @@ document.getElementById("accountOrdersRefresh")?.addEventListener("click",async 
     button.disabled=false;
     button.textContent="Обновить статусы";
   }
+});
+
+document.addEventListener("input",e=>{
+  if(e.target?.id==="vinCatalogNodeSearch")renderVinCatalogSearchResults(e.target.value);
 });
 
 document.addEventListener("click",async e=>{
