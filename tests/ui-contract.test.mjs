@@ -358,3 +358,21 @@ test("Garage artwork is body-aware and VIN catalog shows the owner photo above i
  assert.match(html,/styles\.css\?v=20261104-session-persistence7/);
  assert.match(html,/app\.js\?v=[0-9]{8}-[a-z0-9-]+/);
 });
+
+test('VIN tree search resolves provider IDs and hides the full catalog by default', () => {
+  assert.match(app, /function vinCatalogSearchMatches\(query,limit=14\)/);
+  assert.match(app, /vinCatalogState\?\.nodes\|\|\[\]/);
+  assert.match(app, /class="vin-search-result" data-vin-node=/);
+  assert.match(app, /<details class="vin-full-tree">/);
+  assert.match(app, /Все системы автомобиля/);
+  assert.match(app, /if\(e\.target\?\.id==="vinCatalogNodeSearch"\)/);
+});
+test('OEM duplicates are grouped by description, not by part number', () => {
+  assert.match(app, /const groups=new Map\(\)/);
+  assert.match(app, /group\.items\.push\(item\)/);
+  assert.match(app, /class="vin-part-group"/);
+  assert.match(app, /class="vin-part-row"/);
+  assert.match(app, /data-verified-article=/);
+  assert.match(app, /await loadLiveOffers\(/);
+  assert.match(app, /"\/api\/catalog\/vin-node\?modification_id="/);
+});
