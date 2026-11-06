@@ -1849,9 +1849,12 @@ app.put("/api/admin/pricing", async (req, res, next) => {
   if (req.user?.role !== "owner") return res.status(403).json({ error: "owner_only" });
   let policies;
   try {
-    // A legacy client may still submit one flat policy. It is migrated
-    // safely to both segments rather than rejected after a version change.
-    policies = validatePricingPolicies(req.body?.policies ?? req.body?.policy);
+    // Legacy admin tabs submit only one flat policy. Update retail only,
+    // keeping the separate service tariff intact.
+    const submitted = req.body?.policies ?? (req.body?.policy
+      ? { individual: req.body.policy, service: getPricingPolicy("service") }
+      : null);
+    policies = validatePricingPolicies(submitted);
   } catch (_error) {
     return res.status(400).json({ error: "invalid_pricing_policy" });
   }
