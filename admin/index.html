@@ -8,9 +8,9 @@
 <title>ZapFormat — Вход</title>
 <link rel="stylesheet" href="./admin.css?v=20261103-reconnect1">
 <link rel="stylesheet" href="./premium-admin.css?v=20261104-brand2">
-<link rel="stylesheet" href="./zf-premium.css?v=20261106-premium1">
+<link rel="stylesheet" href="./zf-premium.css?v=20261106-original-logo2">
 <script defer src="./staff.js?v=20261031-courier-preview1"></script>
-<script defer src="./admin.js?v=20261104-account-scopes1"></script>
+<script defer src="./admin.js?v=20261106-admin-recovery1"></script>
 </head>
 <body>
 <div class="auth-shell" id="authScreen">
@@ -25,6 +25,24 @@
       <input id="password" name="password" type="password" autocomplete="current-password" required placeholder="Пароль">
       <button type="submit" class="primary full" id="loginButton">Войти в кабинет <span aria-hidden="true">→</span></button>
     </form>
+    <button type="button" id="adminForgotPasswordToggle" class="auth-recovery-link">Забыли пароль?</button>
+    <form id="adminRecoveryStartForm" class="auth-recovery-form" hidden>
+      <p class="muted">Восстановление доступа владельца или сотрудника. Подтверждение придёт на телефон, привязанный к учётной записи.</p>
+      <label for="adminRecoveryIdentity">Телефон или электронная почта аккаунта</label>
+      <input id="adminRecoveryIdentity" name="identity" autocomplete="username" maxlength="120" required placeholder="+7 900 000-00-00">
+      <button type="submit" id="adminRecoveryStartButton" class="primary full">Получить код подтверждения <span aria-hidden="true">→</span></button>
+    </form>
+    <form id="adminRecoveryVerifyForm" class="auth-recovery-form" hidden>
+      <p class="muted" id="adminRecoveryHelp">Введите код подтверждения и задайте новый пароль.</p>
+      <label for="adminRecoveryCode">Код подтверждения</label>
+      <input id="adminRecoveryCode" name="code" inputmode="numeric" autocomplete="one-time-code" pattern="[0-9]{4,6}" minlength="4" maxlength="6" required placeholder="4 или 6 цифр">
+      <label for="adminRecoveryPassword">Новый пароль (не менее 12 символов)</label>
+      <input id="adminRecoveryPassword" name="password" type="password" autocomplete="new-password" minlength="12" maxlength="128" required>
+      <label for="adminRecoveryPasswordConfirmation">Повторите новый пароль</label>
+      <input id="adminRecoveryPasswordConfirmation" name="password_confirmation" type="password" autocomplete="new-password" minlength="12" maxlength="128" required>
+      <button type="submit" id="adminRecoveryVerifyButton" class="primary full">Сохранить пароль и войти <span aria-hidden="true">→</span></button>
+    </form>
+    <button type="button" id="adminRecoveryCancel" class="auth-recovery-link" hidden>← Вернуться ко входу</button>
     <button type="button" class="secondary full" id="reconnectButton" hidden>Повторить подключение <span aria-hidden="true">↻</span></button>
     <button type="button" class="auth-change-account" id="changeAccountButton" hidden>Войти в другой аккаунт</button>
     <button type="button" class="secondary full" id="courierRegisterToggle">Подать заявку курьера</button>
