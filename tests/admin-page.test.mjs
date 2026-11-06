@@ -39,7 +39,7 @@ test('privileged API only runs after owner/admin session validation',()=>{
 
 test('pricing is a real backend read/write with explicit save and guard',()=>{
   assert.match(js,/request\("\/api\/admin\/pricing"\)/);
-  assert.match(js,/method:"PUT",body:\{policy:p\}/);
+  assert.match(js,/method:"PUT",body:\{policies\}/);
   assert.match(js,/window\.confirm\(/);
   assert.match(js,/state\.savedPricing/);
   assert.match(js,/previewPrice/);
