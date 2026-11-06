@@ -13,7 +13,7 @@
   const escape = value => String(value ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
   const statusLabels = {new:"Новый",received:"Получен",confirmed:"Подтверждён",processing:"В обработке",ready:"Готов",completed:"Завершён",cancelled:"Отменён"};
   const captions = {
-    overview:["Обзор бизнеса","Актуальные показатели магазина","ОБЗОР"],
+    overview:["Обзор бизнеса","Сегодня · оперативная панель","ОБЗОР"],
     orders:["Заказы","Очередь и состояние клиентских заказов","ЗАКАЗЫ"],
     requests:["Обращения","Заявки клиентов и запросы на подбор","ОБРАЩЕНИЯ"],
     pricing:["Ценовая политика","Настройка наценок по себестоимости","НАЦЕНКИ"],
@@ -326,17 +326,41 @@
   }
   function card(label,value,detail=""){return '<article class="metric"><div class="metric-label">'+escape(label)+'</div><div class="metric-value">'+value+'</div><div class="metric-detail">'+escape(detail)+'</div></article>';}
   function panel(title,body,extra=""){return '<section class="panel"><div class="panel-head"><h2>'+escape(title)+'</h2>'+extra+'</div>'+body+'</section>';}
-  function renderOverview(summary,queue){
-    const o=summary?.orders||{},q=summary?.requests||{},g=summary?.gross_profit||{};
-    const tiles='<div class="metrics">'+
-      card("Сумма оформленных заказов",formatRub(o.booked_revenue),"Без отменённых; не равно поступившей оплате")+
-      card("Всего заказов",formatInt(o.total),"В базе магазина")+
-      card("Активные заказы",formatInt(o.active),"Не завершены и не отменены")+
-      card("Активные обращения",formatInt(q.active),"Ожидают обработки")+
-      '</div>';
-    const profit=Number(g.costed_items)>0?formatRub(g.known_amount):"—";
-    const coverage='<div class="insight-grid"><div><div class="metric-label">Валовая прибыль по известной закупке</div><div class="large-number">'+profit+'</div><p>До расходов, налогов и возвратов. Не является чистой прибылью.</p></div><div><div class="metric-label">Полнота себестоимости</div><div class="large-number">'+formatInt(g.costed_items)+' / '+formatInt(Number(g.costed_items||0)+Number(g.missing_cost_items||0))+'</div><p>'+formatInt(g.missing_cost_items)+' позиций без закупочной цены. '+(g.complete?"По зарегистрированным позициям себестоимость заполнена.":"Общая прибыль по всем позициям пока неизвестна.")+'</p></div></div>';
-    $("page").innerHTML=tiles+'<div class="split">'+panel("Последние заказы",table(["Заказ","Получатель","Сумма","Поз.","Статус"],orderRows(queue),"Заказов пока нет."),'<button class="link" data-open="orders">Все заказы →</button>')+panel("Финансовый контроль",coverage,'<button class="link" data-open="analytics">Подробнее →</button>')+'</div><p class="section-caption">Обновлено '+dateRu(new Date())+' по московскому времени.</p>';
+  function renderOverview(dashboard){
+    const d=dashboard||{};
+    const num=value=>Number.isFinite(Number(value))?Math.max(0,Math.trunc(Number(value))):0;
+    const tile=(label,value,note)=>'<article class="zf-ops-card"><div class="zf-ops-label">'+escape(label)+'</div><strong class="zf-ops-value">'+value+'</strong><div class="zf-ops-note">'+escape(note)+'</div></article>';
+    const tiles='<section class="zf-ops-grid" aria-label="Показатели сегодня">'+
+      tile("Новые заказы",formatInt(num(d.new_orders)),"Ожидают обработки")+
+      tile("Выручка сегодня","— ₽","Наличные пока не фиксируются")+
+      tile("Забрать сегодня","—","График забора ещё не ведётся")+
+      tile("Доставки в работе",formatInt(num(d.deliveries_in_work)),"Назначены курьерам")+
+      '</section>';
+    const task=(page,title,detail,value)=>
+      '<button class="zf-ops-task" type="button" data-open="'+escape(page)+'">'+
+      '<span class="zf-ops-task-copy"><b>'+escape(title)+'</b><small>'+escape(detail)+'</small></span>'+
+      '<span class="zf-ops-task-count">'+formatInt(num(value))+'</span><span class="zf-ops-chevron" aria-hidden="true">›</span></button>';
+    const tasks='<section class="zf-ops-section"><div class="zf-ops-section-head"><h2>Требует внимания</h2><span>Сегодня</span></div>'+
+      '<div class="zf-ops-tasks">'+
+      task("orders","Новые заказы","Открыть очередь и обработать",d.new_orders)+
+      task("requests","Обращения клиентов","Ответить на запросы",d.active_requests)+
+      task("logistics","Доставки в работе","Склад и доставка",d.deliveries_in_work)+
+      '</div></section>';
+    const trend=Array.isArray(d.trend)?d.trend.slice(-7):[];
+    const max=Math.max(1,...trend.map(x=>num(x.orders)));
+    const total=trend.reduce((sum,x)=>sum+num(x.orders),0);
+    const bars=trend.map(day=>{
+      const count=num(day.orders);
+      const height=count?Math.max(8,Math.round(100*count/max)):0;
+      return '<div class="zf-ops-day" aria-label="'+escape(String(day.label||""))+': '+formatInt(count)+' заказов">'+
+        '<div class="zf-ops-bar-area"><div class="zf-ops-bar" style="height:'+height+'%"></div></div>'+
+        '<small>'+escape(day.label||"")+'</small></div>';
+    }).join("");
+    const chart='<section class="zf-ops-section zf-ops-chart"><div class="zf-ops-section-head"><h2>Заказы · 7 дней</h2><button class="link" type="button" data-open="analytics">Аналитика →</button></div>'+
+      (total>0?'<div class="zf-ops-bars" role="img" aria-label="Количество заказов по дням за последнюю неделю">'+bars+'</div>':'<div class="zf-ops-chart-empty">За последние 7 дней оформленных заказов нет.</div>')+
+      '<p class="zf-ops-caption">Только реальные заказы без отменённых и TEST. Учёт ведётся по времени Рязани.</p></section>';
+    const book='<div class="zf-ops-booked">Сегодня оформлено: <b>'+formatInt(num(d.orders_today))+'</b> · на сумму <b>'+formatRub(Number(d.booked_today)||0)+'</b><small>Сумма заказов — не подтверждённая оплата.</small></div>';
+    $("page").innerHTML='<div class="zf-overview">'+tiles+book+tasks+chart+'</div>';
     bindNavigation();
   }
   function renderOrders(){
@@ -696,9 +720,9 @@
         state.savedPricing=structuredClone(data.policy);state.pricing=structuredClone(data.policy);state.pricingAt=data.updated_at;renderPricing();return;
       }
       if(page==="overview"){
-        const [overview,queue,staff]=await Promise.all([request("/api/admin/overview"),request("/api/admin/orders?limit=8"),state.user.role==="owner"?request("/api/admin/staff/overview").catch(()=>null):Promise.resolve(null)]);
+        const dashboard=await request("/api/admin/dashboard");
         if(seq!==state.seq||!state.user)return;
-        state.overview=overview;renderOverview(overview,queue.orders||[]);if(staff)window.ZapFormatStaffUI.appendStaffPreview(staffApi(),staff);return;
+        renderOverview(dashboard);return;
       }
       if(page==="analytics"){
         const overview=await request("/api/admin/overview");
@@ -753,20 +777,9 @@
   if(linkedOrderId)state.page="orders";
   window.ZapFormatStaffUI.initRegistration({request,setToken,loggedIn});
   setInterval(async()=>{
-    if(state.user?.role!=="owner"||document.hidden)return;
-    const currentPage=state.page;
-    if(!["overview","staff"].includes(currentPage))return;
-    if(currentPage==="staff"&&["INPUT","SELECT","TEXTAREA"].includes(document.activeElement?.tagName))return;
-    if(currentPage==="staff"){
-      await window.ZapFormatStaffUI.renderOwner(staffApi()).catch(()=>{});
-      return;
-    }
-    const seq=state.seq;
-    try{
-      const data=await request("/api/admin/staff/overview");
-      if(seq===state.seq&&state.user?.role==="owner"&&state.page==="overview")
-        window.ZapFormatStaffUI.appendStaffPreview(staffApi(),data);
-    }catch{}
+    if(state.user?.role!=="owner"||document.hidden||state.page!=="staff")return;
+    if(["INPUT","SELECT","TEXTAREA"].includes(document.activeElement?.tagName))return;
+    await window.ZapFormatStaffUI.renderOwner(staffApi()).catch(()=>{});
   },30000);
   restoreSession();
 })();
