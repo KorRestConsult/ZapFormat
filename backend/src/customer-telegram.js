@@ -60,7 +60,8 @@ function installCustomerTelegram({app,pool,requireUser,rateLimit,telegramCall,en
   app.post("/api/account/telegram/disconnect",requireUser,limit,async(req,res,next)=>{
     try{
       await pool.query("DELETE FROM customer_telegram_link_codes WHERE user_id=$1",[req.user.id]);
-      await pool.query("UPDATE customer_telegram_links SET enabled=false,updated_at=now() WHERE user_id=$1",[req.user.id]);
+      await pool.query("DELETE FROM customer_telegram_links WHERE user_id=$1",[req.user.id]);
+      await pool.query("DELETE FROM customer_telegram_deliveries WHERE user_id=$1 AND status<>'sent'",[req.user.id]);
       res.json({ok:true,linked:false});
     }catch(e){next(e)}
   });
@@ -109,7 +110,8 @@ function installCustomerTelegram({app,pool,requireUser,rateLimit,telegramCall,en
           :status==="already_linked"?"Этот Telegram уже привязан к другому аккаунту. Сначала отключите прежнюю привязку."
           :"Ссылка истекла или уже использована. Получите новую в личном кабинете.");
       }else if(/^\/stop(?:@\w+)?$/.test(text)){
-        await pool.query("UPDATE customer_telegram_links SET enabled=false,updated_at=now() WHERE chat_id=$1",[chatId]);
+        const owner=await pool.query("DELETE FROM customer_telegram_links WHERE chat_id=$1 RETURNING user_id",[chatId]);
+        if(owner.rowCount)await pool.query("DELETE FROM customer_telegram_deliveries WHERE user_id=$1 AND status<>'sent'",[owner.rows[0].user_id]);
         await send(chatId,"ZAPFORMAT · Уведомления отключены. Повторное подключение — через личный кабинет.");
       }else if(/^\/orders(?:@\w+)?$/.test(text)){
         await send(chatId,await userOrders(chatId));
