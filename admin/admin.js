@@ -26,7 +26,7 @@
     apply:["Заявка курьера","Подача заявки на работу","ЗАЯВКА"],
     security:["Безопасность","Смена пароля и защита учётной записи","БЕЗОПАСНОСТЬ"]
   };
-  const state = {token:"",user:null,page:"overview",seq:0,overview:null,orders:[],requests:[],customers:[],filterOrders:"",filterRequests:"",searchCustomers:"",offsets:{orders:0,requests:0,customers:0},more:{orders:false,requests:false,customers:false},pricing:null,savedPricing:null,pricingAt:null,busy:false};
+  const state = {token:"",user:null,page:"overview",seq:0,overview:null,orders:[],requests:[],customers:[],filterOrders:"",filterRequests:"",searchCustomers:"",offsets:{orders:0,requests:0,customers:0},more:{orders:false,requests:false,customers:false},pricing:null,savedPricing:null,pricingProfile:"individual",pricingAt:null,busy:false};
   function alertMessage(message,type="info"){
     const el=$("globalAlert");
     if(!message){el.hidden=true;el.textContent="";return;}
@@ -433,56 +433,88 @@
       min_markup_rub:Number($("minMarkup")?.value),round_to:Number($("rounding")?.value)};
   }
   function validPricing(policy){
-    return policy.tiers.every(t=>Number.isFinite(t.percent)&&t.percent>=0&&t.percent<=300) &&
-      Number.isFinite(policy.min_markup_rub)&&policy.min_markup_rub>=0&&policy.min_markup_rub<=50000&&
+    return !!policy && Array.isArray(policy.tiers) && policy.tiers.length===4 &&
+      policy.tiers.every(t=>Number.isFinite(t.percent)&&t.percent>=0&&t.percent<=300) &&
+      Number.isFinite(policy.min_markup_rub)&&policy.min_markup_rub>=0&&policy.min_markup_rub<=50000 &&
       [0.01,1,10,50,100].includes(policy.round_to);
   }
+  function validPricingProfiles(policies){
+    return !!policies && validPricing(policies.individual) && validPricing(policies.service);
+  }
   function previewPrice(){
-    if(!state.savedPricing)return;
+    if(!state.savedPricing||!state.pricing)return;
     const p=pricingDraft();
+    state.pricing[state.pricingProfile]=p;
     for(const tier of p.tiers){const label=$("val-"+tier.id);if(label)label.textContent=tier.percent+"%";}
     const cost=Number($("exampleCost").value);
     const preview=$("pricePreview");
-    if(!validPricing(p)||!Number.isFinite(cost)||cost<0||cost>10000000){preview.textContent="Проверьте указанные значения.";return;}
-    const index=cost<500?0:cost<2000?1:cost<10000?2:3;
-    const pennies=Math.round(cost*100),surcharge=Math.max(Math.round(pennies*p.tiers[index].percent/100),Math.round(p.min_markup_rub*100));
-    const step=Math.round(p.round_to*100);
-    const sale=Math.ceil((pennies+surcharge)/step)*step/100;
-    preview.textContent="Закупка "+formatRub(cost)+" → продажа "+formatRub(sale)+" · валовая разница "+formatRub(sale-cost)+" · маржа "+(sale?((sale-cost)/sale*100).toFixed(1):"0")+"%";
-    const dirty=JSON.stringify(p)!==JSON.stringify(state.savedPricing);
-    $("savePricing").disabled=!dirty||state.busy;
+    if(!validPricing(p)||!Number.isFinite(cost)||cost<0||cost>10000000){
+      preview.textContent="Проверьте указанные значения.";
+    }else{
+      const index=cost<500?0:cost<2000?1:cost<10000?2:3;
+      const pennies=Math.round(cost*100);
+      const surcharge=Math.max(Math.round(pennies*p.tiers[index].percent/100),Math.round(p.min_markup_rub*100));
+      const step=Math.round(p.round_to*100);
+      const sale=Math.ceil((pennies+surcharge)/step)*step/100;
+      preview.textContent="Закупка "+formatRub(cost)+" → продажа "+formatRub(sale)+" · валовая разница "+formatRub(sale-cost)+" · маржа "+(sale?((sale-cost)/sale*100).toFixed(1):"0")+"%";
+    }
+    const dirty=JSON.stringify(state.pricing)!==JSON.stringify(state.savedPricing);
+    $("savePricing").disabled=!dirty||!validPricingProfiles(state.pricing)||state.busy;
     $("discardPricing").disabled=!dirty||state.busy;
     $("pricingDirty").textContent=dirty?"Есть несохранённые изменения":"Настройки совпадают с сохранёнными";
   }
   function renderPricing(){
-    const p=state.pricing||state.savedPricing;
+    const profile=state.pricingProfile==="service"?"service":"individual";
+    const p=state.pricing?.[profile];
     if(!p){$("page").innerHTML=panel("Наценки",'<div class="empty">Не удалось загрузить серверные правила. Изменения заблокированы.</div>');return;}
     const titles=[["low","До 499 ₽"],["medium","От 500 до 1 999 ₽"],["high","От 2 000 до 9 999 ₽"],["premium","От 10 000 ₽"]];
-    $("page").innerHTML=panel("Торговая наценка",'<p class="muted">Наценка рассчитывается от закупочной цены. Ползунки не меняют цены до нажатия «Сохранить правила».</p>'+
+    const profileLabel=profile==="service"?"Автосервисы":"Физические лица";
+    const selectors='<div class="zf-pricing-segments" role="group" aria-label="Тип покупателя">'+
+      '<button type="button" data-pricing-profile="individual" aria-pressed="'+(profile==="individual")+'" class="'+(profile==="individual"?"active":"")+'">Физические лица</button>'+
+      '<button type="button" data-pricing-profile="service" aria-pressed="'+(profile==="service")+'" class="'+(profile==="service"?"active":"")+'">Автосервисы</button></div>';
+    $("page").innerHTML=panel("Ценовые правила",selectors+
+      '<div class="zf-pricing-context"><b>'+profileLabel+'</b><p>Сервер определяет тариф по типу зарегистрированного клиента. Гость видит розничную цену. Смена профиля не сохраняет изменения на сервере.</p></div>'+
+      '<p class="muted">Проценты применяются к закупочной цене PartGrade. Стоимость закупки клиенту не показывается.</p>'+
       '<div class="pricing-grid">'+titles.map(([id,title])=>{const row=p.tiers.find(t=>t.id===id);const n=row?.percent??15;return '<label class="tier"><span>'+title+'</span><strong id="val-'+id+'">'+n+'%</strong><input id="tier-'+id+'" type="range" min="0" max="300" step=".1" value="'+n+'"><small>От 0 до 300%</small></label>';}).join("")+'</div>'+
       '<div class="settings-row"><label>Минимальная наценка, ₽<input id="minMarkup" type="number" min="0" max="50000" step=".01" value="'+p.min_markup_rub+'"></label>'+
       '<label>Округление цены<select id="rounding">'+[.01,1,10,50,100].map(n=>'<option value="'+n+'"'+(n===p.round_to?" selected":"")+'>'+formatRub(n)+'</option>').join("")+'</select></label>'+
-      '<label>Пример закупочной цены, ₽<input id="exampleCost" type="number" min="0" max="10000000" value="2500"></label></div>'+
-      '<div class="preview"><small>ПРЕДВАРИТЕЛЬНЫЙ РАСЧЁТ</small><strong id="pricePreview">—</strong><p>Это пример. Сохранение новых правил не пересчитывает уже оформленные заказы.</p></div>'+
-      '<div class="savebar"><span id="pricingDirty">Настройки совпадают с сохранёнными</span><button class="secondary" id="discardPricing" disabled>Отменить изменения</button><button class="primary" id="savePricing" disabled>Сохранить правила</button></div>'+
-      '<p class="muted" id="pricingSaved"> '+(state.pricingAt?"Последнее сохранение: "+dateRu(state.pricingAt):"Используются исходные правила на сервере.")+'</p>');
-    for(const id of ["low","medium","high","premium","minMarkup","rounding","exampleCost"])$(["low","medium","high","premium"].includes(id)?"tier-"+id:id).addEventListener("input",previewPrice);
-    $("discardPricing").addEventListener("click",()=>{state.pricing=structuredClone(state.savedPricing);renderPricing();});
-    $("savePricing").addEventListener("click",savePricing);previewPrice();
+      '<label>Пример себестоимости, ₽<input id="exampleCost" type="number" min="0" max="10000000" value="2500"></label></div>'+
+      '<div class="preview"><small>РАСЧЁТ ДЛЯ СЕГМЕНТА · '+profileLabel.toUpperCase()+'</small><strong id="pricePreview">—</strong><p>Предварительный расчёт. Уже оформленные заказы не пересчитываются.</p></div>'+
+      '<div class="zf-pricing-note">Для розничных покупателей и автосервисов действуют независимые правила. Тип «Автосервис» сейчас заявляется клиентом при регистрации — проверку статуса автосервиса организуем отдельно.</div>'+
+      '<div class="zf-pricing-note">Ориентир на цены Автодока подключим после проверки законного и надёжного источника цен по Рязани. Пока действует только наценка PartGrade.</div>'+
+      '<div class="savebar"><span id="pricingDirty">Настройки совпадают с сохранёнными</span><button class="secondary" id="discardPricing" disabled>Отменить изменения</button><button class="primary" id="savePricing" disabled>Сохранить оба тарифа</button></div>'+
+      '<p class="muted" id="pricingSaved">'+(state.pricingAt?"Последнее сохранение: "+dateRu(state.pricingAt):"Используются исходные правила на сервере.")+'</p>');
+    for(const button of $("page").querySelectorAll("[data-pricing-profile]")){
+      button.addEventListener("click",()=>{
+        const next=button.dataset.pricingProfile;
+        if(next===state.pricingProfile)return;
+        state.pricing[state.pricingProfile]=pricingDraft();
+        state.pricingProfile=next;
+        renderPricing();
+      });
+    }
+    for(const id of ["low","medium","high","premium","minMarkup","rounding","exampleCost"])
+      $(["low","medium","high","premium"].includes(id)?"tier-"+id:id).addEventListener("input",previewPrice);
+    $("discardPricing").addEventListener("click",()=>{
+      state.pricing=structuredClone(state.savedPricing);renderPricing();
+    });
+    $("savePricing").addEventListener("click",savePricing);
+    previewPrice();
   }
   async function savePricing(){
-    if(!state.savedPricing||state.busy)return;
-    const p=pricingDraft();
-    if(!validPricing(p)){alertMessage("Некорректные значения наценок.","error");return;}
-    if(JSON.stringify(p)===JSON.stringify(state.savedPricing))return;
-    if(!window.confirm("Сохранить новые правила наценки? Они начнут действовать для новых расчётов цен."))return;
-    state.busy=true;$("savePricing").disabled=true;alertMessage("Сохраняем правила на сервере…");
+    if(!state.savedPricing||!state.pricing||state.busy)return;
+    state.pricing[state.pricingProfile]=pricingDraft();
+    const policies=structuredClone(state.pricing);
+    if(!validPricingProfiles(policies)){alertMessage("Некорректные значения наценок.", "error");return;}
+    if(JSON.stringify(policies)===JSON.stringify(state.savedPricing))return;
+    if(!window.confirm("Сохранить тарифы для физических лиц и автосервисов? Они сразу начнут действовать для новых расчётов цен."))return;
+    state.busy=true;$("savePricing").disabled=true;alertMessage("Сохраняем оба тарифа на сервере…");
     try{
-      const result=await request("/api/admin/pricing",{method:"PUT",body:{policy:p}});
-      if(!result.ok||!result.policy)throw Error("save_not_confirmed");
-      state.savedPricing=result.policy;state.pricing=structuredClone(result.policy);state.pricingAt=result.updated_at;
-      alertMessage("Правила подтверждены сервером. Новые расчёты используют эти наценки.","success");renderPricing();
-    }catch(error){handleError(error,"Не удалось сохранить правила. Действующие цены не менялись.");}
+      const result=await request("/api/admin/pricing",{method:"PUT",body:{policies}});
+      if(!result.ok||!result.policies)throw Error("save_not_confirmed");
+      state.savedPricing=structuredClone(result.policies);state.pricing=structuredClone(result.policies);state.pricingAt=result.updated_at;
+      alertMessage("Тарифы подтверждены сервером и применяются для новых цен.", "success");renderPricing();
+    }catch(error){handleError(error,"Не удалось сохранить тарифы. Действующие цены не менялись.");}
     finally{state.busy=false;if($("savePricing"))previewPrice();}
   }
   async function loadList(kind,more=false){
@@ -716,8 +748,8 @@
       if(page==="pricing"){
         const data=await request("/api/admin/pricing");
         if(seq!==state.seq||!state.user)return;
-        if(!data?.policy)throw Error("policy_unavailable");
-        state.savedPricing=structuredClone(data.policy);state.pricing=structuredClone(data.policy);state.pricingAt=data.updated_at;renderPricing();return;
+        if(!data?.policies?.individual||!data?.policies?.service)throw Error("policies_unavailable");
+        state.savedPricing=structuredClone(data.policies);state.pricing=structuredClone(data.policies);state.pricingAt=data.updated_at;renderPricing();return;
       }
       if(page==="overview"){
         const dashboard=await request("/api/admin/dashboard");
