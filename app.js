@@ -1308,6 +1308,7 @@ function normalizeGarageVehicle(vehicle){
 
 async function hydrateRealGarage(garage){
   if(!sessionUser) return;
+  const ownerId=String(sessionUser.id);
 
   garageVehicles=(garage?.vehicles||[]).map(normalizeGarageVehicle);
 
@@ -1328,7 +1329,9 @@ async function hydrateRealGarage(garage){
   garageActiveVehicleId=vehicle.id;
 
   try{
-    const detail=await apiRequest("/api/garage/vehicles/"+encodeURIComponent(vehicle.id));
+    const detail=await apiRequest("/api/garage/vehicles/"+encodeURIComponent(vehicle.id),{timeoutMs:12000});
+    // An earlier request must not overwrite a new selection or a logged-out user.
+    if(String(sessionUser?.id||"")!==ownerId || String(garageActiveVehicleId)!==String(vehicle.id))return;
     const currentMileage=Number(detail.vehicle.current_mileage||0);
     garageState={
       vehicle:normalizeGarageVehicle(detail.vehicle),
@@ -1465,42 +1468,67 @@ function startNotificationRefresh(){
 }
 
 let accountHydrationPromise=null;
-async function hydrateAccountData(){
-  if(!backendConfigured() || !sessionUser) return;
-  // A single failing optional endpoint must not blank the entire cabinet.
-  if(accountHydrationPromise) return accountHydrationPromise;
-  accountHydrationPromise=(async()=>{
-    const endpoints=[
-      "/api/account/overview",
-      "/api/account/orders",
-      "/api/account/requests",
-      "/api/garage",
-      "/api/account/preferences",
-      "/api/account/notifications?limit=30"
-    ];
-    const results=await Promise.allSettled(endpoints.map(path=>apiRequest(path)));
-    const data=index=>results[index].status==="fulfilled" ? results[index].value : null;
-    const overview=data(0),orders=data(1),requests=data(2);
-    const garage=data(3),preferences=data(4),notificationsData=data(5);
-    if(overview && orders && requests && garage){
+let accountHydrationOwner=null;
+let accountHydrationLastUserId=null;
+let accountHydratedAt=0;
+let accountExtrasAt=0;
+async function hydrateAccountData({force=false}={}){
+  if(!backendConfigured() || !sessionUser)return;
+  const userId=String(sessionUser.id);
+  if(accountHydrationOwner===userId && accountHydrationPromise)return accountHydrationPromise;
+  if(accountHydrationLastUserId!==userId){
+    accountHydrationLastUserId=userId;
+    accountDataHydrated=false;
+    accountHydratedAt=0;
+    accountExtrasAt=0;
+    accountPreferences={delivery:null,notifications:null};
+  }
+  if(!force && accountDataHydrated && Date.now()-accountHydratedAt<30000)return;
+  accountHydrationOwner=userId;
+  const request=(async()=>{
+    // Render the orders as soon as core data arrives. Optional settings and
+    // notification services must never hold the entire cabinet hostage.
+    const paths=["/api/account/overview","/api/account/orders",
+      "/api/account/requests","/api/garage"];
+    const results=await Promise.allSettled(paths.map(path=>apiRequest(path,{timeoutMs:12000})));
+    if(String(sessionUser?.id||"")!==userId)return;
+    const data=i=>results[i].status==="fulfilled"?results[i].value:null;
+    const overview=data(0),orders=data(1),requests=data(2),garage=data(3);
+    if(overview&&orders&&requests&&garage){
       liveAccountOrders=orders.orders||[];
       liveAccountRequests=requests.requests||[];
       renderLiveAccount(overview,liveAccountOrders,liveAccountRequests,garage);
+      accountDataHydrated=true;
+      accountHydratedAt=Date.now();
+    }else{
+      accountDataHydrated=false;
+      console.warn("Account core endpoints unavailable",results.map((result,i)=>
+        result.status==="rejected"?paths[i]:null).filter(Boolean));
     }
-    if(preferences) renderAccountPreferences(preferences);
-    void refreshCustomerTelegramStatus();
-    if(notificationsData) renderAccountNotifications(notificationsData);
-    if(garage) await hydrateRealGarage(garage);
+    if(garage)void hydrateRealGarage(garage);
     renderAccountSetupChecklist();
-    accountDataHydrated=results.every(result=>result.status==="fulfilled");
-    if(!accountDataHydrated){
-      console.warn("Some account sections could not load",results.map((result,index)=>
-        result.status==="rejected" ? endpoints[index] : null
-      ).filter(Boolean));
+    if(force || Date.now()-accountExtrasAt>=60000){
+      accountExtrasAt=Date.now();
+      void Promise.allSettled([
+        apiRequest("/api/account/preferences",{timeoutMs:10000}),
+        apiRequest("/api/account/notifications?limit=30",{timeoutMs:10000})
+      ]).then(extras=>{
+        if(String(sessionUser?.id||"")!==userId)return;
+        if(extras[0].status==="fulfilled")renderAccountPreferences(extras[0].value);
+        if(extras[1].status==="fulfilled")renderAccountNotifications(extras[1].value);
+        if(extras.some(item=>item.status==="rejected"))accountExtrasAt=0;
+      });
+      void refreshCustomerTelegramStatus();
     }
   })();
-  try{ await accountHydrationPromise; }
-  finally{ accountHydrationPromise=null; }
+  accountHydrationPromise=request;
+  try{await request;}
+  finally{
+    if(accountHydrationPromise===request){
+      accountHydrationPromise=null;
+      accountHydrationOwner=null;
+    }
+  }
 }
 
 
@@ -1823,7 +1851,7 @@ function retryCustomerSession(){
     customerSessionRetryTimer=null;
     if(!authToken||sessionUser)return;
     hydrateSession().then(user=>{if(user)restoreFromUrl();}).catch(()=>{});
-  },Math.min(customerSessionRetryCount*3500,10500));
+  },Math.min(customerSessionRetryCount*1500,4500));
 }
 
 async function hydrateSessionOnce(){
@@ -1850,9 +1878,8 @@ async function hydrateSessionOnce(){
     customerSessionRetryCount=0;
     if(customerSessionRetryTimer){clearTimeout(customerSessionRetryTimer);customerSessionRetryTimer=null;}
     applySessionUser();
-    if(document.getElementById("view-auth")?.classList.contains("active")){
-      showRoute(pendingAccountRoute||"home");
-    }
+    // Routing is restored by the caller after auth resolves; avoid a
+    // transient jump to the cabinet and then back to the home page.
     hydrateCartFromAccount().catch(error=>console.warn("ZapFormat cart hydration failed",error));
     hydrateAccountData().catch(error=>console.warn("ZapFormat account hydration failed",error));
     return sessionUser;
@@ -1862,8 +1889,14 @@ async function hydrateSessionOnce(){
       if(authToken)saveAuthToken("");
     }else{
       console.warn("ZapFormat session temporarily unavailable",error?.code||error?.message);
-      // Keep the token on network errors, timeouts or a server redeploy.
-      retryCustomerSession();
+      // A timeout is NOT a logout. Keep the neutral catalog with "checking
+      // session" until a bounded retry finishes, rather than flashing login.
+      if(authToken && customerSessionRetryCount<3){
+        retryCustomerSession();
+        sessionUser=null;
+        document.documentElement.classList.add("zf-preauth");
+        return null;
+      }
     }
     sessionUser=null;
     applySessionUser();
@@ -2102,6 +2135,36 @@ document.getElementById("adminRefreshButton")?.addEventListener("click",()=>{
 document.getElementById("adminOrderFilter")?.addEventListener("change",()=>hydrateAdminDashboard());
 document.getElementById("adminLoadMoreButton")?.addEventListener("click",loadMoreAdminOrders);
 
+// Safari may discard a background tab and reload it later. Remember the last
+// customer route per tab, scoped to the current account; never infer login
+// status from storage. The server remains authoritative for authentication.
+const VIEW_RESUME_KEY="zapformat-last-view";
+const resumableRoutes=new Set(["home","search","cart","profile","orders","garage"]);
+function rememberVisibleRoute(route){
+  if(!resumableRoutes.has(route))return;
+  try{
+    sessionStorage.setItem(VIEW_RESUME_KEY,JSON.stringify({
+      route,userId:String(sessionUser?.id||"")
+    }));
+  }catch{}
+}
+function lastVisibleRoute(){
+  try{
+    const data=JSON.parse(sessionStorage.getItem(VIEW_RESUME_KEY)||"null");
+    if(!data || !resumableRoutes.has(data.route))return null;
+    // A protected route must never be restored for a different customer.
+    if(String(data.userId||"")!==String(sessionUser?.id||""))return null;
+    if(!sessionUser && !["home","cart"].includes(data.route))return null;
+    return data.route;
+  }catch{return null;}
+}
+function rememberedAccountTab(){
+  try{
+    const tab=localStorage.getItem("zapformat-account-tab");
+    return ["orders","returns","garage","profile"].includes(tab)?tab:"orders";
+  }catch{return "orders";}
+}
+
 function showRoute(route){
   if(route==="auth" && sessionUser){
     route="home";
@@ -2139,7 +2202,7 @@ function showRoute(route){
     hydrateAdminDashboard().catch(()=>{});
     if(typeof window.hydrateAdminDesk==="function") window.hydrateAdminDesk();
   }
-  if(route==="profile") showAccountTab("orders");
+  if(route==="profile") showAccountTab(rememberedAccountTab());
   if(route==="orders") showAccountTab("orders");
   if(route==="garage") showAccountTab("garage");
   if(route==="cart"){
@@ -2156,6 +2219,7 @@ function showRoute(route){
 
   // showAccountTab owns account hydration. Avoid racing duplicate requests
   // and re-rendering the garage under an active touch.
+  rememberVisibleRoute(route);
   syncMobileNav(route);
   window.scrollTo({top:0,behavior:"auto"});
 }
@@ -4527,7 +4591,7 @@ document.getElementById("accountOrdersRefresh")?.addEventListener("click",async 
   button.textContent="Проверяем…";
   if(message)message.textContent="Запрашиваем актуальные статусы…";
   try{
-    await hydrateAccountData();
+    await hydrateAccountData({force:true});
     if(message)message.textContent=accountDataHydrated
       ?"Данные обновлены: "+new Date().toLocaleTimeString("ru-RU",{hour:"2-digit",minute:"2-digit"})
       :"Часть данных пока недоступна. Повторите проверку позже.";
@@ -5009,14 +5073,19 @@ function restoreFromUrl(){
       renderCartPage();
       if(supplierAvailable===true) refreshCartOffers({silent:true}).catch(()=>null);
     }
-  } else if(sessionUser && resume?.query){
-    search(resume.query,{push:false,brand:resume.brand||undefined});
-  } else if(sessionUser){
-    showRoute("home");
   } else {
-    let choice="auth";
-    try{choice=sessionStorage.getItem("zapformat-guest-choice")||"auth";}catch{}
-    showRoute(choice==="browse"?"home":"auth");
+    const lastRoute=lastVisibleRoute();
+    if(lastRoute==="search" && resume?.query){
+      search(resume.query,{push:false,brand:resume.brand||undefined});
+    }else if(lastRoute && lastRoute!=="search"){
+      showRoute(lastRoute);
+    }else if(sessionUser){
+      showRoute("home");
+    }else{
+      let choice="auth";
+      try{choice=sessionStorage.getItem("zapformat-guest-choice")||"auth";}catch{}
+      showRoute(choice==="browse"?"home":"auth");
+    }
   }
 }
 document.addEventListener("visibilitychange",()=>{
@@ -5708,15 +5777,22 @@ function prefillGarageSearch(query){
   });
 }
 
-async function refreshAdditionalAccountPane(tab){
+const accountPaneCache=new Map();
+const accountPanePending=new Set();
+async function refreshAdditionalAccountPane(tab,{force=false}={}){
   if(!sessionUser || !["returns","reports"].includes(tab)) return;
   const mountingId=tab==="returns" ? "accountReturnsList" : "accountReportStats";
   const mount=document.getElementById(mountingId);
   if(!mount) return;
   const accountId=String(sessionUser.id||"");
-  if(tab==="returns"){
+  const cacheKey=accountId+":"+tab;
+  if(accountPanePending.has(cacheKey))return;
+  const cachedAt=accountPaneCache.get(cacheKey)||0;
+  if(!force && cachedAt && Date.now()-cachedAt<45000)return;
+  accountPanePending.add(cacheKey);
+  if(!cachedAt && tab==="returns"){
     mount.innerHTML='<div class="account-empty"><p>Загружаем возвраты…</p></div>';
-  }else{
+  }else if(!cachedAt){
     mount.innerHTML='<article><span>Загружаем статистику</span><b>…</b><small>Текущий месяц</small></article>';
   }
   try{
@@ -5725,11 +5801,16 @@ async function refreshAdditionalAccountPane(tab){
     if(String(sessionUser?.id||"")!==accountId) return;
     if(tab==="returns") renderAccountReturns(result);
     else renderAccountReports(result);
+    accountPaneCache.set(cacheKey,Date.now());
   }catch(error){
     if(String(sessionUser?.id||"")!==accountId) return;
     console.warn("Account section unavailable",tab,error?.code||error?.message);
-    mount.innerHTML='<div class="account-empty"><p>Не удалось загрузить данные. Попробуйте повторно.</p>'+
-      '<button type="button" class="account-primary" data-refresh-account="'+tab+'">Обновить</button></div>';
+    if(!cachedAt){
+      mount.innerHTML='<div class="account-empty"><p>Не удалось загрузить данные. Попробуйте повторно.</p>'+
+        '<button type="button" class="account-primary" data-refresh-account="'+tab+'">Обновить</button></div>';
+    }
+  }finally{
+    accountPanePending.delete(cacheKey);
   }
 }
 
@@ -5750,16 +5831,16 @@ function showAccountTab(tab){
   // Never scroll the entire page merely to highlight an account tab.
   if(tab==="garage") renderGarageApp();
   if(sessionUser && tab==="orders"){
-    accountDataHydrated=false;
-    hydrateAccountData();
-  }else if(sessionUser && tab==="garage" && !accountDataHydrated){
-    hydrateAccountData();
+    // Route switches reuse recent data; status refresh is explicit or time based.
+    hydrateAccountData().catch(error=>console.warn("Order summary refresh failed",error));
+  }else if(sessionUser && tab==="garage"){
+    hydrateAccountData().catch(error=>console.warn("Garage summary refresh failed",error));
   }
   if(sessionUser && tab==="returns"){
     refreshAdditionalAccountPane("returns").catch(error=>console.warn("Account panel refresh failed",error));
   }
   if(sessionUser && tab==="profile"){
-    if(!accountDataHydrated) hydrateAccountData();
+    hydrateAccountData().catch(error=>console.warn("Account profile refresh failed",error));
     refreshAdditionalAccountPane("reports").catch(error=>console.warn("Account profile stats refresh failed",error));
   }
   const profileViewActive=document.getElementById("view-profile")?.classList.contains("active");
@@ -5773,7 +5854,7 @@ function showAccountTab(tab){
 document.addEventListener("click",async e=>{
   const sectionRefresh=e.target.closest("[data-refresh-account]");
   if(sectionRefresh){
-    refreshAdditionalAccountPane(sectionRefresh.dataset.refreshAccount).catch(()=>null);
+    refreshAdditionalAccountPane(sectionRefresh.dataset.refreshAccount,{force:true}).catch(()=>null);
     return;
   }
   const passwordToggle=e.target.closest("[data-password-toggle]");
@@ -6332,6 +6413,14 @@ document.getElementById("logoutButton")?.addEventListener("click",async()=>{
     sessionUser=null;
     saveAuthToken("");
     clearSearchResume();
+    accountDataHydrated=false;
+    accountHydratedAt=0;
+    accountExtrasAt=0;
+    accountHydrationLastUserId=null;
+    try{
+      sessionStorage.removeItem(VIEW_RESUME_KEY);
+      localStorage.removeItem("zapformat-account-tab");
+    }catch{}
     accountPreferences={delivery:null,notifications:null};
     pendingCheckoutAfterDelivery=false;
     const quoteName=document.getElementById("quoteName");

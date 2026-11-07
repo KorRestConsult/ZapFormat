@@ -13,14 +13,15 @@ const customer={id:'test-customer',role:'customer',name:'Test'};
 const unauthorized=()=>Object.assign(new Error('unauthorized'),{status:401});
 const timeout=()=>Object.assign(new Error('request_timeout'),{code:'request_timeout'});
 function env(token,request){
-  const writes=[],calls=[],timers=[];
+  const writes=[],calls=[],timers=[],classes=new Set();
   const ctx={
     authToken:token,sessionUser:null,pendingAccountRoute:'garage',
     backendConfigured:()=>true,console:{warn:()=>{}},
     apiRequest:async(path,options)=>{calls.push({path,options});return request(path,options);},
     saveAuthToken(value){writes.push(value);ctx.authToken=value;},
     applySessionUser:()=>{},
-    document:{getElementById:()=>null,addEventListener:()=>{},visibilityState:'visible'},
+    document:{getElementById:()=>null,addEventListener:()=>{},visibilityState:'visible',
+      documentElement:{classList:{add:name=>classes.add(name),remove:name=>classes.delete(name)}}},
     window:{addEventListener:()=>{}},
     setTimeout(callback,ms){timers.push({callback,ms});return timers.length;},
     clearTimeout:()=>{},
@@ -29,7 +30,7 @@ function env(token,request){
   };
   vm.createContext(ctx);
   vm.runInContext(sessionCode,ctx);
-  return {ctx,calls,writes,timers,run:()=>vm.runInContext('hydrateSession()',ctx)};
+  return {ctx,calls,writes,timers,classes,run:()=>vm.runInContext('hydrateSession()',ctx)};
 }
 test('valid bearer survives a site reload',async()=>{
  const x=env('persisted-token',async path=>{
@@ -78,3 +79,11 @@ test('server keeps customer and owner session cookies separate',()=>{
  assert.match(backend,/clearMatchingSessionCookies\(req,res,token\)/);
 });
 
+
+test('Temporary network failure keeps login recovery screen instead of guest flash',async()=>{
+ const x=env('valid',async()=>{throw timeout();});
+ await x.run();
+ assert.equal(x.ctx.authToken,'valid');
+ assert.ok(x.classes.has('zf-preauth'));
+ assert.deepEqual(x.writes,[]);
+});
