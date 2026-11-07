@@ -3405,7 +3405,7 @@ async function search(query,options={}){
       const decoded=result?.decoded||{};
       transientVinVehicle={
         id:active?.id||null,
-        brand:(result?.ready ? (decoded.brand_name||decoded.manufacturer) : (decoded.manufacturer||decoded.brand_name))||active?.brand||""
+        brand:(result?.ready ? (decoded.brand_name||decoded.manufacturer) : (decoded.manufacturer||decoded.brand_name))||active?.brand||"",
         model:decoded.model_name||active?.model||"",
         generation:result?.modification?.name||decoded.modification_name||active?.generation||"",
         year:decoded.model_year||active?.year||"",
