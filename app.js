@@ -3503,6 +3503,8 @@ async function loadLiveOffers(article,brand,description="",options={}){
     );
     setCatalogControlsVisible(true);
     renderCatalog();
+    // Independent market lookup must never block the PartGrade catalog.
+    void updateMarketComparison(number,maker,key);
 
     if(options.push!==false){
       const url=new URL(location.href);
@@ -3851,6 +3853,55 @@ function supplyRowHtml(x){
     </div>`;
 }
 
+
+function competitorKey(brand, article){
+  let b=String(brand||"").normalize("NFKC").toUpperCase().replace(/[^A-ZА-ЯЁ0-9]/g,"");
+  const a=String(article||"").normalize("NFKC").toUpperCase().replace(/[^A-ZА-ЯЁ0-9]/g,"");
+  if(b==="MANNFILTER")b="MANN";
+  return b+"|"+a;
+}
+function competitorTilesHtml(part){
+  const data=currentKey?datasets[currentKey]:null;
+  if(!data?.liveSupplier)return "";
+  const snapshot=data.marketSnapshot;
+  const emex=snapshot?.items?.[competitorKey(part.brand,part.article)]||null;
+  const providerStatus=snapshot?.providers?.emex?.status||null;
+  const displayPrice=emex?.reliable?.price??emex?.price;
+  const days=emex?.reliable?.days??emex?.days;
+  const rating=emex?.reliable?.rating??emex?.rating;
+  const fromPrice=emex?.price;
+  const detailText=emex
+    ? (rating!=null?"Рейтинг "+Number(rating).toLocaleString("ru-RU")+" · ":"Без рейтинга · ")+days+" дн."
+    : providerStatus==="ok"?"Нет подтверждённой цены":providerStatus?"Временно недоступно":"Загружаем…";
+  const priceText=Number.isFinite(Number(displayPrice))&&Number(displayPrice)>0
+    ? rub(Number(displayPrice)):"—";
+  const cheapNote=emex?.reliable&&Number(fromPrice)<Number(emex.reliable.price)
+    ? '<span class="market-tile-foot">Есть дешевле от '+rub(Number(fromPrice))+'</span>'
+    : "";
+  const emexHtml=emex?.source_url
+    ? '<a class="market-tile market-tile-ready" href="'+escapeHtml(emex.source_url)+'" target="_blank" rel="noopener noreferrer" aria-label="Посмотреть предложение Emex">'
+      +'<b>Emex</b><strong>'+priceText+'</strong><small>'+escapeHtml(detailText)+'</small>'+cheapNote+'</a>'
+    : '<div class="market-tile"><b>Emex</b><strong>—</strong><small>'+escapeHtml(detailText)+'</small></div>';
+  return '<section class="market-comparison" aria-label="Сравнение розничных цен на эту деталь">'
+    +'<div class="market-comparison-head"><b>Цены в других магазинах</b><small>Та же марка и артикул · данные могут меняться</small></div>'
+    +'<div class="market-comparison-grid">'+emexHtml
+    +'<div class="market-tile market-tile-inactive"><b>Автодок</b><strong>—</strong><small>Цена не подтверждена</small></div>'
+    +'<div class="market-tile market-tile-inactive"><b>Ozon</b><strong>—</strong><small>Цена не подтверждена</small></div>'
+    +'</div></section>';
+}
+async function updateMarketComparison(number,brand,key){
+  try{
+    const market=await apiRequest("/api/catalog/market-comparison?number="
+      +encodeURIComponent(number)+"&brand="+encodeURIComponent(brand));
+    if(datasets[key]?.liveSupplier)datasets[key].marketSnapshot=market;
+  }catch(_error){
+    if(datasets[key]?.liveSupplier)datasets[key].marketSnapshot={
+      providers:{emex:{status:"unavailable"}},items:{}
+    };
+  }
+  if(currentKey===key)renderCatalog();
+}
+
 function groupCardHtml(items, key){
   if(!items.length) return "";
   const first=items[0];
@@ -3871,6 +3922,7 @@ function groupCardHtml(items, key){
           <small>${escapeHtml(first.name||"")}</small>
         </div>
       </div>
+      ${competitorTilesHtml(first)}
       <div class="supply-list">${visible.map(supplyRowHtml).join("")}</div>
       ${hiddenCount ? `<button class="show-more" data-show-group="${escapeHtml(key)}">Показать ещё <span>${hiddenCount}</span></button>` : ""}
     </article>`;
