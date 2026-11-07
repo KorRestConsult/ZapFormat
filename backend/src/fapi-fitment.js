@@ -117,13 +117,15 @@ function productionTime(value) {
 
 function selectFapiModification(value, decoded) {
   const rows = modificationRows(value);
-  const wantedPower = Number(decoded?.power_kw);
+  const powerValue = decoded?.power_kw;
+  const wantedPower = powerValue === null || powerValue === undefined || String(powerValue).trim() === "" ? null : Number(powerValue);
   const wantedDate = productionTime(decoded?.production_date);
   const vinEngine = compact(decoded?.engine_code || "");
   const scored = rows.map((row) => {
     let score = 0;
-    const power = Number(row?.power);
-    if (Number.isFinite(wantedPower) && Number.isFinite(power)) {
+    const rowPower = row?.power;
+    const power = rowPower === null || rowPower === undefined || String(rowPower).trim() === "" ? null : Number(rowPower);
+    if (wantedPower !== null && power !== null && Number.isFinite(wantedPower) && Number.isFinite(power)) {
       score += power === wantedPower ? 120 : -Math.min(80, Math.abs(power - wantedPower) * 3);
     }
 
