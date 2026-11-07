@@ -42,7 +42,7 @@ test("supplier offers, revalidation and final checkout derive tier from authenti
   const app=readFileSync(resolve("app.js"),"utf8");
   assert.match(server,/user\.customer_type === "service"/);
   assert.match(server,/user\?\.role === "customer"/);
-  assert.match(server,/publicSupplierOffer\(row, number, brand, customerType\)/);
+  assert.match(server,/publicSupplierOffer\(row, number, brand, customerType,/);
   assert.match(server,/revalidateOfferToken\(token, quantity, cache, customerType\)/);
   assert.match(server,/revalidateOfferToken\(item\.offer_token, item\.quantity, validationCache, customerType\)/);
   assert.match(server,/customerPrice\(row\?\.price, process\.env, customerType\)/);
@@ -65,5 +65,5 @@ test("admin regulator edits two profiles and preserves explicit owner save",()=>
   assert.match(admin,/body:\{policies\}/);
   assert.match(admin,/window\.confirm/);
   assert.match(html,/pricing-segments\.css\?v=/);
-  assert.match(html,/admin\.js\?v=20261106-segments1/);
+  assert.match(html,/admin\.js\?v=20261107-market-pilot1/);
 });

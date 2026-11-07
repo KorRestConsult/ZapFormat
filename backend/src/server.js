@@ -19,6 +19,7 @@ const { selectFapiNodes, selectFapiModification, uniqueOemRows, catalogNodePartR
 const { createOfferTokenCodec } = require("./offer-token");
 const { createOrderInvoicePdf } = require("./invoice-pdf");
 const { customerPrice, getPricingPolicy, getPricingPolicies, setPricingPolicies, validatePricingPolicies } = require("./pricing");
+const { marketKey, validReference, validSettings, marketSuggestedPrice, pickCustomerPrice } = require("./market-pricing");
 const { isAdminRole } = require("./admin-access");
 const { installStaffRoutes } = require("./staff-routes");
 const { installEmailRegistration } = require("./email-registration");
@@ -557,9 +558,12 @@ function supplierIdentity(row) {
   };
 }
 
-function publicSupplierOffer(row, queryNumber, queryBrand, customerType = "individual") {
-  const price = customerPrice(row?.price, process.env, customerType);
-  if (price === null) return null;
+function publicSupplierOffer(row, queryNumber, queryBrand, customerType = "individual", marketRefPrice = null) {
+  const ordinaryPrice = customerPrice(row?.price, process.env, customerType);
+  if (ordinaryPrice === null) return null;
+  const price = customerType === "individual"
+    ? pickCustomerPrice(row?.price, ordinaryPrice, marketRefPrice, activeMarketSettings)
+    : ordinaryPrice;
 
   const rowBrand = row?.brand || queryBrand;
   const rowArticle = row?.number || queryNumber;
@@ -632,7 +636,9 @@ async function revalidateOfferToken(token, quantity = 1, cache = new Map(), cust
   const found = (Array.isArray(rows) ? rows : []).find((row) => rowMatchesOfferPayload(row, payload));
   if (!found) return { status: "unavailable" };
 
-  const offer = publicSupplierOffer(found, payload.qn, payload.qb, customerType);
+  const quote = await marketReferencesForOffers([found], customerType, payload.qn, payload.qb);
+  const offer = publicSupplierOffer(found, payload.qn, payload.qb, customerType,
+    quote.get(marketKey(found?.brand || payload.qb, found?.number || payload.qn)) ?? null);
   if (!offer) return { status: "unavailable" };
 
   const requested = Math.max(1, Math.min(999, Number(quantity || 1)));
@@ -1864,6 +1870,128 @@ app.post("/api/admin/integrations/smsru/setup", async (req, res) => {
     console.error("[SMSRU_SETUP]",error?.code||error?.name||"failed");
     return res.status(503).json({error:"smsru_setup_unavailable"});
   }
+});
+
+// Market-price pilot: owner-entered, time-limited, exact-brand/article quotes.
+// Quotes do not come from automated competitor scraping.
+let activeMarketSettings = { enabled: false, discount_percent: 5, min_profit_rub: 150 };
+
+async function initMarketPricingSettings() {
+  await pool.query(`CREATE TABLE IF NOT EXISTS market_price_settings (
+    id BOOLEAN PRIMARY KEY DEFAULT TRUE CHECK (id = TRUE),
+    enabled BOOLEAN NOT NULL DEFAULT FALSE,
+    discount_percent NUMERIC(4,1) NOT NULL DEFAULT 5,
+    min_profit_rub NUMERIC(14,2) NOT NULL DEFAULT 150,
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  )`);
+  await pool.query(`CREATE TABLE IF NOT EXISTS market_price_references (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    brand TEXT NOT NULL,
+    article TEXT NOT NULL,
+    brand_key TEXT NOT NULL,
+    article_key TEXT NOT NULL,
+    competitor TEXT NOT NULL,
+    competitor_price NUMERIC(14,2) NOT NULL CHECK(competitor_price > 0),
+    city TEXT NOT NULL DEFAULT 'Рязань',
+    source_url TEXT NOT NULL,
+    checked_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    UNIQUE (brand_key, article_key, competitor, city)
+  )`);
+  await pool.query("CREATE INDEX IF NOT EXISTS market_price_references_lookup_idx ON market_price_references (brand_key,article_key,checked_at DESC)");
+  await pool.query(`INSERT INTO market_price_settings (id) VALUES (TRUE) ON CONFLICT(id) DO NOTHING`);
+  const state = await pool.query("SELECT enabled,discount_percent,min_profit_rub FROM market_price_settings WHERE id=TRUE");
+  if(state.rowCount)activeMarketSettings={
+    enabled:state.rows[0].enabled===true,
+    discount_percent:Number(state.rows[0].discount_percent),
+    min_profit_rub:Number(state.rows[0].min_profit_rub)
+  };
+}
+async function marketReferencesForOffers(rows, customerType, queryNumber="", queryBrand="") {
+  const result=new Map();
+  if(!activeMarketSettings.enabled || customerType!=="individual" || !pool)return result;
+  const keys=[...new Set((Array.isArray(rows)?rows:[])
+    .map(row=>marketKey(row?.brand||queryBrand,row?.number||queryNumber)).filter(Boolean))];
+  if(!keys.length)return result;
+  const references=await pool.query(`
+    SELECT brand_key,article_key,competitor_price
+      FROM market_price_references
+     WHERE (brand_key || '|' || article_key)=ANY($1::text[])
+       AND checked_at >= NOW()-INTERVAL '72 hours'
+     ORDER BY competitor_price ASC`,[keys]);
+  for(const row of references.rows){
+    const key=row.brand_key+"|"+row.article_key;
+    if(!result.has(key)) result.set(key,Number(row.competitor_price));
+  }
+  return result;
+}
+function ownerMarketOnly(req,res,next){
+  return req.user?.role==="owner" ? next() : res.status(403).json({error:"owner_only"});
+}
+app.get("/api/admin/market-prices", ownerMarketOnly, async (_req,res,next)=>{
+  try {
+    const list=await pool.query(`SELECT id,brand,article,competitor,competitor_price,city,source_url,checked_at,
+      checked_at >= NOW()-INTERVAL '72 hours' AS fresh
+      FROM market_price_references ORDER BY checked_at DESC LIMIT 150`);
+    res.set("Cache-Control","no-store");
+    res.json({settings:activeMarketSettings,references:list.rows});
+  }catch(error){next(error);}
+});
+app.post("/api/admin/market-prices", ownerMarketOnly, async(req,res,next)=>{
+  const quote=validReference(req.body);
+  if(!quote)return res.status(400).json({error:"invalid_market_reference"});
+  try{
+    const saved=await pool.query(`INSERT INTO market_price_references
+      (brand,article,brand_key,article_key,competitor,competitor_price,city,source_url,checked_at)
+      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,NOW())
+      ON CONFLICT(brand_key,article_key,competitor,city)
+      DO UPDATE SET brand=EXCLUDED.brand,article=EXCLUDED.article,
+        competitor_price=EXCLUDED.competitor_price,source_url=EXCLUDED.source_url,
+        checked_at=NOW() RETURNING id,checked_at`,
+      [quote.brand,quote.article,quote.brand_key,quote.article_key,
+        quote.competitor,quote.competitor_price,quote.city,quote.source_url]);
+    res.status(201).json({ok:true,id:saved.rows[0].id,checked_at:saved.rows[0].checked_at});
+  }catch(error){next(error);}
+});
+app.delete("/api/admin/market-prices/:id", ownerMarketOnly, async(req,res,next)=>{
+  const id=String(req.params.id||"");
+  if(!/^[a-f0-9-]{36}$/i.test(id))return res.status(400).json({error:"invalid_id"});
+  try{
+    const result=await pool.query("DELETE FROM market_price_references WHERE id=$1 RETURNING id",[id]);
+    res.json({ok:true,deleted:result.rowCount});
+  }catch(error){next(error);}
+});
+app.put("/api/admin/market-prices/settings", ownerMarketOnly, async(req,res,next)=>{
+  const nextSettings=validSettings(req.body);
+  if(!nextSettings)return res.status(400).json({error:"invalid_market_settings"});
+  try{
+    const saved=await pool.query(`UPDATE market_price_settings
+      SET enabled=$1,discount_percent=$2,min_profit_rub=$3,updated_at=NOW()
+      WHERE id=TRUE RETURNING enabled,discount_percent,min_profit_rub,updated_at`,
+      [nextSettings.enabled,nextSettings.discount_percent,nextSettings.min_profit_rub]);
+    activeMarketSettings={enabled:saved.rows[0].enabled,
+      discount_percent:Number(saved.rows[0].discount_percent),
+      min_profit_rub:Number(saved.rows[0].min_profit_rub)};
+    res.json({ok:true,settings:activeMarketSettings,updated_at:saved.rows[0].updated_at});
+  }catch(error){next(error);}
+});
+app.get("/api/admin/market-prices/:id/preview", ownerMarketOnly, async(req,res,next)=>{
+  try{
+    const cost=Number(req.query.cost);
+    if(!Number.isFinite(cost)||cost<=0||cost>10000000)return res.status(400).json({error:"invalid_cost"});
+    const quote=await pool.query(`SELECT id,brand,article,competitor,competitor_price,checked_at,
+      checked_at >= NOW()-INTERVAL '72 hours' AS fresh FROM market_price_references WHERE id=$1`,
+      [String(req.params.id||"")]);
+    if(!quote.rowCount)return res.status(404).json({error:"market_reference_not_found"});
+    const ref=quote.rows[0];
+    const result=marketSuggestedPrice(cost,ref.competitor_price,activeMarketSettings);
+    const regular=customerPrice(cost,process.env,"individual");
+    res.json({ok:true,regular_price:regular,market_price:Number(ref.competitor_price),
+      suggested_price:ref.fresh && result.eligible ? result.price : null,
+      status:!ref.fresh?"stale":result.reason,
+      profit:ref.fresh && result.eligible ? result.gross_profit : null,
+      enabled:activeMarketSettings.enabled});
+  }catch(error){next(error);}
 });
 
 // Owner/admin pricing settings. Stored server-side; clients never receive the
@@ -3956,8 +4084,10 @@ app.get("/api/catalog/offers", async (req, res, next) => {
 
     const customerType = await pricingCustomerTypeFromRequest(req);
     const rows = await searchSupplierOffers(number, brand);
+    const references = await marketReferencesForOffers(rows, customerType, number, brand);
     const mapped = (Array.isArray(rows) ? rows : [])
-      .map((row) => publicSupplierOffer(row, number, brand, customerType))
+      .map((row) => publicSupplierOffer(row, number, brand, customerType,
+        references.get(marketKey(row?.brand || brand, row?.number || number)) ?? null))
       .filter(Boolean);
 
     const sortOffers = (list) => list.sort((a, b) => a.price - b.price || a.delivery_hours - b.delivery_hours);
@@ -6388,6 +6518,11 @@ async function start() {
     // the storage error rather than pretend that a policy was saved.
     try { await initPricingSettings(); }
     catch (error) { console.error("[PricingSettings]", error?.message || "load_failed"); }
+    try { await initMarketPricingSettings(); }
+    catch (error) {
+      activeMarketSettings.enabled=false;
+      console.warn("[MarketPriceInit]",error?.code||"storage_unavailable");
+    }
     // Apply additive, idempotent customer Telegram schema before accepting
     // requests. Its failure must never interrupt the existing shop or
     // user_notifications; keep Telegram disabled instead.
