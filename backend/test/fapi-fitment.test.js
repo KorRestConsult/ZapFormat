@@ -121,3 +121,16 @@ test("catalogNodePartRows reports genuinely empty when both FAPI sources have no
   const result=await catalogNodePartRows(client,33778,100404);
   assert.deepEqual(result,{kind:"empty",items:[]});
 });
+
+
+test("Missing power must not be scored as 0 kW when VIN is partial", () => {
+  const candidate = {m: [{dbi: 501, d: "UNKNOWN", power: 0}]};
+  const result = selectFapiModification(candidate, {
+    confidence: "partial",
+    model_name: "Unknown",
+    power_kw: null,
+    engine_code: null,
+    production_date: null
+  });
+  assert.equal(result, null);
+});
