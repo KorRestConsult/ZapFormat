@@ -3434,6 +3434,33 @@ app.get("/api/catalog/vin-manual/modifications", aiSearchLimiter, async (req, re
   } catch (error) { next(error); }
 });
 
+
+// A signed-in customer may inspect the tree of a SELF-SELECTED FAPI
+// modification. This is browsing, not proof of compatibility with the VIN.
+app.get("/api/catalog/vin-manual/tree", requireUser, aiSearchLimiter, async (req,res,next) => {
+  try {
+    if(!fapi.configured()) return res.status(503).json({error:"fapi_not_configured"});
+    const modificationId=validCatalogId(req.query?.mi);
+    if(!modificationId) return res.status(400).json({error:"invalid_modification"});
+    let raw;
+    try {
+      raw=await fapi.tree(modificationId);
+    } catch(error) {
+      if(error instanceof FapiError && Number(error.status)===402) {
+        return res.json({ok:true,provider:"fapi_v2",fitment_verified:false,
+          modification_id:modificationId,catalog_status:"credits_exhausted",nodes:[]});
+      }
+      throw error;
+    }
+    const nodes=(Array.isArray(raw)?raw:[]).map(row=>({
+      id:Number(row?.i||0),parent_id:Number(row?.pi||0),
+      name:String(row?.d||"").trim()
+    })).filter(row=>Number.isSafeInteger(row.id)&&row.id>0&&row.name);
+    return res.json({ok:true,provider:"fapi_v2",fitment_verified:false,
+      modification_id:modificationId,catalog_status:nodes.length?"ok":"empty",nodes});
+  }catch(error){next(error);}
+});
+
 app.get("/api/catalog/vin-browser", publicVinLimiter, async (req, res, next) => {
   try {
     if (!fapi.configured()) return res.status(503).json({ error: "fapi_not_configured" });
