@@ -117,41 +117,51 @@ function productionTime(value) {
 
 function selectFapiModification(value, decoded) {
   const rows = modificationRows(value);
-  const wantedPower = Number(decoded?.power_kw);
+  const powerValue = decoded?.power_kw;
+  const wantedPower = powerValue === null || powerValue === undefined || String(powerValue).trim() === "" ? null : Number(powerValue);
   const wantedDate = productionTime(decoded?.production_date);
   const vinEngine = compact(decoded?.engine_code || "");
   const scored = rows.map((row) => {
     let score = 0;
-    const power = Number(row?.power);
-    if (Number.isFinite(wantedPower) && Number.isFinite(power)) {
+    let engineEvidence = 0;
+    let dateMatched = false;
+    let dateConflict = false;
+    const rowPower = row?.power;
+    const power = rowPower === null || rowPower === undefined || String(rowPower).trim() === "" ? null : Number(rowPower);
+    if (wantedPower !== null && power !== null && Number.isFinite(wantedPower) && Number.isFinite(power)) {
       score += power === wantedPower ? 120 : -Math.min(80, Math.abs(power - wantedPower) * 3);
     }
 
     const rowEngine = compact(row?.engineCode || "");
     if (vinEngine && rowEngine) {
-      if (rowEngine === vinEngine) score += 100;
-      else if (rowEngine.includes(vinEngine) || vinEngine.includes(rowEngine)) score += 60;
-      else if (vinEngine.startsWith("n47") && rowEngine.startsWith("n47")) score += 45;
+      if (rowEngine === vinEngine) { score += 100; engineEvidence = 100; }
+      else if (rowEngine.includes(vinEngine) || vinEngine.includes(rowEngine)) { score += 60; engineEvidence = 60; }
+      else if (vinEngine.startsWith("n47") && rowEngine.startsWith("n47")) { score += 45; engineEvidence = 45; }
     }
 
     if (wantedDate) {
       const from = Number(row?.cb || 0);
       const to = Number(row?.ce || 0);
-      if (from && wantedDate >= from && (!to || wantedDate <= to)) score += 35;
-      else if (from || to) score -= 80;
+      if (from && wantedDate >= from && (!to || wantedDate <= to)) { score += 35; dateMatched = true; }
+      else if (from || to) { score -= 80; dateConflict = true; }
     }
 
     const model = text(decoded?.model_name || "");
     const full = text(row?.fd || row?.d || "");
     if (model && full && model.split(" ").some((token) => token.length >= 3 && full.includes(token))) score += 10;
 
-    return { row, score };
+    return { row, score, engineEvidence, dateMatched, dateConflict };
   }).sort((a,b)=>b.score-a.score);
 
   const best=scored[0];
   const second=scored[1];
-  if(!best || best.score < 100) return null;
-  if(second && best.score-second.score < 20) return null;
+  if(!best || best.score < 100 || best.dateConflict) return null;
+  // Power alone cannot prove the engine variant. Require engine evidence, or
+  // a unique power AND compatible build date. Never guess from just 110 kW.
+  const bestPower=best.row.power === null || best.row.power === undefined || String(best.row.power).trim() === "" ? null : Number(best.row.power);
+  const strongEvidence=best.engineEvidence >= 45 ||
+    (best.dateMatched && wantedPower !== null && Number.isFinite(bestPower) && bestPower === wantedPower);
+  if(!strongEvidence || (second && best.score-second.score < 20)) return null;
   return {
     id: Number(best.row.dbi || 0) || null,
     name: String(best.row.fd || best.row.d || "").trim() || null,

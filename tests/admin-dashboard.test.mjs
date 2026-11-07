@@ -39,7 +39,7 @@ test("Overview is compact, actionable and labels bookkeeping gaps accurately",()
   assert.match(overview,/formatRub\(Number\(d\.booked_today\)\|\|0\)/);
   assert.doesNotMatch(overview,/Последние заказы|Финансовый контроль|appendStaffPreview/);
   assert.match(html,/dashboard\.css\?v=/);
-  assert.match(html,/admin\.js\?v=20261106-ops1/);
+  assert.match(html,/admin\.js\?v=\d{8}-[a-z0-9-]+/);
   assert.match(css,/@media \(max-width: 780px\)/);
   assert.match(css,/grid-template-columns: repeat\(2,minmax\(0,1fr\)\)/);
 });

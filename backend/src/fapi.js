@@ -106,12 +106,12 @@ function createFapiClient(options = {}) {
     }
   }
 
-  async function getCached(endpoint, params = {}, ttlMs = 6 * 60 * 60 * 1000) {
+  async function getCached(endpoint, params = {}, ttlMs = 6 * 60 * 60 * 1000, cacheVersion = "") {
     const key = endpoint + "?" + new URLSearchParams(
       Object.entries(params)
         .filter(([,value]) => value !== undefined && value !== null && value !== "")
         .map(([name,value]) => [name, String(value)])
-    ).toString();
+    ).toString() + (cacheVersion ? "#" + cacheVersion : "");
     const now = Date.now();
 
     const hit = cache.get(key);
@@ -127,7 +127,8 @@ function createFapiClient(options = {}) {
     if (pending.get(key)) return pending.get(key);
     const task = (async () => {
       const value = await get(endpoint, params);
-      const expiresAt = Date.now() + ttlMs;
+      const effectiveTtlMs = typeof ttlMs === "function" ? ttlMs(value) : ttlMs;
+      const expiresAt = Date.now() + effectiveTtlMs;
       cache.set(key, { value, expires_at: expiresAt });
       await writePersistentCache(key, value, expiresAt);
       return value;
@@ -224,7 +225,16 @@ function createFapiClient(options = {}) {
   return {
     configured,
     usage: () => get("usage"),
-    decodeVin: (vin) => getCached("vin", { vin }, 20 * 60 * 60 * 1000),
+    // Bump only the VIN cache namespace after FAPI repaired its decoder.
+    // Incomplete VIN matches expire sooner; keep expensive catalog caches intact.
+    decodeVin: (vin) => getCached("vin", { vin },
+      (data) => data?.dt_model_id && data?.dt_type_id ? 20 * 60 * 60 * 1000 : 60 * 60 * 1000,
+      "decoder-20261107"),
+    // The VIN decoder can legitimately return brand_only without model/type IDs.
+    // In that case expose the already-subscribed vehicle catalog hierarchy
+    // for explicit manual selection; never infer a modification from the VIN.
+    manufacturers: () => getCached("catalogList/dt/manufacturerList", {}, 30 * 24 * 60 * 60 * 1000),
+    models: (manufacturerId) => getCached("catalogList/dt/modelList", { mfi: manufacturerId }, 30 * 24 * 60 * 60 * 1000),
     modifications: (modelId) => getCached("catalogList/dt/modificationList", { mi: modelId }, 30 * 24 * 60 * 60 * 1000),
     tree: (modificationId) => getCached("catalogList/dt/treeList", { mi: modificationId }, 30 * 24 * 60 * 60 * 1000),
     products: (modificationId, nodeId) => getCached("catalogList/dt/productList", { modi: modificationId, nodei: nodeId }, 7 * 24 * 60 * 60 * 1000),

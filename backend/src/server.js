@@ -15,6 +15,7 @@ const { rateLimit } = require("express-rate-limit");
 const { Pool } = require("pg");
 const { PartGradeError, createPartGradeClient } = require("./partgrade");
 const { FapiError, createFapiClient } = require("./fapi");
+const { validCatalogId, mapManufacturers, mapModels, mapModifications } = require("./fapi-manual");
 const { selectFapiNodes, selectFapiModification, uniqueOemRows, catalogNodePartRows } = require("./fapi-fitment");
 const { createOfferTokenCodec } = require("./offer-token");
 const { createOrderInvoicePdf } = require("./invoice-pdf");
@@ -3393,6 +3394,45 @@ async function persistVehicleCatalogBinding(userId, vehicleId, resolved) {
     ]
   );
 }
+
+// VIN decoding and browsing a manual catalog are different operations. The
+// three methods below read the existing FAPI catalog and NEVER confirm VIN
+// applicability, save a binding, or place a supplier order.
+app.get("/api/catalog/vin-manual/manufacturers", aiSearchLimiter, async (_req, res, next) => {
+  try {
+    if (!fapi.configured()) return res.status(503).json({ error: "fapi_not_configured" });
+    const manufacturers = mapManufacturers(await fapi.manufacturers());
+    return res.json({
+      ok: true, provider: "fapi_v2", fitment_verified: false, manufacturers
+    });
+  } catch (error) { next(error); }
+});
+
+app.get("/api/catalog/vin-manual/models", aiSearchLimiter, async (req, res, next) => {
+  try {
+    if (!fapi.configured()) return res.status(503).json({ error: "fapi_not_configured" });
+    const manufacturerId = validCatalogId(req.query?.mfi);
+    if (!manufacturerId) return res.status(400).json({ error: "invalid_manufacturer" });
+    const models = mapModels(await fapi.models(manufacturerId));
+    return res.json({
+      ok: true, provider: "fapi_v2", fitment_verified: false,
+      manufacturer_id: manufacturerId, models
+    });
+  } catch (error) { next(error); }
+});
+
+app.get("/api/catalog/vin-manual/modifications", aiSearchLimiter, async (req, res, next) => {
+  try {
+    if (!fapi.configured()) return res.status(503).json({ error: "fapi_not_configured" });
+    const modelId = validCatalogId(req.query?.mi);
+    if (!modelId) return res.status(400).json({ error: "invalid_model" });
+    const modifications = mapModifications(await fapi.modifications(modelId));
+    return res.json({
+      ok: true, provider: "fapi_v2", fitment_verified: false,
+      model_id: modelId, modifications
+    });
+  } catch (error) { next(error); }
+});
 
 app.get("/api/catalog/vin-browser", publicVinLimiter, async (req, res, next) => {
   try {

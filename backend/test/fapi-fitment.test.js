@@ -121,3 +121,48 @@ test("catalogNodePartRows reports genuinely empty when both FAPI sources have no
   const result=await catalogNodePartRows(client,33778,100404);
   assert.deepEqual(result,{kind:"empty",items:[]});
 });
+
+
+test("Missing power must not be scored as 0 kW when VIN is partial", () => {
+  const candidate = {m: [{dbi: 501, d: "UNKNOWN", power: 0}]};
+  const result = selectFapiModification(candidate, {
+    confidence: "partial",
+    model_name: "Unknown",
+    power_kw: null,
+    engine_code: null,
+    production_date: null
+  });
+  assert.equal(result, null);
+});
+
+
+test("Power-only partial VIN must not identify a modification", () => {
+  const result = selectFapiModification({m:[{
+    dbi: 500, d:"2.0", fd:"TEST CAR 2.0", power:135, engineCode:""
+  }]},{confidence:"partial",power_kw:135,model_name:"TEST CAR"});
+  assert.equal(result,null);
+});
+
+test("Contradictory production date prevents selecting a wrong engine variant", () => {
+  const result = selectFapiModification({m:[{
+    dbi: 510, d:"2.0", fd:"TEST CAR 2.0", power:135, engineCode:"N47",
+    cb:1262304000000,ce:1325376000000
+  }]},{
+    confidence:"partial",power_kw:135,engine_code:"N47",production_date:"2025-01-01",model_name:"TEST CAR"
+  });
+  assert.equal(result,null);
+});
+
+
+test("Tiguan L model ID alone cannot assert 280 TSI modification compatibility", () => {
+  const candidate = { m: [{
+    dbi: 132132, d: "280 TSI", fd: "VW (SVW) Tiguan L 280 TSI",
+    power: 110, engineCode: "DJS", cb: 1609459200000, ce: 0
+  }] };
+  const decoded = {
+    manufacturer: "VW (SVW)", model_name: "Tiguan L",
+    dt_manufacturer_id: 3035, dt_model_id: 37588, dt_type_id: null,
+    engine_code: null, power_kw: null, production_date: "2022-01-01"
+  };
+  assert.equal(selectFapiModification(candidate, decoded), null);
+});
