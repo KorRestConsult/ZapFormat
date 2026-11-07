@@ -26,7 +26,7 @@
     apply:["Заявка курьера","Подача заявки на работу","ЗАЯВКА"],
     security:["Безопасность","Смена пароля и защита учётной записи","БЕЗОПАСНОСТЬ"]
   };
-  const state = {token:"",user:null,page:"overview",seq:0,overview:null,orders:[],requests:[],customers:[],filterOrders:"",filterRequests:"",searchCustomers:"",offsets:{orders:0,requests:0,customers:0},more:{orders:false,requests:false,customers:false},pricing:null,savedPricing:null,pricingProfile:"individual",pricingAt:null,busy:false};
+  const state = {token:"",user:null,page:"overview",seq:0,overview:null,orders:[],requests:[],customers:[],filterOrders:"",filterRequests:"",searchCustomers:"",offsets:{orders:0,requests:0,customers:0},more:{orders:false,requests:false,customers:false},pricing:null,savedPricing:null,pricingProfile:"individual",pricingAt:null,market:null,busy:false};
   function alertMessage(message,type="info"){
     const el=$("globalAlert");
     if(!message){el.hidden=true;el.textContent="";return;}
@@ -59,7 +59,7 @@
     $("authError").textContent="Сервер пока не отвечает. Ваш вход сохранён на этом устройстве. Пароль вводить снова не нужно.";
   }
   function loggedOut(reason=""){
-    state.seq++;state.user=null;state.overview=null;state.savedPricing=null;state.pricing=null;
+    state.seq++;state.user=null;state.overview=null;state.savedPricing=null;state.pricing=null;state.market=null;
     clearRetry();
     setToken("");$("appScreen").hidden=true;$("authScreen").hidden=false;
     $("authTitle").textContent="Вход";
@@ -463,6 +463,107 @@
     $("discardPricing").disabled=!dirty||state.busy;
     $("pricingDirty").textContent=dirty?"Есть несохранённые изменения":"Настройки совпадают с сохранёнными";
   }
+
+  function renderMarketPricing(){
+    let host=$("marketPanel");
+    if(!host)return;
+    const market=state.market;
+    if(!market){host.innerHTML='<h2>Мониторинг рынка · Рязань</h2><p class="muted">Не удалось загрузить базу рыночных цен. Обычные наценки продолжают работать.</p>';return;}
+    const setting=market.settings||{enabled:false,discount_percent:5,min_profit_rub:150};
+    const rows=(market.references||[]).map(ref=>
+      '<div class="zf-market-row"><div class="zf-market-row-main">'+
+      '<b>'+escape(ref.brand)+' · '+escape(ref.article)+'</b>'+
+      '<small>'+escape(ref.competitor)+' · '+formatRub(ref.competitor_price)+' · '+(ref.fresh?'Проверено '+dateRu(ref.checked_at):'Устарело — не влияет на цену')+'</small>'+
+      '<a href="'+escape(ref.source_url)+'" target="_blank" rel="noopener noreferrer">Источник ↗</a></div>'+
+      '<div class="zf-market-actions"><button class="secondary" type="button" data-market-preview="'+escape(ref.id)+'">Расчёт</button>'+
+      '<button class="secondary" type="button" data-market-delete="'+escape(ref.id)+'" title="Убрать запись">Удалить</button></div></div>'
+    ).join("");
+    host.innerHTML='<div class="zf-market-heading"><div><h2>Мониторинг рынка · Рязань</h2><p class="muted">Только одинаковые производитель и артикул. Цена действует 72 часа после проверки.</p></div>'+
+      '<span class="zf-market-status '+(setting.enabled?'enabled':'')+'">'+(setting.enabled?'Автоподбор включён':'Режим проверки')+'</span></div>'+
+      '<div class="zf-market-settings"><label><input id="marketEnabled" type="checkbox" '+(setting.enabled?'checked':'')+'> Применять проверенные цены к рознице</label>'+
+      '<label>Дешевле рынка на, %<input id="marketDiscount" type="number" min="0" max="30" step=".5" value="'+setting.discount_percent+'"></label>'+
+      '<label>Мин. валовая разница, ₽<input id="marketMinProfit" type="number" min="0" max="50000" step="10" value="'+setting.min_profit_rub+'"></label>'+
+      '<button id="marketSettingsSave" type="button" class="secondary">Сохранить режим</button></div>'+
+      '<p class="zf-market-hint">Если рынок слишком дешёвый или запись устарела, остаётся обычная цена PartGrade + ваша наценка. Автосервисы используют собственный тариф. Выручка и прибыль не гарантируются.</p>'+
+      '<h3>Проверенные цены конкурентов</h3>'+
+      '<form id="marketAddForm" class="zf-market-form" autocomplete="off">'+
+      '<label>Производитель<input name="brand" maxlength="100" placeholder="Например, MANN" required></label>'+
+      '<label>Артикул<input name="article" maxlength="120" placeholder="Номер детали" required></label>'+
+      '<label>Магазин<select name="competitor"><option>Autodoc</option><option>Emex</option><option>Exist</option><option>Другой магазин</option></select></label>'+
+      '<label>Рыночная цена, ₽<input name="competitor_price" type="number" min=".01" max="10000000" step=".01" required placeholder="0,00"></label>'+
+      '<label class="zf-market-url">Ссылка на предложение<input name="source_url" type="url" placeholder="https://..." maxlength="1500" required></label>'+
+      '<label class="zf-market-consent"><input type="checkbox" name="owner_confirmed" required> Лично сверил бренд, артикул, цену и условия получения в Рязани</label>'+
+      '<button class="primary" type="submit">Добавить проверенную цену</button></form>'+
+      '<div class="zf-market-preview"><label>Закупка PartGrade для проверки, ₽ <input id="marketCost" type="number" min=".01" step=".01" placeholder="Введите себестоимость"></label>'+
+      '<div id="marketResult" aria-live="polite">Нажмите «Расчёт» у позиции, чтобы сравнить.</div></div>'+
+      '<div class="zf-market-list">'+(rows||'<p class="muted">Пока нет проверенных цен. Никакие рыночные значения не выдуманы.</p>')+'</div>';
+    host.querySelector("#marketSettingsSave").addEventListener("click",async()=>{
+      if(state.busy)return;
+      const enabled=host.querySelector("#marketEnabled").checked;
+      const discount_percent=Number(host.querySelector("#marketDiscount").value);
+      const min_profit_rub=Number(host.querySelector("#marketMinProfit").value);
+      if(!Number.isFinite(discount_percent)||discount_percent<0||discount_percent>30||
+        !Number.isFinite(min_profit_rub)||min_profit_rub<0||min_profit_rub>50000){
+        alertMessage("Проверьте скидку и минимальную прибыль.","error");return;
+      }
+      if(enabled&&!setting.enabled&&!window.confirm("Включить автоматическую рыночную цену для новых предложений физлицам? Без проверенного совпадения останется обычная наценка."))return;
+      state.busy=true;alertMessage("Сохраняем режим…");
+      try{
+        await request("/api/admin/market-prices/settings",{method:"PUT",body:{enabled,discount_percent,min_profit_rub}});
+        alertMessage("Режим рыночных цен сохранён.","success");
+        await loadMarketPricing();
+      }catch(e){handleError(e,"Не удалось сохранить режим рыночных цен.");}
+      finally{state.busy=false;}
+    });
+    host.querySelector("#marketAddForm").addEventListener("submit",async event=>{
+      event.preventDefault();if(state.busy)return;
+      const data=new FormData(event.currentTarget);
+      const body={brand:String(data.get("brand")||"").trim(),
+        article:String(data.get("article")||"").trim(),competitor:String(data.get("competitor")||"").trim(),
+        competitor_price:Number(data.get("competitor_price")),
+        source_url:String(data.get("source_url")||"").trim(),city:"Рязань",
+        owner_confirmed:data.has("owner_confirmed")};
+      state.busy=true;alertMessage("Записываем проверенную цену…");
+      try{
+        await request("/api/admin/market-prices",{method:"POST",body});
+        alertMessage("Рыночная цена записана. Действительна 72 часа.","success");
+        await loadMarketPricing();
+      }catch(e){handleError(e,"Не удалось записать цену. Проверьте источник и сумму.");}
+      finally{state.busy=false;}
+    });
+    for(const button of host.querySelectorAll("[data-market-preview]")){
+      button.addEventListener("click",async()=>{
+        const cost=Number(host.querySelector("#marketCost")?.value);
+        const output=host.querySelector("#marketResult");
+        if(!Number.isFinite(cost)||cost<=0){output.textContent="Сначала укажите закупочную цену PartGrade.";return;}
+        output.textContent="Рассчитываем…";
+        try{
+          const result=await request("/api/admin/market-prices/"+encodeURIComponent(button.dataset.marketPreview)+"/preview?cost="+encodeURIComponent(cost));
+          output.textContent="Рынок: "+formatRub(result.market_price)+
+            " · обычная цена: "+formatRub(result.regular_price)+
+            " · "+(result.suggested_price===null?"Рыночная скидка неприменима ("+(result.status==="stale"?"цена устарела":"не хватает прибыли")+").":
+              "цена ZapFormat: "+formatRub(result.suggested_price)+" · валовая разница "+formatRub(result.profit)+
+              (result.enabled?" · действует при поиске":" · пока только пример"));
+        }catch(e){output.textContent="Не удалось проверить расчёт. Отправка заказов не выполнялась.";}
+      });
+    }
+    for(const button of host.querySelectorAll("[data-market-delete]")){
+      button.addEventListener("click",async()=>{
+        if(state.busy||!window.confirm("Удалить проверенную рыночную цену?"))return;
+        state.busy=true;
+        try{
+          await request("/api/admin/market-prices/"+encodeURIComponent(button.dataset.marketDelete),{method:"DELETE"});
+          alertMessage("Рыночная цена удалена.","success");await loadMarketPricing();
+        }catch(e){handleError(e,"Не удалось удалить рыночную цену.");}
+        finally{state.busy=false;}
+      });
+    }
+  }
+  async function loadMarketPricing(){
+    const data=await request("/api/admin/market-prices");
+    state.market=data;
+    renderMarketPricing();
+  }
   function renderPricing(){
     const profile=state.pricingProfile==="service"?"service":"individual";
     const p=state.pricing?.[profile];
@@ -481,7 +582,7 @@
       '<label>Пример себестоимости, ₽<input id="exampleCost" type="number" min="0" max="10000000" value="2500"></label></div>'+
       '<div class="preview"><small>РАСЧЁТ ДЛЯ СЕГМЕНТА · '+profileLabel.toUpperCase()+'</small><strong id="pricePreview">—</strong><p>Предварительный расчёт. Уже оформленные заказы не пересчитываются.</p></div>'+
       '<div class="zf-pricing-note">Для розничных покупателей и автосервисов действуют независимые правила. Тип «Автосервис» сейчас заявляется клиентом при регистрации — проверку статуса автосервиса организуем отдельно.</div>'+
-      '<div class="zf-pricing-note">Ориентир на цены Автодока подключим после проверки законного и надёжного источника цен по Рязани. Пока действует только наценка PartGrade.</div>'+
+      '<div class="zf-pricing-note">Ниже можно вручную вносить проверенные рыночные цены по артикулам. Автоматический сбор с сайтов конкурентов пока не подключён.</div>'+
       '<div class="savebar"><span id="pricingDirty">Настройки совпадают с сохранёнными</span><button class="secondary" id="discardPricing" disabled>Отменить изменения</button><button class="primary" id="savePricing" disabled>Сохранить оба тарифа</button></div>'+
       '<p class="muted" id="pricingSaved">'+(state.pricingAt?"Последнее сохранение: "+dateRu(state.pricingAt):"Используются исходные правила на сервере.")+'</p>');
     for(const button of $("page").querySelectorAll("[data-pricing-profile]")){
@@ -500,6 +601,8 @@
     });
     $("savePricing").addEventListener("click",savePricing);
     previewPrice();
+    $("page").insertAdjacentHTML("beforeend",'<section class="zf-market-panel" id="marketPanel"></section>');
+    renderMarketPricing();
   }
   async function savePricing(){
     if(!state.savedPricing||!state.pricing||state.busy)return;
@@ -787,7 +890,10 @@
         const data=await request("/api/admin/pricing");
         if(seq!==state.seq||!state.user)return;
         if(!data?.policies?.individual||!data?.policies?.service)throw Error("policies_unavailable");
-        state.savedPricing=structuredClone(data.policies);state.pricing=structuredClone(data.policies);state.pricingAt=data.updated_at;renderPricing();return;
+        state.savedPricing=structuredClone(data.policies);state.pricing=structuredClone(data.policies);state.pricingAt=data.updated_at;
+        state.market=await request("/api/admin/market-prices").catch(()=>null);
+        if(seq!==state.seq||!state.user)return;
+        renderPricing();return;
       }
       if(page==="overview"){
         const dashboard=await request("/api/admin/dashboard");
