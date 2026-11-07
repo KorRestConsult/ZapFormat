@@ -152,3 +152,17 @@ test("Contradictory production date prevents selecting a wrong engine variant", 
   });
   assert.equal(result,null);
 });
+
+
+test("Tiguan L model ID alone cannot assert 280 TSI modification compatibility", () => {
+  const candidate = { m: [{
+    dbi: 132132, d: "280 TSI", fd: "VW (SVW) Tiguan L 280 TSI",
+    power: 110, engineCode: "DJS", cb: 1609459200000, ce: 0
+  }] };
+  const decoded = {
+    manufacturer: "VW (SVW)", model_name: "Tiguan L",
+    dt_manufacturer_id: 3035, dt_model_id: 37588, dt_type_id: null,
+    engine_code: null, power_kw: null, production_date: "2022-01-01"
+  };
+  assert.equal(selectFapiModification(candidate, decoded), null);
+});

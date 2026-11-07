@@ -108,3 +108,39 @@ test("FAPI client persists catalog cache across client instances", async () => {
     else process.env.FAPI_API_KEY = old;
   }
 });
+
+
+test("Corrected VIN decoder ignores legacy brand-only cache and bounds incomplete TTL", async () => {
+  const old = process.env.FAPI_API_KEY;
+  process.env.FAPI_API_KEY = "unit-test";
+  const vin = "TESTVIN1234567890";
+  const dir = await fs.mkdtemp(path.join(os.tmpdir(), "zf-vin-cache-test-"));
+  const crypto = require("node:crypto");
+  const filename = (key) => path.join(dir, crypto.createHash("sha256").update(key).digest("hex") + ".json");
+  let calls = 0;
+  try {
+    await fs.writeFile(filename("vin?vin=" + vin), JSON.stringify({
+      expires_at: Date.now() + 72000000,
+      value: {brand_name:"SANTANA",dt_manufacturer_id:171,dt_model_id:null}
+    }));
+    const client = createFapiClient({cacheDir:dir,fetchImpl:async (url) => {
+      calls++;
+      assert.equal(new URL(url).searchParams.get("vin"),vin);
+      return {ok:true,status:200,text:async () => JSON.stringify({
+        manufacturer:"VW (SVW)",model_name:"Tiguan L",
+        dt_manufacturer_id:3035,dt_model_id:37588,dt_type_id:null
+      })};
+    }});
+    assert.equal((await client.decodeVin(vin)).dt_model_id,37588);
+    assert.equal((await client.decodeVin(vin)).dt_type_id,null);
+    assert.equal(calls,1);
+    const saved=JSON.parse(await fs.readFile(filename("vin?vin=" + vin + "#decoder-20261107"),"utf8"));
+    assert.equal(saved.value.dt_manufacturer_id,3035);
+    assert.ok(saved.expires_at-Date.now()>0);
+    assert.ok(saved.expires_at-Date.now()<=3600000);
+  } finally {
+    await fs.rm(dir,{recursive:true,force:true});
+    if(old===undefined) delete process.env.FAPI_API_KEY;
+    else process.env.FAPI_API_KEY=old;
+  }
+});
