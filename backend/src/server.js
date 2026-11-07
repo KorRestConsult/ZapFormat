@@ -3498,6 +3498,28 @@ app.get("/api/catalog/vin-decode", requireUser, aiSearchLimiter, async (req, res
   }
 });
 
+// Owner-only, read-only catalog diagnostics. No credentials, URLs or supplier
+// response bodies are ever returned. An upstream 403 should not be confused
+// with an empty catalog or failed networking.
+app.get("/api/admin/catalog-diagnostic", requireUser, async (req,res) => {
+  if(req.user?.role!=="owner")return res.status(403).json({error:"owner_only"});
+  if(!partGrade.configured()){
+    return res.json({ok:true,provider:"abcp_carbase",configured:false,available:false,error_code:"partgrade_not_configured"});
+  }
+  try{
+    const rows=await vehicleCatalog.manufacturers();
+    const count=Array.isArray(rows)?rows.length:0;
+    return res.json({ok:true,provider:"abcp_carbase",configured:true,available:count>0,manufacturers:count,error_code:count?"":"empty_catalog"});
+  }catch(error){
+    const status=Number(error?.status||0);
+    return res.json({
+      ok:true,provider:"abcp_carbase",configured:true,available:false,
+      error_code:String(error?.code||"catalog_error").slice(0,70),
+      upstream_status:status>=400&&status<=599?status:null
+    });
+  }
+});
+
 app.get("/api/catalog/vehicle-catalog/status", aiSearchLimiter, async (_req, res) => {
   try {
     const rows = await vehicleCatalog.manufacturers();
