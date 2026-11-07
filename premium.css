@@ -1086,3 +1086,20 @@ body:not(.guest-mode) #sessionEntryButton,body:not(.guest-mode) #accountEntryBut
   #account-profile .customer-telegram-actions{flex-direction:column;align-items:stretch}
   #account-profile .customer-telegram-actions>*{width:100%;min-height:45px}
 }
+
+
+/* FAPI read-only VIN fallback. Keep list compact, usable on iPhone and iPad. */
+#vinManualCatalog:not([hidden]){margin-top:16px;min-width:0}
+.vin-manual-picker{padding:16px;border:1px solid var(--border,#d8dde4);border-radius:16px;max-width:100%;overflow:hidden}
+.vin-manual-picker h4{font-size:1.02rem;line-height:1.4;margin:8px 0}
+.vin-manual-search{display:flex;flex-direction:column;gap:7px;font-size:.9rem;font-weight:600;margin:12px 0}
+.vin-manual-search input{display:block;min-height:46px;width:100%;max-width:100%;box-sizing:border-box;border-radius:12px;padding:10px 12px;font-size:16px}
+.vin-manual-picker .vin-manual-options{display:grid;grid-template-columns:minmax(0,1fr);gap:8px;max-height:min(52vh,480px);overflow-y:auto;overscroll-behavior:contain;margin-bottom:10px}
+.vin-manual-picker .vin-category-card{text-align:left;width:100%;min-width:0}
+.vin-manual-picker .vin-category-copy{min-width:0;overflow-wrap:anywhere}
+.vin-manual-picker .vehicle-search-actions{display:flex;flex-wrap:wrap;gap:10px;margin-top:14px}
+.vin-manual-picker .vehicle-search-actions button{min-height:44px}
+@media(max-width:560px){
+  .vin-manual-picker{padding:12px;border-radius:12px}
+  .vin-manual-picker .vehicle-search-actions button{width:100%}
+}
