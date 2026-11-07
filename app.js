@@ -2488,7 +2488,7 @@ function vinCatalogHeroHtml(){
     <section class="vin-quick-sections" aria-label="Быстрый выбор системы автомобиля">
       <div class="vin-quick-title">Популярные разделы</div>
       <div class="vin-hotspot-list">${hotspots.map(callout).join("")}</div>
-      ${sessionUser && (vinCatalogState?.decoded?.manufacturer||vinCatalogState?.decoded?.brand_name) && !vinCatalogState?.savedVehicleId&&!hasSavedCar?'<button class="vin-save-compact" type="button" data-save-vin-vehicle>Сохранить автомобиль</button>':""}
+      ${sessionUser && !vinCatalogState?.manualSelection && (vinCatalogState?.decoded?.manufacturer||vinCatalogState?.decoded?.brand_name) && !vinCatalogState?.savedVehicleId&&!hasSavedCar?'<button class="vin-save-compact" type="button" data-save-vin-vehicle>Сохранить автомобиль</button>':""}
     </section>`;
 }
 
@@ -2593,6 +2593,7 @@ function renderVinCatalogBrowser(data,nodeId=0){
       nodes:Array.isArray(data?.nodes)?data.nodes:[],
       activeNodeId:Number(nodeId||0),
       savedVehicleId:data?.saved_vehicle_id||null,
+      manualSelection:Boolean(data?.manual_selection),
       locked:false
     };
   }else if(vinCatalogState){
@@ -2610,6 +2611,7 @@ function renderVinCatalogBrowser(data,nodeId=0){
   if(current)updateVinResultPhoto();
   root.innerHTML=`
     <div class="vin-catalog-browser">
+      ${state.manualSelection?'<div class="vin-catalog-notice"><b>Выбранная вами версия автомобиля пока не подтверждена по VIN.</b><span>Разделы приведены для ознакомления. Перед покупкой менеджер проверит применимость деталей.</span><div class="vehicle-search-actions"><button type="button" data-open-vin-manual>Изменить двигатель</button></div><div id="vinManualCatalog" hidden></div></div>':""}
       <section class="vin-primary-find" aria-label="Поиск запчасти по разделам автомобиля">
         <label class="vin-search-label" for="vinCatalogNodeSearch">Какую деталь ищем?</label>
         <div class="vin-catalog-search-wrap">
@@ -2710,7 +2712,7 @@ async function loadVinNodeParts(node){
       ?'<div class="vin-catalog-source-notice"><b>Оригинальные номера в этом разделе не найдены.</b><span>Показываем неоригинальные детали из каталога FAPI по модификации автомобиля. Это не гарантия совместимости с комплектацией конкретного VIN. Перед заказом проверьте применяемость.</span></div>'
       :"";
     const html=distinctArticles?sourceNotice+'<div class="vin-group-list">'+
-      '<p class="vin-group-intro">'+groups.size+' наименований · '+distinctArticles+' '+(catalogKind==="aftermarket"?"артикулов производителей":"OEM-позиций")+(shortAliasesMerged?' · '+shortAliasesMerged+' кратких номеров объединено':'')+'. Выберите номер: ниже откроются предложения PartGrade с ценами и сроками.</p>'+
+      '<p class="vin-group-intro">'+groups.size+' наименований · '+distinctArticles+' '+(catalogKind==="aftermarket"?"артикулов производителей":"OEM-позиций")+(shortAliasesMerged?' · '+shortAliasesMerged+' кратких номеров объединено':'')+(state.manualSelection?'. Выберите артикул для проверки менеджером.</p>':'. Выберите номер: ниже откроются предложения PartGrade с ценами и сроками.</p>')+
       [...groups.values()].map(group=>`
         <details class="vin-part-group" ${groups.size===1&&group.items.length===1?"open":""}>
           <summary>
@@ -2733,11 +2735,11 @@ async function loadVinNodeParts(node){
                   ${item.fit?'<span class="vin-fit-note">'+escapeHtml(String(item.fit))+'</span>':""}
                 </div>
                 <button type="button" class="vin-price-button"
-                  data-verified-article="${escapeHtml(item.article_normalized||item.article||"")}"
+                  data-${state.manualSelection?"vin-manual-article":"verified-article"}="${escapeHtml(item.article_normalized||item.article||"")}"
                   data-verified-brand="${escapeHtml(item.brand||"")}"
                   data-verified-description="${escapeHtml(item.description||node.name||"")}"
                   data-verified-kind="${catalogKind}">
-                  Цены и аналоги
+                  ${state.manualSelection?"Проверить совместимость":"Цены и аналоги"}
                 </button>
               </article>`).join("")}
           </div>
@@ -2761,21 +2763,42 @@ async function loadVinNodeParts(node){
 // Manual browse of the existing FAPI catalog. The user's selection is a lead
 // hint, NOT VIN-confirmed fitment and never creates a purchasable OEM offer.
 let vinManualState=null;
+function vinManualModificationDetails(row){
+  const engine=String(row?.engine_type||"").toLowerCase();
+  const fuel=/дизел|diesel/.test(engine)?"Дизель":/бенз|petrol|gasoline/.test(engine)?"Бензин":/электр|electric/.test(engine)?"Электро":/гибрид|hybrid/.test(engine)?"Гибрид":"";
+  const rawVolume=String(row?.capacity??"").trim().replace(",",".");
+  const liters=rawVolume.match(/^(\d+(?:\.\d+)?)\s*(?:l|л|литр)/i);
+  const cubic=rawVolume.match(/^(\d{3,4})\s*(?:cm3|см3|cc|куб)?$/i);
+  const volume=liters?Number(liters[1]):cubic?Number(cubic[1])/1000:0;
+  const volumeLabel=volume>0&&volume<12?new Intl.NumberFormat("ru-RU",{maximumFractionDigits:1}).format(volume)+" л":"";
+  const kw=Number(row?.power_kw);
+  const powerLabel=row?.power_kw!==null&&row?.power_kw!==""&&Number.isFinite(kw)&&kw>0?
+    "≈"+Math.round(kw*1.35962)+" л.с.":"";
+  const year=Number(vinCatalogState?.decoded?.model_year||0);
+  const from=Number(row?.year_from||0),to=Number(row?.year_to||0);
+  const outside=year>=1900&&((from&&year<from)||(to&&year>to));
+  return {summary:[fuel,volumeLabel,powerLabel].filter(Boolean).join(" · "),
+    outside,yearLabel:from?from+"–"+(to||"н.в."):""};
+}
 function renderVinManualChoices(){
   const state=vinManualState;
   const root=document.getElementById("vinManualCatalog");
   const out=root?.querySelector("#vinManualChoices");
   if(!state || !out)return;
   const query=String(root.querySelector("#vinManualFilter")?.value||"").toLowerCase().trim();
-  const matches=state.items.filter(row=>!query || String(row.name||"").toLowerCase().includes(query));
+  const matches=state.items.filter(row=>!query || [row.name,row.engine_code,row.engine_type,row.capacity,row.power_kw]
+    .some(value=>String(value??"").toLowerCase().includes(query)));
   const shown=matches.slice(0,35);
-  out.innerHTML=shown.map(row=>
-    '<button type="button" class="vin-category-card" data-vin-manual-choice="'+escapeHtml(String(row.id))+'">'+
+  out.innerHTML=shown.map(row=>{
+    const details=state.kind==="modification"?vinManualModificationDetails(row):null;
+    return '<button type="button" class="vin-category-card" data-vin-manual-choice="'+escapeHtml(String(row.id))+'">'+
       '<span class="vin-category-copy"><b>'+escapeHtml(row.name)+'</b>'+
-      (row.engine_code?'<small>Двигатель: '+escapeHtml(row.engine_code)+'</small>':"")+
-      (row.year_from?'<small>'+escapeHtml(row.year_from)+'–'+escapeHtml(row.year_to||"н.в.")+'</small>':"")+
-      '</span><strong>›</strong></button>'
-  ).join("") || '<p class="vehicle-search-note">Нет совпадений в этом справочнике. Не будем угадывать: можно оставить заявку на проверку.</p>';
+      (details?.summary?'<small class="vin-manual-specs">'+escapeHtml(details.summary)+'</small>':"")+
+      (row.engine_code?'<small>Код двигателя: '+escapeHtml(row.engine_code)+'</small>':"")+
+      (row.year_from?'<small>Годы выпуска: '+escapeHtml(details?.yearLabel||row.year_from+"–"+(row.year_to||"н.в."))+'</small>':"")+
+      (details?.outside?'<small class="vin-manual-year-alert">Проверьте год выпуска</small>':"")+
+      '</span><strong>›</strong></button>';
+  }).join("") || '<p class="vehicle-search-note">Нет совпадений в справочнике. Не будем угадывать: можно оставить заявку на проверку.</p>';
   const hint=root.querySelector("#vinManualCount");
   if(hint)hint.textContent="Показано "+shown.length+" из "+matches.length+". Выбор модификации не подтверждает её соответствие VIN.";
 }
@@ -2795,6 +2818,7 @@ function showVinManualChoices(kind,items,title){
       '<small id="vinManualCount"></small>'+
       '<div class="vehicle-search-actions">'+
         (kind==="manufacturer"?"":'<button type="button" data-vin-manual-makes>Другая марка</button>')+
+        (kind==="modification"?'<button type="button" data-vin-manual-help>Не знаю двигатель</button>':"")+
         '<button type="button" data-open-manual-lead>Заявка на подбор</button>'+
       '</div>'+
     '</div>';
@@ -2853,7 +2877,7 @@ async function loadVinManualModifications(modelId,modelName){
     if(state!==vinManualState || seq!==state.seq)return;
     const items=Array.isArray(data?.modifications)?data.modifications:[];
     if(!items.length){showVinManualStatus("У этой модели нет доступных модификаций в FAPI. Оставьте заявку.");return;}
-    showVinManualChoices("modification",items,"Уточните модификацию");
+    showVinManualChoices("modification",items,"Выберите двигатель и версию "+(state.modelName||"автомобиля"));
   }catch(error){
     if(state===vinManualState && seq===state.seq)showVinManualStatus("Не удалось получить модификации. Оставьте заявку на проверку.");
   }
@@ -2865,10 +2889,43 @@ async function openVinManualCatalog(){
   vinManualState={vin,seq:0,items:[],kind:"",manufacturerId:null,manufacturerName:"",modelId:null,modelName:"",modification:null};
   const decoded=vinCatalogState?.decoded||{};
   const manufacturerId=Number(decoded.dt_manufacturer_id||0);
-  if(Number.isInteger(manufacturerId)&&manufacturerId>0){
-    await loadVinManualModels(manufacturerId,decoded.manufacturer||decoded.brand_name||"");
+  const modelId=Number(decoded.dt_model_id||0);
+  vinManualState.manufacturerName=decoded.manufacturer||decoded.brand_name||"";
+  if(Number.isInteger(modelId)&&modelId>0){
+    vinManualState.manufacturerId=Number.isInteger(manufacturerId)&&manufacturerId>0?manufacturerId:null;
+    await loadVinManualModifications(modelId,decoded.model_name||"Автомобиль");
+  }else if(Number.isInteger(manufacturerId)&&manufacturerId>0){
+    await loadVinManualModels(manufacturerId,vinManualState.manufacturerName);
   }else{
     await loadVinManualMakes();
+  }
+}
+async function openVinManualTree(){
+  const state=vinManualState;
+  if(!state?.modification || !sessionUser)return;
+  const previous=vinCatalogState;
+  const seq=++state.seq;
+  showVinManualStatus("Загружаем разделы выбранной версии…");
+  try{
+    const data=await apiRequest("/api/catalog/vin-manual/tree?mi="+
+      encodeURIComponent(state.modification.id),{timeoutMs:20000});
+    if(state!==vinManualState || seq!==state.seq)return;
+    if(data?.catalog_status==="credits_exhausted"){
+      showVinManualStatus("Лимит запросов FAPI исчерпан. Передайте детали менеджеру для проверки.");
+      return;
+    }
+    if(!Array.isArray(data?.nodes)||!data.nodes.length){
+      showVinManualStatus("В каталоге нет разделов выбранной версии. Поможем подобрать вручную.");
+      return;
+    }
+    renderVinCatalogBrowser({
+      vin:state.vin,decoded:previous?.decoded||{},
+      modification:{id:state.modification.id,name:state.modification.name},
+      nodes:data.nodes,manual_selection:true,saved_vehicle_id:previous?.savedVehicleId||null
+    });
+  }catch(error){
+    if(state===vinManualState && seq===state.seq)
+      showVinManualStatus("Не удалось открыть разделы. Можно передать запрос менеджеру.");
   }
 }
 function selectVinManualModification(row){
@@ -2879,12 +2936,14 @@ function selectVinManualModification(row){
     '<div class="vin-manual-picker"><span class="eyebrow">ПРЕДВАРИТЕЛЬНЫЙ ВЫБОР</span>'+
     '<h4>'+escapeHtml([state.manufacturerName,state.modelName,row.name].filter(Boolean).join(" · "))+'</h4>'+
     '<p class="vehicle-search-note"><b>Совместимость с VIN пока не подтверждена.</b> Не оплачивайте деталь на основании этого выбора. Менеджер проверит артикул перед заказом.</p>'+
-    '<div class="vehicle-search-actions"><button type="button" data-vin-manual-request>Передать менеджеру для проверки</button>'+
+    '<div class="vehicle-search-actions">'+
+    (sessionUser?'<button type="button" data-vin-manual-browse>Посмотреть разделы этой версии</button>':"")+
+    '<button type="button" data-vin-manual-request>Передать менеджеру для проверки</button>'+
     '<button type="button" data-open-vin-manual>Выбрать заново</button></div></div>';
 }
-function prepareVinManualLead(){
+function prepareVinManualLead(allowUnknown=false){
   const state=vinManualState;
-  if(!state?.modification)return;
+  if(!state || (!state.modification && !allowUnknown))return;
   const panel=document.getElementById("manualLead");
   const form=document.getElementById("manualLeadForm");
   if(!panel||!form)return;
@@ -2894,9 +2953,13 @@ function prepareVinManualLead(){
   if(vin)vin.value=state.vin;
   const comment=document.getElementById("manualLeadComment");
   if(comment){
-    comment.value=("Уточнить применимость к VIN. Предположительный вариант FAPI: "+
-      [state.manufacturerName,state.modelName,state.modification.name].filter(Boolean).join(" / ")+
-      ". Выбран вручную, соответствие VIN не подтверждено.").slice(0,400);
+    comment.value=(state.modification
+      ? "Уточнить применимость к VIN. Предположительный вариант FAPI: "+
+        [state.manufacturerName,state.modelName,state.modification.name].filter(Boolean).join(" / ")+
+        ". Выбран вручную, соответствие VIN не подтверждено."
+      : "Не знаю двигатель и модификацию. По VIN модель: "+
+        [state.manufacturerName,state.modelName].filter(Boolean).join(" / ")+
+        ". Прошу помочь уточнить комплектацию перед подбором запчасти.").slice(0,400);
   }
   if(sessionUser){
     const name=document.getElementById("manualLeadName");
@@ -2940,10 +3003,10 @@ function renderVinDecodeResult(vin,decoded,savedVehicleId=null){
         ${decoded?.drive_type?'<div class="smart-spec-row"><b>Привод</b><span>'+escapeHtml(String(decoded.drive_type))+'</span></div>':""}
         ${decoded?.body_type?'<div class="smart-spec-row"><b>Кузов</b><span>'+escapeHtml(String(decoded.body_type))+'</span></div>':""}
       </div>
-      <p class="vehicle-search-note">${model && modification ? "Модификация определена, но каталог деталей временно недоступен." : "VIN принят, но точная модель и комплектация не подтверждены. Не будем подбирать детали наугад. Можно сохранить VIN и заказать персональный подбор."}</p>
+      <p class="vehicle-search-note">${model && modification ? "Модификация определена, но каталог деталей временно недоступен." : model ? "Модель автомобиля определена. Уточните двигатель и версию из справочника FAPI — без догадок о совместимости." : "VIN принят, но точная модель и комплектация не подтверждены. Выберите автомобиль вручную или оставьте заявку на подбор."}</p>
       <div class="vehicle-search-actions vin-vehicle-actions">
         <button type="button" data-open-manual-lead>Подобрать запчасть с менеджером</button>
-        <button type="button" data-open-vin-manual>Уточнить модель в каталоге</button>
+        <button type="button" data-open-vin-manual>${decoded?.dt_model_id?"Выбрать двигатель и версию":"Уточнить модель в каталоге"}</button>
         ${sessionUser && !savedVehicleId && !garageVehicles.some(car=>normalizeVin(car.vin)===normalizeVin(vin)) && brand?'<button type="button" data-save-vin-vehicle>Сохранить VIN в гараже</button>':""}
         <button type="button" data-focus-catalog-search>Искать по артикулу или названию</button>
       </div>
@@ -4513,6 +4576,14 @@ document.addEventListener("click",async e=>{
     prepareVinManualLead();
     return;
   }
+  if(e.target.closest("[data-vin-manual-help]")){
+    prepareVinManualLead(true);
+    return;
+  }
+  if(e.target.closest("[data-vin-manual-browse]")){
+    await openVinManualTree();
+    return;
+  }
 
   // VIN catalogue buttons are replaced on navigation; handle them by delegation.
   const nodeButton=e.target.closest("[data-vin-node]");
@@ -4620,6 +4691,15 @@ document.addEventListener("click",async e=>{
     return;
   }
 
+  const manualArticle=e.target.closest("[data-vin-manual-article]");
+  if(manualArticle){
+    prepareVinManualLead();
+    const part=document.getElementById("manualLeadPart");
+    if(part)part.value=manualArticle.dataset.vinManualArticle||"";
+    const note=document.getElementById("manualLeadComment");
+    if(note)note.value=(note.value+" Артикул из выбранной версии: "+(manualArticle.dataset.vinManualArticle||"")+".").slice(0,400);
+    return;
+  }
   const verifiedArticle=e.target.closest("[data-verified-article]");
   if(verifiedArticle){
     await loadLiveOffers(
@@ -4672,7 +4752,9 @@ document.addEventListener("click",async e=>{
   const query=e.target.closest("[data-query]"); if(query){ search(query.dataset.query,{newRequest:true}); return; }
   if(e.target.closest("[data-open-manual-lead]")){
     const form=document.getElementById("manualLeadForm");
-    if(form){
+    const panel=document.getElementById("manualLead");
+    if(form && panel){
+      panel.hidden=false;
       form.hidden=false;
       const part=document.getElementById("manualLeadPart");
       const vinField=document.getElementById("manualLeadVin");

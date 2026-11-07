@@ -64,3 +64,17 @@ test("Existing FAPI v2 methods use documented endpoints and stay authenticated",
     else process.env.FAPI_API_KEY=old;
   }
 });
+
+test("Manual FAPI tree is authenticated read-only and explicitly unverified",()=>{
+  const fs=require("node:fs");
+  const path=require("node:path");
+  const server=fs.readFileSync(path.resolve(__dirname,"../src/server.js"),"utf8");
+  const start=server.indexOf('app.get("/api/catalog/vin-manual/tree"');
+  const end=server.indexOf('app.get("/api/catalog/vin-browser"',start);
+  assert.ok(start>0&&end>start);
+  const route=server.slice(start,end);
+  assert.match(route,/requireUser, aiSearchLimiter/);
+  assert.match(route,/validCatalogId/);
+  assert.match(route,/fitment_verified:false/);
+  assert.doesNotMatch(route,/partGrade|basket_order|pool.query|persistVehicleCatalogBinding/);
+});

@@ -1103,3 +1103,7 @@ body:not(.guest-mode) #sessionEntryButton,body:not(.guest-mode) #accountEntryBut
   .vin-manual-picker{padding:12px;border-radius:12px}
   .vin-manual-picker .vehicle-search-actions button{width:100%}
 }
+
+.vin-manual-picker .vin-manual-specs{font-weight:700;color:var(--text,#273244);font-size:.9rem}
+.vin-manual-picker .vin-manual-year-alert{color:#a45812;font-weight:600}
+.vin-manual-picker .vin-category-copy small{display:block;line-height:1.4;margin-top:3px}
