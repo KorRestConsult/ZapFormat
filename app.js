@@ -2488,7 +2488,7 @@ function vinCatalogHeroHtml(){
     <section class="vin-quick-sections" aria-label="Быстрый выбор системы автомобиля">
       <div class="vin-quick-title">Популярные разделы</div>
       <div class="vin-hotspot-list">${hotspots.map(callout).join("")}</div>
-      ${!vinCatalogState?.savedVehicleId&&!hasSavedCar?'<button class="vin-save-compact" type="button" data-save-vin-vehicle>Сохранить автомобиль</button>':""}
+      ${sessionUser && (vinCatalogState?.decoded?.manufacturer||vinCatalogState?.decoded?.brand_name) && !vinCatalogState?.savedVehicleId&&!hasSavedCar?'<button class="vin-save-compact" type="button" data-save-vin-vehicle>Сохранить автомобиль</button>':""}
     </section>`;
 }
 
