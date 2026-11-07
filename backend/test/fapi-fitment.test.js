@@ -134,3 +134,21 @@ test("Missing power must not be scored as 0 kW when VIN is partial", () => {
   });
   assert.equal(result, null);
 });
+
+
+test("Power-only partial VIN must not identify a modification", () => {
+  const result = selectFapiModification({m:[{
+    dbi: 500, d:"2.0", fd:"TEST CAR 2.0", power:135, engineCode:""
+  }]},{confidence:"partial",power_kw:135,model_name:"TEST CAR"});
+  assert.equal(result,null);
+});
+
+test("Contradictory production date prevents selecting a wrong engine variant", () => {
+  const result = selectFapiModification({m:[{
+    dbi: 510, d:"2.0", fd:"TEST CAR 2.0", power:135, engineCode:"N47",
+    cb:1262304000000,ce:1325376000000
+  }]},{
+    confidence:"partial",power_kw:135,engine_code:"N47",production_date:"2025-01-01",model_name:"TEST CAR"
+  });
+  assert.equal(result,null);
+});
