@@ -25,7 +25,8 @@ function cleanLabel(value) {
 
 function mapManufacturers(response) {
   return rows(response, "mf").map((row) => ({
-    id: validCatalogId(row?.dbi ?? row?.i),
+    // FAPI's row index i is NOT the stable manufacturer identifier.
+    id: validCatalogId(row?.dbi),
     name: cleanLabel(row?.ds || row?.da)
   })).filter((row) => row.id && row.name)
     .sort((a, b) => a.name.localeCompare(b.name, "ru"));
