@@ -225,6 +225,8 @@ function createFapiClient(options = {}) {
     configured,
     usage: () => get("usage"),
     decodeVin: (vin) => getCached("vin", { vin }, 20 * 60 * 60 * 1000),
+    manufacturers: () => getCached("catalogList/dt/manufacturerList", {}, 30 * 24 * 60 * 60 * 1000),
+    models: (manufacturerId) => getCached("catalogList/dt/modelList", { mfi: manufacturerId }, 30 * 24 * 60 * 60 * 1000),
     // The VIN decoder can legitimately return brand_only without model/type IDs.
     // In that case expose the already-subscribed vehicle catalog hierarchy
     // for explicit manual selection; never infer a modification from the VIN.
