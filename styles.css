@@ -7384,28 +7384,3 @@ html.zf-preauth #sessionEntryButton::after{content:"Проверяем вход�
   #view-search.vin-catalog-mode .vin-vehicle-facts b{white-space:normal!important;overflow-wrap:anywhere!important}
 }
 @media(max-width:355px){#view-search.vin-catalog-mode .vin-hotspot-list{grid-template-columns:minmax(0,1fr)!important}}
-
-/* Market comparison: appears automatically within each product group. */
-.market-comparison{padding:5px 13px 11px}
-.market-comparison-head{display:flex;align-items:baseline;justify-content:space-between;gap:8px;margin:0 0 8px}
-.market-comparison-head b{font-size:12px;font-weight:760;color:#24394e}
-.market-comparison-head small{font-size:10px;color:#778693;text-align:right}
-.market-comparison-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
-.market-tile{min-width:0;min-height:82px;background:#f7f9fc;border:1px solid #e3e9f0;border-radius:11px;padding:10px;display:flex;flex-direction:column;gap:4px;color:#183b50;text-decoration:none}
-.market-tile-ready{border-color:#b9d7cd;background:#f3faf7}
-.market-tile-ready:hover{border-color:#6eb6a2;box-shadow:0 2px 8px rgba(14,82,62,.08)}
-.market-tile b{font-weight:760;font-size:12px}
-.market-tile strong{font-size:17px;font-weight:820;line-height:1.15;white-space:nowrap}
-.market-tile small,.market-tile-foot{font-size:10px;color:#6c7b89;line-height:1.25}
-.market-tile-foot{color:#8a6748}
-.market-tile-inactive{opacity:.72}
-@media(max-width:540px){
- .market-comparison{padding:5px 9px 10px}
- .market-comparison-head{display:block}
- .market-comparison-head small{display:block;text-align:left;margin-top:2px}
- .market-comparison-grid{gap:5px}
- .market-tile{padding:8px 6px;min-height:80px;border-radius:9px}
- .market-tile strong{font-size:14px}
- .market-tile b{font-size:11px}
- .market-tile small,.market-tile-foot{font-size:9px}
-}
