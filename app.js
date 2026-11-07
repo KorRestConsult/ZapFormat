@@ -4499,6 +4499,13 @@ document.addEventListener("click",async e=>{
       const part=document.getElementById("manualLeadPart");
       const vinField=document.getElementById("manualLeadVin");
       if(vinField && vinCatalogState?.vin) vinField.value=vinCatalogState.vin;
+      // A signed-in customer should not have to retype contacts for manual fitment.
+      if(sessionUser){
+        const name=document.getElementById("manualLeadName");
+        const phone=document.getElementById("manualLeadPhone");
+        if(name && !name.value)name.value=[sessionUser.name,sessionUser.surname].filter(Boolean).join(" ");
+        if(phone && !phone.value)phone.value=String(sessionUser.phone||"");
+      }
       const suggestion=pendingSmartSearchBaseQuery||lastSmartSearchQuery;
       if(part && !part.value && !looksLikeVin(suggestion))part.value=suggestion;
       form.scrollIntoView({behavior:"auto",block:"nearest"});
