@@ -1832,6 +1832,7 @@ async function openLiveRequestDetail(id,options={}){
 
 let customerSessionRetryTimer=null;
 let customerSessionRetryCount=0;
+let customerSessionRetryInProgress=false;
 
 async function restoreCustomerSession(){
   // HttpOnly cookie is independent of localStorage and of the owner login.
@@ -1845,12 +1846,15 @@ async function restoreCustomerSession(){
 }
 
 function retryCustomerSession(){
-  if(customerSessionRetryTimer||customerSessionRetryCount>=3||!authToken||sessionUser)return;
+  if(customerSessionRetryTimer||customerSessionRetryCount>=3||sessionUser)return;
+  customerSessionRetryInProgress=true;
   customerSessionRetryCount++;
   customerSessionRetryTimer=setTimeout(()=>{
     customerSessionRetryTimer=null;
-    if(!authToken||sessionUser)return;
-    hydrateSession().then(user=>{if(user)restoreFromUrl();}).catch(()=>{});
+    if(sessionUser)return;
+    hydrateSession().then(()=>{
+      if(!customerSessionRetryInProgress)restoreFromUrl();
+    }).catch(()=>{});
   },Math.min(customerSessionRetryCount*1500,4500));
 }
 
@@ -1875,6 +1879,7 @@ async function hydrateSessionOnce(){
     }
     if(data?.user?.role!=="customer")throw Object.assign(new Error("wrong_account_scope"),{status:401});
     sessionUser=data.user;
+    customerSessionRetryInProgress=false;
     customerSessionRetryCount=0;
     if(customerSessionRetryTimer){clearTimeout(customerSessionRetryTimer);customerSessionRetryTimer=null;}
     applySessionUser();
@@ -1886,17 +1891,21 @@ async function hydrateSessionOnce(){
   }catch(error){
     if(error?.status===401){
       // Only a confirmed authentication failure ends the stored session.
+      customerSessionRetryInProgress=false;
       if(authToken)saveAuthToken("");
     }else{
       console.warn("ZapFormat session temporarily unavailable",error?.code||error?.message);
       // A timeout is NOT a logout. Keep the neutral catalog with "checking
       // session" until a bounded retry finishes, rather than flashing login.
-      if(authToken && customerSessionRetryCount<3){
+      if(customerSessionRetryCount<3){
+        // Also retry when Safari lost localStorage but still has the
+        // protected customer cookie. A network fault is not an invalid login.
         retryCustomerSession();
         sessionUser=null;
         document.documentElement.classList.add("zf-preauth");
         return null;
       }
+      customerSessionRetryInProgress=false;
     }
     sessionUser=null;
     applySessionUser();
@@ -5139,7 +5148,7 @@ refreshStorefrontStatus().catch(()=>null);
 setInterval(()=>refreshStorefrontStatus().catch(()=>null),120000);
 hydrateSession()
   .catch(()=>null)
-  .finally(()=>{restoreFromUrl();});
+  .finally(()=>{if(!customerSessionRetryInProgress)restoreFromUrl();});
 
 document.addEventListener("change",e=>{
   const select=e.target.closest("[data-cart-select]");

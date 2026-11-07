@@ -87,3 +87,28 @@ test('Temporary network failure keeps login recovery screen instead of guest fla
  assert.ok(x.classes.has('zf-preauth'));
  assert.deepEqual(x.writes,[]);
 });
+
+
+test('Safari cookie-only session retries transient failure instead of showing login',async()=>{
+ let attempt=0;
+ const x=env('',async path=>{
+   assert.equal(path,'/api/auth/customer/restore');
+   attempt++;
+   if(attempt===1)throw timeout();
+   return {user:customer,access_token:'new-cookie-token'};
+ });
+ assert.equal(await x.run(),null);
+ assert.equal(x.timers.length,1);
+ assert.ok(x.classes.has('zf-preauth'));
+ assert.equal(x.ctx.customerSessionRetryInProgress,undefined); // let binding is lexical
+ x.timers[0].callback();
+ await new Promise(resolve=>setImmediate(resolve));
+ assert.equal(x.ctx.sessionUser?.id,'test-customer');
+ assert.deepEqual(x.writes,['new-cookie-token']);
+ assert.equal(attempt,2);
+});
+test('Bootstrap waits for a pending Safari cookie retry before routing',()=>{
+ assert.match(frontend,/\.finally\(\(\)=>\{if\(!customerSessionRetryInProgress\)restoreFromUrl\(\);\}\)/);
+ const html=readFileSync(new URL('../index.html',import.meta.url),'utf8');
+ assert.match(html,/<script>document\.documentElement\.classList\.add\("zf-preauth"\)<\/script>/);
+});
