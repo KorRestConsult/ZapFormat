@@ -6517,8 +6517,12 @@ async function start() {
     // Failure here must not take down checkout; the admin editor will show
     // the storage error rather than pretend that a policy was saved.
     try { await initPricingSettings(); }
-    try { await initMarketPricingSettings(); } catch (error) { console.error('[MarketPriceInit]', error?.code || error?.message || 'failed'); throw error; }
     catch (error) { console.error("[PricingSettings]", error?.message || "load_failed"); }
+    try { await initMarketPricingSettings(); }
+    catch (error) {
+      activeMarketSettings.enabled=false;
+      console.warn("[MarketPriceInit]",error?.code||"storage_unavailable");
+    }
     // Apply additive, idempotent customer Telegram schema before accepting
     // requests. Its failure must never interrupt the existing shop or
     // user_notifications; keep Telegram disabled instead.
