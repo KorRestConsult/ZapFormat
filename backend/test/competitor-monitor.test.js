@@ -15,7 +15,7 @@ function documentFor(originals,analogs=[]){
 }
 test("same-article comparison separates low-rating offer from reliable retail reference",()=>{
   const page=documentFor([
-    {make:"BMW",detailNum:"11428507683",offers:[
+    {make:"BMW",detailNum:"11428507683",minPrice:{value:813},offers:[
       offer(1659,71,241),offer(2354,8,2,4.7),offer(813,11,500,1.0)
     ]}
   ],[
@@ -25,6 +25,7 @@ test("same-article comparison separates low-rating offer from reliable retail re
   assert.equal(data.status,"ok");
   const original=data.quotes["BMW|11428507683"];
   assert.equal(original.price,813);
+  assert.equal(original.minimum_advertised,813);
   assert.equal(original.reliable.price,2354);
   assert.equal(original.reliable.days,8);
   assert.equal(data.quotes["BOSCH|F026407123"].reliable.price,800);

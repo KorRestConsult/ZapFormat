@@ -75,6 +75,7 @@ function parseMarketPage(html, brand, article) {
       brand: part.make, article: part.detailNum,
       price: offers.visible.price, days: offers.visible.days,
       quantity: offers.visible.quantity, rating: offers.visible.rating,
+      minimum_advertised: Number(part?.minPrice?.value) > 0 ? Number(part.minPrice.value) : offers.visible.price,
       reliable: offers.reliable ? {
         price: offers.reliable.price, days: offers.reliable.days,
         quantity: offers.reliable.quantity, rating: offers.reliable.rating

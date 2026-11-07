@@ -3869,7 +3869,7 @@ function competitorTilesHtml(part){
   const displayPrice=emex?.reliable?.price??emex?.price;
   const days=emex?.reliable?.days??emex?.days;
   const rating=emex?.reliable?.rating??emex?.rating;
-  const fromPrice=emex?.price;
+  const fromPrice=emex?.minimum_advertised??emex?.price;
   const detailText=emex
     ? (rating!=null?"Рейтинг "+Number(rating).toLocaleString("ru-RU")+" · ":"Без рейтинга · ")+days+" дн."
     : providerStatus==="ok"?"Нет подтверждённой цены":providerStatus?"Временно недоступно":"Загружаем…";
