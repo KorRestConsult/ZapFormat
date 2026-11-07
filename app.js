@@ -2754,13 +2754,16 @@ async function loadVinNodeParts(node){
   }
 }
 
-function renderVinDecodeResult(vin,decoded){
-  setVinCatalogMode(true);
+function renderVinDecodeResult(vin,decoded,savedVehicleId=null){
+  // An incomplete decode is not a parts catalog. Keep the ordinary search accessible.
+  setVinCatalogMode(false);
+  vinCatalogState={vin,decoded:decoded||{},modification:null,nodes:[],activeNodeId:0,savedVehicleId,locked:true};
   const exactRoot=smartSearchMount();
   if(!exactRoot) return;
 
-  const brand=decoded?.brand_name||decoded?.manufacturer||"";
+  // A brand_name alone is unreliable when FAPI could not identify the model.
   const model=decoded?.model_name||"";
+  const brand=model ? (decoded?.brand_name||decoded?.manufacturer||"") : (decoded?.manufacturer||decoded?.brand_name||"");
   const modification=decoded?.modification_name||"";
   const year=decoded?.model_year||"";
   const engine=[
@@ -2783,9 +2786,11 @@ function renderVinDecodeResult(vin,decoded){
         ${decoded?.drive_type?'<div class="smart-spec-row"><b>Привод</b><span>'+escapeHtml(String(decoded.drive_type))+'</span></div>':""}
         ${decoded?.body_type?'<div class="smart-spec-row"><b>Кузов</b><span>'+escapeHtml(String(decoded.body_type))+'</span></div>':""}
       </div>
-      <p class="vehicle-search-note">${model && modification ? "Модификация определена, но каталог деталей временно недоступен." : "VIN принят. Определены только отдельные данные автомобиля — модель и модификация ещё не подтверждены. Укажите модель, двигатель и нужную деталь для дальнейшего подбора."}</p>
-      <div class="vehicle-search-actions">
-        <button type="button" data-focus-catalog-search>Уточнить автомобиль или деталь</button>
+      <p class="vehicle-search-note">${model && modification ? "Модификация определена, но каталог деталей временно недоступен." : "VIN принят, но точная модель и комплектация не подтверждены. Не будем подбирать детали наугад. Можно сохранить VIN и заказать персональный подбор."}</p>
+      <div class="vehicle-search-actions vin-vehicle-actions">
+        <button type="button" data-open-manual-lead>Подобрать запчасть с менеджером</button>
+        ${sessionUser && !savedVehicleId && !garageVehicles.some(car=>normalizeVin(car.vin)===normalizeVin(vin)) && brand?'<button type="button" data-save-vin-vehicle>Сохранить VIN в гараже</button>':""}
+        <button type="button" data-focus-catalog-search>Искать по артикулу или названию</button>
       </div>
     </div>`;
 }
@@ -3400,7 +3405,7 @@ async function search(query,options={}){
       const decoded=result?.decoded||{};
       transientVinVehicle={
         id:active?.id||null,
-        brand:decoded.brand_name||decoded.manufacturer||active?.brand||"",
+        brand:(result?.ready ? (decoded.brand_name||decoded.manufacturer) : (decoded.manufacturer||decoded.brand_name))||active?.brand||""
         model:decoded.model_name||active?.model||"",
         generation:result?.modification?.name||decoded.modification_name||active?.generation||"",
         year:decoded.model_year||active?.year||"",
@@ -3419,7 +3424,7 @@ async function search(query,options={}){
       result.saved_vehicle_id=active?.id||null;
       storeGarageVinSpecifications(vin,decoded,result?.modification||{});
       const vehicleTitle=[
-        decoded.brand_name||decoded.manufacturer||"",
+        (result?.ready ? (decoded.brand_name||decoded.manufacturer) : (decoded.manufacturer||decoded.brand_name))||"",
         decoded.model_name||""
       ].filter(Boolean).join(" ")||vin;
       const vehicleDetail="VIN "+vin;
@@ -3441,7 +3446,7 @@ async function search(query,options={}){
         // The results route already places the catalog in view. No animated scroll.
       }else{
         vinCatalogState=null;
-        renderVinDecodeResult(vin,decoded);
+        renderVinDecodeResult(vin,decoded,active?.id||null);
       }
 
       if(options.push!==false){
@@ -4389,8 +4394,9 @@ document.addEventListener("click",async e=>{
       const created=await apiRequest("/api/garage/vehicles",{
         method:"POST",
         body:JSON.stringify({
-          brand:d.brand_name||d.manufacturer||"",
-          model:d.model_name||"",
+          // Mark missing model explicitly as unverified; do not assert an exact fitment.
+          brand:d.model_name ? (d.brand_name||d.manufacturer||"") : (d.manufacturer||d.brand_name||""),
+          model:d.model_name||"Модель уточняется",
           generation:m.name||d.modification_name||"",
           year:d.model_year||null,
           engine:[
