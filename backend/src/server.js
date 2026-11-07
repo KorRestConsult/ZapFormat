@@ -21,6 +21,7 @@ const { createOfferTokenCodec } = require("./offer-token");
 const { createOrderInvoicePdf } = require("./invoice-pdf");
 const { customerPrice, getPricingPolicy, getPricingPolicies, setPricingPolicies, validatePricingPolicies } = require("./pricing");
 const { marketKey, validReference, validSettings, marketSuggestedPrice, pickCustomerPrice } = require("./market-pricing");
+const { getMarketSnapshot, keyFor: marketPartKey, validPart: validMarketPart, retailFromMarket } = require("./competitor-monitor");
 const { isAdminRole } = require("./admin-access");
 const { installStaffRoutes } = require("./staff-routes");
 const { installEmailRegistration } = require("./email-registration");
@@ -559,12 +560,16 @@ function supplierIdentity(row) {
   };
 }
 
-function publicSupplierOffer(row, queryNumber, queryBrand, customerType = "individual", marketRefPrice = null) {
+function publicSupplierOffer(row, queryNumber, queryBrand, customerType = "individual", marketRefPrice = null, autoQuote = null) {
   const ordinaryPrice = customerPrice(row?.price, process.env, customerType);
   if (ordinaryPrice === null) return null;
-  const price = customerType === "individual"
+  const manualPrice = customerType === "individual"
     ? pickCustomerPrice(row?.price, ordinaryPrice, marketRefPrice, activeMarketSettings)
     : ordinaryPrice;
+  const autoPricing = customerType === "individual" && process.env.MARKET_AUTO_PRICING_ENABLED === "1"
+    && activeMarketSettings.enabled !== true;
+  const price = retailFromMarket(row?.price, manualPrice, autoQuote, autoPricing,
+    Number(process.env.MARKET_AUTO_MIN_PROFIT_RUB || 150));
 
   const rowBrand = row?.brand || queryBrand;
   const rowArticle = row?.number || queryNumber;
@@ -638,8 +643,11 @@ async function revalidateOfferToken(token, quantity = 1, cache = new Map(), cust
   if (!found) return { status: "unavailable" };
 
   const quote = await marketReferencesForOffers([found], customerType, payload.qn, payload.qb);
+  const autoSnapshot = customerType === "individual" && process.env.MARKET_AUTO_PRICING_ENABLED === "1"
+    ? await getMarketSnapshot(payload.qb, payload.qn) : null;
+  const autoQuote = autoSnapshot?.quotes?.[marketPartKey(found?.brand || payload.qb, found?.number || payload.qn)] ?? null;
   const offer = publicSupplierOffer(found, payload.qn, payload.qb, customerType,
-    quote.get(marketKey(found?.brand || payload.qb, found?.number || payload.qn)) ?? null);
+    quote.get(marketKey(found?.brand || payload.qb, found?.number || payload.qn)) ?? null, autoQuote);
   if (!offer) return { status: "unavailable" };
 
   const requested = Math.max(1, Math.min(999, Number(quantity || 1)));
@@ -4140,6 +4148,29 @@ app.get("/api/catalog/brands", async (req, res, next) => {
   }
 });
 
+app.get("/api/catalog/market-comparison", aiSearchLimiter, async (req, res, next) => {
+  try {
+    const number = String(req.query?.number || "").trim();
+    const brand = String(req.query?.brand || "").trim();
+    if (!validMarketPart(number) || !validMarketPart(brand)) {
+      return res.status(400).json({ error: "article_and_brand_required" });
+    }
+    const result = await getMarketSnapshot(brand, number);
+    res.set("Cache-Control", "private, max-age=60");
+    res.json({
+      query: { number, brand },
+      region: "Рязань",
+      checked_at: result.checked_at,
+      providers: {
+        emex: { status: result.status, location: result.location },
+        autodoc: { status: "not_verified" },
+        ozon: { status: "not_verified" }
+      },
+      items: result.quotes || {}
+    });
+  } catch (error) { next(error); }
+});
+
 app.get("/api/catalog/offers", async (req, res, next) => {
   try {
     const number = String(req.query?.number || "").trim();
@@ -4150,11 +4181,16 @@ app.get("/api/catalog/offers", async (req, res, next) => {
     }
 
     const customerType = await pricingCustomerTypeFromRequest(req);
-    const rows = await searchSupplierOffers(number, brand);
+    const autoPricing = customerType === "individual" && process.env.MARKET_AUTO_PRICING_ENABLED === "1";
+    const [rows, autoSnapshot] = await Promise.all([
+      searchSupplierOffers(number, brand),
+      autoPricing ? getMarketSnapshot(brand, number) : Promise.resolve(null)
+    ]);
     const references = await marketReferencesForOffers(rows, customerType, number, brand);
     const mapped = (Array.isArray(rows) ? rows : [])
       .map((row) => publicSupplierOffer(row, number, brand, customerType,
-        references.get(marketKey(row?.brand || brand, row?.number || number)) ?? null))
+        references.get(marketKey(row?.brand || brand, row?.number || number)) ?? null,
+        autoSnapshot?.quotes?.[marketPartKey(row?.brand || brand, row?.number || number)] ?? null))
       .filter(Boolean);
 
     const sortOffers = (list) => list.sort((a, b) => a.price - b.price || a.delivery_hours - b.delivery_hours);
