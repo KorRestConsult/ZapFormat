@@ -3396,6 +3396,47 @@ app.get("/api/catalog/vin-browser", publicVinLimiter, async (req, res, next) => 
   }
 });
 
+// FAPI's documented manual vehicle hierarchy is available even if VIN decoding
+// only identifies a manufacturer. Do not infer that a manual choice verifies a VIN.
+app.get("/api/catalog/fapi-vehicles", publicVinLimiter, async (req, res, next) => {
+  try {
+    if (!fapi.configured()) return res.status(503).json({ error: "fapi_not_configured" });
+    const stage = String(req.query?.stage || "manufacturers");
+    const search = String(req.query?.q || "").trim().toLowerCase().slice(0, 80);
+    const numericId = Number(req.query?.id || 0);
+    if (!["manufacturers", "models", "modifications"].includes(stage)) {
+      return res.status(400).json({ error: "invalid_catalog_stage" });
+    }
+    if (stage !== "manufacturers" && (!Number.isSafeInteger(numericId) || numericId <= 0)) {
+      return res.status(400).json({ error: "invalid_catalog_id" });
+    }
+
+    const raw = stage === "manufacturers"
+      ? await fapi.manufacturers()
+      : stage === "models"
+        ? await fapi.models(numericId)
+        : await fapi.modifications(numericId);
+    const rows = stage === "manufacturers" ? raw?.mf : raw?.m;
+    const found = (Array.isArray(rows) ? rows : [])
+      .map(row => ({
+        id: Number(row?.dbi || 0),
+        name: String(stage === "manufacturers" ? (row?.ds || row?.da || "") : (row?.fd || row?.d || "")).trim(),
+        short_name: String(stage === "manufacturers" ? (row?.ds || "") : (row?.d || "")).trim(),
+        engine_code: stage === "modifications" ? String(row?.engineCode || "") : "",
+        power_kw: stage === "modifications" ? (Number(row?.power) || null) : null
+      }))
+      .filter(row => Number.isSafeInteger(row.id) && row.id > 0 && row.name)
+      .filter(row => !search || (row.name + " " + row.short_name + " " + row.engine_code).toLowerCase().includes(search))
+      .sort((a, b) => a.name.localeCompare(b.name, "ru"));
+    return res.json({
+      ok: true, provider: "fapi_v2", stage, items: found.slice(0, 80),
+      total_matches: found.length, verified_vin_fitment: false
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
 app.get("/api/catalog/vin-node", requireUser, aiSearchLimiter, async (req, res, next) => {
   try {
     if (!fapi.configured()) return res.status(503).json({ error: "fapi_not_configured" });
