@@ -2548,7 +2548,8 @@ function vinCatalogCardsHtml(nodes){
 
 
 function renderVinCatalogLocked(data){
-  setVinCatalogMode(true);
+  // Even during a provider quota outage, keep ordinary part-number search available.
+  setVinCatalogMode(false);
   const root=smartSearchMount();
   if(!root) return;
   vinCatalogState={
