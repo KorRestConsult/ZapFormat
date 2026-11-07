@@ -16,6 +16,7 @@ test("Manufacturer catalog uses stable dbi and not manufacturer display index",(
   const list=mapManufacturers({mf:[
     {i:12,dbi:171,ds:"VOLKSWAGEN",da:"VOLKSWAGEN"},
     {i:13,dbi:0,ds:"INVALID"},
+    {i:1001,ds:"MISSING-STABLE-ID"},
     {i:15,dbi:91,ds:"AUDI"}
   ]});
   assert.deepEqual(list,[{id:91,name:"AUDI"},{id:171,name:"VOLKSWAGEN"}]);
